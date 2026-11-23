@@ -1,0 +1,246 @@
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 40px;
+  padding: 9px 6px 9px 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+
+  &.active {
+    background-color: var(--dsw-specific-sidebar-nav-item-active-accent);
+    color: var(--dsw-alias-brand-primary-invert);
+  }
+
+  @media (hover: hover) {
+    &:not(.active):hover {
+      background-color: var(--dsw-specific-sidebar-nav-item-hover);
+    }
+
+    [data-android]:not([data-android-hover]) &:not(.active):hover:not(:active) {
+      background-color: transparent;
+    }
+
+    &:hover,
+    &.active {
+      .action {
+        display: flex;
+      }
+    }
+  }
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 18px;
+}
+
+.action {
+  display: none;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.actionTrigger {
+  width: 44.8px;
+  height: 44.8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+[data-android] .item {
+  --android-item-press-bg: rgb(227 233 246);
+  --android-item-active-press-bg: rgb(227 233 246);
+  --android-item-tap-start-bg: rgb(237 241 254);
+  --android-item-tap-end-bg: rgb(227 233 246);
+  --android-item-tap-end-color: rgb(60 104 248);
+  contain: layout style;
+  padding-left: 20.6222px;
+  padding-right: 20.6222px;
+  height: 44.8px;
+  border-radius: 16px;
+  user-select: none;
+
+  &.active {
+    background-color: var(--dsw-alias-button-ghost-active-fill);
+    color: var(--dsw-alias-brand-text);
+
+    &:active {
+      background-color: var(--android-item-active-press-bg);
+    }
+  }
+
+  .action {
+    position: absolute;
+    right: 4px;
+    display: flex;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .action:focus-within {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .actionActive {
+    top: 0;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  &.active .title {
+    margin-right: 44.8px;
+  }
+
+  .title {
+    position: relative;
+    top: -0.1778px;
+    font-size: 15px;
+    line-height: 22.4px;
+  }
+
+  &:not(.active):active {
+    background-color: var(--android-item-press-bg);
+  }
+
+  &.tapHighlight {
+    animation: androidSessionTapHighlight 170ms linear both;
+  }
+}
+
+/* 与官方 ChatSessionItem 深色模式 0.06f 按压反馈和深蓝高亮对齐 */
+[data-android] [data-ds-dark-theme] .item {
+  --android-item-press-bg: rgba(255, 255, 255, 0.06);
+  --android-item-active-press-bg: var(--dsw-alias-button-ghost-active-hover);
+  --android-item-tap-start-bg: var(--dsw-alias-button-ghost-active-fill);
+  --android-item-tap-end-bg: var(--dsw-alias-button-ghost-active-hover);
+  --android-item-tap-end-color: var(--dsw-alias-brand-text);
+}
+
+@keyframes androidSessionTapHighlight {
+  0%,
+  30% {
+    color: var(--dsw-alias-brand-text);
+    background-color: var(--android-item-tap-start-bg);
+  }
+
+  30.1%,
+  100% {
+    color: var(--android-item-tap-end-color);
+    background-color: var(--android-item-tap-end-bg);
+  }
+}
+
+.activeTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44.8px;
+  height: 44.8px;
+  color: rgb(142 144 148);
+}
+
+.activeTriggerIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18.84px;
+  height: 18.84px;
+
+  > svg {
+    display: block;
+    flex-shrink: 0;
+    width: 21.33px;
+    height: 21.33px;
+  }
+}
+
+.select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 48px;
+  padding: 0 7px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+
+  > span {
+    position: relative;
+    box-sizing: border-box;
+    width: 19px;
+    height: 19px;
+    border: 1.5px solid #c9c9c9;
+    border-radius: 50%;
+  }
+
+  &[aria-checked='true'] > span {
+    border-color: var(--dsw-alias-brand-text);
+    background: var(--dsw-alias-brand-text);
+  }
+
+  &[aria-checked='true'] > span::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    width: 7px;
+    height: 4px;
+    border-bottom: 2px solid #fff;
+    border-left: 2px solid #fff;
+    transform: rotate(-45deg);
+  }
+}
+
+.renameInput {
+  box-sizing: border-box;
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background-color: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+@media (hover: none) {
+  .action {
+    display: flex;
+  }
+}
+
+@media not all and (min-width: 768px) {
+  .item {
+    height: 44px;
+    padding: 11px 6px 11px 12px;
+    border-radius: 16px;
+    font-size: 16px;
+  }
+
+  .title {
+    line-height: 22px;
+  }
+}
+
+[data-android] .renameInput {
+  height: 48px;
+}

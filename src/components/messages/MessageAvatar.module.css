@@ -1,0 +1,68 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 5px;
+  color: var(--ds-button-text-tertiary, #8c9097);
+  font-size: max(12px, calc(var(--chat-avatar-size-ai, 24px) * 0.5));
+  line-height: 1;
+
+  &[data-align='start'] {
+    flex-direction: row;
+  }
+
+  &[data-align='end'] {
+    flex-direction: row;
+    justify-content: flex-end;
+    font-size: max(12px, calc(var(--chat-avatar-size-user, 24px) * 0.5));
+
+    .name {
+      order: 1;
+    }
+
+    .avatar {
+      order: 2;
+      width: var(--chat-avatar-size-user, 24px);
+      height: var(--chat-avatar-size-user, 24px);
+    }
+  }
+}
+
+.name {
+  max-width: 40vw;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--chat-avatar-size-ai, 24px);
+  height: var(--chat-avatar-size-ai, 24px);
+  overflow: hidden;
+  border-radius: var(--chat-avatar-radius, 50%);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 6%);
+  background: var(--ds-button-secondary-bg, #ebebeb);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.initial {
+  color: var(--ds-button-text-secondary, #61666b);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-android] .row {
+  padding-bottom: 4px;
+}
+
+[data-ds-dark-theme] .avatar {
+  background: #333;
+}

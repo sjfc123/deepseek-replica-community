@@ -1,0 +1,147 @@
+.panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-left: -12px;
+  margin-right: -12px;
+  opacity: 0;
+  transition:
+    grid-template-rows 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 160ms ease-out;
+}
+
+.panel[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.recent {
+  display: flex;
+  gap: 8px;
+  padding: 24px 20px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.recent button {
+  position: relative;
+  flex: 0 0 80px;
+  height: 80px;
+  overflow: hidden;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 16px;
+  padding: 0;
+  background: var(--dsw-alias-bg-skeleton);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgb(0 0 0 / 25%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms;
+  }
+
+  &[data-selected='true']::after {
+    opacity: 1;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  span {
+    position: absolute;
+    z-index: 1;
+    top: 5px;
+    right: 5px;
+    width: 17px;
+    height: 17px;
+    border: 1.5px solid white;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 32%);
+    box-shadow: 0 1px 5px rgb(0 0 0 / 25%);
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      fill: none;
+      stroke: #111;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2.2px;
+      opacity: 0;
+    }
+  }
+
+  &[data-selected='true'] span {
+    background: #fff;
+
+    svg {
+      opacity: 1;
+    }
+  }
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 20px 20px 32.8px;
+
+  button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    height: 84px;
+    border: 0;
+    border-radius: 18px;
+    background: rgba(0, 0, 0, 0.05);
+    background: rgb(127 127 127 / 5%);
+    background: color-mix(in srgb, currentColor 5%, transparent);
+    color: var(--replica-accent-text, var(--dsw-alias-brand-text));
+    font: inherit;
+    font-size: 15px;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    &:active {
+      background: rgba(0, 0, 0, 0.1);
+      background: rgb(127 127 127 / 10%);
+      background: color-mix(in srgb, currentColor 10%, transparent);
+    }
+  }
+}
+
+body[data-ds-dark-theme] .actions button {
+  background: rgba(255, 255, 255, 0.05);
+  background: rgb(127 127 127 / 5%);
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+body[data-ds-dark-theme] .actions button:active {
+  background: rgba(255, 255, 255, 0.1);
+  background: rgb(127 127 127 / 10%);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
+  }
+}

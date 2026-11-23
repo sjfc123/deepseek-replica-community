@@ -1,0 +1,104 @@
+:root {
+  --app-default-viewport-height: 100vh;
+  --message-list-max-width: 840px;
+  --message-list-padding-horizontal: 44px;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-default-viewport-height: 100dvh;
+  }
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --message-list-max-width: 712px;
+    --message-list-padding-horizontal: 36px;
+  }
+}
+
+body {
+  overflow: hidden;
+  margin: 0;
+  word-break: break-word;
+  font-family: var(--dsw-font-family);
+  font-size: var(--ds-font-size-m);
+  color: var(--dsw-alias-label-primary);
+  background-color: var(--dsw-alias-bg-base);
+  -webkit-text-size-adjust: none;
+  -webkit-tap-highlight-color: transparent;
+  font-feature-settings: 'kern';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --scroll-color: rgba(0, 0, 0, 0.08);
+  --scroll-color-hover: rgba(0, 0, 0, 0.15);
+}
+
+body.dark {
+  color-scheme: dark;
+}
+
+body[data-ds-dark-theme] {
+  --scroll-color: rgba(255, 255, 255, 0.15);
+  --scroll-color-hover: rgba(255, 255, 255, 0.24);
+}
+
+body.change-theme *,
+body.change-theme *::before,
+body.change-theme *::after {
+  transition: none !important;
+}
+
+[data-android],
+[data-android] body,
+[data-android] #root {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior-y: none;
+}
+
+@media not all and (min-width: 768px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior-y: none;
+  }
+}
+
+[inert],
+[inert] * {
+  pointer-events: none !important;
+  user-select: none;
+}
+
+/* 聊天布局配色：模型和用户共用同一种气泡色，文字色单独定义，深浅主题各一份 */
+:root[data-chat-layout='wechat'] {
+  --chat-bubble: #eef1f6;
+  --chat-bubble-fg: #1f2329;
+}
+
+:root[data-chat-layout='blue'] {
+  --chat-bubble: #e8f0fe;
+  --chat-bubble-fg: #16233d;
+}
+
+/* 深色属性挂在 body 上，布局属性挂在 html 上，不能写成同一个选择器 */
+html[data-chat-layout='wechat'] body[data-ds-dark-theme] {
+  --chat-bubble: #2a2f37;
+  --chat-bubble-fg: #e9ecf2;
+}
+
+html[data-chat-layout='blue'] body[data-ds-dark-theme] {
+  --chat-bubble: #243148;
+  --chat-bubble-fg: #e8eefb;
+}
+
+/* 旧变量名保留为别名，历史样式引用不会失效 */
+:root[data-chat-layout] {
+  --chat-bubble-user: var(--chat-bubble);
+  --chat-bubble-user-fg: var(--chat-bubble-fg);
+  --chat-bubble-ai: var(--chat-bubble);
+}

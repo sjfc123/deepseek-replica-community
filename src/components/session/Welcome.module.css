@@ -1,0 +1,151 @@
+.container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--message-list-max-width);
+  margin: auto;
+  padding: 0 32px 64px;
+}
+
+.greeting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 21px;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--dsw-alias-label-primary);
+}
+
+[data-android] .welcome {
+  flex: 1;
+  min-height: 0;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 792px;
+  margin: 0 auto;
+  padding: 0 12px var(--android-composer-bottom);
+}
+
+[data-android] .welcome:has([data-photo-suggestions]) {
+  padding-bottom: 12.49px;
+}
+
+[data-android] .container {
+  flex-direction: column;
+  touch-action: none;
+}
+
+[data-android] .greeting {
+  flex-direction: column;
+  gap: 13.8444px;
+  margin: auto 0;
+  transform: translateY(-8.4889px);
+  font-size: 18.6667px;
+  line-height: 26.3111px;
+  font-weight: 600;
+
+  img {
+    display: block;
+    width: 39.55px;
+    height: auto;
+  }
+}
+
+[data-android] .whaleButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.16s ease, opacity 0.16s ease;
+
+  &:active {
+    transform: scale(0.94);
+    opacity: 0.82;
+  }
+}
+
+[data-android] .greetingText {
+  display: block;
+}
+
+[data-android] .greetingCopy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+
+@media (max-height: 460px) {
+  [data-android] .greeting {
+    gap: 8px;
+    transform: none;
+    font-size: 16px;
+    line-height: 22px;
+
+    img {
+      width: 32px;
+    }
+  }
+}
+
+@media (max-height: 320px) {
+  [data-android][data-keyboard] .greeting {
+    display: none;
+  }
+}
+
+@media (max-width: 439px) {
+  .greeting {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 500;
+  }
+}
+
+@media not all and (min-width: 768px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .welcome {
+    flex: 1;
+    min-height: 0;
+    justify-content: flex-end;
+    max-width: none;
+    margin: 0;
+    padding: 0 16px env(safe-area-inset-bottom);
+  }
+
+  .greeting {
+    flex-shrink: 0;
+    margin: auto 0;
+  }
+
+  .caveat {
+    flex-shrink: 0;
+    width: 100%;
+    padding: 6px 0;
+    font-size: 11px;
+    line-height: 16px;
+    text-align: center;
+    color: var(--dsw-alias-label-tertiary);
+    user-select: none;
+  }
+}

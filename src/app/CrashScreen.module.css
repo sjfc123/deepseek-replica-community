@@ -1,0 +1,139 @@
+.screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px 18px calc(24px + var(--android-button-nav-inset, 0px));
+  background: var(--ds-bg-layout, #f5f6f8);
+  color: var(--ds-text-primary, #1a1a1a);
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  padding: 26px 22px 22px;
+  border: 1px solid rgb(127 127 127 / 14%);
+  border-radius: 20px;
+  background: var(--ds-bg-container, #fff);
+  box-shadow: 0 12px 36px rgb(15 23 42 / 8%);
+
+  h1 {
+    margin: 14px 0 10px;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: var(--ds-text-secondary, #5b6270);
+  }
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #f0a23c, #e2683c);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.detail,
+.stack {
+  margin: 14px 0 0;
+  padding: 11px 12px;
+  overflow-x: auto;
+  border-radius: 11px;
+  background: rgb(127 127 127 / 8%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.stack {
+  margin-top: 8px;
+  max-height: 132px;
+  overflow-y: auto;
+  color: var(--ds-text-secondary, #5b6270);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.primary,
+.ghost {
+  flex: 1;
+  height: 42px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.primary {
+  border: none;
+  background: var(--dsw-alias-brand-primary, #4d6bfe);
+  color: #fff;
+  font-weight: 600;
+}
+
+.ghost {
+  border: 1px solid rgb(127 127 127 / 24%);
+  background: transparent;
+  color: inherit;
+}
+
+.note {
+  margin-top: 14px !important;
+  padding-top: 12px;
+  border-top: 1px solid rgb(127 127 127 / 12%);
+  font-size: 12px !important;
+  color: var(--ds-text-tertiary, #8b93a1) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .screen {
+    background: #141518;
+    color: #e8eaed;
+  }
+
+  .card {
+    border-color: rgb(255 255 255 / 10%);
+    background: #1d1f24;
+    box-shadow: 0 12px 36px rgb(0 0 0 / 40%);
+
+    p {
+      color: #a8b0bd;
+    }
+  }
+
+  .detail,
+  .stack {
+    background: rgb(255 255 255 / 7%);
+  }
+
+  .stack {
+    color: #a8b0bd;
+  }
+
+  .ghost {
+    border-color: rgb(255 255 255 / 20%);
+  }
+
+  .note {
+    border-top-color: rgb(255 255 255 / 10%);
+    color: #8b93a1 !important;
+  }
+}

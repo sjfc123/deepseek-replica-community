@@ -1,0 +1,101 @@
+/* 记忆胶囊：顶栏入口（header）与消息内标记（inline） */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-text, #4d6bfe) 22%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-brand-text, #4d6bfe) 7%, transparent);
+  color: var(--dsw-alias-label-primary);
+  font: 500 12.5px/1 var(--dsw-font-family);
+  cursor: pointer;
+  transition:
+    background var(--ds-transition-duration, 0.15s) var(--ds-ease-in-out, ease),
+    border-color var(--ds-transition-duration, 0.15s) var(--ds-ease-in-out, ease);
+}
+
+.chip:hover {
+  background: color-mix(in srgb, var(--dsw-alias-brand-text, #4d6bfe) 12%, transparent);
+}
+
+.chip:active {
+  transform: translateY(0.5px);
+}
+
+.star {
+  color: var(--dsw-alias-brand-text, #4d6bfe);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.label {
+  letter-spacing: 0.2px;
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-brand-text, #4d6bfe) 16%, transparent);
+  color: var(--dsw-alias-brand-text, #4d6bfe);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 消息内标记：更小、更淡，跟在回复下方 */
+.chip[data-variant='inline'] {
+  height: 22px;
+  padding: 0 8px;
+  gap: 4px;
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-text, #4d6bfe) 14%, transparent);
+  background: transparent;
+  opacity: 0.72;
+  font-size: 11.5px;
+}
+
+.chip[data-variant='inline'] .star {
+  font-size: 10.5px;
+}
+
+.chip[data-variant='inline'] .count {
+  min-width: 14px;
+  height: 14px;
+  font-size: 10px;
+}
+
+.chip[data-variant='inline']:hover {
+  opacity: 1;
+}
+
+/* 有新记忆写入时弹一下 */
+.chip[data-pulse] {
+  animation: memory-chip-pop 0.92s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+@keyframes memory-chip-pop {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--dsw-alias-brand-text, #4d6bfe) 30%, transparent);
+  }
+  35% {
+    transform: scale(1.14);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--dsw-alias-brand-text, #4d6bfe) 14%, transparent);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip[data-pulse] {
+    animation: none;
+  }
+}

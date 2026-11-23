@@ -1,0 +1,58 @@
+plugins {
+    id 'com.android.application' version '9.4.0'
+}
+
+def releaseSigning = new Properties()
+def releaseSigningFile = rootProject.file('keystore.properties')
+if (releaseSigningFile.isFile()) {
+    releaseSigningFile.withInputStream { releaseSigning.load(it) }
+}
+
+android {
+    namespace = 'io.github.lijiahua1024.dsreplica'
+    compileSdk = 37
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        applicationId = 'io.github.lijiahua1024.dsreplica'
+        minSdk = 29
+        targetSdk = 36
+        versionCode = 108
+        versionName = '0.8.62'
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('release.jks')
+            storePassword = releaseSigning.getProperty('storePassword')
+            keyAlias 'dsreplica'
+            keyPassword = releaseSigning.getProperty('keyPassword')
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
+
+def webProject = rootProject.projectDir.parentFile
+def webOutput = new File(webProject, 'dist')
+
+tasks.register('buildWeb', Exec) {
+    workingDir webProject
+    commandLine org.gradle.internal.os.OperatingSystem.current().isWindows()
+        ? ['cmd', '/d', '/c', 'pnpm', 'build']
+        : ['pnpm', 'build']
+    inputs.files(new File(webProject, 'package.json'), new File(webProject, 'pnpm-lock.yaml'),
+        new File(webProject, 'rspack.config.ts'))
+    inputs.dir(new File(webProject, 'src'))
+    outputs.dir(webOutput)
+}
+
+android.sourceSets.main.assets.srcDir(webOutput)
+tasks.named('preBuild').configure { dependsOn('buildWeb') }

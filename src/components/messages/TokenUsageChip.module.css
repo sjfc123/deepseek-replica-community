@@ -1,0 +1,110 @@
+.chip {
+  position: fixed;
+  top: 88px;
+  left: 50%;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transform: translateX(-50%);
+  padding: 6px 11px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 999px;
+  background: var(--ds-bg-elevated, #fff);
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  touch-action: none;
+  user-select: none;
+  transition: box-shadow 150ms ease-out;
+
+  &[data-dragging] {
+    box-shadow: 0 10px 26px rgb(0 0 0 / 20%);
+    cursor: grabbing;
+  }
+
+  /* 按住 5 秒关闭：底部细条走满一圈就关 */
+  &::after {
+    position: absolute;
+    top: 0;
+    right: 10px;
+    left: 10px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--dsw-alias-brand-primary, #4d6bfe);
+    transform: scaleX(0);
+    transform-origin: left;
+    content: '';
+  }
+
+  &[data-pressing]::after {
+    animation: chip-hold 5s linear forwards;
+  }
+}
+
+.label {
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-size: 11px;
+}
+
+.value {
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  animation: chip-bump 220ms ease-out;
+}
+
+.limit {
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  width: calc(100% - 20px);
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgb(0 0 0 / 6%);
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--dsw-alias-brand-primary, #4d6bfe);
+    transition: width 320ms ease-out;
+  }
+}
+
+body[data-ds-dark-theme] .chip {
+  border-color: rgb(255 255 255 / 10%);
+  background: #2a2d34;
+  color: #cfd3da;
+}
+
+@keyframes chip-bump {
+  40% {
+    transform: translateY(-2px) scale(1.08);
+  }
+}
+
+@keyframes chip-hold {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .value {
+    animation: none;
+  }
+
+  .chip::after,
+  .bar span {
+    transition: none;
+  }
+}

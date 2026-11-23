@@ -1,0 +1,76 @@
+/* 冷启动问候语下方的峰谷提示：跟随主题主色，不抢输入框视觉 */
+.hint {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  max-width: min(100%, 420px);
+  margin-top: 2px;
+  padding: 7px 11px 8px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 18%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 7%, transparent);
+  text-align: center;
+  user-select: none;
+}
+
+.phaseLine {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11.5px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dsw-alias-brand-primary);
+}
+
+[data-phase='offpeak'] .dot {
+  opacity: 0.55;
+}
+
+.phase {
+  color: var(--dsw-alias-brand-primary);
+}
+
+.now {
+  font-weight: 500;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 10.5px;
+  line-height: 15px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.range {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+@media (max-width: 370px) {
+  .hint {
+    max-width: 100%;
+    padding: 6px 9px 7px;
+  }
+
+  .phaseLine {
+    font-size: 11px;
+  }
+
+  .detail {
+    font-size: 10px;
+    line-height: 14px;
+  }
+}

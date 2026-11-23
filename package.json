@@ -1,0 +1,52 @@
+{
+  "name": "deepseek-app-replica",
+  "version": "0.8.62",
+  "description": "基于 DeepSeek App Replica 与 DeepChat 部分功能移植的 Android 角色扮演客户端；仅提供源码，不发布 APK。",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "rspack serve -c rspack.config.ts",
+    "build": "rspack build -c rspack.config.ts",
+    "type": "tsc -p tsconfig.json",
+    "lint": "oxlint src rspack.config.ts",
+    "format": "oxfmt --write ."
+  },
+  "dependencies": {
+    "@formatjs/intl-displaynames": "8.0.3",
+    "@types/katex": "^0.16.5",
+    "@types/mdast": "~4.0.3",
+    "@types/prismjs": "^1.26.1",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.0",
+    "clsx": "2.1.1",
+    "core-js": "3.51.0",
+    "fflate": "0.8.3",
+    "idb": "8.0.3",
+    "katex": "0.16.22",
+    "lucide-react": "0.468.0",
+    "mdast-util-find-and-replace": "3.0.2",
+    "mdast-util-from-markdown": "2.0.3",
+    "mdast-util-gfm": "3.1.0",
+    "mdast-util-math": "3.0.0",
+    "mermaid": "11.10.1",
+    "micromark-extension-gfm": "3.0.0",
+    "micromark-extension-llm-math": "3.1.0",
+    "pdf-lib": "1.17.1",
+    "prismjs": "1.30.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "saxes": "6.0.0",
+    "zustand": "4.4.7"
+  },
+  "devDependencies": {
+    "@rspack/cli": "2.0.2",
+    "@rspack/core": "2.0.2",
+    "@rspack/dev-server": "2.0.1",
+    "@swc/helpers": "0.5.23",
+    "@types/node": "~20.9.2",
+    "oxfmt": "0.48.0",
+    "oxlint": "1.63.0",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,285 @@
+.container {
+  display: flex;
+  animation: message-rise 280ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  flex-direction: column;
+  align-items: flex-end;
+  padding-bottom: 16px;
+
+  &.isFirst {
+    padding-top: 34px;
+  }
+
+  &:hover .actions {
+    opacity: 1;
+  }
+}
+
+[data-android] .container {
+  contain: style;
+  padding-bottom: 10.37px;
+  transition: opacity 150ms ease;
+}
+
+[data-android] .files,
+[data-android] .bottom {
+  transition: opacity 150ms ease;
+}
+
+[data-android] .container[data-editing-target='true'] .files,
+[data-android] .container[data-editing-target='true'] .bottom {
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-android] .container,
+  [data-android] .files,
+  [data-android] .bottom {
+    transition: none;
+  }
+}
+
+[data-android] .container.isFirst {
+  padding-top: 16.62px;
+}
+
+.searchHighlighted {
+  position: relative;
+  z-index: 0;
+}
+
+.searchHighlight {
+  position: absolute;
+  top: -6px;
+  right: -12px;
+  bottom: 0;
+  left: -12px;
+  z-index: -1;
+  border-radius: 12px;
+  background-color: rgb(242 242 242);
+  pointer-events: none;
+  animation: userSearchHighlightFade 1.8s ease-out forwards;
+}
+
+[data-android] .searchHighlight {
+  top: -6px;
+  right: -20px;
+  bottom: 0;
+  left: -20px;
+  border-radius: 0;
+}
+
+[data-android] .isFirst .searchHighlight {
+  top: 6px;
+}
+
+[data-ds-dark-theme] .searchHighlight {
+  background-color: rgb(39 39 39);
+}
+
+@keyframes userSearchHighlightFade {
+  0%,
+  55% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .searchHighlight {
+    animation: none;
+  }
+}
+
+.files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 10px;
+  max-width: 100%;
+  margin-bottom: 8px;
+}
+
+.filesWithDocuments {
+  --message-file-image-size: 64px;
+}
+
+.bubble {
+  max-width: calc(100% - 88px);
+  box-sizing: border-box;
+  padding: 10px 16px;
+  border-radius: var(--replica-bubble-radius, 22px);
+  font-size: 16px;
+  line-height: 24px;
+  background-color: var(--chat-bubble, var(--chat-bubble-user, var(--dsw-specific-bubble)));
+  color: var(--chat-bubble-fg, var(--chat-bubble-user-fg, var(--dsw-alias-label-primary)));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+[data-android] .bubble {
+  position: relative;
+  max-width: calc(100% - 48px);
+  margin-right: -5.07px;
+  padding: 10.13px 14.93px;
+  border-left: 0.2px solid transparent;
+  border-radius: var(--replica-bubble-radius, 22px) var(--replica-bubble-radius, 22px) 4px
+    var(--replica-bubble-radius, 22px);
+  background-color: transparent;
+  font-size: calc(15px * var(--android-chat-font-scale, 1));
+  font-weight: 500;
+  line-height: calc(24.53px * var(--android-chat-font-scale, 1));
+  isolation: isolate;
+  user-select: none;
+
+  &::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0.71px 0 1.07px -0.16px;
+    /* 气泡的实际底色画在伪元素上，圆角必须跟着设置走，否则外层怎么改都看不出来 */
+    border-radius: var(--replica-bubble-radius, 20.2px) var(--replica-bubble-radius, 18.8px) 4.6px
+      var(--replica-bubble-radius, 20.8px);
+    background-color: var(--chat-bubble, var(--chat-bubble-user, var(--dsw-specific-bubble)));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+    content: '';
+  }
+}
+
+.bubbleText {
+  display: inline-block;
+  max-width: 100%;
+  position: relative;
+  z-index: 1;
+  line-height: inherit;
+  vertical-align: top;
+}
+
+/* 玩家消息里的括号独白：与助手侧的置灰规则一致，气泡底上改用半透明 + 斜体保证对比度 */
+.bubbleAside {
+  opacity: 0.62;
+  font-style: italic;
+}
+
+.menuAnchor {
+  position: absolute;
+  top: 100%;
+  right: -3.5556px;
+  width: 0;
+  height: 0;
+}
+
+.menuCopyIcon {
+  display: flex;
+  transform: scaleY(1.05);
+}
+
+.menuTrigger {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media not all and (min-width: 440px) {
+  .bubble {
+    max-width: calc(100% - 68px);
+  }
+}
+
+.bottom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 28px;
+  margin-top: 6px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity var(--ds-transition-duration) var(--ds-ease-in-out);
+
+  &:focus-within {
+    opacity: 1;
+  }
+}
+
+.alwaysShow {
+  opacity: 1;
+}
+
+.editor {
+  width: min(100%, 22rem);
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-brand-primary);
+  border-radius: 22px;
+  background-color: var(--dsw-alias-bg-base);
+  overflow: hidden;
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 96px;
+  max-height: 260px;
+  padding: 10px 16px;
+  border: none;
+  outline: none;
+  resize: none;
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--dsw-alias-label-primary);
+  background: transparent;
+}
+
+.editorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 6px 10px 10px;
+}
+
+/* 气泡布局：用户气泡收窄一点，右下角补一个小尖角 */
+:global([data-chat-layout='wechat']) .bubble,
+:global([data-chat-layout='blue']) .bubble {
+  position: relative;
+  max-width: calc(100% - 64px);
+}
+
+:global([data-chat-layout='wechat']) .bubble::after,
+:global([data-chat-layout='blue']) .bubble::after {
+  position: absolute;
+  right: -4px;
+  bottom: 10px;
+  border: 6px solid transparent;
+  border-right: 0;
+  border-left-color: var(--chat-bubble, var(--chat-bubble-user, var(--dsw-specific-bubble)));
+  content: '';
+}
+
+@keyframes message-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container {
+    animation: none;
+  }
+}

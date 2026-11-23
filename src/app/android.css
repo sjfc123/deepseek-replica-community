@@ -1,0 +1,26 @@
+[data-android] body {
+  --dsw-font-family: system-ui, sans-serif;
+  --ds-font-family-code: ui-monospace, monospace;
+  --android-composer-bottom: 27px;
+  --dsw-font-markdown-base: calc(16px * var(--android-chat-font-scale, 1)) /
+    calc(28px * var(--android-chat-font-scale, 1)) var(--dsw-font-family);
+  --dsw-font-markdown-base-strong: 600 calc(16px * var(--android-chat-font-scale, 1)) /
+    calc(28px * var(--android-chat-font-scale, 1)) var(--dsw-font-family);
+}
+
+[data-android][data-button-navigation] body {
+  --android-composer-bottom: 21px;
+}
+
+[data-android][data-keyboard] body {
+  --android-composer-bottom: 11px;
+}
+[data-android] body:not([data-ds-dark-theme]) {
+  --dsw-alias-bg-base: #fff;
+  --dsw-alias-label-primary: #0f0f0f;
+  --dsw-specific-input-major: #fff;
+  --dsw-alias-label-caption: #b9babb;
+  --dsw-alias-brand-text: #426efe;
+  --dsw-alias-button-ghost-active-fill: #edf3fe;
+  --dsw-alias-button-ghost-active-border: #cfdfff;
+}

@@ -1,0 +1,66 @@
+.token-limit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 55%);
+  animation: token-limit-fade 160ms ease-out;
+}
+
+.token-limit-card {
+  width: min(100%, 320px);
+  padding: 22px 20px 18px;
+  border-radius: 20px;
+  background: var(--ds-bg-elevated, #fff);
+  color: var(--dsw-alias-label-primary, #1f2329);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 28%);
+  text-align: center;
+
+  h3 {
+    margin: 0 0 10px;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0 0 8px;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--dsw-alias-label-secondary, #4b4f56);
+  }
+
+  button {
+    width: 100%;
+    margin-top: 14px;
+    padding: 11px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--dsw-alias-brand-primary, #4d6bfe);
+    color: #fff;
+    font: inherit;
+    font-size: 15px;
+  }
+}
+
+@keyframes token-limit-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .token-limit-overlay {
+    animation: none;
+  }
+}
+
+body[data-ds-dark-theme] .token-limit-card {
+  background: #23262c;
+  color: #e9ecf2;
+}
+
+body[data-ds-dark-theme] .token-limit-card p {
+  color: #b9bec7;
+}

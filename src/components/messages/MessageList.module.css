@@ -1,0 +1,167 @@
+.container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-color: var(--scroll-color) transparent;
+}
+
+.scrollArea {
+  display: contents;
+}
+
+.scroll {
+  display: contents;
+}
+
+@media not all and (min-width: 768px) {
+  .container {
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  .scrollArea {
+    position: relative;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .scroll {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-color: var(--scroll-color) transparent;
+  }
+}
+
+[data-android] .container {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+[data-android] .scrollArea {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+[data-android] .scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-color: var(--scroll-color) transparent;
+  touch-action: pan-y;
+}
+
+.mobileJumpSlot {
+  position: absolute;
+  right: 22px;
+  bottom: 14px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+[data-android] .mobileJumpSlot {
+  left: 50%;
+  right: auto;
+  display: flex;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 808px;
+  padding-right: 22px;
+  transform: translateX(-50%);
+}
+
+.desktopFooter {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  flex-shrink: 0;
+  width: 100%;
+  margin-top: auto;
+  pointer-events: none;
+}
+
+.desktopFooter > :not(.desktopJumpSlot) {
+  pointer-events: auto;
+}
+
+.desktopJumpSlot {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 100%;
+  max-width: 768px;
+  height: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.desktopJumpSlot > * {
+  position: absolute;
+  right: 22px;
+  bottom: 14px;
+}
+
+.column {
+  width: calc(var(--message-list-max-width) - 2 * var(--message-list-padding-horizontal));
+  max-width: calc(100% - 40px);
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+
+/* 与官方 Android 端一致：正文最大内容宽度 768dp（含左右各 20px 内边距共 808px） */
+[data-android] .column {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 808px;
+  padding: 0 20px 24px;
+}
+
+[data-android] .column > * {
+  transition: opacity 150ms ease;
+}
+
+[data-android] .column[data-editing-session='true'] > * {
+  /* 只做视觉降噪，不禁用指针：编辑态一旦残留会把整列消息点死 */
+  user-select: none;
+}
+
+[data-android] .column[data-editing-session='true'] > :not([data-editing-target='true']) {
+  opacity: 0.1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-android] .column > * {
+    transition: none;
+  }
+}
+
+
+/* 消息间距走主题设置：只加在相邻消息之间，首尾不留空隙 */
+.column > * + * {
+  margin-top: var(--replica-message-gap, 0px);
+}
+
+/* 紧凑档连每条消息自带的 8px 下边距一起收紧，否则只改相邻间距几乎看不出来 */
+:global([data-message-spacing='compact']) .column > * {
+  margin-bottom: 1px;
+}
+
+:global([data-message-spacing='loose']) .column > * {
+  margin-bottom: 12px;
+}
