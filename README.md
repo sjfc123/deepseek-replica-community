@@ -1,7 +1,6 @@
-# DeepSeek Replica · 社区二创版
+# DeepSeek Replica 二创版
 
 > 一个 Android 上的本地优先 AI 聊天客户端。日常聊天能用，角色卡、世界书、场景、长期记忆和语音通话也能跑。  
-> 这里只放源码，不发布 APK。
 
 这个仓库不是从零写出来的。它的底子是 [LiJiaHua1024/deepseek-app-replica](https://github.com/LiJiaHua1024/deepseek-app-replica)，一个尽量复刻 DeepSeek 手机端交互的 Android 客户端；后来又从赤石科技的 [YanJiuWeiYuanHui/DeepChat](https://github.com/YanJiuWeiYuanHui/DeepChat) 移植了一部分对角色扮演真正有用的能力，再加上这段时间的改动，慢慢长成了现在这个样子。
 
