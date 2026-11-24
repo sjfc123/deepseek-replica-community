@@ -173,6 +173,8 @@ type Settings = {
   characterName: string
   /** 角色基础档案：只描述人物本身，与提示词、世界书、场景分开保存 */
   characterProfile: CharacterProfile
+  /** 基础档案开关：默认开启；关闭后档案只保留在本地，不进入 system */
+  profileEnabled: boolean
   /** 角色头像，data URL；空表示用首字母占位 */
   characterAvatar: string | null
   /** 聊天区显示头像：助手用角色头像，用户用账号头像 */
@@ -216,7 +218,7 @@ type Settings = {
   /** 角色卡：多角色切换；启用中的卡会注入姓名、身份、关系、风格等字段 */
   characterCards: CharacterCard[]
   activeCharacterId: string | null
-  /** 角色扮演模式：开启时注入当前启用卡；关闭后完全不注入卡，只保留手写基础档案与表达提示词 */
+  /** 角色扮演模式：开启时注入当前启用卡；关闭后不再注入卡，按档案开关决定是否保留手写基础档案 */
   roleplayEnabled: boolean
   /** 角色卡头像：按卡片 id 单独存一份 data URL，与卡片正文分开，删除卡片时随之清理 */
   cardAvatars: Record<string, string>
@@ -284,6 +286,8 @@ const KEYS = {
   characterName: 'replica:character-name',
   /** 角色基础档案：结构固定，单键保存整份 JSON */
   characterProfile: 'replica:character-profile',
+  /** 基础档案开关：没有历史值时默认开启，升级后行为与 0.8.83 一致 */
+  profileEnabled: 'replica:character-profile-enabled',
   characterAvatar: 'replica:character-avatar',
   avatarInChat: 'replica:avatar-in-chat',
   thoughtAside: 'replica:thought-aside',
@@ -507,6 +511,9 @@ const initialScene = (): SceneState => normalizeScene(readJson(KEYS.scene))
 const initialCharacterProfile = (): CharacterProfile =>
   normalizeCharacterProfile(readJson(KEYS.characterProfile))
 
+/** 档案开关默认开启；只有明确存过 '0' 才视为关闭 */
+const initialProfileEnabled = (): boolean => read(KEYS.profileEnabled) !== '0'
+
 const initialCharacterAvatar = (): string | null => {
   const saved = read(KEYS.characterAvatar)
   return saved && /^data:image\/(webp|png|jpeg);base64,/.test(saved) ? saved : null
@@ -675,6 +682,7 @@ export const useSettings = create<Settings>(() => ({
   autoBackupMinutes: readAutoBackupMinutes(),
   characterName: initialCharacterName(),
   characterProfile: initialCharacterProfile(),
+  profileEnabled: initialProfileEnabled(),
   characterAvatar: initialCharacterAvatar(),
   avatarInChat: read(KEYS.avatarInChat) !== 'false',
   thoughtAside: read(KEYS.thoughtAside) !== 'false',
@@ -998,7 +1006,7 @@ export const activateCharacterCard = (id: string | null) => {
   })
 }
 
-/** 只切换角色扮演模式：关闭后不再注入角色卡，回到手写基础档案与表达提示词 */
+/** 只切换角色扮演模式：关闭后不再注入角色卡，基础档案是否保留由档案开关决定 */
 export const setRoleplayEnabled = (roleplayEnabled: boolean) => {
   write(KEYS.roleplayEnabled, roleplayEnabled ? '1' : '0')
   useSettings.setState({ roleplayEnabled })
@@ -1219,6 +1227,12 @@ export const setCharacterName = (characterName: string) => {
   const value = characterName.trim()
   write(KEYS.characterName, value || null)
   useSettings.setState({ characterName: value })
+}
+
+/** 基础档案开关：关闭后文本保留但不注入，界面只读；重新开启才恢复编辑与注入 */
+export const setCharacterProfileEnabled = (profileEnabled: boolean) => {
+  write(KEYS.profileEnabled, String(profileEnabled))
+  useSettings.setState({ profileEnabled })
 }
 
 /** 基础档案逐字段写入：只更新当前字段，不清掉其它已填内容 */
@@ -1460,6 +1474,7 @@ export const resetCharacterSettings = () => {
   setCharacterName('')
   setSuppressMetaTalk(false)
   clearCharacterProfile()
+  setCharacterProfileEnabled(true)
 }
 
 /** 生成参数页：温度、Top P、最大输出、推理强度 */

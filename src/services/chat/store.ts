@@ -21,7 +21,7 @@ import {
 import { MANY_IMAGES_COUNT, MANY_IMAGES_MAX_EDGE, MAX_IMAGE_EDGE } from '../imageUpload.js'
 import { parseCustomHeaders } from '../api/headers.js'
 import { composeSystemPrompt } from './systemPrompt.js'
-import { formatCharacterProfile, characterProfileHasContent } from './characterProfile.js'
+import { formatCharacterProfile, shouldInjectCharacterProfile } from './characterProfile.js'
 import { applyPlaceholders } from './placeholders.js'
 import {
   formatCharacterCard,
@@ -2303,6 +2303,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     activeCharacterId,
     characterName,
     characterProfile,
+    profileEnabled,
     roleplayEnabled,
     worldbook,
     worldbookInject,
@@ -2384,9 +2385,14 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // system 只放跨轮稳定的内容。缓存按完整前缀命中，system 里哪怕只变一张记忆卡，
   // 后面的全部历史都会失效；记忆、场景和按关键词挑出的世界书因此统一挪到本轮末尾。
   // 卡内开场白也固定在 system：不按消息条数删，是否重复由卡内“只用一次”的文案约束。
-  // 有当前人物卡时以卡为准；没有卡时才用手写基础档案，避免两套身份在同一段 system 里打架。
+  // 有当前人物卡时以卡为准；没有卡且档案开关开启时，才用手写基础档案，避免两套身份在同一段 system 里打架。
+  // 档案关闭后只保留表达提示词与固定演出规则，不再读取档案里的身份、经历和关系。
   const profileSystem =
-    !activeCard && characterProfileHasContent(characterProfile)
+    shouldInjectCharacterProfile({
+      profileEnabled,
+      hasActiveCard: Boolean(activeCard),
+      profile: characterProfile,
+    })
       ? formatCharacterProfile({
           profile: characterProfile,
           name: characterName,

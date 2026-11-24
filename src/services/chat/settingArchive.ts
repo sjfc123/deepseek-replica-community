@@ -28,6 +28,8 @@ export type SettingArchive = {
   exportedAt: string
   /** 手写角色基础档案；旧版存档没有这一项，导入时按空档案处理 */
   profile?: CharacterProfile
+  /** 档案是否进入 system；旧版存档没有这一项，按开启处理 */
+  profileEnabled?: boolean
   cards: CharacterCard[]
   avatars: Record<string, string>
   worldbook: WorldbookEntry[]
@@ -36,6 +38,7 @@ export type SettingArchive = {
 
 export type SettingArchiveInput = {
   profile: CharacterProfile
+  profileEnabled: boolean
   cards: CharacterCard[]
   avatars: Record<string, string>
   worldbook: WorldbookEntry[]
@@ -74,6 +77,7 @@ export const buildSettingArchive = (
   version: SETTING_ARCHIVE_VERSION,
   exportedAt: exportedAt.toISOString(),
   profile: input.profile,
+  profileEnabled: input.profileEnabled,
   cards: input.cards,
   avatars: input.avatars,
   worldbook: input.worldbook,
@@ -126,6 +130,7 @@ export const parseSettingArchive = (raw: string): SettingArchive => {
     version: SETTING_ARCHIVE_VERSION,
     exportedAt: typeof record.exportedAt === 'string' ? record.exportedAt : '',
     profile,
+    profileEnabled: record.profileEnabled !== false,
     cards,
     avatars: pickAvatars(record.avatars),
     worldbook,
@@ -192,6 +197,7 @@ export const applySettingArchive = (
     saveEntry: (entry: WorldbookEntry) => boolean
     saveScene: (scene: SceneState) => boolean
     saveProfile: (profile: CharacterProfile) => void
+    saveProfileEnabled: (enabled: boolean) => void
   }
 ): SettingArchiveResult => {
   const cardIds = new Set(current.cards.map((card) => card.id))
@@ -244,5 +250,6 @@ export const applySettingArchive = (
   if (profile && archive.profile) {
     api.saveProfile(archive.profile)
   }
+  api.saveProfileEnabled(archive.profileEnabled !== false)
   return { cards, cardsSkipped, worldbook, worldbookSkipped, avatars, scene, profile }
 }

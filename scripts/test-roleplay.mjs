@@ -25,6 +25,9 @@ const {
   sceneHasContent,
   WORLDBOOK_AUTHORITY_DEFAULT,
   EMPTY_SCENE,
+  ROLEPLAY_FIXED_FACTS_RULE,
+  ROLEPLAY_COOPERATION_RULE,
+  ROLEPLAY_IDENTITY_RULE,
 } = await import('../src/services/chat/roleplay.ts')
 
 const {
@@ -32,6 +35,11 @@ const {
   characterProfileFieldCount,
   characterProfileHasContent,
   formatCharacterProfile,
+  CHARACTER_PROFILE_FIELDS,
+  shouldInjectCharacterProfile,
+  PROFILE_FIXED_FACTS_RULE,
+  PROFILE_COOPERATION_RULE,
+  PROFILE_IDENTITY_RULE,
 } = await import('../src/services/chat/characterProfile.ts')
 
 const builtins = getBuiltinCharacterCards()
@@ -306,6 +314,87 @@ assert.equal(
   }).includes('把阿遥当成旧友，称沈砚自己为阿砚。'),
   true,
   '基础档案必须统一替换 {{user}} 与 {{char}}'
+)
+
+// 0.8.84：基础档案扩到 32 项，固定参数必须排在剧情字段之前，并共用卡片的固定事实与身份规则
+const fixedProfile = normalizeCharacterProfile({
+  age: '24 岁',
+  gender: '女性',
+  pronouns: '她',
+  species: '人类',
+  height: '172cm',
+  weight: '58kg',
+  favoriteFoods: '酸汤粉',
+  dislikedFoods: '香菜',
+  personality: '克制',
+})
+assert.equal(characterProfileFieldCount(fixedProfile), 9)
+const fixedProfileSystem = formatCharacterProfile({
+  profile: fixedProfile,
+  name: '林晚',
+  userName: '阿遥',
+})
+for (const label of ['年龄：24 岁', '性别：女性', '代词：她', '种族：人类', '身高：172cm', '体重：58kg']) {
+  assert.ok(fixedProfileSystem.includes(label), `基础档案应包含固定参数：${label}`)
+}
+assert.ok(
+  fixedProfileSystem.indexOf('年龄：') < fixedProfileSystem.indexOf('性格与底色：'),
+  '固定参数必须排在剧情字段之前'
+)
+assert.ok(
+  fixedProfileSystem.includes('年龄、性别、代词、种族、身高、体重、生日、职业、居住地和语言是固定事实'),
+  '基础档案有固定字段时必须声明固定事实'
+)
+assert.ok(
+  fixedProfileSystem.includes('在角色逻辑里配合{{user}}的推进') === false &&
+    fixedProfileSystem.includes('在角色逻辑里配合阿遥的推进'),
+  '基础档案必须带配合推进规则并替换占位符'
+)
+assert.ok(
+  fixedProfileSystem.includes('不是模型、程序、助手或旁白'),
+  '基础档案必须带不承认模型/助手身份规则'
+)
+assert.equal(
+  formatCharacterProfile({
+    profile: normalizeCharacterProfile({ age: '24 岁' }),
+    name: '林晚',
+    userName: '阿遥',
+  }).match(/固定事实/g)?.length,
+  1,
+  '固定事实声明只出现一次'
+)
+assert.equal(CHARACTER_PROFILE_FIELDS.length, 32, '基础档案应保持 32 个字段')
+assert.equal(
+  shouldInjectCharacterProfile({ profileEnabled: true, hasActiveCard: false, profile: fixedProfile }),
+  true,
+  '开关开启、没有卡且有内容时必须注入档案'
+)
+assert.equal(
+  shouldInjectCharacterProfile({ profileEnabled: false, hasActiveCard: false, profile: fixedProfile }),
+  false,
+  '档案开关关闭时必须完全停止读取档案'
+)
+assert.equal(
+  shouldInjectCharacterProfile({ profileEnabled: true, hasActiveCard: true, profile: fixedProfile }),
+  false,
+  '有当前人物卡时不得叠加档案'
+)
+assert.equal(
+  shouldInjectCharacterProfile({
+    profileEnabled: true,
+    hasActiveCard: false,
+    profile: normalizeCharacterProfile(null),
+  }),
+  false,
+  '空档案不得产生 system'
+)
+assert.equal(PROFILE_FIXED_FACTS_RULE, ROLEPLAY_FIXED_FACTS_RULE, '档案与卡片的固定事实规则必须一致')
+assert.equal(PROFILE_COOPERATION_RULE, ROLEPLAY_COOPERATION_RULE, '档案与卡片的配合规则必须一致')
+assert.equal(PROFILE_IDENTITY_RULE, ROLEPLAY_IDENTITY_RULE, '档案与卡片的身份规则必须一致')
+assert.deepEqual(
+  [...new Set(CHARACTER_PROFILE_FIELDS.map((field) => field.group))],
+  ['core', 'body', 'personality', 'story'],
+  '基础档案必须按四组顺序组织'
 )
 
 console.log('roleplay regression: ok')

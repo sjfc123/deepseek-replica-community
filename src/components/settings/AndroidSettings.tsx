@@ -50,6 +50,7 @@ import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
 import {
   CHARACTER_PROFILE_EN,
   CHARACTER_PROFILE_FIELDS,
+  CHARACTER_PROFILE_GROUPS,
   characterProfileFieldCount,
 } from '../../services/chat/characterProfile.js'
 import { selectSession, useChatStore } from '../../services/chat/store.js'
@@ -68,6 +69,7 @@ import {
   setCharacterAvatar,
   setCardAvatar,
   setCharacterName,
+  setCharacterProfileEnabled,
   setCharacterProfileField,
   replaceCharacterProfile,
   saveCharacterCard,
@@ -658,6 +660,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     autoBackupMinutes,
     characterName,
     characterProfile,
+    profileEnabled,
     characterAvatar,
     avatarInChat,
     thoughtAside,
@@ -693,6 +696,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const characterNameField = activeCharacterCard?.name ?? characterName
   const profileFields = characterProfileFieldCount(characterProfile)
   const profileTotal = CHARACTER_PROFILE_FIELDS.length
+  const profileGroups = CHARACTER_PROFILE_GROUPS.map((group) => ({
+    ...group,
+    fields: CHARACTER_PROFILE_FIELDS.filter((field) => field.group === group.key),
+  }))
   const promptState = systemPrompt.trim()
     ? systemPrompt === DEFAULT_SYSTEM_PROMPT
       ? tr('提示词默认', 'prompt default')
@@ -1053,10 +1060,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
 
   /** 设定存档：基础档案、角色卡、头像、世界书与场景打包成一个 JSON，换机或分享设定时单独迁移 */
   const exportSettings = async () => {
-    const { characterCards, cardAvatars, worldbook, scene, characterProfile } =
+    const { characterCards, cardAvatars, worldbook, scene, characterProfile, profileEnabled } =
       useSettings.getState()
     const archive = buildSettingArchive({
       profile: characterProfile,
+      profileEnabled,
       cards: characterCards,
       avatars: cardAvatars,
       worldbook,
@@ -1113,6 +1121,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           saveEntry: saveWorldbookEntry,
           saveScene: (scene) => replaceScene(scene),
           saveProfile: (profile) => replaceCharacterProfile(profile),
+          saveProfileEnabled: setCharacterProfileEnabled,
         }
       )
       const skipped = result.cardsSkipped + result.worldbookSkipped
@@ -1272,7 +1281,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   }, [chatConfig.imageModel, chatConfig.imageSize])
 
   const searchIndex: Array<{ label: string; keys: string; run: () => void }> = [
-    { label: labels.character, keys: '角色档案 角色设定 基础档案 人设 出处 外貌 性格 经历 关系 处境 目标 弱点 说话 日常 秘密 补充设定 system prompt 提示词 独白 动作', run: () => openPage('character') },
+    { label: labels.character, keys: '角色档案 角色设定 基础档案 人设 档案开关 年龄 性别 代词 种族 生日 职业 居住地 语言 身高 体重 外貌 食物 饮品 兴趣 作息 随身物 宠物 性格 价值观 雷点 底线 配合 经历 关系 处境 目标 弱点 说话 秘密 补充设定 system prompt 提示词 独白 动作', run: () => openPage('character') },
     { label: labels.roleplay, keys: '角色卡 世界书 场景 扮演 rp card worldbook', run: () => openPage('roleplay') },
     { label: labels.memory, keys: '长期记忆 记忆卡片 注入 归档 memory', run: () => openPage('memory') },
     { label: labels.sampling, keys: '采样 温度 temperature top p 最大输出 token', run: () => openPage('sampling') },
@@ -1443,8 +1452,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <Row
                 label={labels.character}
                 value={tr(
-                  `档案 ${profileFields}/${profileTotal} · ${promptState}`,
-                  `${profileFields}/${profileTotal} fields · ${promptState}`
+                  `档案 ${profileFields}/${profileTotal}${profileEnabled ? '' : '（已关闭）'} · ${promptState}`,
+                  `${profileFields}/${profileTotal} fields${profileEnabled ? '' : ' (off)'} · ${promptState}`
                 )}
                 onClick={() => openPage('character')}
               />
@@ -1719,49 +1728,94 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           <>
             <p className={styles.pageIntro}>
               {tr(
-                '这里放角色的基础档案，只回答「这个人是谁、从哪来、现在怎么生活」，不承担系统提示词、世界观、场景或玩法规则。档案与头像、显示、提示词、角色卡分开保存。\n填写顺序：出处与身份 → 外貌 → 性格 → 经历 → 关系 → 处境 → 目标 → 弱点 → 说话方式 → 日常 → 秘密 → 补充。原创、OC、二创、游戏、动漫、小说角色都按这个顺序写；越具体、越一致，模型越容易把ta当成一个正在生活的人，而不是只会回话的助手。\n边界：启用人物卡时以卡为准；没有人物卡时，这份档案与系统提示词一起进入每一轮 system。',
-                'This page holds the character base profile: who this person is, where they come from, and how they live now. It carries no system prompt, lore, scene or play-style rules, and is stored separately from avatar, display, prompt and cards.\nOrder: origin → appearance → personality → history → relationship → situation → goal → weakness → speech → daily life → secret → notes. Use the same order for OCs, fan characters, game, anime and novel characters. The more concrete and consistent the details, the more the model treats them as a living person rather than a replying assistant.\nBoundary: an active card wins. With no card, this profile and the system prompt are both sent every turn.'
+                '这里放角色的基础档案，只回答「这个人是谁、身体怎样、怎么生活、哪些线不能碰」，不承担表达提示词、世界观、场景或玩法规则。档案与头像、显示、提示词、角色卡分开保存。\n档案开关默认开启。开启时，没有当前人物卡，这份档案进入每轮 system；有当前人物卡，以卡为准，档案不叠加。关闭后，档案文本仍保存在本机，但不会读取、不会进入 system，只走下面的表达提示词，上面所有档案字段变灰只读；重新开启后才能修改。这样两套身份不会在同一段 system 里互相打架。\n填写顺序：基本档案 → 身体与生活 → 性格与边界 → 剧情与表达。年龄、性别、代词、种族、身高、体重、生日、职业、居住地、语言尽量填全；这几项缺一项，角色就容易在对话里被临时改性别、改年龄或改成人不人鬼不鬼的样子。原创、OC、二创、游戏、动漫、小说角色都按这个顺序写。',
+                'This page holds the character base profile: who this person is, what body they live in, how they live and which lines they never cross. It carries no delivery prompt, lore, scene or play-style rules, and is stored separately from avatar, display, prompt and cards.\nThe profile switch is on by default. When on and no card is active, this profile enters every system turn; an active card wins and the profile is not stacked. When off, the text stays on device but is never read or injected: only the delivery prompt below is used, and every profile field turns grey and read-only until the switch is turned back on. This keeps two identities from fighting inside one system block.\nOrder: basic facts → body & daily life → character & limits → story & voice. Fill age, gender, pronouns, species, height, weight, birthday, occupation, residence and language whenever possible; a missing one lets the character drift in gender, age or species mid-scene. Use the same order for OCs, fan characters, game, anime and novel characters.'
               )}
             </p>
-            <Group label={tr('角色设定 · 基础档案', 'Character setting · base profile')}>
-              <div className={styles.inlineField}>
-                <span className={styles.inlineLabel}>{tr('角色名字', 'Name')}</span>
-                <input
-                  className={styles.inlineInput}
-                  value={characterNameField}
-                  placeholder={tr('留空则显示 AI', 'Blank shows AI')}
-                  aria-label={tr('角色名字', 'Character name')}
-                  maxLength={20}
-                  readOnly={Boolean(activeCharacterCard)}
-                  onChange={(event) => setCharacterName(event.target.value)}
-                />
-              </div>
-              {CHARACTER_PROFILE_FIELDS.map((field) => {
-                const en = CHARACTER_PROFILE_EN[field.key]
-                return (
-                  <label className={styles.profileField} key={field.key}>
-                    <span className={styles.profileLabel}>
-                      <span>{tr(field.label, en.label)}</span>
-                      <span className={styles.profileHint}>{tr(field.hint, en.hint)}</span>
-                    </span>
-                    <textarea
-                      className={styles.profileInput}
-                      rows={field.rows}
-                      value={characterProfile[field.key]}
-                      placeholder={tr(field.placeholder, en.placeholder)}
-                      aria-label={tr(field.label, en.label)}
-                      onChange={(event) => setCharacterProfileField(field.key, event.target.value)}
-                    />
-                  </label>
-                )
-              })}
-              <p className={styles.caption}>
-                {tr(
-                  `已填写 ${profileFields}/${profileTotal} 项（角色名字单独保存，不计入这 ${profileTotal} 项）。角色名字在启用人物卡期间显示为卡名；关闭后新会话恢复这里保存的手写名字，已经绑定人物的会话仍沿用卡名。空字段不会进入 system，也不会用空白占位。`,
-                  `${profileFields}/${profileTotal} fields filled (the name is stored separately and not counted). While a card is active the name shows the card name; new chats return to the handwritten name saved here. Bound chats keep the card name. Empty fields are skipped instead of sent as blanks.`
+            {profileGroups.map((group, index) => (
+              <Group
+                key={group.key}
+                label={tr(
+                  index === 0 ? `角色设定 · ${group.label}` : group.label,
+                  index === 0 ? `Character setting · ${group.labelEn}` : group.labelEn
                 )}
-              </p>
-            </Group>
+              >
+                {index === 0 ? (
+                  <>
+                    <Row
+                      label={tr('读取基础档案', 'Read base profile')}
+                      value={profileEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
+                      arrow={false}
+                      control={
+                        <Switch
+                          label={tr('读取基础档案', 'Read base profile')}
+                          checked={profileEnabled}
+                          toggle={() => setCharacterProfileEnabled(!profileEnabled)}
+                        />
+                      }
+                    />
+                    <div className={styles.inlineField}>
+                      <span className={styles.inlineLabel}>{tr('角色名字', 'Name')}</span>
+                      <input
+                        className={styles.inlineInput}
+                        data-disabled={!profileEnabled ? '' : undefined}
+                        value={characterNameField}
+                        placeholder={tr('留空则显示 AI', 'Blank shows AI')}
+                        aria-label={tr('角色名字', 'Character name')}
+                        maxLength={20}
+                        readOnly={!profileEnabled || Boolean(activeCharacterCard)}
+                        onChange={(event) => setCharacterName(event.target.value)}
+                      />
+                    </div>
+                    <p className={styles.profileNotice} data-off={!profileEnabled ? '' : undefined}>
+                      {profileEnabled
+                        ? tr(
+                            '档案已开启：没有当前人物卡时，这份档案每轮进入 system；有当前人物卡时以卡为准。空字段不会注入。',
+                            'Profile is on: with no active card it enters every system turn; an active card wins. Empty fields are skipped.'
+                          )
+                        : tr(
+                            '档案已关闭：文本仍保存在本机，但不会读取、不会进入 system，当前只走下面的表达提示词。重新开启后才能修改。',
+                            'Profile is off: the text stays on device but is never read or injected. Only the delivery prompt below is used. Turn the switch back on to edit.'
+                          )}
+                    </p>
+                  </>
+                ) : null}
+                <p className={styles.profileGroupHint}>{tr(group.hint, group.hintEn)}</p>
+                {group.fields.map((field) => {
+                  const en = CHARACTER_PROFILE_EN[field.key]
+                  return (
+                    <label
+                      className={styles.profileField}
+                      data-disabled={!profileEnabled ? '' : undefined}
+                      key={field.key}
+                    >
+                      <span className={styles.profileLabel}>
+                        <span>{tr(field.label, en.label)}</span>
+                        <span className={styles.profileHint}>{tr(field.hint, en.hint)}</span>
+                      </span>
+                      <textarea
+                        className={styles.profileInput}
+                        data-disabled={!profileEnabled ? '' : undefined}
+                        rows={field.rows}
+                        value={characterProfile[field.key]}
+                        placeholder={tr(field.placeholder, en.placeholder)}
+                        aria-label={tr(field.label, en.label)}
+                        readOnly={!profileEnabled}
+                        onChange={(event) =>
+                          profileEnabled && setCharacterProfileField(field.key, event.target.value)
+                        }
+                      />
+                    </label>
+                  )
+                })}
+              </Group>
+            ))}
+            <p className={styles.caption}>
+              {tr(
+                `已填写 ${profileFields}/${profileTotal} 项（角色名字单独保存，不计入这 ${profileTotal} 项）。档案开关关闭时，以上内容全部只读；重新开启后恢复编辑与注入。空字段不会进入 system，也不会用空白占位。`,
+                `${profileFields}/${profileTotal} fields filled (the name is stored separately and not counted). While the profile switch is off every field above is read-only; turning it back on restores editing and injection. Empty fields are skipped instead of sent as blanks.`
+              )}
+            </p>
             <p className={styles.pageIntro}>
               {tr(
                 '头像仅在本机显示，不随请求上传。点击「角色头像」选择图片后，应用会居中裁切为正方形并压缩为 256px JPEG；「对话中显示头像」「角色头像大小」「头像形状」分别控制聊天中的显示、占位尺寸与外框。\n示例：为夜班店员设置冷色调半身像，聊天头像 32px、圆形。\n边界：角色卡之间不共享头像，显示图不进入请求。',

@@ -1,14 +1,14 @@
-# 源码留存说明 · 0.8.83
+# 源码留存说明 · 0.8.84
 
 这份说明跟着源码包一起放，不是发布公告。它只回答四个问题：这是哪个版本、包里有什么、缺了什么、后来的人怎么把它跑起来。
 
 ## 版本
 
-- 版本号：0.8.83
-- 开发阶段的 versionCode：129
+- 版本号：0.8.84
+- 开发阶段的 versionCode：130
 - 覆盖版包名：`io.github.lijiahua1024.dsreplica`
 - 并存版包名：`io.github.lijiahua1024.dsreplica.rp`
-- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.83`
+- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.84`
 
 ## 包里有什么
 
@@ -27,6 +27,19 @@
 
 这些不是遗漏，是故意不放进源码包。APK 和签名文件由构建者自己生成、自己保管；具体边界写在 README 的“编译、签名与分发”一节，NOTICE 里也有说明。别人转发的 APK 不代表这个仓库，也无法证明没有被改过。
 
+## 0.8.84 本版改动
+
+- `CharacterProfile` 从 12 个字段扩到 32 个，新增 `age`、`gender`、`pronouns`、`species`、`height`、`weight`、`birthday`、`occupation`、`residence`、`languages`、`favoriteFoods`、`dislikedFoods`、`favoriteDrinks`、`hobbies`、`dailyRoutine`、`possessions`、`pet`、`values`、`petPeeves`、`boundaries`、`cooperation`。`origin` 收窄为出处与身份；`appearance` 只写外貌，不再包含身高体重；`habits` 拆成食物、饮品、兴趣、作息、随身物与宠物。
+- `CHARACTER_PROFILE_FIELDS` 增加 `group`，四组为 `core`、`body`、`personality`、`story`；`CHARACTER_PROFILE_GROUPS` 提供分组标题与说明。`normalizeCharacterProfile` 同步归一化 32 个字段，旧档案缺字段补空串。
+- `formatCharacterProfile` 按四组固定顺序装配；有任一固定字段时追加固定事实声明，结尾追加配合推进与不承认模型/助手的规则。规则文本与 `roleplay.ts` 的 `ROLEPLAY_*_RULE` 逐字一致，回归测试直接比较。
+- `Settings` 新增 `profileEnabled`，存储键 `replica:character-profile-enabled`，默认开启；新增 `setCharacterProfileEnabled`，复位角色页时恢复开启。
+- `streamReply` 改为 `profileEnabled && !activeCard && characterProfileHasContent()` 才装配档案；关闭后只走表达提示词与固定演出规则。
+- `AndroidSettings` 新增「读取基础档案」开关；关闭后 32 个字段与角色名 `readOnly` 并置灰，重新开启才能编辑。页面由单组改为四组，根页状态显示「已关闭」。搜索索引同步新字段。
+- `AndroidSettings.module.css` 新增 `.profileNotice`、`.profileGroupHint` 与 `.profileField[data-disabled]`、`.profileInput[data-disabled]`、`.inlineInput[data-disabled]`。
+- 设定存档新增 `profileEnabled`；`buildSettingArchive` 写入，`parseSettingArchive` 兼容旧档按开启处理，`applySettingArchive` 通过 `saveProfileEnabled` 恢复。
+- 公告、README、`SYSTEM-PROMPT-PIPELINE.md` 与旧 12 项说明同步替换；删除“档案和提示词一起进入”等过期口径。
+- `scripts/test-roleplay.mjs` 新增 32 字段计数、固定参数顺序、固定事实声明、配合与身份规则、档案与卡片规则逐字一致、四组顺序断言。
+
 ## 0.8.83 本版改动
 
 - `CharacterCard` 新增 22 个字符串字段：`age`、`gender`、`pronouns`、`species`、`height`、`weight`、`birthday`、`occupation`、`residence`、`languages`、`favoriteFoods`、`dislikedFoods`、`favoriteDrinks`、`hobbies`、`dailyRoutine`、`possessions`、`pet`、`temperament`、`values`、`petPeeves`、`boundaries`、`cooperation`。字段顺序固定，旧卡缺字段时补空串。
@@ -43,7 +56,7 @@
 ## 0.8.82 本版改动
 
 - 设置根页入口「角色设定」改为「角色档案与表达」，页面拆成「角色设定 · 基础档案」「头像与显示」「表达提示词」三部分；根页状态显示已填档案项数与提示词状态。
-- 新增 `src/services/chat/characterProfile.ts`：`CharacterProfile` 固定 12 字段，`CHARACTER_PROFILE_FIELDS` 定义顺序、标签、提示与占位，`normalizeCharacterProfile` 丢弃未知键，`characterProfileFieldCount` 计数，`formatCharacterProfile` 生成 system 片段。
+- 新增 `src/services/chat/characterProfile.ts`：`CharacterProfile` 当时固定 12 字段（0.8.84 已扩到 32 并加开关），`CHARACTER_PROFILE_FIELDS` 定义顺序、标签、提示与占位，`normalizeCharacterProfile` 丢弃未知键，`characterProfileFieldCount` 计数，`formatCharacterProfile` 生成 system 片段。
 - `Settings` 新增 `characterProfile`，存储键 `replica:character-profile`；逐字段写入、整体替换、清空三个接口都在 `settings.ts`。角色名字仍在 `character-name`，不并入档案 JSON。
 - `streamReply` 的 system 选择改为「有当前人物卡用卡，否则有档案用档案」；两者互斥，不叠加。提示词为空但档案有内容时仍保留档案。
 - 基础档案支持 `{{user}}` / `{{char}}`，装配时统一替换；空字段整行跳过，不生成“字段：无”。
