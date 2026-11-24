@@ -1,14 +1,14 @@
-# 源码留存说明 · 0.8.81
+# 源码留存说明 · 0.8.82
 
 这份说明跟着源码包一起放，不是发布公告。它只回答四个问题：这是哪个版本、包里有什么、缺了什么、后来的人怎么把它跑起来。
 
 ## 版本
 
-- 版本号：0.8.81
-- 开发阶段的 versionCode：127
+- 版本号：0.8.82
+- 开发阶段的 versionCode：128
 - 覆盖版包名：`io.github.lijiahua1024.dsreplica`
 - 并存版包名：`io.github.lijiahua1024.dsreplica.rp`
-- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.81`
+- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.82`
 
 ## 包里有什么
 
@@ -26,6 +26,17 @@
 - 打包中间产物、测试演练页、个人备份
 
 这些不是遗漏，是故意不放进源码包。APK 和签名文件由构建者自己生成、自己保管；具体边界写在 README 的“编译、签名与分发”一节，NOTICE 里也有说明。别人转发的 APK 不代表这个仓库，也无法证明没有被改过。
+
+## 0.8.82 本版改动
+
+- 设置根页入口「角色设定」改为「角色档案与表达」，页面拆成「角色设定 · 基础档案」「头像与显示」「表达提示词」三部分；根页状态显示已填档案项数与提示词状态。
+- 新增 `src/services/chat/characterProfile.ts`：`CharacterProfile` 固定 12 字段，`CHARACTER_PROFILE_FIELDS` 定义顺序、标签、提示与占位，`normalizeCharacterProfile` 丢弃未知键，`characterProfileFieldCount` 计数，`formatCharacterProfile` 生成 system 片段。
+- `Settings` 新增 `characterProfile`，存储键 `replica:character-profile`；逐字段写入、整体替换、清空三个接口都在 `settings.ts`。角色名字仍在 `character-name`，不并入档案 JSON。
+- `streamReply` 的 system 选择改为「有当前人物卡用卡，否则有档案用档案」；两者互斥，不叠加。提示词为空但档案有内容时仍保留档案。
+- 基础档案支持 `{{user}}` / `{{char}}`，装配时统一替换；空字段整行跳过，不生成“字段：无”。
+- 设定存档新增 `profile`；`parseSettingArchive` 的空判断包含档案。导入场景改用 `replaceScene(scene)`，一次写入完整 11 字段，修掉此前只写回 5 个旧字段的问题。
+- `DEFAULT_SYSTEM_PROMPT` 改为读取角色卡与基础档案；`resetCharacterSettings` 一并清空档案。
+- `scripts/test-roleplay.mjs` 新增基础档案归一化、计数、空 system、占位符替换和稳定性断言。
 
 ## 0.8.81 本版改动
 

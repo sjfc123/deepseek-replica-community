@@ -8,9 +8,14 @@ import {
   type SceneState,
   type WorldbookEntry,
 } from './roleplay.js'
+import {
+  characterProfileHasContent,
+  normalizeCharacterProfile,
+  type CharacterProfile,
+} from './characterProfile.js'
 
 /**
- * 设定存档：把角色卡、卡头像、世界书与场景打成一个 JSON 文件。
+ * 设定存档：把基础档案、角色卡、卡头像、世界书与场景打成一个 JSON 文件。
  * 与记忆归档分离——设定属于模板，换机或分享设定时单独迁移，不随对话导出。
  */
 export const SETTING_ARCHIVE_FORMAT = 'deepseek-replica-settings'
@@ -21,6 +26,8 @@ export type SettingArchive = {
   format: string
   version: number
   exportedAt: string
+  /** 手写角色基础档案；旧版存档没有这一项，导入时按空档案处理 */
+  profile?: CharacterProfile
   cards: CharacterCard[]
   avatars: Record<string, string>
   worldbook: WorldbookEntry[]
@@ -28,6 +35,7 @@ export type SettingArchive = {
 }
 
 export type SettingArchiveInput = {
+  profile: CharacterProfile
   cards: CharacterCard[]
   avatars: Record<string, string>
   worldbook: WorldbookEntry[]
@@ -65,6 +73,7 @@ export const buildSettingArchive = (
   format: SETTING_ARCHIVE_FORMAT,
   version: SETTING_ARCHIVE_VERSION,
   exportedAt: exportedAt.toISOString(),
+  profile: input.profile,
   cards: input.cards,
   avatars: input.avatars,
   worldbook: input.worldbook,
@@ -108,13 +117,15 @@ export const parseSettingArchive = (raw: string): SettingArchive => {
   }
   const cards = normalizeCharacterCards(record.cards)
   const worldbook = normalizeWorldbook(record.worldbook)
-  if (cards.length === 0 && worldbook.length === 0) {
+  const profile = normalizeCharacterProfile(record.profile)
+  if (cards.length === 0 && worldbook.length === 0 && !characterProfileHasContent(profile)) {
     throw new SettingArchiveError('empty')
   }
   return {
     format: SETTING_ARCHIVE_FORMAT,
     version: SETTING_ARCHIVE_VERSION,
     exportedAt: typeof record.exportedAt === 'string' ? record.exportedAt : '',
+    profile,
     cards,
     avatars: pickAvatars(record.avatars),
     worldbook,
@@ -128,6 +139,8 @@ export type SettingArchivePreview = {
   worldbook: number
   newWorldbook: number
   avatars: number
+  /** 存档里是否带基础档案；旧版存档为 false */
+  profile: boolean
   exportedAt: string
 }
 
@@ -151,6 +164,7 @@ export const previewSettingArchive = (
     ),
     newWorldbook: Math.min(newWorldbook, worldbookRoom),
     avatars: Object.keys(archive.avatars).length,
+    profile: Boolean(archive.profile && characterProfileHasContent(archive.profile)),
     exportedAt: archive.exportedAt,
   }
 }
@@ -162,6 +176,7 @@ export type SettingArchiveResult = {
   worldbookSkipped: number
   avatars: number
   scene: boolean
+  profile: boolean
 }
 
 /**
@@ -176,6 +191,7 @@ export const applySettingArchive = (
     saveAvatar: (cardId: string, avatar: string) => boolean
     saveEntry: (entry: WorldbookEntry) => boolean
     saveScene: (scene: SceneState) => boolean
+    saveProfile: (profile: CharacterProfile) => void
   }
 ): SettingArchiveResult => {
   const cardIds = new Set(current.cards.map((card) => card.id))
@@ -223,5 +239,10 @@ export const applySettingArchive = (
   }
 
   const scene = api.saveScene(archive.scene)
-  return { cards, cardsSkipped, worldbook, worldbookSkipped, avatars, scene }
+  // 旧存档没有基础档案时保留当前手写内容，不用空值覆盖
+  const profile = Boolean(archive.profile && characterProfileHasContent(archive.profile))
+  if (profile && archive.profile) {
+    api.saveProfile(archive.profile)
+  }
+  return { cards, cardsSkipped, worldbook, worldbookSkipped, avatars, scene, profile }
 }

@@ -47,6 +47,11 @@ import { ANNOUNCEMENT_VERSION } from '../../app/announcement.js'
 import { readMigrationReport } from '../../services/dataMigration.js'
 import { getUnreadableRecordCount } from '../../services/chat/db.js'
 import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
+import {
+  CHARACTER_PROFILE_EN,
+  CHARACTER_PROFILE_FIELDS,
+  characterProfileFieldCount,
+} from '../../services/chat/characterProfile.js'
 import { selectSession, useChatStore } from '../../services/chat/store.js'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 import { TokenUsagePanel } from './TokenUsagePanel.js'
@@ -63,9 +68,11 @@ import {
   setCharacterAvatar,
   setCardAvatar,
   setCharacterName,
+  setCharacterProfileField,
+  replaceCharacterProfile,
   saveCharacterCard,
   saveWorldbookEntry,
-  setSceneField,
+  replaceScene,
   setAutoFollow,
   setTokenLimit,
   setShowUsage,
@@ -650,6 +657,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     autoBackup,
     autoBackupMinutes,
     characterName,
+    characterProfile,
     characterAvatar,
     avatarInChat,
     thoughtAside,
@@ -683,6 +691,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     ? findActiveCharacterCard(characterCards, activeCharacterId)
     : undefined
   const characterNameField = activeCharacterCard?.name ?? characterName
+  const profileFields = characterProfileFieldCount(characterProfile)
+  const profileTotal = CHARACTER_PROFILE_FIELDS.length
+  const promptState = systemPrompt.trim()
+    ? systemPrompt === DEFAULT_SYSTEM_PROMPT
+      ? tr('提示词默认', 'prompt default')
+      : tr('提示词自定义', 'prompt custom')
+    : tr('提示词已清空', 'prompt empty')
   const accountName = accountProfile.username || tr('未设置名称', 'No name')
   const compactChars = (value: number) =>
     value >= 1_000_000
@@ -822,7 +837,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     root: t('settings'),
     account: t('accountManagement'),
     advanced: t('advancedSettings'),
-    character: tr('角色设定', 'Character prompt'),
+    character: tr('角色档案与表达', 'Character profile & delivery'),
     roleplay: tr('角色卡与世界书', 'Character cards & lorebook'),
     sampling: tr('生成参数', 'Sampling'),
     request: tr('接口与请求', 'Endpoint & request'),
@@ -1036,10 +1051,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     return () => window.removeEventListener('android-back', onBack)
   }, [])
 
-  /** 设定存档：角色卡、头像、世界书与场景打包成一个 JSON，换机或分享设定时单独迁移 */
+  /** 设定存档：基础档案、角色卡、头像、世界书与场景打包成一个 JSON，换机或分享设定时单独迁移 */
   const exportSettings = async () => {
-    const { characterCards, cardAvatars, worldbook, scene } = useSettings.getState()
+    const { characterCards, cardAvatars, worldbook, scene, characterProfile } =
+      useSettings.getState()
     const archive = buildSettingArchive({
+      profile: characterProfile,
       cards: characterCards,
       avatars: cardAvatars,
       worldbook,
@@ -1094,14 +1111,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           saveCard: saveCharacterCard,
           saveAvatar: (cardId, avatar) => setCardAvatar(cardId, avatar),
           saveEntry: saveWorldbookEntry,
-          saveScene: (scene) => {
-            setSceneField('time', scene.time)
-            setSceneField('place', scene.place)
-            setSceneField('outfit', scene.outfit)
-            setSceneField('mood', scene.mood)
-            setSceneField('relationship', scene.relationship)
-            return true
-          },
+          saveScene: (scene) => replaceScene(scene),
+          saveProfile: (profile) => replaceCharacterProfile(profile),
         }
       )
       const skipped = result.cardsSkipped + result.worldbookSkipped
@@ -1109,11 +1120,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         type: 'done',
         text: tr(
           `已导入 ${result.cards} 张角色卡、${result.worldbook} 条世界书、${result.avatars} 张头像${
-            skipped > 0 ? `，${skipped} 项因超出上限被跳过` : ''
-          }`,
+            result.profile ? '、1 份基础档案' : ''
+          }${skipped > 0 ? `，${skipped} 项因超出上限被跳过` : ''}`,
           `Imported ${result.cards} cards, ${result.worldbook} worldbook entries, ${result.avatars} avatars${
-            skipped > 0 ? `; ${skipped} skipped due to limits` : ''
-          }`
+            result.profile ? ', 1 base profile' : ''
+          }${skipped > 0 ? `; ${skipped} skipped due to limits` : ''}`
         ),
       })
     } catch (error) {
@@ -1126,7 +1137,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             : code === 'version'
               ? tr('存档版本与当前版本不一致', 'Archive version does not match this build')
               : code === 'empty'
-                ? tr('存档里没有可导入的角色卡或世界书', 'The archive has no cards or worldbook entries')
+                ? tr('存档里没有基础档案、角色卡或世界书', 'The archive has no profile, cards or worldbook entries')
                 : code === 'write'
                   ? tr('写入失败，可能是本机存储空间不足', 'Write failed; local storage may be full')
                   : error instanceof Error
@@ -1261,7 +1272,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   }, [chatConfig.imageModel, chatConfig.imageSize])
 
   const searchIndex: Array<{ label: string; keys: string; run: () => void }> = [
-    { label: labels.character, keys: '角色设定 人设 system prompt 提示词 独白 动作', run: () => openPage('character') },
+    { label: labels.character, keys: '角色档案 角色设定 基础档案 人设 出处 外貌 性格 经历 关系 处境 目标 弱点 说话 日常 秘密 补充设定 system prompt 提示词 独白 动作', run: () => openPage('character') },
     { label: labels.roleplay, keys: '角色卡 世界书 场景 扮演 rp card worldbook', run: () => openPage('roleplay') },
     { label: labels.memory, keys: '长期记忆 记忆卡片 注入 归档 memory', run: () => openPage('memory') },
     { label: labels.sampling, keys: '采样 温度 temperature top p 最大输出 token', run: () => openPage('sampling') },
@@ -1431,13 +1442,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             <Group label={tr('角色与扮演', 'Role-play')}>
               <Row
                 label={labels.character}
-                value={
-                  systemPrompt.trim()
-                    ? systemPrompt === DEFAULT_SYSTEM_PROMPT
-                      ? tr('默认', 'Default')
-                      : tr('已自定义', 'Custom')
-                    : tr('已清空', 'Empty')
-                }
+                value={tr(
+                  `档案 ${profileFields}/${profileTotal} · ${promptState}`,
+                  `${profileFields}/${profileTotal} fields · ${promptState}`
+                )}
                 onClick={() => openPage('character')}
               />
               <Row
@@ -1711,6 +1719,51 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           <>
             <p className={styles.pageIntro}>
               {tr(
+                '这里放角色的基础档案，只回答「这个人是谁、从哪来、现在怎么生活」，不承担系统提示词、世界观、场景或玩法规则。档案与头像、显示、提示词、角色卡分开保存。\n填写顺序：出处与身份 → 外貌 → 性格 → 经历 → 关系 → 处境 → 目标 → 弱点 → 说话方式 → 日常 → 秘密 → 补充。原创、OC、二创、游戏、动漫、小说角色都按这个顺序写；越具体、越一致，模型越容易把ta当成一个正在生活的人，而不是只会回话的助手。\n边界：启用人物卡时以卡为准；没有人物卡时，这份档案与系统提示词一起进入每一轮 system。',
+                'This page holds the character base profile: who this person is, where they come from, and how they live now. It carries no system prompt, lore, scene or play-style rules, and is stored separately from avatar, display, prompt and cards.\nOrder: origin → appearance → personality → history → relationship → situation → goal → weakness → speech → daily life → secret → notes. Use the same order for OCs, fan characters, game, anime and novel characters. The more concrete and consistent the details, the more the model treats them as a living person rather than a replying assistant.\nBoundary: an active card wins. With no card, this profile and the system prompt are both sent every turn.'
+              )}
+            </p>
+            <Group label={tr('角色设定 · 基础档案', 'Character setting · base profile')}>
+              <div className={styles.inlineField}>
+                <span className={styles.inlineLabel}>{tr('角色名字', 'Name')}</span>
+                <input
+                  className={styles.inlineInput}
+                  value={characterNameField}
+                  placeholder={tr('留空则显示 AI', 'Blank shows AI')}
+                  aria-label={tr('角色名字', 'Character name')}
+                  maxLength={20}
+                  readOnly={Boolean(activeCharacterCard)}
+                  onChange={(event) => setCharacterName(event.target.value)}
+                />
+              </div>
+              {CHARACTER_PROFILE_FIELDS.map((field) => {
+                const en = CHARACTER_PROFILE_EN[field.key]
+                return (
+                  <label className={styles.profileField} key={field.key}>
+                    <span className={styles.profileLabel}>
+                      <span>{tr(field.label, en.label)}</span>
+                      <span className={styles.profileHint}>{tr(field.hint, en.hint)}</span>
+                    </span>
+                    <textarea
+                      className={styles.profileInput}
+                      rows={field.rows}
+                      value={characterProfile[field.key]}
+                      placeholder={tr(field.placeholder, en.placeholder)}
+                      aria-label={tr(field.label, en.label)}
+                      onChange={(event) => setCharacterProfileField(field.key, event.target.value)}
+                    />
+                  </label>
+                )
+              })}
+              <p className={styles.caption}>
+                {tr(
+                  `已填写 ${profileFields}/${profileTotal} 项（角色名字单独保存，不计入这 ${profileTotal} 项）。角色名字在启用人物卡期间显示为卡名；关闭后新会话恢复这里保存的手写名字，已经绑定人物的会话仍沿用卡名。空字段不会进入 system，也不会用空白占位。`,
+                  `${profileFields}/${profileTotal} fields filled (the name is stored separately and not counted). While a card is active the name shows the card name; new chats return to the handwritten name saved here. Bound chats keep the card name. Empty fields are skipped instead of sent as blanks.`
+                )}
+              </p>
+            </Group>
+            <p className={styles.pageIntro}>
+              {tr(
                 '头像仅在本机显示，不随请求上传。点击「角色头像」选择图片后，应用会居中裁切为正方形并压缩为 256px JPEG；「对话中显示头像」「角色头像大小」「头像形状」分别控制聊天中的显示、占位尺寸与外框。\n示例：为夜班店员设置冷色调半身像，聊天头像 32px、圆形。\n边界：角色卡之间不共享头像，显示图不进入请求。',
                 'The avatar stays on device and is never uploaded. Tapping Avatar crops the image to a centered square and compresses it to 256px JPEG. The rows below control chat display, reserved size and frame.\nExample: a cool-toned portrait for the night-shift clerk, 32px, circular.\nBoundary: cards do not share avatars, and the image never enters a request.'
               )}
@@ -1722,7 +1775,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               hidden
               onChange={(event) => void chooseCharacterAvatar(event)}
             />
-            <Group label={tr('角色形象', 'Character identity')}>
+            <Group label={tr('头像与显示', 'Avatar & display')}>
               <Row
                 label={avatarBusy ? tr('正在处理…', 'Processing…') : tr('角色头像', 'Avatar')}
                 value={characterAvatar ? tr('已设置', 'Set') : tr('未设置', 'None')}
@@ -1759,26 +1812,14 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 }
                 onClick={() => setPopup('avatarShape')}
               />
-              <div className={styles.inlineField}>
-                <span className={styles.inlineLabel}>{tr('角色名字', 'Name')}</span>
-                <input
-                  className={styles.inlineInput}
-                  value={characterNameField}
-                  placeholder={tr('留空则显示 AI', 'Blank shows AI')}
-                  aria-label={tr('角色名字', 'Character name')}
-                  maxLength={20}
-                  readOnly={Boolean(activeCharacterCard)}
-                  onChange={(event) => setCharacterName(event.target.value)}
-                />
-              </div>
             </Group>
             <p className={styles.pageIntro}>
               {tr(
-                '角色名字在启用角色卡期间显示为卡名，关闭后新会话恢复这里保存的手写名字；已经绑定人物的会话仍沿用卡名。系统提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：身份（是谁、与{{user}}什么关系）、表达（称呼、语气、动作密度）、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n你是{{char}}，28 岁，夜班便利店店员。\n你对{{user}}克制但关心，称呼「你」。\n用对话和动作推进，不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
-                'While a character card is active, the name field shows the card name; when roleplay is off it returns to the handwritten name saved here. The system prompt is sent every turn and overrides other behavioural hints. Write it in three layers: identity (who the character is and the relationship with {{user}}), delivery (address, tone, action density), constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nYou are {{char}}, 28, night-shift clerk.\nYou are restrained but caring toward {{user}}, and call them 「你」.\nAdvance through dialogue and action; do not restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
+                '系统提示词与上面的基础档案是两层：档案写「这个人是谁、经历过什么」，提示词写「怎么说话、怎么行动、哪些事不能做」。提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：称呼与语气、动作与对白密度、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n称呼{{user}}为「你」，句子偏短，紧张时更沉默。\n用对话和动作推进，每轮只写一个动作落点。\n不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
+                'The system prompt is a second layer above the base profile: the profile says who this person is and what shaped them; the prompt says how they speak, act and what they never do. The prompt is sent every turn and overrides other behavioural hints. Write it in three layers: address and tone, action and dialogue density, constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nCall {{user}} 「你」, keep sentences short, go quieter when nervous.\nAdvance through dialogue and one concrete action per turn.\nNever restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
               )}
             </p>
-            <Group>
+            <Group label={tr('表达提示词', 'Delivery prompt')}>
               <div className={styles.promptField}>
                 <textarea
                   className={styles.promptInput}
@@ -1788,7 +1829,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     '留空则不发送系统提示词',
                     'Leave empty to send no system prompt'
                   )}
-                  aria-label={tr('角色设定', 'Character prompt')}
+                  aria-label={tr('表达提示词', 'Delivery prompt')}
                   onChange={(event) => setSystemPrompt(event.target.value)}
                 />
                 <div className={styles.promptMeta}>
@@ -1864,7 +1905,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </summary>
               <p className={styles.helpBody}>
                 {tr(
-                  '角色卡：锁定身份、关系与说话方式；启用后与手写提示词叠加生效，不改写提示词原文。\n世界书：保存地点、组织、既往事件等稳定背景；常驻条目每轮发送，关键词条目命中才发送。\n场景：记录当前时间、地点与在场人物，用于维持情节连续性。\n预算：默认 1,000 字，可调 500–20,000 字；单轮最多 6 条，按命中次数与权重排序，未命中不计入。\n示例：条目标题「便利店仓库」，关键词「仓库、后门」，正文「后门锁坏，仅店长知情」；对话提到仓库时才注入。\n边界：空字段不注入；设定存档只含角色卡、头像、世界书与场景，不含对话和记忆。',
+                  '角色卡：锁定身份、关系与说话方式；启用后与手写提示词叠加生效，不改写提示词原文。\n世界书：保存地点、组织、既往事件等稳定背景；常驻条目每轮发送，关键词条目命中才发送。\n场景：记录当前时间、地点与在场人物，用于维持情节连续性。\n预算：默认 1,000 字，可调 500–20,000 字；单轮最多 6 条，按命中次数与权重排序，未命中不计入。\n示例：条目标题「便利店仓库」，关键词「仓库、后门」，正文「后门锁坏，仅店长知情」；对话提到仓库时才注入。\n边界：空字段不注入；设定存档含基础档案、角色卡、头像、世界书与场景，不含对话和记忆。',
                   'Cards lock identity, relationships and voice; when enabled they layer on top of the manual prompt without rewriting it.\nWorldbook stores places, groups and past events: always-on entries are sent every turn, keyword entries only on a hit.\nScene records time, location and present characters so the situation stays continuous.\nBudget: 1,000 chars by default, adjustable to 500–20,000; at most 6 entries per turn, ordered by hit count and weight, and misses cost nothing.\nExample: an entry titled 「便利店仓库」 with keywords 「仓库、后门」 and text 「后门锁坏，只有店长知道」 is sent only when the warehouse is mentioned.\nBoundary: empty fields are skipped. The archive holds cards, avatars, worldbook and scene, never chats or memories.'
                 )}
               </p>
@@ -1910,8 +1951,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 ? tr('正在处理…', 'Working…')
                 : settingStatus?.text ??
                   tr(
-                    '角色卡、头像、世界书与场景打包成一个 JSON；导入按 id 合并，同名的卡不会重复新增，超出上限的部分会跳过。设定存档不含对话与记忆。',
-                    'Cards, avatars, worldbook and scene are packed into one JSON file. Import merges by id, never duplicates a card, and skips what exceeds the limits. Settings archives contain no chats or memories.'
+                    '基础档案、角色卡、头像、世界书与场景打包成一个 JSON；导入按 id 合并，同名的卡不会重复新增，超出上限的部分会跳过。设定存档不含对话与记忆。',
+                    'Base profile, cards, avatars, worldbook and scene are packed into one JSON file. Import merges by id, never duplicates a card, and skips what exceeds the limits. Settings archives contain no chats or memories.'
                   )}
             </p>
           </>
@@ -2723,7 +2764,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption}>
               {tr(
-                '记忆块放在系统内容最前面，先于角色设定被读到。每轮只携带字符预算内的卡片，避免挤占对话空间。关闭某张卡片只是停止注入，文本仍保存在本机。',
+                '记忆块放在系统内容最前面，先于基础档案和表达提示词被读到。每轮只携带字符预算内的卡片，避免挤占对话空间。关闭某张卡片只是停止注入，文本仍保存在本机。',
                 'The memory block sits at the top of the system content, before the character prompt. Each turn carries only cards that fit the character budget. Switching a card off stops injection; its text remains on device.'
               )}
             </p>

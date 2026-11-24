@@ -5,7 +5,8 @@
  * 3. 情景、系统指令与对白示例进入 system 且跨轮稳定；
  * 4. 会话绑定优先于全局开关，旧会话可按开场白识别；
  * 5. 世界书避触词与整段历史扫描；
- * 6. 场景新增字段可解析。
+ * 6. 场景新增字段可解析；
+ * 7. 基础档案归一化、计数与 system 装配。
  */
 import assert from 'node:assert/strict'
 
@@ -22,6 +23,13 @@ const {
   sceneHasContent,
   EMPTY_SCENE,
 } = await import('../src/services/chat/roleplay.ts')
+
+const {
+  normalizeCharacterProfile,
+  characterProfileFieldCount,
+  characterProfileHasContent,
+  formatCharacterProfile,
+} = await import('../src/services/chat/characterProfile.ts')
 
 const builtins = getBuiltinCharacterCards()
 assert.equal(builtins.length, BUILTIN_CHARACTER_CARD_TOTAL, '内置卡总数必须和常量一致')
@@ -136,5 +144,45 @@ assert.equal(scene.props, '旧钥匙')
 assert.ok(scene.updatedAt > 0)
 assert.equal(sceneHasContent({ ...EMPTY_SCENE, weather: '小雨' }), true, '只有天气时场景也应有内容')
 assert.equal(sceneHasContent(EMPTY_SCENE), false)
+
+const profile = normalizeCharacterProfile({
+  origin: '原创 OC，28 岁，夜班店员',
+  appearance: '冷白皮，左手虎口有旧疤',
+  personality: '克制，被逼急了会沉默',
+  notes: '不能提母亲。',
+  unknownKey: '必须丢弃',
+})
+assert.equal(profile.unknownKey, undefined, '基础档案只保留已知字段')
+assert.equal(profile.notes, '不能提母亲。')
+assert.equal(characterProfileFieldCount(profile), 4)
+assert.equal(characterProfileHasContent(profile), true)
+assert.equal(characterProfileFieldCount(normalizeCharacterProfile(null)), 0)
+assert.equal(characterProfileHasContent(normalizeCharacterProfile(null)), false)
+
+const profileSystem = formatCharacterProfile({ profile, name: '林晚', userName: '阿遥' })
+assert.match(profileSystem, /【林晚的基础档案】/)
+assert.match(profileSystem, /夜班店员/)
+assert.match(profileSystem, /不能提母亲/)
+assert.doesNotMatch(profileSystem, /\{\{user\}\}|\{\{char\}\}/, '基础档案不应残留占位符')
+assert.doesNotMatch(profileSystem, /请扮演|按设定扮演/, '基础档案不应写成扮演指令')
+assert.equal(
+  formatCharacterProfile({ profile, name: '林晚', userName: '阿遥' }),
+  profileSystem,
+  '基础档案 system 必须稳定'
+)
+assert.equal(
+  formatCharacterProfile({ profile: normalizeCharacterProfile(null), name: '', userName: '阿遥' }),
+  '',
+  '空档案与空名字不应产生空 system'
+)
+assert.equal(
+  formatCharacterProfile({
+    profile: normalizeCharacterProfile({ origin: '把{{user}}当成旧友，称{{char}}自己为阿砚。' }),
+    name: '沈砚',
+    userName: '阿遥',
+  }).includes('把阿遥当成旧友，称沈砚自己为阿砚。'),
+  true,
+  '基础档案必须统一替换 {{user}} 与 {{char}}'
+)
 
 console.log('roleplay regression: ok')

@@ -21,6 +21,7 @@ import {
 import { MANY_IMAGES_COUNT, MANY_IMAGES_MAX_EDGE, MAX_IMAGE_EDGE } from '../imageUpload.js'
 import { parseCustomHeaders } from '../api/headers.js'
 import { composeSystemPrompt } from './systemPrompt.js'
+import { formatCharacterProfile, characterProfileHasContent } from './characterProfile.js'
 import { applyPlaceholders } from './placeholders.js'
 import {
   formatCharacterCard,
@@ -2301,6 +2302,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     characterCards,
     activeCharacterId,
     characterName,
+    characterProfile,
     roleplayEnabled,
     worldbook,
     worldbookInject,
@@ -2309,10 +2311,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   } = useSettings.getState()
   const apiKey = storedKey ?? ''
   const custom = Boolean(chatConfig.endpoint)
-  // 角色设定必须随每次请求下发：自定义网关同样需要 system 字段，缺失时模型无人物设定。
-  // 没改过默认提示词时，自定义网关改用中性提示，避免把「DeepSeek 助手」身份塞进角色扮演。
-  // 角色设定必须随每次请求下发：手写文本原样使用，`{{user}}` 只在发请求时换成账号名字，
-  // 打开出戏压制时再在后面追加演出规则；本地保存的提示词不会被改写。
+  // 表达提示词必须随每次请求下发：自定义网关同样需要 system 字段，缺失时模型无表达约束。
+  // 手写文本原样使用，`{{user}}` 只在发请求时换成账号名字；打开出戏压制时再在后面追加演出规则。
   const sessionForMemory = getSession(sessionId)
   const visibleForRoleplay = sessionForMemory ? getVisibleMessages(sessionForMemory) : []
   const activeCard = resolveTurnCharacterCard(
@@ -2384,14 +2384,21 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // system 只放跨轮稳定的内容。缓存按完整前缀命中，system 里哪怕只变一张记忆卡，
   // 后面的全部历史都会失效；记忆、场景和按关键词挑出的世界书因此统一挪到本轮末尾。
   // 卡内开场白也固定在 system：不按消息条数删，是否重复由卡内“只用一次”的文案约束。
+  // 有当前人物卡时以卡为准；没有卡时才用手写基础档案，避免两套身份在同一段 system 里打架。
+  const profileSystem =
+    !activeCard && characterProfileHasContent(characterProfile)
+      ? formatCharacterProfile({
+          profile: characterProfile,
+          name: characterName,
+          userName,
+        })
+      : ''
   const baseSystem = [
-    roleplayActive && activeCard
-      ? formatCharacterCard(activeCard, userName)
-      : '',
+    activeCard ? formatCharacterCard(activeCard, userName) : profileSystem,
     composeSystemPrompt({
       savedPrompt: systemPrompt,
       custom,
-      suppressMetaTalk: suppressMetaTalk && roleplayActive,
+      suppressMetaTalk: suppressMetaTalk && (roleplayActive || Boolean(profileSystem)),
       userName,
     }),
   ]

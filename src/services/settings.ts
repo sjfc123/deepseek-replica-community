@@ -21,6 +21,11 @@ import {
   type SceneState,
   type WorldbookEntry,
 } from './chat/roleplay.js'
+import {
+  emptyCharacterProfile,
+  normalizeCharacterProfile,
+  type CharacterProfile,
+} from './chat/characterProfile.js'
 import type { TtsVoice } from './api/speech.js'
 import { normalizeLocation, type UserLocation } from './location.js'
 import { migrateLocalData } from './dataMigration.js'
@@ -79,7 +84,7 @@ export const LEGACY_SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公�
  * 默认系统提示词：要求模型以具备实体与生活背景的角色身份回应，而非问答助手口吻。
  * 未配置角色卡时独立成立；已配置角色卡时以角色卡为准，本提示词仅约束拟真度与角色一致性。
  */
-export const DEFAULT_SYSTEM_PROMPT = `你是一个有血有肉、正在真实生活着的人。你的名字、身份与关系以角色卡和{{user}}给出的具体设定为准；具体设定与本段冲突时，以更具体的角色卡为准，本段只补足通用的行为与生活感。没有额外设定时，就以一个温柔、敏锐、有自己生活节奏的成年角色出现。
+export const DEFAULT_SYSTEM_PROMPT = `你是一个有血有肉、正在真实生活着的人。你的名字、身份与关系以角色卡、角色基础档案和{{user}}给出的具体设定为准；具体设定与本段冲突时，以更具体的角色卡或基础档案为准，本段只补足通用的行为与生活感。没有额外设定时，就以一个温柔、敏锐、有自己生活节奏的成年角色出现。
 
 你不是程序，不是模型，也不是助手。你有身体、有感官、有作息：会饿、会困、会冷，会被天气、声音和气味影响，会因为一句话心里发紧或发热。你有自己的房间、日常、工作或学业、朋友与习惯，这些细节不必一次说完，但要在对话里自然露出来，并且前后保持一致。
 
@@ -123,7 +128,7 @@ type Settings = {
   fontSize: number | null
   foldThinking: boolean
   pinnedSessions: string[]
-  /** 角色设定：作为 system 前缀随每次请求下发，自定义网关同样生效 */
+  /** 表达提示词：作为 system 前缀随每次请求下发，自定义网关同样生效 */
   systemPrompt: string
   /** 采样参数，null 表示沿用服务端默认值 */
   temperature: number | null
@@ -162,6 +167,8 @@ type Settings = {
   autoBackupMinutes: number
   /** 角色扮演的角色名，聊天里配在角色头像旁；空串表示不显示 */
   characterName: string
+  /** 角色基础档案：只描述人物本身，与提示词、世界书、场景分开保存 */
+  characterProfile: CharacterProfile
   /** 角色头像，data URL；空表示用首字母占位 */
   characterAvatar: string | null
   /** 聊天区显示头像：助手用角色头像，用户用账号头像 */
@@ -205,7 +212,7 @@ type Settings = {
   /** 角色卡：多角色切换；启用中的卡会注入姓名、身份、关系、风格等字段 */
   characterCards: CharacterCard[]
   activeCharacterId: string | null
-  /** 角色扮演模式：开启时注入当前启用卡；关闭后完全不注入卡，只保留手写角色设定与系统提示词 */
+  /** 角色扮演模式：开启时注入当前启用卡；关闭后完全不注入卡，只保留手写基础档案与表达提示词 */
   roleplayEnabled: boolean
   /** 角色卡头像：按卡片 id 单独存一份 data URL，与卡片正文分开，删除卡片时随之清理 */
   cardAvatars: Record<string, string>
@@ -271,6 +278,8 @@ const KEYS = {
   /** 旧版以小时为单位存储，仅用于一次性迁移 */
   autoBackupHoursLegacy: 'replica:auto-backup-hours',
   characterName: 'replica:character-name',
+  /** 角色基础档案：结构固定，单键保存整份 JSON */
+  characterProfile: 'replica:character-profile',
   characterAvatar: 'replica:character-avatar',
   avatarInChat: 'replica:avatar-in-chat',
   thoughtAside: 'replica:thought-aside',
@@ -460,9 +469,9 @@ const initialActiveCharacterId = (): string | null => {
 }
 
 /**
- * 角色名字属于「手写角色设定」，不能被角色卡永久覆盖。
+ * 角色名字属于「手写角色基础档案」，不能被角色卡永久覆盖。
  * 旧版本启卡时把卡名写进了这个键；如果读到的值与当前启用卡同名，视为历史残留并清空，
- * 让关闭角色卡后回到手写设定，而不是继续沿用卡名。
+ * 让关闭角色卡后回到手写档案，而不是继续沿用卡名。
  */
 const initialCharacterName = (): string => {
   const saved = read(KEYS.characterName)?.trim() ?? ''
@@ -489,6 +498,10 @@ const initialRoleplayEnabled = (activeId: string | null): boolean => {
 const initialWorldbook = (): WorldbookEntry[] => normalizeWorldbook(readJson(KEYS.worldbook))
 
 const initialScene = (): SceneState => normalizeScene(readJson(KEYS.scene))
+
+/** 基础档案随设置一起读回；损坏或旧结构统一归一化成空档案，不阻断启动 */
+const initialCharacterProfile = (): CharacterProfile =>
+  normalizeCharacterProfile(readJson(KEYS.characterProfile))
 
 const initialCharacterAvatar = (): string | null => {
   const saved = read(KEYS.characterAvatar)
@@ -657,6 +670,7 @@ export const useSettings = create<Settings>(() => ({
   autoBackup: read(KEYS.autoBackup) !== 'false',
   autoBackupMinutes: readAutoBackupMinutes(),
   characterName: initialCharacterName(),
+  characterProfile: initialCharacterProfile(),
   characterAvatar: initialCharacterAvatar(),
   avatarInChat: read(KEYS.avatarInChat) !== 'false',
   thoughtAside: read(KEYS.thoughtAside) !== 'false',
@@ -797,7 +811,7 @@ export const setSiderCollapsed = (siderCollapsed: boolean) => {
 
 /**
  * 角色提示词。清空就是清空：记住「主动清空」这一状态，不要偷偷回填默认提示词；
- * 想恢复默认走角色设定页底部的复位。空白输入按清空处理，避免发出一条只有空格的 system。
+ * 想恢复默认走角色档案与表达页底部的复位。空白输入按清空处理，避免发出一条只有空格的 system。
  */
 export const setSystemPrompt = (systemPrompt: string) => {
   const cleared = !systemPrompt.trim()
@@ -931,12 +945,12 @@ export const matchRefusalKeyword = (text: string): string | null => {
   )
 }
 
-/** 角色设定页：只复位提示词 */
+/** 角色档案与表达页：只复位表达提示词 */
 
 const persistCharacterCards = (cards: CharacterCard[]) =>
   write(KEYS.characterCards, cards.length > 0 ? JSON.stringify(cards) : null)
 
-/** 保存或更新一张角色卡；卡名只用于卡本身，不改写手写角色设定的名字 */
+/** 保存或更新一张角色卡；卡名只用于卡本身，不改写手写基础档案的名字 */
 export const saveCharacterCard = (card: CharacterCard) => {
   const cards = useSettings.getState().characterCards
   const next = cards.some((item) => item.id === card.id)
@@ -967,7 +981,7 @@ export const setCardAvatar = (cardId: string, avatar: string | null) => {
   return true
 }
 
-/** 启用角色卡：卡名由运行时按「当前启用卡」解析，不覆盖手写角色设定的名字 */
+/** 启用角色卡：卡名由运行时按「当前启用卡」解析，不覆盖手写基础档案的名字 */
 export const activateCharacterCard = (id: string | null) => {
   const card = id
     ? useSettings.getState().characterCards.find((item) => item.id === id)
@@ -980,7 +994,7 @@ export const activateCharacterCard = (id: string | null) => {
   })
 }
 
-/** 只切换角色扮演模式：关闭后不再注入角色卡，回到手写角色设定与系统提示词 */
+/** 只切换角色扮演模式：关闭后不再注入角色卡，回到手写基础档案与表达提示词 */
 export const setRoleplayEnabled = (roleplayEnabled: boolean) => {
   write(KEYS.roleplayEnabled, roleplayEnabled ? '1' : '0')
   useSettings.setState({ roleplayEnabled })
@@ -1201,6 +1215,35 @@ export const setCharacterName = (characterName: string) => {
   useSettings.setState({ characterName: value })
 }
 
+/** 基础档案逐字段写入：只更新当前字段，不清掉其它已填内容 */
+export const setCharacterProfileField = (
+  key: keyof Omit<CharacterProfile, 'updatedAt'>,
+  value: string
+) => {
+  const current = useSettings.getState().characterProfile
+  const next: CharacterProfile = {
+    ...current,
+    [key]: value,
+    updatedAt: Date.now(),
+  }
+  write(KEYS.characterProfile, JSON.stringify(next))
+  useSettings.setState({ characterProfile: next })
+}
+
+/** 导入设定存档或整体替换时使用；外部字段先归一化，避免脏键写入 */
+export const replaceCharacterProfile = (raw: unknown) => {
+  const next = normalizeCharacterProfile(raw)
+  next.updatedAt = next.updatedAt || Date.now()
+  write(KEYS.characterProfile, JSON.stringify(next))
+  useSettings.setState({ characterProfile: next })
+}
+
+export const clearCharacterProfile = () => {
+  const next = emptyCharacterProfile()
+  write(KEYS.characterProfile, JSON.stringify(next))
+  useSettings.setState({ characterProfile: next })
+}
+
 export const setCharacterAvatar = (characterAvatar: string | null) => {
   write(KEYS.characterAvatar, characterAvatar)
   useSettings.setState({ characterAvatar })
@@ -1344,7 +1387,7 @@ export const setAutoFollow = (autoFollow: boolean) => {
 
 const clampAvatarSize = (size: number) => Math.min(36, Math.max(20, Math.round(size)))
 
-/** 角色设定页改的是 AI 头像，账户页改的是玩家自己的头像，两边互不影响 */
+/** 角色档案页改的是 AI 头像，账户页改的是玩家自己的头像，两边互不影响 */
 export const setCharacterAvatarSize = (size: number) => {
   const next = clampAvatarSize(size)
   write(KEYS.characterAvatarSize, String(next))
@@ -1405,11 +1448,12 @@ export const setThoughtAside = (thoughtAside: boolean) => {
   useSettings.setState({ thoughtAside })
 }
 
-/** 角色设定页：提示词与角色名复位；头像和显示开关属于形象资产，保留 */
+/** 角色档案与表达页：提示词、角色名与基础档案复位；头像和显示开关属于形象资产，保留 */
 export const resetCharacterSettings = () => {
   setSystemPrompt(DEFAULT_SYSTEM_PROMPT)
   setCharacterName('')
   setSuppressMetaTalk(false)
+  clearCharacterProfile()
 }
 
 /** 生成参数页：温度、Top P、最大输出、推理强度 */
