@@ -109,7 +109,7 @@ export const readAutoBackupStatus = (): AutoBackupStatus | null => {
  * 立刻导出一次到下载目录。导出会遍历全部会话，和手动导出共用同一个串行队列，
  * 因此不会与用户正在进行的导入/导出互相打断。
  */
-export const runAutoBackup = async (
+const performAutoBackup = async (
   options: { notify?: boolean } = {}
 ): Promise<AutoBackupResult> => {
   const target = device()
@@ -204,6 +204,27 @@ export const runAutoBackup = async (
     window.dispatchEvent(new CustomEvent('replica:auto-backup-success', { detail: result }))
   }
   return result
+}
+
+/** 同一时间只允许一次备份；自动与手动撞车时共用同一次执行，避免同秒发布两份文件 */
+let inFlight: Promise<AutoBackupResult> | null = null
+
+export const runAutoBackup = (
+  options: { notify?: boolean } = {}
+): Promise<AutoBackupResult> => {
+  if (inFlight) {
+    return inFlight
+  }
+  const task = performAutoBackup(options)
+  inFlight = task
+  void task
+    .finally(() => {
+      if (inFlight === task) {
+        inFlight = null
+      }
+    })
+    .catch(() => {})
+  return task
 }
 
 /** 开关开启且距上次备份超过设定间隔时执行；由启动、回到前台与定时器触发 */

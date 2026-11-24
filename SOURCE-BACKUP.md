@@ -33,6 +33,7 @@
 - `AutoBackup.begin()` 增加预期字节数参数，`MainActivity` 的 `beginAutoBackup(String, long)` 同步；`append()` 在超过预期大小时立即失败，`finish()` 校验失败会清理临时文件并返回 false。
 - `status()` 与 `prune()` 只查询 `IS_PENDING = 0` 的条目，并检查文件头 `PK\x03\x04` 与末尾 EOCD `PK\x05\x06`；空文件、截断文件、pending 残留和超出保留数量的文件会被删除。目录匹配改为 `%DeepSeek Replica/自动备份%`，兼容带或不带 `Download` 前缀、末尾斜杠不同的设备。
 - 新增 `src/services/chat/backupName.ts`，备份名改为 `deepseek_data-YYYY-MM-DD-HHMMSS.zip`；同一天多次备份不再产生同名副本，`backup.ts` 统一使用该生成器。
+- `runAutoBackup` 增加单飞锁 `inFlight`：自动备份与手动「立即备份」同时触发时复用同一次执行，避免同一秒发布两份同名文件。
 - `runAutoBackup` 支持 `notify`：定时、启动和回到前台触发的成功/失败分别派发 `replica:auto-backup-success` / `replica:auto-backup-failed`；`App.tsx` 监听后 toast 提示「自动备份完成：N 个对话，文件已校验」或「失败，下载目录不会留下不完整文件」。
 - 手动备份提示与失败文案同步：补上「文件已校验」；区分 `verify`（完整性校验失败）与 `finish`（发布未确认），不再显示“文件已写入但系统未确认”的旧口径。
 - 设置页状态与说明更新：上次校验仅在 `meta.name` 与当前最新备份同名时展示，避免旧指纹误导；数据页文案说明临时文件、校验、发布和清理顺序。
