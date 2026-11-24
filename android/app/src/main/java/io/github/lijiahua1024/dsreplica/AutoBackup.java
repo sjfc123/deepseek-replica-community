@@ -377,15 +377,32 @@ final class AutoBackup {
     }
 
     private void cleanupStalePending() {
+        Cursor cursor = null;
+        List<Uri> stale = new ArrayList<>();
         try {
-            resolver.delete(
+            // 不依赖厂商对 pending 选择条件的支持：先按目录取出，再逐条读状态。
+            cursor = resolver.query(
                 MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                MediaStore.Downloads.RELATIVE_PATH + " LIKE ? AND "
-                    + MediaStore.Downloads.IS_PENDING + " = 1",
-                new String[]{PATH_FILTER});
+                new String[]{
+                    MediaStore.Downloads._ID,
+                    MediaStore.Downloads.IS_PENDING
+                },
+                MediaStore.Downloads.RELATIVE_PATH + " LIKE ?",
+                new String[]{PATH_FILTER},
+                null);
+            if (cursor == null) return;
+            while (cursor.moveToNext()) {
+                if (cursor.getInt(1) == 1) {
+                    stale.add(Uri.withAppendedPath(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI, cursor.getString(0)));
+                }
+            }
         } catch (RuntimeException ignored) {
-            // 部分厂商的 MediaStore 不支持按 pending 删除；不影响新文件发布。
+            // 查询失败时不影响新文件发布。
+        } finally {
+            if (cursor != null) cursor.close();
         }
+        deleteAll(stale);
     }
 
     private void cleanupStaging() {
