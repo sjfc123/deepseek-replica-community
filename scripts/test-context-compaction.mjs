@@ -47,7 +47,15 @@ registerHooks({
 })
 
 globalThis.window = new EventTarget()
-globalThis.document = { visibilityState: 'hidden' }
+globalThis.window.setTimeout = setTimeout
+globalThis.window.clearTimeout = clearTimeout
+globalThis.document = {
+  visibilityState: 'hidden',
+  documentElement: {
+    dataset: {},
+    style: { setProperty() {}, removeProperty() {} },
+  },
+}
 Object.defineProperty(globalThis, 'localStorage', { value: { getItem: () => null } })
 globalThis.cancelAnimationFrame = () => {}
 globalThis.__API_ORIGIN__ = 'https://mock.invalid'
@@ -436,7 +444,7 @@ test('基础地址按协议拼接，兼容已保存的完整地址', () => {
   assert.equal(resolveChatEndpoint('ftp://provider.invalid/v1', 'responses'), null)
   assert.deepEqual(
     readChatConfig(JSON.stringify({ model: '', endpoint: '', format: 'responses', apiKey: 'old' })),
-    { model: '', endpoint: '', format: 'responses', apiKey: '' }
+    { model: '', endpoint: '', format: 'responses', apiKey: '', imageModel: '', imageSize: '' }
   )
 })
 
@@ -497,9 +505,13 @@ for (const [format, response, partsKey, tokenKey, pathname] of [
       assert.equal(body.model, 'provider-model')
       assert.equal(body.stream, true)
       assert.ok(body[tokenKey] > 0)
+      const roles = body[partsKey].map(({ role }) => role)
       assert.deepEqual(
-        body[partsKey].map(({ role }) => role),
-        ['user', 'assistant', 'user']
+        roles,
+        // 自定义 Chat 也保留 system 首条；Messages/Responses 的 system 不在消息数组里。
+        format === 'chat'
+          ? ['system', 'user', 'assistant', 'user']
+          : ['user', 'assistant', 'user']
       )
       assert.match(JSON.stringify(body[partsKey]), /第一轮回答/)
       assert.match(JSON.stringify(body[partsKey]), /附件正文/)
@@ -513,7 +525,7 @@ for (const [format, response, partsKey, tokenKey, pathname] of [
     const session = await finish(id)
     const answer = session.messages.at(-1)
     assert.equal(fetch.mock.callCount(), 1)
-    assert.equal(answer.status, 'done')
+    assert.equal(answer.status, 'done', JSON.stringify(answer.error))
     assert.equal(answer.stopReason, 'end_turn')
     assert.equal(answer.model, 'provider-model')
     assert.equal(answer.blocks.find(({ type }) => type === 'text').text, '第二轮回答')
@@ -868,6 +880,51 @@ test('续写缩短请求里的前缀时，已生成的原文仍完整保留', as
       .join(''),
     original + '续写成功'
   )
+})
+
+test('续写只回放原文且没有新增时不写记忆，并提示空续写', async (t) => {
+  const original = '原句。'
+  const previous = { ...reply('previous', original), status: 'done' }
+  const id = seed([user('question', '原问题'), previous])
+  const { chatConfig, memoryMode } = useSettings.getState()
+  t.after(() => useSettings.setState({ chatConfig, memoryMode }))
+  useSettings.setState({
+    chatConfig: { ...chatConfig, endpoint: '', format: 'messages' },
+    memoryMode: 'turn',
+  })
+  respond = (body) => {
+    const prefix = body.messages.at(-1)
+    assert.equal(prefix.role, 'assistant')
+    assert.equal(prefix.content[0].text, original)
+    // 只回放已发送的 assistant 原文，不产生任何新正文。
+    return stream(original)
+  }
+  continueReply(id, previous.id)
+  const saved = await finish(id)
+  const last = saved.messages.at(-1)
+  assert.equal(last.blocks.map(({ text }) => text).join(''), original)
+  assert.equal(last.memories, undefined, '没有新增正文时不能写入记忆')
+})
+
+test('续写回放原文后只保留新增内容，不重复写入记忆', async (t) => {
+  const original = '原句。'
+  const previous = { ...reply('previous', original), status: 'done' }
+  const id = seed([user('question', '原问题'), previous])
+  const { chatConfig, memoryMode } = useSettings.getState()
+  t.after(() => useSettings.setState({ chatConfig, memoryMode }))
+  useSettings.setState({
+    chatConfig: { ...chatConfig, endpoint: '', format: 'messages' },
+    memoryMode: 'turn',
+  })
+  respond = (body) => {
+    assert.equal(body.messages.at(-1).role, 'assistant')
+    return stream(original + '新增内容。')
+  }
+  continueReply(id, previous.id)
+  const saved = await finish(id)
+  const last = saved.messages.at(-1)
+  assert.equal(last.blocks.map(({ text }) => text).join(''), original + '新增内容。')
+  assert.equal(last.memories, undefined, '续写不生成第二张记忆卡')
 })
 
 test('切换分支、再发送时只使用当前路径上的检查点', async () => {

@@ -4,8 +4,8 @@
  * 条目按「新增 / 优化 / 修复 / 说明」四类组织；文案保持可读，
  * 只说明改动位置、实际行为与使用边界，不评价、不宣传。
  */
-export const ANNOUNCEMENT_ID = '0.8.77'
-export const ANNOUNCEMENT_VERSION = '0.8.77'
+export const ANNOUNCEMENT_ID = '0.8.78'
+export const ANNOUNCEMENT_VERSION = '0.8.78'
 
 export type AnnouncementCategory = 'new' | 'opt' | 'fix' | 'note'
 
@@ -39,7 +39,7 @@ export const ANNOUNCEMENT: {
   title: '更新公告',
   version: ANNOUNCEMENT_VERSION,
   intro: [
-    '这一版修复继续生成：续写请求会明确要求从上一个字之后接写，并过滤上游回放的原文前缀，避免原句被再追加一遍；同时把 System、记忆、场景、世界书与上下文提醒的实际位置写清楚。',
+    '这一版继续收紧“继续生成”：上游只回放原回答、没有产生新正文时，保留原回答并明确提示，不再当成成功续写，也不会重复写入记忆；续写前缀改为按实际请求的 assistant 序列化拼接，多文本段回放也能正确剥离。',
   ].join('\n'),
   warningTitle: '用之前，先说清楚几件事',
   warningLead: '下面的内容不复杂，但和你怎么用、要承担什么有关，尤其是审核开关。',
@@ -61,7 +61,8 @@ export const ANNOUNCEMENT: {
       category: 'fix',
       heading: '修复',
       items: [
-        '继续生成不再把原句重复一遍：本次请求在非空 system 末尾临时追加续写约束，要求从最后一个字之后接写，不重发、不改写、不总结、不重新开场、不替用户说话；上游若整段回放已发送的 assistant 原文，客户端会剥掉前缀后再追加。该入口仍只对官方 Messages 协议开放。',
+        '继续生成只回放原文、没有新正文时，不再按正常完成收尾：原回答保留，界面提示“没有产生新内容”，本次不写入记忆，也不生成第二张记忆卡。',
+        '续写前缀不再用简单的文本块拼接，而是按真正发给接口的 assistant 序列化结果生成；被思考或工具隔开的多段正文也能正确剥掉回放前缀，避免原句被再追加一遍。',
         '角色卡开场白固定留在 system 里，不再因为消息条数达到 2 条就从 system 消失；文案改为“只在第一条回复使用，后续自然延续”，角色卡与历史的前缀不再第二轮突然变化。',
         '纯空白提示词按“主动清空”处理，不再悄悄回落到默认人格；清空后请求体第一条就是 user，不会发出只有空格的 system。',
         '手写角色名和卡名都为空时，`{{char}}` 回退为 `AI`，不再把字面占位符留在 system 或背景资料里。',

@@ -293,6 +293,20 @@ const toAssistantParam = (
   }
 }
 
+/**
+ * 续写前缀的正文必须与真正发给接口的 assistant 内容逐字一致。
+ * `toAssistantParam` 会在被思考或工具隔开的文本段之间补分隔符，直接拿
+ * `getReplyText` 的简单拼接去比对会漏掉这些分隔符，导致回放原文时无法剥离。
+ */
+export const getReplyPrefixText = (reply: AssistantMessage, thinking = false): string => {
+  const assistant = toAssistantParam(reply, true, thinking)
+  const content = Array.isArray(assistant.content) ? assistant.content : []
+  return content
+    .filter((block): block is TextBlockParam => block.type === 'text')
+    .map((block) => block.text)
+    .join('')
+}
+
 /** 历史中会进入请求上下文的轮次：提问后紧跟可用回答的才保留 */
 export const getContextRounds = (history: Message[]): [UserMessage, AssistantMessage][] => {
   const rounds: [UserMessage, AssistantMessage][] = []

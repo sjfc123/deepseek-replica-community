@@ -88,4 +88,22 @@ step = filterContinuationEcho(startEcho, {
 })
 assert.equal(step.event.content_block.text, '新增。', '块起始回放也要剥掉')
 
+// 上游只回放原文、没有新增时，过滤器不能把原文当成新内容放出来。
+const noNew = createContinuationEchoFilter('原文\n\n第二段')
+step = filterContinuationEcho(noNew, textEvent('原文\n\n第二段'))
+assert.equal(step.event, null, '回放原文后没有新增时应保持无输出')
+step = filterContinuationEcho(step.filter, { type: 'content_block_stop', index: 0 })
+assert.equal(step.event.type, 'content_block_stop', '结束事件可以放行')
+assert.equal(step.filter.resolved, false, '没有新增时不能标记为已续写')
+
+// 多文本段前缀使用实际序列化中的分隔符，回放后只放行新增内容。
+const segmented = createContinuationEchoFilter('原文\n\n第二段')
+step = filterContinuationEcho(segmented, textEvent('原文\n\n第二段新增'))
+assert.equal(step.event.delta.text, '新增', '带分隔符的原文回放也要剥离')
+
+// 回放原文后的空白不构成有效续写；商店层按 trim 后是否为空判断新内容。
+const whitespace = createContinuationEchoFilter('原文')
+step = filterContinuationEcho(whitespace, textEvent('原文\n  '))
+assert.equal(step.event.delta.text.trim(), '', '回放原文后的空白不算新文本')
+
 console.log('system prompt regression: ok')

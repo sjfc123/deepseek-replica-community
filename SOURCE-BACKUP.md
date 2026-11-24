@@ -1,14 +1,14 @@
-# 源码留存说明 · 0.8.77
+# 源码留存说明 · 0.8.78
 
 这份说明跟着源码包一起放，不是发布公告。它只回答四个问题：这是哪个版本、包里有什么、缺了什么、后来的人怎么把它跑起来。
 
 ## 版本
 
-- 版本号：0.8.77
-- 开发阶段的 versionCode：123
+- 版本号：0.8.78
+- 开发阶段的 versionCode：124
 - 覆盖版包名：`io.github.lijiahua1024.dsreplica`
 - 并存版包名：`io.github.lijiahua1024.dsreplica.rp`
-- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.77`
+- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.78`
 
 ## 包里有什么
 
@@ -26,6 +26,13 @@
 - 打包中间产物、测试演练页、个人备份
 
 这些不是遗漏，是故意不放进源码包。APK 和签名文件由构建者自己生成、自己保管；具体边界写在 README 的“编译、签名与分发”一节，NOTICE 里也有说明。别人转发的 APK 不代表这个仓库，也无法证明没有被改过。
+
+## 0.8.78 本版改动
+
+- 修复继续生成“只回放原文却按完成保存记忆”：`streamReply` 记录续写是否收到非空白新正文；续写请求不写角色记忆、普通代码记忆，也不触发场景更新。没有新正文时保留原回答并提示 `continueEmpty`，不再生成第二张记忆卡。
+- 续写回放前缀改用 `getReplyPrefixText`：它复用 `toAssistantParam` 的实际序列化结果，而不是 `getReplyText` 的简单拼接。多文本段被思考或工具隔开时，发送给接口的分隔符与过滤前缀一致，回放原文不会因前缀不匹配再次追加。
+- `pnpm test:system` 增加“回放原文后没有新增”“多文本段分隔符回放”和“空白增量不算新正文”断言；`scripts/test-context-compaction.mjs` 增加 store 级续写测试，确认只回放原文时不写记忆、回放后只保留新增内容，30 项全部通过。
+- 版本升到 0.8.78，Android versionCode 124。
 
 ## 0.8.77 本版改动
 

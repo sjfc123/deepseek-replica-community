@@ -219,6 +219,7 @@ export const zh = {
   replyInsufficientBalance: '账户余额不足，请充值后重试',
   replyRateLimited: '请求过于频繁，请稍后再试',
   replyInputTooLong: '这条消息或附件超过模型可处理的长度，请拆成几部分后重试',
+  continueEmpty: '继续生成没有产生新内容，已保留原回答，且未写入记忆',
   completionServerErrorToast: '当前服务异常，请稍后再试',
   unknownError: '未知错误',
   replyRefused: '该请求无法处理，请调整后重试。',

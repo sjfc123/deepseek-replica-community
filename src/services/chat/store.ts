@@ -100,6 +100,7 @@ import {
   type DraftFilePayload,
 } from './drafts.js'
 import { createLatestReminder } from './latestReminder.js'
+import { showToast } from '../../components/base/toastState.js'
 import {
   CONTINUATION_GUARD,
   createContinuationEchoFilter,
@@ -109,7 +110,7 @@ import {
   applyEvent,
   canContinueReply,
   getContextRounds,
-  getReplyText,
+  getReplyPrefixText,
   settleReply,
   toRequestMessages,
 } from './reply.js'
@@ -1325,7 +1326,20 @@ export const continueReply = (sessionId: string, messageId: string) => {
   updateReply(sessionId, reply)
   updateSession(sessionId, (s) => ({ ...s, updatedAt: Date.now() }))
   persist(sessionId)
-  void streamReply(sessionId, reply, { history: path.slice(0, -2), question, prefix: previous })
+  void streamReply(sessionId, reply, {
+    history: path.slice(0, -2),
+    question,
+    prefix: previous,
+  })
+    .then(({ hasNewContent, status }) => {
+      // 上游只回放原文、没有新内容时，保留原回答并明确提示；不能让它看起来像一次成功续写。
+      if (!hasNewContent && status === 'done') {
+        showToast({ key: 'continueEmpty' })
+      }
+    })
+    .catch(() => {
+      // 请求错误由 streamReply 内部落成消息错误状态，这里只兜底避免未处理的 Promise。
+    })
 }
 
 /** 附件补传失败后重试：保留原回答位置，重新补传并请求 */
@@ -2463,6 +2477,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         prefix: false,
       }
     : initial
+  // 续写请求是否真的收到新正文；只有回放原文或只有空白时，不能算一次新回复。
+  let continuationReceived = false
   let frame = 0
   const flush = () => {
     cancelAnimationFrame(frame)
@@ -2638,7 +2654,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         const events = streamChatMessage(chatConfig, apiKey, body, signal, extraHeaders)
         const blockIndexes = new Map<number, number>()
         const continuationBlockStart = reply.blocks.length
-        const continuationPrefix = request.prefix ? getReplyText(request.prefix) : ''
+        const continuationPrefix = request.prefix
+          ? getReplyPrefixText(request.prefix, initial.thinking ?? false)
+          : ''
         let continuationEcho =
           continuationPrefix.length > 0
             ? createContinuationEchoFilter(continuationPrefix)
@@ -2665,6 +2683,20 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
               continue
             }
             eventToApply = filtered.event
+          }
+          if (request.prefix) {
+            const text =
+              eventToApply.type === 'content_block_start'
+                ? eventToApply.content_block.type === 'text'
+                  ? eventToApply.content_block.text
+                  : ''
+                : eventToApply.type === 'content_block_delta' &&
+                    eventToApply.delta.type === 'text_delta'
+                  ? eventToApply.delta.text
+                  : ''
+            if (text.trim()) {
+              continuationReceived = true
+            }
           }
           reply = applyEvent(reply, eventToApply, Date.now(), blockIndexes)
           if (document.visibilityState === 'hidden') {
@@ -2802,9 +2834,13 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       ),
     }))
     persist(sessionId)
-    // 记忆在收尾时写入：正常完成和「内容已出来但被停止」都算一轮，报错不记
+    // 续写是同一个回复的延长，不生成第二张记忆卡；只回放原文、没有新正文时更不能算完成一轮。
     const answerText = replyPlainText(reply)
-    if ((reply.status === 'done' || reply.status === 'stopped') && answerText.trim()) {
+    if (
+      !request.prefix &&
+      (reply.status === 'done' || reply.status === 'stopped') &&
+      answerText.trim()
+    ) {
       recordTurnMemory(sessionId, reply.id, request.question.content, answerText, memoryMode)
       if (!roleplayActive) {
         recordNormalCodeMemory(sessionId, reply.id, answerText)
@@ -2814,4 +2850,5 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       }
     }
   }
+  return { hasNewContent: !request.prefix || continuationReceived, status: reply.status }
 }
