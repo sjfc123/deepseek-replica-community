@@ -50,7 +50,8 @@ export const Menu = ({
           align: 'start',
           alignOffset: -5,
           offset: sidebarMenu ? 5.6 : 4,
-          maxHeight: sidebarMenu ? 336 : 286,
+          // 会话菜单在网页端也可能有 9 项；上限留足，具体高度仍会按视口剩余空间收口
+          maxHeight: sidebarMenu ? 420 : 286,
         }
   )
   useDismiss(open, [anchorRef, floatingRef], close)

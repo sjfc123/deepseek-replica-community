@@ -194,7 +194,7 @@ export const SessionItem = memo(function SessionItem({
           onClick={(event) => event.stopPropagation()}
         >
           <Menu
-            variant={android ? 'sidebar' : undefined}
+            variant="sidebar"
             anchorPoint={menuPoint}
             onOpenChange={(next) => {
               if (!next) {

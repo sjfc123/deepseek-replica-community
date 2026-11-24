@@ -8,6 +8,8 @@
   box-sizing: border-box;
   min-width: 124px;
   padding: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 12px;
   background-color: var(--dsw-specific-menu);
   box-shadow:
