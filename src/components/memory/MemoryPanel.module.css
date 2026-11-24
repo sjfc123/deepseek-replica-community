@@ -42,8 +42,10 @@
 }
 
 .close {
+  flex-shrink: 0;
   margin-left: auto;
   padding: 6px 10px;
+  white-space: nowrap;
   border: 0;
   border-radius: 8px;
   background: rgb(127 127 127 / 10%);
@@ -548,6 +550,30 @@ body[data-ds-dark-theme] .injectLine {
   background: #e5484d;
 }
 
+.pinTag {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 13%, transparent);
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.speechHint {
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgb(127 127 127 / 6%);
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.confirm .jumpConfirm {
+  background: var(--dsw-alias-brand-primary, #4d6bfe);
+  color: #fff;
+}
+
 /* 0.8.71 分类记忆面板：面板整体可滚动，标题与补卡区吸顶/吸底 */
 .card {
   --memory-surface: var(--settings-card, var(--ds-bg-elevated, #fff));
@@ -672,9 +698,23 @@ body[data-ds-dark-theme] .injectLine {
 
 .toolbar {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 7px;
   padding: 0 20px 8px;
+}
+
+.filterGroup {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.filterLabel {
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }
 
 .search {
@@ -685,19 +725,34 @@ body[data-ds-dark-theme] .injectLine {
 }
 
 .filters {
+  flex-wrap: nowrap;
   gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   button {
+    flex: 0 0 auto;
     padding: 4px 9px;
     font-size: 11px;
   }
 }
 
-.searchHint {
+.searchHint,
+.panelHint {
   padding: 0 20px 8px;
   color: var(--dsw-alias-label-caption, #8c9097);
   font-size: 11px;
   line-height: 1.5;
+}
+
+.panelHint {
+  padding: 0 2px 2px;
+  opacity: 0.82;
 }
 
 .list {
@@ -712,7 +767,13 @@ body[data-ds-dark-theme] .injectLine {
   padding: 11px 13px;
   border-radius: 14px;
   background: rgb(127 127 127 / 3%);
+  touch-action: manipulation;
   transition: border-color 140ms ease, background 140ms ease;
+
+  &[data-pinned='true'] {
+    border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 42%, rgb(127 127 127 / 14%));
+    background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, transparent);
+  }
 
   &[data-pool='normal'] {
     border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, rgb(127 127 127 / 14%));
@@ -795,10 +856,43 @@ body[data-ds-dark-theme] .injectLine {
   box-shadow: 0 -10px 20px rgb(0 0 0 / 8%);
 }
 
+.addToggle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgb(127 127 127 / 16%);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+
+  span {
+    font-weight: 600;
+  }
+
+  small {
+    color: var(--dsw-alias-label-caption, #8c9097);
+    font-size: 10.5px;
+  }
+
+  em {
+    margin-left: auto;
+    color: var(--dsw-alias-brand-primary, #4d6bfe);
+    font-size: 10.5px;
+    font-style: normal;
+  }
+}
+
 .addBox {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  margin-top: 8px;
 
   textarea {
     display: block;
@@ -982,6 +1076,19 @@ body[data-ds-dark-theme] .confirm section {
 }
 
 @media (max-width: 460px) {
+  .filterGroup {
+    align-items: start;
+  }
+
+  .filterLabel {
+    padding-top: 5px;
+  }
+
+  .filters {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
   .overlay {
     padding: 8px 6px;
   }

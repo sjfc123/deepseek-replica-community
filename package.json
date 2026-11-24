@@ -15,7 +15,8 @@
     "test:roleplay": "node --experimental-strip-types scripts/test-roleplay.mjs",
     "test:auto-backup": "node --experimental-strip-types scripts/test-auto-backup.mjs",
     "test:prompt": "node --experimental-strip-types scripts/test-default-prompt.mjs",
-    "test:memory": "node --experimental-strip-types scripts/test-memory-prune.mjs"
+    "test:memory": "node --experimental-strip-types scripts/test-memory-prune.mjs",
+    "test:memory-view": "node --experimental-strip-types scripts/test-memory-view.mjs"
   },
   "dependencies": {
     "@formatjs/intl-displaynames": "8.0.3",

@@ -27,10 +27,20 @@ import {
   addManualMemory,
   clearMemoryCards,
   deleteMemoryCard,
+  selectSessionMessage,
   setMemoryEnabled,
   setMemoryPinned,
   updateMemoryText,
 } from '../../services/chat/store.js'
+import {
+  filterMemoryEntries,
+  getMemorySpeech,
+  memoryTextForView,
+  sortMemoryEntries,
+  type MemorySpeechFilter,
+  type MemoryStatusFilter,
+  type MemoryTimeFilter,
+} from '../../services/chat/memoryView.js'
 import type { Session } from '../../services/chat/types.js'
 import { useSettings } from '../../services/settings.js'
 import { closeMemoryPanel } from './memoryPanelState.js'
@@ -69,14 +79,37 @@ const cardPoolLabel = (card: MemoryCard) => {
   return `普通 · ${normalMemoryLabel(getNormalMemoryKind(card))}`
 }
 
-type Filter = 'all' | 'active' | 'manual' | 'archived'
-
-const FILTERS: Array<{ key: Filter; label: string }> = [
+const STATUS_FILTERS: Array<{ key: MemoryStatusFilter; label: string }> = [
   { key: 'all', label: '全部' },
+  { key: 'pinned', label: '置顶' },
   { key: 'active', label: '生效中' },
+  { key: 'auto', label: '自动' },
+  { key: 'refine', label: '提炼' },
   { key: 'manual', label: '手动' },
+  { key: 'bulk', label: '整段' },
   { key: 'archived', label: '已归档' },
 ]
+
+const TIME_FILTERS: Array<{ key: MemoryTimeFilter; label: string }> = [
+  { key: 'all', label: '全部时间' },
+  { key: 'today', label: '今天' },
+  { key: 'week', label: '最近 7 天' },
+  { key: 'older', label: '更早' },
+]
+
+const SPEECH_FILTERS: Record<MemoryPool, Array<{ key: MemorySpeechFilter; label: string }>> = {
+  character: [
+    { key: 'all', label: '全部内容' },
+    { key: 'user', label: '用户的话' },
+    { key: 'character', label: '角色的话' },
+    { key: 'scene', label: '剧情摘要' },
+  ],
+  normal: [
+    { key: 'all', label: '全部内容' },
+    { key: 'user', label: '用户原话' },
+    { key: 'character', label: 'AI 原话' },
+  ],
+}
 
 /** 长期记忆面板：普通/角色双分类，普通记忆再分对话、代码、用户、AI */
 /* -------------------- 功能区：展示辅助与分类映射 结束 -------------------- */
@@ -100,12 +133,16 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const [query, setQuery] = useState('')
   const [pool, setPool] = useState<MemoryPool>('character')
   const normalDraftLocked = roleplayActive && pool === 'normal'
-  const [filter, setFilter] = useState<Filter>('all')
+  const [filter, setFilter] = useState<MemoryStatusFilter>('all')
+  const [speech, setSpeech] = useState<MemorySpeechFilter>('all')
+  const [time, setTime] = useState<MemoryTimeFilter>('all')
   const [shown, setShown] = useState(PAGE_SIZE)
   /** 顶部 Tab 就是手动补卡的写入目标；切换分类时清掉未提交草稿，避免写到另一分类 */
   const switchPool = (next: MemoryPool) => {
     setPool(next)
     setFilter('all')
+    setSpeech('all')
+    setTime('all')
     setShown(PAGE_SIZE)
     setDraft('')
     setDraftKind('auto')
@@ -136,11 +173,18 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     cardId: string
     text: string
   } | null>(null)
+  const [jumpTarget, setJumpTarget] = useState<{
+    messageId: string
+    text: string
+    createdAt: number
+  } | null>(null)
+  /** 底部补卡区默认收起，把高度留给卡片列表；需要写入时展开 */
+  const [adding, setAdding] = useState(false)
   const messages = useMemo(() => getVisibleMessages(session), [session])
-  const entries = useMemo(() => {
-    const all = collectVisibleMemories(session, messages)
-    return all.slice().sort((a, b) => b.card.createdAt - a.card.createdAt)
-  }, [session, messages])
+  const entries = useMemo(
+    () => sortMemoryEntries(collectVisibleMemories(session, messages)),
+    [session, messages]
+  )
 
   const poolEntries = useMemo(
     () => entries.filter(({ card }) => getMemoryPool(card) === pool),
@@ -237,34 +281,21 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     return { count, chars, total: injection.length }
   }, [injection, budget])
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    const searching = needle.length > 0
-    return entries.filter(({ card }) => {
-      // 有关键词时跨分类搜索；没有关键词时只按当前顶层分类筛选
-      if (!searching) {
-        if (getMemoryPool(card) !== pool) {
-          return false
-        }
-      }
-      const byFilter =
-        filter === 'all'
-          ? true
-          : filter === 'active'
-            ? card.enabled && !card.superseded
-            : filter === 'manual'
-              ? card.source === 'manual'
-              : Boolean(card.superseded)
-      if (!byFilter) {
-        return false
-      }
-      return needle ? card.text.toLowerCase().includes(needle) : true
-    })
-  }, [entries, filter, query, pool])
+  const filtered = useMemo(
+    () =>
+      filterMemoryEntries(entries, {
+        pool,
+        status: filter,
+        speech,
+        time,
+        query,
+        now: Date.now(),
+      }),
+    [entries, filter, query, pool, speech, time]
+  )
 
-  const activeFilterLabel = FILTERS.find((item) => item.key === filter)?.label ?? '全部'
-  const clearActionLabel =
-    filter === 'all' ? `清空${memoryPoolLabel(pool)}` : `清空“${activeFilterLabel}”卡片`
+  const narrowed = filter !== 'all' || speech !== 'all' || time !== 'all'
+  const clearActionLabel = narrowed ? '清空当前筛选' : `清空${memoryPoolLabel(pool)}`
   const clearTargets = filtered.map(({ card, messageId }) => ({ messageId, cardId: card.id }))
   const countRatio = Math.min(1, autoCount / Math.max(1, cardLimit))
   const charRatio = Math.min(1, activeChars / Math.max(1, budget))
@@ -295,9 +326,19 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
         ? '尚无手动卡片'
         : filter === 'active'
           ? '没有生效中的卡片'
-          : pool === 'normal'
-            ? '普通记忆还没有卡片'
-            : '角色记忆还没有卡片'
+          : filter === 'pinned'
+            ? '没有置顶卡片'
+            : filter === 'auto'
+              ? '没有自动记录卡片'
+              : filter === 'refine'
+                ? '没有提炼卡片'
+                : filter === 'bulk'
+                  ? '没有整段保存的卡片'
+                  : narrowed
+                    ? '当前筛选没有卡片'
+                    : pool === 'normal'
+                      ? '普通记忆还没有卡片'
+                      : '角色记忆还没有卡片'
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="长期记忆">
@@ -397,34 +438,82 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
         </div>
 
         <div className={styles.toolbar}>
-          <div className={styles.filters} role="tablist" aria-label="记忆状态筛选">
-            {FILTERS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                role="tab"
-                aria-selected={filter === item.key}
-                data-active={filter === item.key}
-                onClick={() => {
-                  setFilter(item.key)
-                  setShown(PAGE_SIZE)
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className={styles.filterGroup}>
+            <span className={styles.filterLabel}>状态</span>
+            <div className={styles.filters} role="tablist" aria-label="记忆状态筛选">
+              {STATUS_FILTERS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === item.key}
+                  data-active={filter === item.key}
+                  onClick={() => {
+                    setFilter(item.key)
+                    setShown(PAGE_SIZE)
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.filterGroup}>
+            <span className={styles.filterLabel}>发言</span>
+            <div className={styles.filters} role="tablist" aria-label="发言类型筛选">
+              {SPEECH_FILTERS[pool].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={speech === item.key}
+                  data-active={speech === item.key}
+                  onClick={() => {
+                    setSpeech(item.key)
+                    setShown(PAGE_SIZE)
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.filterGroup}>
+            <span className={styles.filterLabel}>时间</span>
+            <div className={styles.filters} role="tablist" aria-label="记忆时间筛选">
+              {TIME_FILTERS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={time === item.key}
+                  data-active={time === item.key}
+                  onClick={() => {
+                    setTime(item.key)
+                    setShown(PAGE_SIZE)
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
           <input
             className={styles.search}
             type="search"
             value={query}
-            placeholder="搜索记忆：称呼、地点、代码、报错关键词"
+            placeholder={
+              speech === 'all'
+                ? '搜索记忆：称呼、地点、代码、报错关键词'
+                : `只搜${SPEECH_FILTERS[pool].find((item) => item.key === speech)?.label ?? '当前发言'}`
+            }
             aria-label="搜索记忆"
             onChange={(event) => {
               setQuery(event.target.value)
               setShown(PAGE_SIZE)
             }}
           />
+          <div className={styles.panelHint}>置顶卡片排在最前 · 双击卡片可跳回原对话</div>
         </div>
         {query.trim() ? (
           <div className={styles.searchHint}>
@@ -448,105 +537,141 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             </div>
           ) : (
             <>
-              {filtered.slice(0, shown).map(({ card, messageId }) => (
-                <article
-                  className={styles.item}
-                  key={card.id}
-                  data-off={!card.enabled ? 'true' : undefined}
-                  data-archived={card.superseded ? 'true' : undefined}
-                  data-pool={getMemoryPool(card)}
-                >
-                  <div className={styles.itemHead}>
-                    <div className={styles.tagRow}>
-                      <span className={styles.poolTag} data-pool={getMemoryPool(card)}>
-                        {cardPoolLabel(card)}
-                        {card.language ? ` · ${card.language}` : ''}
-                      </span>
-                      <span className={styles.tag} data-source={card.source}>
-                        {sourceLabel(card)}
-                        {card.superseded ? ' · 已归档' : ''}
-                      </span>
-                    </div>
-                    <span className={styles.time}>{formatTime(card.createdAt)}</span>
-                  </div>
-                  {editing?.cardId === card.id ? (
-                    <div className={styles.editBox}>
-                      <textarea
-                        ref={autoGrow}
-                        value={editing.text}
-                        rows={3}
-                        onChange={(event) => {
-                          autoGrow(event.currentTarget)
-                          setEditing((current) =>
-                            current ? { ...current, text: event.target.value } : current
-                          )
-                        }}
-                      />
-                      <div className={styles.editActions}>
-                        <button type="button" onClick={() => setEditing(null)}>
-                          取消
-                        </button>
-                        <button
-                          className={styles.primary}
-                          type="button"
-                          onClick={() => {
-                            updateMemoryText(session.id, messageId, card.id, editing.text)
-                            setEditing(null)
-                          }}
-                        >
-                          保存
-                        </button>
+              {filtered.slice(0, shown).map(({ card, messageId }) => {
+                const visibleText = memoryTextForView(card, speech)
+                const speechParts = getMemorySpeech(card)
+                const hasBothSpeeches =
+                  speechParts.user.length > 0 && speechParts.character.length > 0
+                const speechLabel =
+                  SPEECH_FILTERS[pool].find((item) => item.key === speech)?.label ?? ''
+                return (
+                  <article
+                    className={styles.item}
+                    key={card.id}
+                    data-off={!card.enabled ? 'true' : undefined}
+                    data-archived={card.superseded ? 'true' : undefined}
+                    data-pool={getMemoryPool(card)}
+                    data-pinned={card.pinned ? 'true' : undefined}
+                    title="双击跳到原对话"
+                    onDoubleClick={(event) => {
+                      const target = event.target as HTMLElement
+                      if (
+                        editing ||
+                        target.closest('button, textarea, input, select, a')
+                      ) {
+                        return
+                      }
+                      setJumpTarget({
+                        messageId,
+                        text: card.text,
+                        createdAt: card.createdAt,
+                      })
+                    }}
+                  >
+                    <div className={styles.itemHead}>
+                      <div className={styles.tagRow}>
+                        <span className={styles.poolTag} data-pool={getMemoryPool(card)}>
+                          {cardPoolLabel(card)}
+                          {card.language ? ` · ${card.language}` : ''}
+                        </span>
+                        <span className={styles.tag} data-source={card.source}>
+                          {sourceLabel(card)}
+                          {card.superseded ? ' · 已归档' : ''}
+                        </span>
+                        {card.pinned ? <span className={styles.pinTag}>置顶</span> : null}
                       </div>
+                      <span className={styles.time}>{formatTime(card.createdAt)}</span>
                     </div>
-                  ) : getMemoryPool(card) === 'normal' && getNormalMemoryKind(card) === 'code' ? (
-                    <pre className={styles.codeText}>{card.text}</pre>
-                  ) : (
-                    <p className={styles.text}>{card.text}</p>
-                  )}
-                  <div className={styles.itemActions}>
-                    <button
-                      className={styles.toggle}
-                      type="button"
-                      aria-pressed={card.enabled}
-                      onClick={() =>
-                        setMemoryEnabled(session.id, messageId, card.id, !card.enabled)
-                      }
-                    >
-                      {card.enabled ? '已启用' : '已关闭'}
-                    </button>
-                    <button
-                      className={styles.toggle}
-                      data-pinned={card.pinned ? 'true' : undefined}
-                      type="button"
-                      aria-pressed={Boolean(card.pinned)}
-                      onClick={() => setMemoryPinned(session.id, messageId, card.id, !card.pinned)}
-                    >
-                      {card.pinned ? '已置顶' : '置顶'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditing({ messageId, cardId: card.id, text: card.text })}
-                    >
-                      编辑
-                    </button>
-                    <button
-                      className={styles.danger}
-                      type="button"
-                      onClick={() =>
-                        setConfirming({
-                          kind: 'one',
-                          messageId,
-                          cardId: card.id,
-                          text: card.text,
-                          pool: getMemoryPool(card),
-                        })
-                      }
-                    >
-                      删除
-                    </button>
-                  </div>
-                </article>
-              ))}
+                    {editing?.cardId === card.id ? (
+                      <div className={styles.editBox}>
+                        <textarea
+                          ref={autoGrow}
+                          value={editing.text}
+                          rows={3}
+                          onChange={(event) => {
+                            autoGrow(event.currentTarget)
+                            setEditing((current) =>
+                              current ? { ...current, text: event.target.value } : current
+                            )
+                          }}
+                        />
+                        <div className={styles.editActions}>
+                          <button type="button" onClick={() => setEditing(null)}>
+                            取消
+                          </button>
+                          <button
+                            className={styles.primary}
+                            type="button"
+                            onClick={() => {
+                              updateMemoryText(session.id, messageId, card.id, editing.text)
+                              setEditing(null)
+                            }}
+                          >
+                            保存
+                          </button>
+                        </div>
+                      </div>
+                    ) : getMemoryPool(card) === 'normal' &&
+                      getNormalMemoryKind(card) === 'code' &&
+                      speech === 'all' ? (
+                      <pre className={styles.codeText}>{visibleText}</pre>
+                    ) : (
+                      <p className={styles.text}>{visibleText}</p>
+                    )}
+                    {speech !== 'all' && hasBothSpeeches ? (
+                      <div className={styles.speechHint}>
+                        只显示{speechLabel}；下面的操作仍作用于整张卡片。
+                      </div>
+                    ) : null}
+                    <div className={styles.itemActions}>
+                      <button
+                        className={styles.toggle}
+                        type="button"
+                        aria-pressed={card.enabled}
+                        onClick={() =>
+                          setMemoryEnabled(session.id, messageId, card.id, !card.enabled)
+                        }
+                      >
+                        {card.enabled ? '已启用' : '已关闭'}
+                      </button>
+                      <button
+                        className={styles.toggle}
+                        data-pinned={card.pinned ? 'true' : undefined}
+                        type="button"
+                        aria-pressed={Boolean(card.pinned)}
+                        onClick={() =>
+                          setMemoryPinned(session.id, messageId, card.id, !card.pinned)
+                        }
+                      >
+                        {card.pinned ? '已置顶' : '置顶'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditing({ messageId, cardId: card.id, text: card.text })
+                        }
+                      >
+                        编辑
+                      </button>
+                      <button
+                        className={styles.danger}
+                        type="button"
+                        onClick={() =>
+                          setConfirming({
+                            kind: 'one',
+                            messageId,
+                            cardId: card.id,
+                            text: card.text,
+                            pool: getMemoryPool(card),
+                          })
+                        }
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
               {filtered.length > shown ? (
                 <button
                   className={styles.more}
@@ -561,57 +686,65 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
         </div>
 
         <footer className={styles.footer}>
-          <div className={styles.addBox}>
-            <div className={styles.addLead}>
-              <span>手动记一条</span>
-              <small>写入{pool === 'normal' ? '普通记忆' : '角色记忆'}</small>
-            </div>
-            {pool === 'normal' ? (
-              <div className={styles.addKindRow}>
-                <button
-                  type="button"
-                  data-active={draftKind === 'auto'}
-                  onClick={() => setDraftKind('auto')}
-                >
-                  自动识别
-                </button>
-                {NORMAL_MEMORY_KINDS.map((kind) => (
+          <button
+            className={styles.addToggle}
+            type="button"
+            aria-expanded={adding}
+            onClick={() => setAdding((current) => !current)}
+          >
+            <span>手动记一条</span>
+            <small>写入{pool === 'normal' ? '普通记忆' : '角色记忆'}</small>
+            <em>{adding ? '收起' : '展开'}</em>
+          </button>
+          {adding ? (
+            <div className={styles.addBox}>
+              {pool === 'normal' ? (
+                <div className={styles.addKindRow}>
                   <button
-                    key={kind}
                     type="button"
-                    data-active={draftKind === kind}
-                    onClick={() => setDraftKind(kind)}
+                    data-active={draftKind === 'auto'}
+                    onClick={() => setDraftKind('auto')}
                   >
-                    {normalMemoryLabel(kind)}
+                    自动识别
                   </button>
-                ))}
-              </div>
-            ) : null}
-            <textarea
-              value={draft}
-              rows={2}
-              maxLength={4000}
-              disabled={normalDraftLocked}
-              placeholder={
-                normalDraftLocked
-                  ? '角色扮演开启中，普通记忆暂停写入；先关闭角色扮演再补开发代码。'
-                  : pool === 'normal'
-                    ? '记一条开发/问答参考，例如：报错原因、命令、接口字段；代码块会自动归入代码。'
-                    : '手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。'
-              }
-              onChange={(event) => setDraft(event.target.value)}
-            />
-            <div className={styles.addActions}>
-              <button
-                className={styles.primary}
-                type="button"
+                  {NORMAL_MEMORY_KINDS.map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      data-active={draftKind === kind}
+                      onClick={() => setDraftKind(kind)}
+                    >
+                      {normalMemoryLabel(kind)}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <textarea
+                value={draft}
+                rows={2}
+                maxLength={4000}
                 disabled={normalDraftLocked}
-                onClick={submit}
-              >
-                添加
-              </button>
+                placeholder={
+                  normalDraftLocked
+                    ? '角色扮演开启中，普通记忆暂停写入；先关闭角色扮演再补开发代码。'
+                    : pool === 'normal'
+                      ? '记一条开发/问答参考，例如：报错原因、命令、接口字段；代码块会自动归入代码。'
+                      : '手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。'
+                }
+                onChange={(event) => setDraft(event.target.value)}
+              />
+              <div className={styles.addActions}>
+                <button
+                  className={styles.primary}
+                  type="button"
+                  disabled={normalDraftLocked}
+                  onClick={submit}
+                >
+                  添加
+                </button>
+              </div>
             </div>
-          </div>
+          ) : null}
           <p className={styles.footerHint}>
             {roleplayActive
               ? '角色扮演开启时，长按保存的代码与整轮内容只进角色记忆；普通记忆暂停手动补卡，关闭角色扮演后恢复。'
@@ -663,6 +796,41 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                 }}
               >
                 {confirming.kind === 'filter' ? '清空' : '删除'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {jumpTarget ? (
+        <div
+          className={styles.confirm}
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setJumpTarget(null)}
+        >
+          <section onClick={(event) => event.stopPropagation()}>
+            <strong>跳到这段对话？</strong>
+            <p>
+              {memoryExcerpt(jumpTarget.text)}
+              <br />
+              将关闭记忆面板，定位到 {formatTime(jumpTarget.createdAt)} 的那条消息；记忆内容不会改变。
+            </p>
+            <div>
+              <button type="button" onClick={() => setJumpTarget(null)}>
+                取消
+              </button>
+              <button
+                className={styles.jumpConfirm}
+                type="button"
+                onClick={() => {
+                  const targetId = jumpTarget.messageId
+                  setJumpTarget(null)
+                  closeMemoryPanel()
+                  selectSessionMessage(session.id, targetId)
+                }}
+              >
+                确定跳转
               </button>
             </div>
           </section>
