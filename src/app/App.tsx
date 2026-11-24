@@ -32,7 +32,6 @@ import { Welcome } from '../components/session/Welcome.js'
 import { ensureApiKey, useSettingsDialog } from '../components/settings/settingsDialogState.js'
 import { AndroidSettings } from '../components/settings/AndroidSettings.js'
 import { ApiKeyScreen } from '../components/settings/ApiKeyScreen.js'
-import { AnnouncementDialog } from '../components/base/AnnouncementDialog.js'
 import { VoiceCallOverlay } from '../components/chatInput/VoiceCallOverlay.js'
 import { MemoryAddedToast } from '../components/memory/MemoryAddedToast.js'
 import { installDiagnostics } from './diagnostics.js'
@@ -416,7 +415,6 @@ export const App = () => {
       </div>
       <AndroidSettings chatFrame={frameRef} />
       <Toast />
-      <AnnouncementDialog />
       <MemoryAddedToast />
       <VoiceCallOverlay />
     </>

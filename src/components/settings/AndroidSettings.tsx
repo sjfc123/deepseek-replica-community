@@ -48,7 +48,6 @@ import {
   type AutoBackupResult,
   type AutoBackupStatus,
 } from '../../services/chat/autoBackup.js'
-import { ANNOUNCEMENT_VERSION } from '../../app/announcement.js'
 import { readMigrationReport } from '../../services/dataMigration.js'
 import { getUnreadableRecordCount } from '../../services/chat/db.js'
 import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
@@ -1834,11 +1833,6 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 label={labels.advanced}
                 value={chatConfig.model}
                 onClick={() => openPage('advanced')}
-              />
-              <Row
-                label={tr('更新公告', 'Release notes')}
-                value={ANNOUNCEMENT_VERSION}
-                onClick={() => window.dispatchEvent(new Event('replica:show-announcement'))}
               />
               <Row
                 label={tr('开放平台', 'Open platform')}
