@@ -1,4 +1,4 @@
-import { formatDate } from '../../utils/format.js'
+import { autoBackupFileName } from './backupName.js'
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { useSettings } from '../settings.js'
 import * as db from './db.js'
@@ -22,7 +22,7 @@ const enqueueBackup = <T>(run: () => Promise<T>): Promise<T> => {
   return task
 }
 
-const backupFileName = (date: Date) => `deepseek_data-${formatDate(date)}.zip`
+const backupFileName = (date: Date) => autoBackupFileName(date)
 
 /** 导出为历史会话导出格式的 ZIP，可再次导入。 */
 export const exportHistory = (): Promise<{ name: string; blob: Blob; count: number }> =>

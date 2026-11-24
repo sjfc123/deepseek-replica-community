@@ -240,6 +240,8 @@ export const en = {
   backupIncomplete: 'The file is incomplete and cannot be imported.',
   backupInvalidBranches: 'The message branches in this file are corrupted and cannot be imported.',
   backupInvalidFiles: 'The attachment data in this file is corrupted and cannot be imported.',
+  autoBackupDone: 'Auto backup complete: {count} chats, verified and saved to Downloads',
+  autoBackupFailed: 'Auto backup failed; no incomplete file was left in Downloads',
   settingsLocalePreference: 'Language',
   settingsTtsVoice: 'Read-aloud voice',
   settingsTtsVoiceStella: 'Stella',

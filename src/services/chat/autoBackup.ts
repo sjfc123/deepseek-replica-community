@@ -55,8 +55,8 @@ export const readAutoBackupMeta = (): AutoBackupMeta | null => {
   }
 }
 
-/** 失败位置：bridge 旧包没有备份接口；begin 建不了文件；write 写入中断；finish 收尾未确认 */
-export type AutoBackupFailure = 'bridge' | 'begin' | 'write' | 'finish'
+/** 失败位置：bridge 旧包没有备份接口；begin 建不了临时文件；write 写入中断；verify 校验失败；finish 发布未确认 */
+export type AutoBackupFailure = 'bridge' | 'begin' | 'write' | 'verify' | 'finish'
 
 /** ok 成功；empty 本机确实没有对话；failed 写了但系统没确认或写入失败 */
 export type AutoBackupResult = {
@@ -109,7 +109,9 @@ export const readAutoBackupStatus = (): AutoBackupStatus | null => {
  * 立刻导出一次到下载目录。导出会遍历全部会话，和手动导出共用同一个串行队列，
  * 因此不会与用户正在进行的导入/导出互相打断。
  */
-export const runAutoBackup = async (): Promise<AutoBackupResult> => {
+export const runAutoBackup = async (
+  options: { notify?: boolean } = {}
+): Promise<AutoBackupResult> => {
   const target = device()
   const begin = target?.beginAutoBackup
   const write = target?.writeAutoBackup
@@ -131,14 +133,18 @@ export const runAutoBackup = async (): Promise<AutoBackupResult> => {
     return { outcome: 'empty', status: readAutoBackupStatus(), sessionCount: 0 }
   }
   const checksum = await checksumOf(blob)
-  if (!begin.call(target, name)) {
-    return {
+  if (!begin.call(target, name, blob.size)) {
+    const result: AutoBackupResult = {
       outcome: 'failed',
       status: readAutoBackupStatus(),
       sessionCount: count,
       failure: 'begin',
       detail: readDeviceError(target),
     }
+    if (options.notify) {
+      window.dispatchEvent(new CustomEvent('replica:auto-backup-failed', { detail: result }))
+    }
+    return result
   }
   let writeFailed = false
   try {
@@ -152,16 +158,21 @@ export const runAutoBackup = async (): Promise<AutoBackupResult> => {
   } catch {
     writeFailed = true
   }
-  // 写入中断时仍要收尾：原生层会删除半截文件，返回 false。
+  // 写入中断时仍要收尾：原生层会删除临时文件，绝不会把半截文件发布到下载目录。
   const closed = finish.call(target)
   if (writeFailed || !closed) {
-    return {
+    const detail = readDeviceError(target)
+    const result: AutoBackupResult = {
       outcome: 'failed',
       status: readAutoBackupStatus(),
       sessionCount: count,
-      failure: writeFailed ? 'write' : 'finish',
-      detail: readDeviceError(target),
+      failure: writeFailed ? 'write' : detail.includes('校验') ? 'verify' : 'finish',
+      detail,
     }
+    if (options.notify) {
+      window.dispatchEvent(new CustomEvent('replica:auto-backup-failed', { detail: result }))
+    }
+    return result
   }
   try {
     localStorage.setItem(LAST_KEY, String(Date.now()))
@@ -184,7 +195,15 @@ export const runAutoBackup = async (): Promise<AutoBackupResult> => {
   } catch {
     // 元信息写不进去时只是少一行校验展示，不影响备份文件
   }
-  return { outcome: 'ok', status: readAutoBackupStatus(), sessionCount: count }
+  const result: AutoBackupResult = {
+    outcome: 'ok',
+    status: readAutoBackupStatus(),
+    sessionCount: count,
+  }
+  if (options.notify) {
+    window.dispatchEvent(new CustomEvent('replica:auto-backup-success', { detail: result }))
+  }
+  return result
 }
 
 /** 开关开启且距上次备份超过设定间隔时执行；由启动、回到前台与定时器触发 */
@@ -208,7 +227,9 @@ export const maybeAutoBackup = () => {
   }
   // 启动阶段先让首屏与历史列表完成渲染，再在空闲时写盘。
   const start = () => {
-    void runAutoBackup().catch(() => null)
+    void runAutoBackup({ notify: true }).catch(() => {
+      window.dispatchEvent(new CustomEvent('replica:auto-backup-failed'))
+    })
   }
   if (typeof requestIdleCallback === 'function') {
     requestIdleCallback(start, { timeout: 5_000 })

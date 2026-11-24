@@ -301,6 +301,20 @@ export const App = () => {
     window.addEventListener('replica:scene-updated', onScene)
     return () => window.removeEventListener('replica:scene-updated', onScene)
   }, [])
+  // 自动备份在后台完成或失败时给出结果提示；手动备份仍由设置页自己的提示负责。
+  useEffect(() => {
+    const onDone = (event: Event) => {
+      const count = (event as CustomEvent<{ sessionCount?: number }>).detail?.sessionCount ?? 0
+      showToast(t('autoBackupDone', { count }))
+    }
+    const onFailed = () => showToast(t('autoBackupFailed'), 4000)
+    window.addEventListener('replica:auto-backup-success', onDone)
+    window.addEventListener('replica:auto-backup-failed', onFailed)
+    return () => {
+      window.removeEventListener('replica:auto-backup-success', onDone)
+      window.removeEventListener('replica:auto-backup-failed', onFailed)
+    }
+  }, [t])
   useEffect(bindChatPersistence, [])
 
   // 搜索结果面板只属于当前会话

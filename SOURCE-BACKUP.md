@@ -1,14 +1,14 @@
-# 源码留存说明 · 0.8.84
+# 源码留存说明 · 0.8.85
 
 这份说明跟着源码包一起放，不是发布公告。它只回答四个问题：这是哪个版本、包里有什么、缺了什么、后来的人怎么把它跑起来。
 
 ## 版本
 
-- 版本号：0.8.84
-- 开发阶段的 versionCode：130
+- 版本号：0.8.85
+- 开发阶段的 versionCode：131
 - 覆盖版包名：`io.github.lijiahua1024.dsreplica`
 - 并存版包名：`io.github.lijiahua1024.dsreplica.rp`
-- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.84`
+- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.85`
 
 ## 包里有什么
 
@@ -27,7 +27,19 @@
 
 这些不是遗漏，是故意不放进源码包。APK 和签名文件由构建者自己生成、自己保管；具体边界写在 README 的“编译、签名与分发”一节，NOTICE 里也有说明。别人转发的 APK 不代表这个仓库，也无法证明没有被改过。
 
-## 0.8.84 本版改动
+## 0.8.85 本版改动
+
+- `android/.../AutoBackup.java` 改为两阶段写入：先写应用缓存中的 `.part` 文件，关闭后核对 `expectedSize` 与临时文件长度，再用 `ZipFile` 打开中央目录确认 ZIP 完整。校验通过后才复制到 `MediaStore Downloads`，复制字节数与临时文件不一致时删除 pending 条目，下载目录不会出现半截文件。
+- `AutoBackup.begin()` 增加预期字节数参数，`MainActivity` 的 `beginAutoBackup(String, long)` 同步；`append()` 在超过预期大小时立即失败，`finish()` 校验失败会清理临时文件并返回 false。
+- `status()` 与 `prune()` 只查询 `IS_PENDING = 0` 的条目，并检查文件头 `PK\x03\x04` 与末尾 EOCD `PK\x05\x06`；空文件、截断文件、pending 残留和超出保留数量的文件会被删除。目录匹配改为 `%DeepSeek Replica/自动备份%`，兼容带或不带 `Download` 前缀、末尾斜杠不同的设备。
+- 新增 `src/services/chat/backupName.ts`，备份名改为 `deepseek_data-YYYY-MM-DD-HHMMSS.zip`；同一天多次备份不再产生同名副本，`backup.ts` 统一使用该生成器。
+- `runAutoBackup` 支持 `notify`：定时、启动和回到前台触发的成功/失败分别派发 `replica:auto-backup-success` / `replica:auto-backup-failed`；`App.tsx` 监听后 toast 提示「自动备份完成：N 个对话，文件已校验」或「失败，下载目录不会留下不完整文件」。
+- 手动备份提示与失败文案同步：补上「文件已校验」；区分 `verify`（完整性校验失败）与 `finish`（发布未确认），不再显示“文件已写入但系统未确认”的旧口径。
+- 设置页状态与说明更新：上次校验仅在 `meta.name` 与当前最新备份同名时展示，避免旧指纹误导；数据页文案说明临时文件、校验、发布和清理顺序。
+- 新增 `scripts/test-auto-backup.mjs` 与 `pnpm test:auto-backup`，断言文件名精确到秒、同日不同秒不重名、不含路径分隔符。
+- 公告、README、本说明同步到 0.8.85。
+
+## 0.8.84 历史改动
 
 - `CharacterProfile` 从 12 个字段扩到 32 个，新增 `age`、`gender`、`pronouns`、`species`、`height`、`weight`、`birthday`、`occupation`、`residence`、`languages`、`favoriteFoods`、`dislikedFoods`、`favoriteDrinks`、`hobbies`、`dailyRoutine`、`possessions`、`pet`、`values`、`petPeeves`、`boundaries`、`cooperation`。`origin` 收窄为出处与身份；`appearance` 只写外貌，不再包含身高体重；`habits` 拆成食物、饮品、兴趣、作息、随身物与宠物。
 - `CHARACTER_PROFILE_FIELDS` 增加 `group`，四组为 `core`、`body`、`personality`、`story`；`CHARACTER_PROFILE_GROUPS` 提供分组标题与说明。`normalizeCharacterProfile` 同步归一化 32 个字段，旧档案缺字段补空串。

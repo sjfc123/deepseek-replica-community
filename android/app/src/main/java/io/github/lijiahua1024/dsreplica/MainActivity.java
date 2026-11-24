@@ -114,7 +114,7 @@ public final class MainActivity extends Activity {
         profilePreferences = getSharedPreferences("account_profile", MODE_PRIVATE);
         recentPhotos = new RecentPhotos(getContentResolver());
         historyExport = new FileExport(getContentResolver());
-        autoBackup = new AutoBackup(getContentResolver());
+        autoBackup = new AutoBackup(getContentResolver(), getCacheDir());
         imageSave = new ImageSave(getContentResolver());
         recorder = new NativeRecorder();
         frame = new FrameLayout(this);
@@ -885,7 +885,7 @@ public final class MainActivity extends Activity {
         public boolean finishHistoryExport() { return historyExport.close(); }
 
         @JavascriptInterface
-        public String beginAutoBackup(String name) { return autoBackup.begin(name); }
+        public String beginAutoBackup(String name, long size) { return autoBackup.begin(name, size); }
 
         @JavascriptInterface
         public boolean writeAutoBackup(String bytes) { return autoBackup.append(bytes); }

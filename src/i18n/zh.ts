@@ -234,6 +234,8 @@ export const zh = {
   backupIncomplete: '文件内容不完整，无法导入',
   backupInvalidBranches: '文件中的消息分支已损坏，无法导入',
   backupInvalidFiles: '文件中的附件数据已损坏，无法导入',
+  autoBackupDone: '自动备份完成：{count} 个对话，文件已校验并保存在下载目录',
+  autoBackupFailed: '自动备份失败，下载目录不会留下不完整文件',
   settingsLocalePreference: '语言',
   settingsTtsVoice: '朗读音色',
   settingsTtsVoiceStella: '海星',
