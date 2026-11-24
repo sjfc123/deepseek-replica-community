@@ -15,6 +15,14 @@ export const androidColdStartGreeting = '欢迎回来，请输入消息开始对
 
 export const zh = {
   welcomeMessageChat250808: '今天有什么可以帮到你？',
+  welcomeRecentChats: '最近对话',
+  welcomeRecentEmpty: '还没有会话，最近的对话会显示在这里',
+  welcomeQuickActions: '快捷入口',
+  welcomeQuickRoleplay: '角色扮演',
+  welcomeQuickMemory: '长期记忆',
+  welcomeQuickApi: '模型与 API',
+  welcomeApiNotConfigured: '未配置',
+  welcomeApiConfigured: '已配置',
   peakWelcomeMessage: '高峰时段，接口负载较高，响应可能变慢。',
   offpeakWelcomeMessage: '空闲时段，接口负载较低，适合长对话。',
   restoreDefaultGreeting: '恢复默认欢迎语',

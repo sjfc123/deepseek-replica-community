@@ -9,6 +9,8 @@ import { useIsMobile } from '../../app/viewport.js'
 import { android } from '../../app/android.js'
 import whale from '../../assets/deepseek-whale.svg'
 import { getPeakHint } from '../../services/peak.js'
+import { selectSession, useChatStore } from '../../services/chat/store.js'
+import { useSettings } from '../../services/settings.js'
 import {
   useAndroidColdStartGreeting,
   useAndroidWelcomeMessages,
@@ -16,6 +18,9 @@ import {
   type TranslationKey,
 } from '../../i18n/index.js'
 import { ChatInput } from '../chatInput/ChatInput.js'
+import { IconChevronRightOutline14 } from '../base/icons.js'
+import { FeatureIcon } from '../settings/FeatureIcon.js'
+import { openSettings } from '../settings/settingsDialogState.js'
 import { MobileHeader } from './MobileHeader.js'
 import { PeakWindowHint } from './PeakWindowHint.js'
 import styles from './Welcome.module.css'
@@ -59,6 +64,11 @@ const shuffleWhaleDeck = (exclude: number) => {
 export const Welcome = () => {
   const t = useTranslate()
   const isMobile = useIsMobile()
+  const locale = useSettings((state) => state.locale)
+  const sessions = useChatStore((state) => state.sessions)
+  const archivedSessions = useSettings((state) => state.archivedSessions)
+  const apiKey = useSettings((state) => state.apiKey)
+  const chatConfig = useSettings((state) => state.chatConfig)
   const coldStartGreeting = useAndroidColdStartGreeting()
   const androidMessages = useAndroidWelcomeMessages()
   const [coldStart] = useState(coldStartGreetingPending)
@@ -78,6 +88,27 @@ export const Welcome = () => {
     }
     return androidMessages[Math.floor(Math.random() * androidMessages.length)]
   })
+
+  const recentSessions = sessions
+    .filter((session) => !archivedSessions.includes(session.id))
+    .slice(0, 3)
+  const configured = Boolean(apiKey || chatConfig.endpoint)
+  const modelLabel = configured
+    ? chatConfig.model || t('welcomeApiConfigured')
+    : t('welcomeApiNotConfigured')
+
+  const formatRecentTime = (updatedAt: number) => {
+    const date = new Date(updatedAt)
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    if (updatedAt >= startOfToday) {
+      return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(date)
+    }
+    if (updatedAt >= startOfToday - 86_400_000) {
+      return t('sessionHistoryTimelineLabelYesterday')
+    }
+    return new Intl.DateTimeFormat(locale, { month: 'numeric', day: 'numeric' }).format(date)
+  }
 
   useEffect(() => {
     if (android) {
@@ -189,6 +220,88 @@ export const Welcome = () => {
           )}
         </div>
         <ChatInput sessionId={null} />
+        {!android && !isMobile ? (
+          <div className={styles.desktopExtras}>
+            <section className={styles.extrasPanel} aria-label={t('welcomeRecentChats')}>
+              <div className={styles.extrasHeader}>
+                <span>{t('welcomeRecentChats')}</span>
+                {recentSessions.length > 0 ? (
+                  <span className={styles.extrasCount}>{recentSessions.length}</span>
+                ) : null}
+              </div>
+              {recentSessions.length > 0 ? (
+                <div className={styles.recentList}>
+                  {recentSessions.map((session) => (
+                    <button
+                      key={session.id}
+                      type="button"
+                      className={styles.recentItem}
+                      onClick={() => selectSession(session.id)}
+                    >
+                      <span className={styles.recentTitle}>{session.title || t('untitledChat')}</span>
+                      <span className={styles.recentTime}>{formatRecentTime(session.updatedAt)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.recentEmpty}>{t('welcomeRecentEmpty')}</div>
+              )}
+            </section>
+            <section className={styles.extrasPanel} aria-label={t('welcomeQuickActions')}>
+              <div className={styles.extrasHeader}>
+                <span>{t('welcomeQuickActions')}</span>
+              </div>
+              <div className={styles.quickList}>
+                <button
+                  type="button"
+                  className={styles.quickItem}
+                  onClick={() => openSettings('roleplay')}
+                >
+                  <span className={styles.quickIcon}>
+                    <FeatureIcon label="角色卡与世界书" />
+                  </span>
+                  <span className={styles.quickLabel}>{t('welcomeQuickRoleplay')}</span>
+                  <span className={styles.quickArrow}>
+                    <IconChevronRightOutline14 />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.quickItem}
+                  onClick={() => openSettings('memory')}
+                >
+                  <span className={styles.quickIcon}>
+                    <FeatureIcon label={t('welcomeQuickMemory')} />
+                  </span>
+                  <span className={styles.quickLabel}>{t('welcomeQuickMemory')}</span>
+                  <span className={styles.quickArrow}>
+                    <IconChevronRightOutline14 />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.quickItem}
+                  onClick={() => openSettings('data')}
+                >
+                  <span className={styles.quickIcon}>
+                    <FeatureIcon label="DeepSeek API Key" />
+                  </span>
+                  <span className={styles.quickLabel}>{t('welcomeQuickApi')}</span>
+                  <span
+                    className={styles.apiStatus}
+                    data-configured={configured ? '' : undefined}
+                    title={modelLabel}
+                  >
+                    {modelLabel}
+                  </span>
+                  <span className={styles.quickArrow}>
+                    <IconChevronRightOutline14 />
+                  </span>
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
         {isMobile && !android ? <div className={styles.caveat}>{t('contentCaveat')}</div> : null}
       </div>
     </div>

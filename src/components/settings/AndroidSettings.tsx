@@ -607,13 +607,21 @@ const describeBackupFailure = (result: AutoBackupResult, tr: BackupText) => {
 export const AndroidSettings = ({ chatFrame }: { chatFrame: RefObject<HTMLDivElement> }) => {
   const open = useSettingsDialog((state) => state.open)
   const section = useSettingsDialog((state) => state.section)
-  return open ? (
-    <Settings
-      start={section === 'general' ? 'root' : section === 'advanced' ? 'advanced' : 'account'}
-      chatFrame={chatFrame}
-      key={section}
-    />
-  ) : null
+  const start: Page =
+    section === 'general'
+      ? 'root'
+      : section === 'advanced'
+        ? 'advanced'
+        : section === 'data'
+          ? 'data'
+          : section === 'roleplay'
+            ? 'roleplay'
+            : section === 'memory'
+              ? 'memory'
+              : section === 'sampling'
+                ? 'sampling'
+                : 'account'
+  return open ? <Settings start={start} chatFrame={chatFrame} key={section} /> : null
 }
 
 /* -------------------- 功能区：设置模块入口 结束 -------------------- */
@@ -826,6 +834,53 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     personalization: tr('个性化', 'Personalization'),
     agreements: tr('服务协议', 'Service agreement'),
   }
+  const desktopNavigation: {
+    label: string
+    items: { page: Page; label: string; icon: string }[]
+  }[] = [
+    {
+      label: tr('总览', 'Overview'),
+      items: [{ page: 'root', label: tr('设置首页', 'Settings home'), icon: tr('设置首页', 'Settings home') }],
+    },
+    {
+      label: tr('账户与数据', 'Account & data'),
+      items: [
+        { page: 'account', label: labels.account, icon: labels.account },
+        { page: 'data', label: labels.data, icon: labels.data },
+        { page: 'cost', label: labels.cost, icon: labels.cost },
+      ],
+    },
+    {
+      label: tr('角色与扮演', 'Role & role-play'),
+      items: [
+        { page: 'character', label: labels.character, icon: labels.character },
+        { page: 'roleplay', label: labels.roleplay, icon: labels.roleplay },
+        { page: 'memory', label: labels.memory, icon: labels.memory },
+      ],
+    },
+    {
+      label: tr('生成与请求', 'Generation & request'),
+      items: [
+        { page: 'sampling', label: labels.sampling, icon: labels.sampling },
+        { page: 'context', label: labels.context, icon: labels.context },
+        { page: 'request', label: labels.request, icon: labels.request },
+        { page: 'refusal', label: labels.refusal, icon: labels.refusal },
+      ],
+    },
+    {
+      label: tr('应用与关于', 'App & about'),
+      items: [
+        {
+          page: 'personalization',
+          label: labels.personalization,
+          icon: labels.personalization,
+        },
+        { page: 'font', label: labels.font, icon: labels.font },
+        { page: 'agreements', label: labels.agreements, icon: labels.agreements },
+      ],
+    },
+  ]
+  const activeNavigationPage: Page = page === 'advanced' ? 'account' : page === 'export' ? 'data' : page
   const headerCount = Object.keys(parseCustomHeaders(customHeaders)).length
   const formatBackupTime = (date: number) =>
     new Date(date).toLocaleString(locale === 'zh-CN' ? 'zh-CN' : 'en-US', {
@@ -4452,11 +4507,56 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             key={screen}
             className={styles.page}
             data-settings-page={screen}
+            data-settings-desktop={android ? undefined : ''}
             role="region"
             aria-label={labels[screen]}
             aria-hidden={active ? undefined : true}
           >
-            <div className={styles.pageContent}>{renderPage(screen)}</div>
+            <div className={styles.desktopFrame}>
+              {screen === page ? (
+                <aside className={styles.desktopRail}>
+                  <div className={styles.desktopRailHeader}>
+                    <span className={styles.desktopRailBrand}>DeepSeek Replica</span>
+                    <button
+                      type="button"
+                      className={styles.desktopRailClose}
+                      aria-label={tr('关闭设置', 'Close settings')}
+                      onClick={closeSettings}
+                    >
+                      <IconCloseOutline16 />
+                    </button>
+                  </div>
+                  <nav className={styles.desktopRailNav} aria-label={tr('设置导航', 'Settings navigation')}>
+                    {desktopNavigation.map((group) => (
+                      <div key={group.label} className={styles.desktopRailGroup}>
+                        <div className={styles.desktopRailGroupLabel}>{group.label}</div>
+                        {group.items.map((item) => (
+                          <button
+                            key={item.page}
+                            type="button"
+                            className={styles.desktopRailItem}
+                            data-active={activeNavigationPage === item.page ? '' : undefined}
+                            aria-current={activeNavigationPage === item.page ? 'page' : undefined}
+                            onClick={() => openPage(item.page)}
+                          >
+                            <span className={styles.desktopRailIcon}>
+                              <FeatureIcon label={item.icon} />
+                            </span>
+                            <span className={styles.desktopRailLabel}>{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </nav>
+                  {appVersion ? (
+                    <div className={styles.desktopRailFoot}>v{appVersion}</div>
+                  ) : null}
+                </aside>
+              ) : null}
+              <div className={styles.desktopContent}>
+                <div className={styles.pageContent}>{renderPage(screen)}</div>
+              </div>
+            </div>
             {active ? popups : null}
             {active ? (
               <TokenUsagePanel open={usageOpen} onClose={() => setUsageOpen(false)} />

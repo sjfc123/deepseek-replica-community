@@ -1,19 +1,13 @@
 :root {
   --app-default-viewport-height: 100vh;
-  --message-list-max-width: 840px;
-  --message-list-padding-horizontal: 44px;
+  /* 正文列宽：桌面约 720px，窗口变窄时连续收缩，避免长文行宽过长 */
+  --message-list-max-width: clamp(712px, 76vw, 800px);
+  --message-list-padding-horizontal: clamp(28px, 3.2vw, 40px);
 }
 
 @supports (height: 100dvh) {
   :root {
     --app-default-viewport-height: 100dvh;
-  }
-}
-
-@media (max-width: 1023px) {
-  :root {
-    --message-list-max-width: 712px;
-    --message-list-padding-horizontal: 36px;
   }
 }
 

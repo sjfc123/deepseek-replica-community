@@ -90,8 +90,12 @@ import {
 const BY_LABEL: Record<string, LucideIcon> = {
   角色设定: UserCog,
   'Character prompt': UserCog,
+  设置首页: PanelsTopLeft,
+  'Settings home': PanelsTopLeft,
   角色卡与世界书: BookOpen,
   'Character cards & lorebook': BookOpen,
+  角色档案与表达: Heart,
+  'Character profile & delivery': Heart,
   长期记忆: Brain,
   'Long-term memory': Brain,
   生成参数: SlidersHorizontal,
