@@ -1,6 +1,6 @@
 {
   "name": "deepseek-app-replica",
-  "version": "0.8.75",
+  "version": "0.8.76",
   "description": "基于 DeepSeek App Replica 与 DeepChat 部分功能移植的 Android 角色扮演客户端；仓库保存源码，编译、签名与分发由操作者自行承担。",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -10,7 +10,8 @@
     "build": "rspack build -c rspack.config.ts",
     "type": "tsc -p tsconfig.json",
     "lint": "oxlint src rspack.config.ts",
-    "format": "oxfmt --write ."
+    "format": "oxfmt --write .",
+    "test:system": "node --experimental-strip-types scripts/test-system-prompt.mjs"
   },
   "dependencies": {
     "@formatjs/intl-displaynames": "8.0.3",

@@ -72,7 +72,9 @@ export const openAIRequest = (
   if (format === 'chat') {
     return {
       ...common,
-      messages: body.system ? [{ role: 'system', content: body.system }, ...messages] : messages,
+      messages: body.system.trim()
+        ? [{ role: 'system', content: body.system }, ...messages]
+        : messages,
       ...(deepSeek
         ? { max_tokens: body.max_tokens, thinking: body.thinking }
         : { max_completion_tokens: body.max_tokens }),
@@ -81,7 +83,7 @@ export const openAIRequest = (
   return {
     ...common,
     input: messages,
-    instructions: body.system || undefined,
+    instructions: body.system.trim() ? body.system : undefined,
     max_output_tokens: body.max_tokens,
     reasoning: body.reasoning_effort
       ? { effort: body.reasoning_effort }

@@ -1,7 +1,7 @@
 # DeepSeek Replica 二创版
 
 > 一个 Android 上的本地优先 AI 聊天客户端，另带同源静态网页版。日常聊天、角色卡、世界书、场景、长期记忆、连续语音通话和费用观测都在同一个应用里跑。  
-> 当前源码版本：**0.8.75**。
+> 当前源码版本：**0.8.76**。
 > GitHub 仓库：[sjfc123/deepseek-replica-community](https://github.com/sjfc123/deepseek-replica-community)
 
 ## 项目状态
@@ -22,7 +22,7 @@
 同一套前端也编译成静态网页，方便在桌面或手机浏览器里先试，不经过 Android 安装包：
 
 - 地址：[https://sjfc123.github.io/deepseek-replica-community/](https://sjfc123.github.io/deepseek-replica-community/)
-- 页面来自 `gh-pages` 分支的 0.8.75 构建；源码更新后需要重新构建并推送该分支，网页不会自动跟着源码变。
+- 页面来自 `gh-pages` 分支的 0.8.76 构建；源码更新后需要重新构建并推送该分支，网页不会自动跟着源码变。
 - 浏览器版没有 Android 原生桥：API Key 存在 `localStorage`，聊天和设置存在 `localStorage` / IndexedDB，不经过 Keystore 加密。清理浏览器站点数据会丢本地对话，先导出再清。
 - 设置页使用完整分区：根页顶部直接有 `DeepSeek API Key`，下面还有接口与请求、角色卡与世界书、长期记忆、关键词拒答等入口，不再只显示三个精简分类。
 - 请求由浏览器直连模型接口。官方 DeepSeek 接口允许跨域；第三方网关必须自己返回 CORS 头，否则网页端会请求失败。
@@ -358,6 +358,7 @@
 
 这一版不是只换界面。下面这些是实际改动过、会影响使用方式的部分：
 
+- 0.8.76 对 system 做了整条链路的稳定性收口：角色卡开场白不再按消息条数决定是否进入 system，避免第二轮前缀变化导致缓存失效；纯空白提示词按清空处理，清空后不再发空 system；手写角色名为空时 `{{char}}` 回退为 `AI`；默认人格与演出规则对“括号内心活动”的表述统一；Chat、Responses、Messages 三种协议统一拦截空白 system。装配顺序与验证方式见 [SYSTEM-PROMPT-PIPELINE.md](SYSTEM-PROMPT-PIPELINE.md)。
 - 自定义接口下 `system` 不再被置空，角色设定能正常进入请求。
 - `system` 只保留跨轮稳定的角色卡、人设与手写提示词；记忆、场景和关键词世界书接在本轮发言末尾，不再因为新增一张卡就让整段历史前缀失效。
 - 角色卡、世界书、场景、记忆、手写提示词按固定顺序拼装，避免互相覆盖。
@@ -537,4 +538,4 @@ cd android
 
 感谢 LiJiaHua1024 打下最初的 Android 壳和 Web UI，感谢赤石科技（YanJiuWeiYuanHui）在 DeepChat 里把多模型、记忆、语音这些难啃的部分先跑通，也感谢 DeepSeek 开源的 chat-demo 和一路反馈问题、帮忙试功能的人。
 
-这个项目能走到 0.8.75，不是功能清单堆出来的，是一次次把崩掉的地方补回来。后面的路由，交给下一个接手的人。
+这个项目能走到 0.8.76，不是功能清单堆出来的，是一次次把崩掉的地方补回来。后面的路由，交给下一个接手的人。

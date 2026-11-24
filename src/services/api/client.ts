@@ -260,7 +260,7 @@ const customMessagesRequest = ({
   top_p,
 }: CreateMessageRequest) => ({
   model,
-  system: system || undefined,
+  system: system.trim() ? system : undefined,
   max_tokens,
   ...(temperature !== undefined ? { temperature } : {}),
   ...(top_p !== undefined ? { top_p } : {}),

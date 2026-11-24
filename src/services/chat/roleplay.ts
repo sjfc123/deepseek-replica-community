@@ -349,12 +349,8 @@ export const normalizeScene = (raw: unknown): SceneState => {
 export const sceneHasContent = (scene: SceneState) =>
   SCENE_FIELDS.some(({ key }) => scene[key].trim())
 
-/** 角色卡按固定字段拼成一段，避免模型把字段名当成台词 */
-export const formatCharacterCard = (
-  card: CharacterCard,
-  userName: string,
-  includeGreeting = false
-) => {
+/** 角色卡按固定字段拼成一段，避免模型把字段名当成台词；开场白始终保留，保证 system 跨轮稳定 */
+export const formatCharacterCard = (card: CharacterCard, userName: string) => {
   const rows = ([
     ['姓名', card.name],
     ['身份', card.identity],
@@ -362,9 +358,7 @@ export const formatCharacterCard = (
     ['说话方式', card.style],
     ['小习惯', card.tics],
     ['别忘的事', card.notes],
-    includeGreeting
-      ? ['第一句话可以这样开口（只在最开头用一次，后面别重复）', card.greeting]
-      : ['', ''],
+    ['开场参考（只在第一条回复使用，后续自然延续，不要重复开口）', card.greeting],
   ] as Array<[string, string]>)
     .filter(([label]) => label)
     .filter(([, value]) => value)

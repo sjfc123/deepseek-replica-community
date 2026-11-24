@@ -1,14 +1,14 @@
-# 源码留存说明 · 0.8.75
+# 源码留存说明 · 0.8.76
 
 这份说明跟着源码包一起放，不是发布公告。它只回答四个问题：这是哪个版本、包里有什么、缺了什么、后来的人怎么把它跑起来。
 
 ## 版本
 
-- 版本号：0.8.75
-- 开发阶段的 versionCode：121
+- 版本号：0.8.76
+- 开发阶段的 versionCode：122
 - 覆盖版包名：`io.github.lijiahua1024.dsreplica`
 - 并存版包名：`io.github.lijiahua1024.dsreplica.rp`
-- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.75`
+- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.76`
 
 ## 包里有什么
 
@@ -16,7 +16,7 @@
 - `android/`：Android 容器、Java 源码和 Gradle 工程
 - `scripts/`、`rspack.config.ts`、`tsconfig.json`：构建与测试脚本
 - `package.json`、`pnpm-lock.yaml`：依赖和锁定版本
-- `README.md`、`NOTICE.md`、`LICENSE`、本说明：来源、许可和使用边界
+- `README.md`、`NOTICE.md`、`LICENSE`、`SYSTEM-PROMPT-PIPELINE.md`、本说明：来源、许可、System 前缀链路和使用边界
 
 ## 包里没有什么
 
@@ -26,6 +26,15 @@
 - 打包中间产物、测试演练页、个人备份
 
 这些不是遗漏，是故意不放进源码包。APK 和签名文件由构建者自己生成、自己保管；具体边界写在 README 的“编译、签名与分发”一节，NOTICE 里也有说明。别人转发的 APK 不代表这个仓库，也无法证明没有被改过。
+
+## 0.8.76 本版改动
+
+- 角色卡开场白不再按消息条数进入或退出 system：`formatCharacterCard` 去掉 `includeGreeting` 参数，开场白始终作为卡字段保留，文案改为“只在第一条回复使用，后续自然延续”。同一张卡从第一轮起 system 逐字一致，消除第二轮前缀变化。
+- `composeSystemPrompt` 对纯空白提示词返回空字符串；`initialSystemPrompt` 区分“键不存在”（新用户，给默认人格）与“键存在但只有空白”（主动清空，保持空）。
+- 手写角色名与卡名都为空时，`{{char}}` 回退为 `AI`，避免字面占位符进入 system 或背景资料。
+- 默认人格与 `META_TALK_GUARD` / `ASIDE_AND_ADDRESS_GUARD` 对括号内容的表述统一：禁止旁白、分析、推理步骤和写作计划；允许角色主观心理活动放进圆括号。
+- Chat、Responses、自定义 Messages 三种序列化统一拦截空白 system。
+- 新增 `scripts/test-system-prompt.mjs` 与 `pnpm test:system`，固定角色卡前缀、开场白存在性、Chat/Responses 的 system 位置与空 system 行为；新增 `SYSTEM-PROMPT-PIPELINE.md` 说明装配顺序和缓存不变量。
 
 ## 0.8.75 本版改动
 

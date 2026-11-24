@@ -2384,9 +2384,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const worldAfter = worldEntries.filter((entry) => entry.position === 'tail')
   // system 只放跨轮稳定的内容。缓存按完整前缀命中，system 里哪怕只变一张记忆卡，
   // 后面的全部历史都会失效；记忆、场景和按关键词挑出的世界书因此统一挪到本轮末尾。
+  // 卡内开场白也固定在 system：不按消息条数删，是否重复由卡内“只用一次”的文案约束。
   const baseSystem = [
     roleplayActive && activeCard
-      ? formatCharacterCard(activeCard, userName, visibleForRoleplay.length < 2)
+      ? formatCharacterCard(activeCard, userName)
       : '',
     composeSystemPrompt({
       savedPrompt: systemPrompt,
@@ -2398,7 +2399,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     .filter(Boolean)
     .join('\n\n')
   // 统一替换占位符：手写提示词、角色卡字段、世界书与记忆都走这一处
-  const promptCharName = roleplayActive ? activeCard?.name : characterName
+  // 没有可用的手写名或卡名时用 AI 兜底，避免 {{char}} 原样漏进 system 或背景资料
+  const promptCharName = (roleplayActive ? activeCard?.name : characterName)?.trim() || 'AI'
   const baseSystemResolved = applyPlaceholders(baseSystem, {
     userName,
     charName: promptCharName,
