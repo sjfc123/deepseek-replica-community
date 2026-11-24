@@ -4,6 +4,63 @@ import { createId } from '../../utils/id.js'
 /** 记忆模式：关闭 / 每轮整段记录 / 每轮记录后用模型提炼合并 */
 export type MemoryMode = 'off' | 'turn' | 'refine'
 
+/** 顶层分类：普通记忆用于开发、问答与代码检索；角色记忆用于角色扮演剧情 */
+export type MemoryPool = 'character' | 'normal'
+
+/** 普通记忆子分类：对话 / 代码 / 用户原话 / AI 原话 */
+export type NormalMemoryKind = 'dialogue' | 'code' | 'user' | 'ai'
+
+export const NORMAL_MEMORY_KINDS: NormalMemoryKind[] = ['dialogue', 'code', 'user', 'ai']
+
+export const normalMemoryLabel = (kind: NormalMemoryKind) => {
+  if (kind === 'code') {
+    return '代码'
+  }
+  if (kind === 'user') {
+    return '用户原话'
+  }
+  if (kind === 'ai') {
+    return 'AI 原话'
+  }
+  return '对话'
+}
+
+/** 旧卡片没有 pool 字段，一律视为角色记忆，保证存量时间线与注入不被破坏 */
+export const getMemoryPool = (card: MemoryCard): MemoryPool =>
+  card.pool === 'normal' ? 'normal' : 'character'
+
+export const getNormalMemoryKind = (card: MemoryCard): NormalMemoryKind =>
+  card.pool === 'normal' && card.category ? card.category : 'dialogue'
+
+/** 三连反引号才算代码块；单行单反引号、普通引用不算 */
+export const detectCodeBlock = (text: string) => /(^|\n)\s*```/.test(text)
+
+/** 从代码块开头提取语言标记，例如 ```java → java */
+export const detectCodeLanguage = (text: string): string | undefined => {
+  const match = text.match(/(?:^|\n)\s*```([a-zA-Z0-9_+#.-]+)/)
+  return match?.[1]?.toLowerCase()
+}
+
+/**
+ * 普通记忆的子分类推荐：只做预选，用户可以在保存弹窗里改。
+ * 代码块优先；其余按消息角色区分用户原话与 AI 原话。
+ */
+export const detectNormalMemoryKind = (
+  text: string,
+  role?: Message['role']
+): NormalMemoryKind => {
+  if (detectCodeBlock(text)) {
+    return 'code'
+  }
+  if (role === 'user') {
+    return 'user'
+  }
+  if (role === 'assistant') {
+    return 'ai'
+  }
+  return 'dialogue'
+}
+
 /**
  * 一条长期记忆。挂在产生它的消息上，跟随分支：切换版本时看不到另一条分支的记忆，
  * 从某条消息分叉出来的新分支则天然继承祖先链上的全部卡片。
@@ -15,6 +72,12 @@ export type MemoryCard = {
   /** 关掉后不再注入 system，但卡片保留 */
   enabled: boolean
   source: 'auto' | 'refine' | 'manual' | 'bulk'
+  /** 顶层分类；缺省视为 character（旧卡兼容） */
+  pool?: MemoryPool
+  /** 普通记忆子分类；角色记忆不使用 */
+  category?: NormalMemoryKind
+  /** 代码块语言标记，便于搜索；只对普通-代码卡片有意义 */
+  language?: string
   /** 已归档：被提炼结果取代，或超出卡片/字数上限；不再注入，仍在面板可见，文本不删除 */
   superseded?: boolean
   /** 置顶：每轮必注入，优先占用预算 */
@@ -28,6 +91,9 @@ export type MemoryCard = {
 /** 注入上限：卡片条数与字符总量；字符预算可由设置页调整，默认 1,000,000 */
 export const MEMORY_MAX_CARDS = 60
 export const MEMORY_MAX_CHARS = 1_000_000
+/** 普通记忆独立配额默认值：默认 300 张、20 万字，避免和角色剧情互相挤占 */
+export const NORMAL_MEMORY_MAX_CARDS = 300
+export const NORMAL_MEMORY_MAX_CHARS = 200_000
 /** 注入配额：置顶、最近、与当前发言相关的旧卡片各自的上限 */
 export const MEMORY_PINNED_MAX = 8
 export const MEMORY_RECENT_INJECT = 12
@@ -224,9 +290,17 @@ export const collectVisibleMemories = (_session: Session, messages: Message[]) =
   )
 
 /** 实际注入 system 的卡片：启用、未被取代，按时间先后；limit 为保留上限 */
-export const activeMemoryCards = (session: Session, messages: Message[], limit?: number) => {
+export const activeMemoryCards = (
+  session: Session,
+  messages: Message[],
+  limit?: number,
+  pool?: MemoryPool
+) => {
   const active = collectVisibleMemories(session, messages)
-    .filter(({ card }) => card.enabled && !card.superseded)
+    .filter(
+      ({ card }) =>
+        card.enabled && !card.superseded && (!pool || getMemoryPool(card) === pool)
+    )
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
   return limit && limit > 0 ? active.slice(-limit) : active
 }
@@ -234,19 +308,34 @@ export const activeMemoryCards = (session: Session, messages: Message[], limit?:
 /**
  * 超出保留上限的自动卡片（手动卡片不占配额）。
  * 返回最早的那批，由 store 标成归档：不删除、可在面板查看，只是不再注入。
+ * pool 只统计对应分类，普通记忆与角色记忆各自独立。
  */
-export const overflowMemoryCards = (session: Session, messages: Message[], limit: number) => {
+export const overflowMemoryCards = (
+  session: Session,
+  messages: Message[],
+  limit: number,
+  pool?: MemoryPool
+) => {
   const auto = collectVisibleMemories(session, messages)
-    .filter(({ card }) => card.source !== 'manual' && !card.pinned && !card.superseded)
+    .filter(
+      ({ card }) =>
+        card.source !== 'manual' &&
+        !card.pinned &&
+        !card.superseded &&
+        (!pool || getMemoryPool(card) === pool)
+    )
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
   const excess = auto.length - Math.max(1, limit)
   return excess > 0 ? auto.slice(0, excess) : []
 }
 
-/** 已启用、未归档、真正参与注入的卡片总字数 */
-export const activeMemoryChars = (session: Session, messages: Message[]) =>
+/** 已启用、未归档、真正参与注入的卡片总字数；pool 可只统计普通或角色记忆 */
+export const activeMemoryChars = (session: Session, messages: Message[], pool?: MemoryPool) =>
   collectVisibleMemories(session, messages)
-    .filter(({ card }) => card.enabled && !card.superseded)
+    .filter(
+      ({ card }) =>
+        card.enabled && !card.superseded && (!pool || getMemoryPool(card) === pool)
+    )
     .reduce((total, entry) => total + entry.card.text.length, 0)
 
 /**
@@ -256,10 +345,14 @@ export const activeMemoryChars = (session: Session, messages: Message[]) =>
 export const overflowMemoryCardsByChars = (
   session: Session,
   messages: Message[],
-  limit: number
+  limit: number,
+  pool?: MemoryPool
 ) => {
   const active = collectVisibleMemories(session, messages)
-    .filter(({ card }) => card.enabled && !card.superseded)
+    .filter(
+      ({ card }) =>
+        card.enabled && !card.superseded && (!pool || getMemoryPool(card) === pool)
+    )
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
   const total = active.reduce((sum, entry) => sum + entry.card.text.length, 0)
   const excess = total - Math.max(1, limit)
@@ -319,7 +412,10 @@ export const selectMemoryCardsForInjection = (
   query: string
 ) => {
   const active = collectVisibleMemories(session, messages)
-    .filter(({ card }) => card.enabled && !card.superseded)
+    .filter(
+      ({ card }) =>
+        card.enabled && !card.superseded && getMemoryPool(card) === 'character'
+    )
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
   const manual = active.filter(({ card }) => card.source === 'manual')
   const manualIds = new Set(manual.map(({ card }) => card.id))
@@ -370,17 +466,121 @@ export const selectMemoryCardsForInjection = (
   })
 }
 
+/**
+ * 普通记忆注入：不做时间线、好感或关系召回，只按关键词命中取卡片。
+ * 手动卡与置顶卡优先；其余按与当前问题的词块重合度排序，没有关键词时取最近几张。
+ */
+export const selectNormalMemoryCardsForInjection = (
+  session: Session,
+  messages: Message[],
+  limit: number,
+  query: string
+) => {
+  const active = collectVisibleMemories(session, messages)
+    .filter(
+      ({ card }) =>
+        card.enabled && !card.superseded && getMemoryPool(card) === 'normal'
+    )
+    .sort((a, b) => a.card.createdAt - b.card.createdAt)
+  const manual = active.filter(({ card }) => card.source === 'manual')
+  const manualIds = new Set(manual.map(({ card }) => card.id))
+  const pinned = active
+    .filter(({ card }) => card.pinned && !manualIds.has(card.id))
+    .slice(-MEMORY_PINNED_MAX)
+  const pinnedIds = new Set(pinned.map(({ card }) => card.id))
+  const rest = active.filter(
+    ({ card }) => !manualIds.has(card.id) && !pinnedIds.has(card.id)
+  )
+  const terms = queryTerms(query)
+  const relevant =
+    terms.length === 0
+      ? rest.slice(-Math.max(1, Math.min(8, limit)))
+      : rest
+          .map((entry) => {
+            const text = entry.card.text.toLowerCase()
+            let score = 0
+            for (const term of terms) {
+              if (text.includes(term)) {
+                score += term.length
+              }
+            }
+            return { entry, score }
+          })
+          .filter((item) => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, Math.max(1, limit))
+          .map((item) => item.entry)
+  const chosen = [...manual, ...pinned, ...relevant]
+  const seen = new Set<string>()
+  return chosen
+    .filter(({ card }) => {
+      if (seen.has(card.id)) {
+        return false
+      }
+      seen.add(card.id)
+      return true
+    })
+    .slice(0, Math.max(1, limit))
+}
+
+/** 普通记忆的 system 块：只作开发/问答参考，不携带角色剧情规则 */
+export const formatNormalMemoryBlock = (
+  cards: MemoryCard[],
+  limit = MEMORY_MAX_CARDS,
+  chars = MEMORY_MAX_CHARS
+) => {
+  const normal = cards.filter(
+    (card) => getMemoryPool(card) === 'normal' && card.enabled && !card.superseded
+  )
+  if (normal.length === 0) {
+    return ''
+  }
+  const lines: string[] = []
+  let used = 0
+  for (const card of normal.slice(0, limit)) {
+    const kind = getNormalMemoryKind(card)
+    const label = kind === 'code' && card.language
+      ? `代码 · ${card.language}`
+      : normalMemoryLabel(kind)
+    const body = kind === 'code' ? card.text : card.text.replace(/\n/g, ' / ')
+    const line = `- 【${label}】${body}`
+    if (used + line.length > Math.max(1, chars)) {
+      if (lines.length === 0) {
+        lines.push(line.slice(0, Math.max(1, chars)))
+        used = chars
+      }
+      break
+    }
+    lines.push(line)
+    used += line.length
+  }
+  if (lines.length === 0) {
+    return ''
+  }
+  return (
+    '【普通记忆 · 开发与问答参考】\n' +
+    '以下内容来自玩家保存的普通记忆，只用于开发、排错、问答与代码查阅，不属于角色剧情。\n' +
+    '回应规则：\n' +
+    '1. 当前问题涉及代码、报错、配置、命令或实现方案时，优先参考下面的代码卡片；引用时保持原变量名、路径和命令不变，不要凭印象改写。\n' +
+    '2. 当前问题问的是以前聊过的事实、结论或操作步骤时，先查下面的对话与用户/AI 原话卡片；有明确记录就按记录回答，找不到就说不确定。\n' +
+    '3. 这些卡片不参与角色扮演；不要因为它们改变角色人设、关系阶段或剧情走向。\n' +
+    '4. 不要向玩家复述“普通记忆”“卡片”这类词，直接使用其中的信息。\n' +
+    lines.join('\n')
+  )
+}
+
 export const formatMemoryBlock = (
   cards: MemoryCard[],
   limit = MEMORY_MAX_CARDS,
   chars = MEMORY_MAX_CHARS
 ) => {
-  if (cards.length === 0) {
+  const character = cards.filter((card) => getMemoryPool(card) === 'character')
+  if (character.length === 0) {
     return ''
   }
   const lines: string[] = []
   let used = 0
-  for (const card of cards.slice(0, limit)) {
+  for (const card of character.slice(0, limit)) {
     const line = `- ${card.text.replace(/\n/g, ' / ')}`
     if (used + line.length > Math.max(1, chars)) {
       if (lines.length === 0) {
@@ -447,13 +647,17 @@ export const parseRefinedCards = (text: string, limit = MEMORY_MAX_CARDS) =>
 export const createMemoryCard = (
   text: string,
   source: MemoryCard['source'],
-  createdAt = Date.now()
+  createdAt = Date.now(),
+  options: Pick<MemoryCard, 'pool' | 'category' | 'language'> = {}
 ): MemoryCard => ({
   id: createId(),
   text: text.trim(),
   createdAt,
   enabled: true,
   source,
+  ...(options.pool ? { pool: options.pool } : {}),
+  ...(options.category ? { category: options.category } : {}),
+  ...(options.language ? { language: options.language } : {}),
 })
 
 export type ConversationMemoryDraft = {
@@ -510,3 +714,31 @@ export const buildConversationMemoryCards = (
   }
   return drafts
 }
+
+/**
+ * 普通记忆按“每条消息一张卡”保存，不把用户与角色强行合成回合。
+ * 指定 category 时全部归入该子分类；auto 时逐条识别代码 / 用户原话 / AI 原话。
+ */
+export const buildNormalMemoryCards = (
+  messages: Message[],
+  category: NormalMemoryKind | 'auto' = 'auto'
+): ConversationMemoryDraft[] =>
+  messages
+    .map((message) => {
+      const body = message.role === 'assistant' ? replyPlainText(message) : message.content
+      if (!body.trim()) {
+        return null
+      }
+      const kind = category === 'auto' ? detectNormalMemoryKind(body, message.role) : category
+      const prefix = message.role === 'user' ? '用户：' : 'AI：'
+      const text = `${prefix}${body.trim()}`
+      return {
+        messageId: message.id,
+        card: createMemoryCard(text, 'bulk', message.createdAt, {
+          pool: 'normal',
+          category: kind,
+          language: kind === 'code' ? detectCodeLanguage(body) : undefined,
+        }),
+      }
+    })
+    .filter((draft): draft is ConversationMemoryDraft => draft !== null)

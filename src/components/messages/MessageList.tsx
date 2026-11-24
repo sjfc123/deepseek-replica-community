@@ -14,6 +14,13 @@ import {
   useChatStore,
   saveMessagesAsMemory,
 } from '../../services/chat/store.js'
+import {
+  detectCodeBlock,
+  NORMAL_MEMORY_KINDS,
+  normalMemoryLabel,
+  type MemoryPool,
+  type NormalMemoryKind,
+} from '../../services/chat/memory.js'
 import type { Session } from '../../services/chat/types.js'
 import { sessionActualUsage } from '../../services/chat/tokenUsage.js'
 import {
@@ -135,6 +142,8 @@ export const MessageList = ({
     ids: new Set(),
   })
   const [memoryConfirm, setMemoryConfirm] = useState(false)
+  const [memoryPool, setMemoryPool] = useState<MemoryPool>('character')
+  const [memoryKind, setMemoryKind] = useState<NormalMemoryKind | 'auto'>('auto')
   useEffect(() => {
     setMemorySelect({ active: false, ids: new Set() })
     setMemoryConfirm(false)
@@ -724,6 +733,8 @@ export const MessageList = ({
   }
   const startMemorySelect = (id: string, scope: 'one' | 'all') => {
     setMemoryConfirm(false)
+    setMemoryPool('character')
+    setMemoryKind('auto')
     setMemorySelect({
       active: true,
       ids: new Set(scope === 'all' ? messages.map((message) => message.id) : roundMessageIds(id)),
@@ -739,8 +750,32 @@ export const MessageList = ({
     setMemoryConfirm(false)
     setMemorySelect({ active: false, ids: new Set() })
   }
+  const openMemoryConfirm = () => {
+    const picked = messages.filter(
+      (message) => memorySelect.active && memorySelect.ids.has(message.id)
+    )
+    const hasCode = picked.some((message) =>
+      detectCodeBlock(
+        message.role === 'assistant'
+          ? message.blocks
+              .filter((block) => block.type === 'text')
+              .map((block) => block.text)
+              .join('\n')
+          : message.content
+      )
+    )
+    setMemoryPool(hasCode ? 'normal' : 'character')
+    setMemoryKind('auto')
+    setMemoryConfirm(true)
+  }
   const confirmSaveMemory = () => {
-    const result = saveMessagesAsMemory(session.id, Array.from(memorySelect.ids))
+    const result = saveMessagesAsMemory(
+      session.id,
+      Array.from(memorySelect.ids),
+      memoryPool === 'normal'
+        ? { pool: 'normal', category: memoryKind }
+        : { pool: 'character' }
+    )
     setMemoryConfirm(false)
     setMemorySelect({ active: false, ids: new Set() })
     if (result.created === 0) {
@@ -874,7 +909,7 @@ export const MessageList = ({
               type="button"
               className={styles.memoryBarPrimary}
               disabled={memorySelectedCount === 0}
-              onClick={() => setMemoryConfirm(true)}
+              onClick={openMemoryConfirm}
             >
               保存为记忆
             </button>
@@ -919,8 +954,59 @@ export const MessageList = ({
               >
                 <strong className={styles.memoryConfirmTitle}>保存为记忆？</strong>
                 <p className={styles.memoryConfirmText}>
-                  已选 {memorySelectedCount}{' '}
-                  条消息，会按轮生成完整记忆卡。同一轮已有整段卡会跳过；超出卡片或字数上限时自动归档最早的自动卡，不会保存失败。这里只处理记忆保存，不含分享。
+                  已选 {memorySelectedCount} 条消息。先选分类：角色记忆按轮保存剧情与时间线；普通记忆每条独立保存，更适合开发、问答和代码检索。
+                </p>
+                <div className={styles.memoryConfirmPools} role="radiogroup" aria-label="记忆分类">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={memoryPool === 'character'}
+                    data-active={memoryPool === 'character'}
+                    onClick={() => setMemoryPool('character')}
+                  >
+                    角色记忆
+                    <small>剧情 · 时间线 · 好感</small>
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={memoryPool === 'normal'}
+                    data-active={memoryPool === 'normal'}
+                    onClick={() => setMemoryPool('normal')}
+                  >
+                    普通记忆
+                    <small>开发 · 问答 · 代码</small>
+                  </button>
+                </div>
+                {memoryPool === 'normal' ? (
+                  <div className={styles.memoryConfirmKinds} role="radiogroup" aria-label="普通记忆子分类">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={memoryKind === 'auto'}
+                      data-active={memoryKind === 'auto'}
+                      onClick={() => setMemoryKind('auto')}
+                    >
+                      自动识别
+                    </button>
+                    {NORMAL_MEMORY_KINDS.map((kind) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        role="radio"
+                        aria-checked={memoryKind === kind}
+                        data-active={memoryKind === kind}
+                        onClick={() => setMemoryKind(kind)}
+                      >
+                        {normalMemoryLabel(kind)}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <p className={styles.memoryConfirmText}>
+                  {memoryPool === 'normal'
+                    ? '自动识别会把三连反引号代码块归入「代码」，用户消息归入「用户原话」，AI 回复归入「AI 原话」；也可以手动指定。'
+                    : '同一轮已有整段角色卡会跳过；超出分类配额时归档最早的自动卡，不会保存失败。这里只处理记忆保存，不含分享。'}
                 </p>
                 <div className={styles.memoryConfirmActions}>
                   <button

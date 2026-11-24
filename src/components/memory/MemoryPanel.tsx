@@ -4,8 +4,16 @@ import {
   activeMemoryCards,
   activeMemoryChars,
   collectVisibleMemories,
+  detectNormalMemoryKind,
+  getMemoryPool,
+  getNormalMemoryKind,
+  NORMAL_MEMORY_KINDS,
+  normalMemoryLabel,
   selectMemoryCardsForInjection,
+  selectNormalMemoryCardsForInjection,
   type MemoryCard,
+  type MemoryPool,
+  type NormalMemoryKind,
 } from '../../services/chat/memory.js'
 import {
   addManualMemory,
@@ -33,9 +41,16 @@ const sourceLabel = (card: MemoryCard) => {
     return '手动'
   }
   if (card.source === 'bulk') {
-    return '整段'
+    return getMemoryPool(card) === 'normal' ? '收录' : '整段'
   }
   return card.source === 'refine' ? '提炼' : '自动'
+}
+
+const cardPoolLabel = (card: MemoryCard) => {
+  if (getMemoryPool(card) === 'character') {
+    return '角色'
+  }
+  return `普通 · ${normalMemoryLabel(getNormalMemoryKind(card))}`
 }
 
 type Filter = 'all' | 'active' | 'manual' | 'archived'
@@ -47,13 +62,30 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'archived', label: '已归档' },
 ]
 
-/** 长期记忆面板：统计、筛选、搜索、分页；卡片可改、可关、可删，也能手动补一条 */
+const normalKinds: Array<{ key: NormalMemoryKind | 'all'; label: string }> = [
+  { key: 'all', label: '全部' },
+  ...NORMAL_MEMORY_KINDS.map((key) => ({
+    key,
+    label: normalMemoryLabel(key),
+  })),
+]
+
+/** 长期记忆面板：普通/角色双分类，普通记忆再分对话、代码、用户、AI */
 export const MemoryPanel = ({ session }: { session: Session }) => {
   const memoryMode = useSettings((state) => state.memoryMode)
   const memoryLimit = useSettings((state) => state.memoryLimit)
   const memoryChars = useSettings((state) => state.memoryChars)
+  const normalMemoryEnabled = useSettings((state) => state.normalMemoryEnabled)
+  const normalMemoryLimit = useSettings((state) => state.normalMemoryLimit)
+  const normalMemoryChars = useSettings((state) => state.normalMemoryChars)
+  const roleplayEnabled = useSettings((state) => state.roleplayEnabled)
+  const activeCharacterId = useSettings((state) => state.activeCharacterId)
   const [draft, setDraft] = useState('')
+  const [draftPool, setDraftPool] = useState<MemoryPool>('character')
+  const [draftKind, setDraftKind] = useState<NormalMemoryKind | 'auto'>('auto')
   const [query, setQuery] = useState('')
+  const [pool, setPool] = useState<MemoryPool>('character')
+  const [normalKind, setNormalKind] = useState<NormalMemoryKind | 'all'>('all')
   const [filter, setFilter] = useState<Filter>('all')
   const [shown, setShown] = useState(PAGE_SIZE)
   /** 编辑框按内容自动撑高：卡片正文越长，textarea 越高，避免文字被固定三行挡住 */
@@ -78,45 +110,98 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     const all = collectVisibleMemories(session, messages)
     return all.slice().sort((a, b) => b.card.createdAt - a.card.createdAt)
   }, [session, messages])
-  const activeCount = useMemo(
-    () => activeMemoryCards(session, messages).length,
-    [session, messages]
+
+  const poolEntries = useMemo(
+    () => entries.filter(({ card }) => getMemoryPool(card) === pool),
+    [entries, pool]
   )
-  const activeChars = useMemo(() => activeMemoryChars(session, messages), [session, messages])
+  const characterCount = useMemo(
+    () => entries.filter(({ card }) => getMemoryPool(card) === 'character').length,
+    [entries]
+  )
+  const normalCount = useMemo(
+    () => entries.filter(({ card }) => getMemoryPool(card) === 'normal').length,
+    [entries]
+  )
+  const activeCount = useMemo(
+    () => activeMemoryCards(session, messages, undefined, pool).length,
+    [session, messages, pool]
+  )
+  const activeChars = useMemo(
+    () => activeMemoryChars(session, messages, pool),
+    [session, messages, pool]
+  )
   const autoCount = useMemo(
     () =>
-      entries.filter(({ card }) => card.source !== 'manual' && !card.pinned && !card.superseded)
-        .length,
-    [entries]
+      poolEntries.filter(
+        ({ card }) => card.source !== 'manual' && !card.pinned && !card.superseded
+      ).length,
+    [poolEntries]
   )
   const archivedCount = useMemo(
-    () => entries.filter(({ card }) => card.superseded).length,
-    [entries]
+    () => poolEntries.filter(({ card }) => card.superseded).length,
+    [poolEntries]
   )
   const manualCount = useMemo(
-    () => entries.filter(({ card }) => card.source === 'manual').length,
-    [entries]
+    () => poolEntries.filter(({ card }) => card.source === 'manual').length,
+    [poolEntries]
   )
   const pinnedCount = useMemo(
-    () => entries.filter(({ card }) => card.pinned && !card.superseded).length,
-    [entries]
+    () => poolEntries.filter(({ card }) => card.pinned && !card.superseded).length,
+    [poolEntries]
   )
+  const normalKindCounts = useMemo(() => {
+    const counts: Record<NormalMemoryKind, number> = {
+      dialogue: 0,
+      code: 0,
+      user: 0,
+      ai: 0,
+    }
+    for (const { card } of entries) {
+      if (getMemoryPool(card) === 'normal') {
+        counts[getNormalMemoryKind(card)] += 1
+      }
+    }
+    return counts
+  }, [entries])
   const lastQuestion = useMemo(() => {
     const lastUser = messages.filter((message) => message.role === 'user').at(-1)
     return lastUser?.content ?? ''
   }, [messages])
+  const normalInjectionAllowed =
+    normalMemoryEnabled && !(roleplayEnabled && Boolean(activeCharacterId))
   const injection = useMemo(
-    () => selectMemoryCardsForInjection(session, messages, memoryLimit, lastQuestion),
-    [session, messages, memoryLimit, lastQuestion]
+    () =>
+      pool === 'character'
+        ? selectMemoryCardsForInjection(session, messages, memoryLimit, lastQuestion)
+        : normalInjectionAllowed
+          ? selectNormalMemoryCardsForInjection(
+              session,
+              messages,
+              normalMemoryLimit,
+              lastQuestion
+            )
+          : [],
+    [
+      pool,
+      session,
+      messages,
+      memoryLimit,
+      normalMemoryLimit,
+      lastQuestion,
+      normalInjectionAllowed,
+    ]
   )
+  const budget = pool === 'normal' ? normalMemoryChars : memoryChars
+  const cardLimit = pool === 'normal' ? normalMemoryLimit : memoryLimit
   const injectionPreview = useMemo(() => {
     let chars = 0
     let count = 0
     for (const { card } of injection) {
       const size = `- ${card.text.replace(/\n/g, ' / ')}`.length + 1
-      if (chars + size > memoryChars) {
+      if (chars + size > budget) {
         if (count === 0) {
-          chars = memoryChars
+          chars = budget
           count = 1
         }
         break
@@ -125,11 +210,25 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
       count++
     }
     return { count, chars, total: injection.length }
-  }, [injection, memoryChars])
+  }, [injection, budget])
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
+    const searching = needle.length > 0
     return entries.filter(({ card }) => {
+      // 有关键词时跨分类搜索；没有关键词时按当前 Tab 与普通子分类筛选
+      if (!searching) {
+        if (getMemoryPool(card) !== pool) {
+          return false
+        }
+        if (
+          pool === 'normal' &&
+          normalKind !== 'all' &&
+          getNormalMemoryKind(card) !== normalKind
+        ) {
+          return false
+        }
+      }
       const byFilter =
         filter === 'all'
           ? true
@@ -143,10 +242,10 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
       }
       return needle ? card.text.toLowerCase().includes(needle) : true
     })
-  }, [entries, filter, query])
+  }, [entries, filter, query, pool, normalKind])
 
-  const countRatio = Math.min(1, autoCount / Math.max(1, memoryLimit))
-  const charRatio = Math.min(1, activeChars / Math.max(1, memoryChars))
+  const countRatio = Math.min(1, autoCount / Math.max(1, cardLimit))
+  const charRatio = Math.min(1, activeChars / Math.max(1, budget))
   const limitRatio = Math.max(countRatio, charRatio)
 
   const submit = () => {
@@ -154,7 +253,16 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     if (!text) {
       return
     }
-    addManualMemory(session.id, text)
+    const category =
+      draftPool === 'normal'
+        ? draftKind === 'auto'
+          ? detectNormalMemoryKind(text)
+          : draftKind
+        : undefined
+    addManualMemory(session.id, text, {
+      pool: draftPool,
+      category,
+    })
     setDraft('')
   }
 
@@ -165,18 +273,22 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
         ? '尚无手动卡片'
         : filter === 'active'
           ? '没有生效中的卡片'
-          : '尚无记忆'
+          : pool === 'normal'
+            ? '普通记忆还没有卡片'
+            : '角色记忆还没有卡片'
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="长期记忆">
       <section className={styles.card}>
         <header className={styles.head}>
           <div>
+            <span className={styles.eyebrow}>MEMORY</span>
             <h2>长期记忆</h2>
             <p>
-              {entries.length} 张卡片 · 生效 {activeCount} 张 · 手动 {manualCount} 张
-              {pinnedCount > 0 ? ` · 置顶 ${pinnedCount} 张` : ''}
-              {archivedCount > 0 ? ` · 归档 ${archivedCount} 张` : ''}
+              角色 {characterCount} 张 · 普通 {normalCount} 张
+              {manualCount > 0 ? ` · 当前手动 ${manualCount}` : ''}
+              {pinnedCount > 0 ? ` · 当前置顶 ${pinnedCount}` : ''}
+              {archivedCount > 0 ? ` · 当前归档 ${archivedCount}` : ''}
             </p>
           </div>
           <button className={styles.close} type="button" onClick={closeMemoryPanel}>
@@ -184,43 +296,114 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
           </button>
         </header>
 
-        <div className={styles.usage} data-mode={memoryMode}>
+        <div className={styles.poolTabs} role="tablist" aria-label="记忆分类">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={pool === 'character'}
+            data-active={pool === 'character'}
+            onClick={() => {
+              setPool('character')
+              setFilter('all')
+              setShown(PAGE_SIZE)
+            }}
+          >
+            <span className={styles.poolIcon}>✦</span>
+            <span>
+              <strong>角色记忆</strong>
+              <small>剧情 · 时间线 · 好感</small>
+            </span>
+            <em>{characterCount}</em>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={pool === 'normal'}
+            data-active={pool === 'normal'}
+            onClick={() => {
+              setPool('normal')
+              setFilter('all')
+              setShown(PAGE_SIZE)
+              setDraftPool('normal')
+            }}
+          >
+            <span className={styles.poolIcon}>⌘</span>
+            <span>
+              <strong>普通记忆</strong>
+              <small>开发 · 问答 · 代码</small>
+            </span>
+            <em>{normalCount}</em>
+          </button>
+        </div>
+
+        {pool === 'normal' ? (
+          <div className={styles.kindTabs} role="tablist" aria-label="普通记忆子分类">
+            {normalKinds.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                aria-selected={normalKind === item.key}
+                data-active={normalKind === item.key}
+                onClick={() => {
+                  setNormalKind(item.key)
+                  setShown(PAGE_SIZE)
+                }}
+              >
+                {item.label}
+                {item.key !== 'all' ? (
+                  <span>{normalKindCounts[item.key]}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className={styles.usage} data-mode={memoryMode} data-pool={pool}>
           <div className={styles.usageTop}>
             <span className={styles.modePill} data-mode={memoryMode}>
-              {memoryMode === 'off'
-                ? '记忆已关闭'
-                : memoryMode === 'refine'
-                  ? '自动提炼'
-                  : '整轮记录'}
+              {pool === 'normal'
+                ? normalMemoryEnabled
+                  ? '普通记忆已开启'
+                  : '普通记忆已关闭'
+                : memoryMode === 'off'
+                  ? '角色记忆已关闭'
+                  : memoryMode === 'refine'
+                    ? '自动提炼'
+                    : '整轮记录'}
             </span>
             <span className={styles.limitText}>
-              自动/整段 {autoCount} / {memoryLimit}
+              生效 {activeCount} · 配额 {autoCount} / {cardLimit}
             </span>
           </div>
           <div className={styles.injectLine}>
-            {lastQuestion
-              ? `这一轮会带上 ${injectionPreview.count} 张 · ${injectionPreview.chars} / ${memoryChars.toLocaleString('zh-CN')} 字`
-              : '发一条消息后，这里会写清楚这轮带上了哪些'}
+            {pool === 'normal' && !normalInjectionAllowed
+              ? '角色扮演开启时普通记忆不会注入，避免代码与开发日志污染人设。'
+              : lastQuestion
+                ? `这一轮会带上 ${injectionPreview.count} 张 · ${injectionPreview.chars.toLocaleString('zh-CN')} / ${budget.toLocaleString('zh-CN')} 字`
+                : '发一条消息后，这里会写清楚这轮带上了哪些'}
             {injectionPreview.total > injectionPreview.count
               ? `（对上 ${injectionPreview.total} 张，字数只够带前 ${injectionPreview.count} 张）`
               : ''}
           </div>
           <div className={styles.injectLine}>
-            已存 {activeChars.toLocaleString('zh-CN')} / {memoryChars.toLocaleString('zh-CN')} 字
-            {activeChars >= memoryChars ? ' · 已到上限，新卡会把最早的自动卡归档' : ''}
+            已存 {activeChars.toLocaleString('zh-CN')} / {budget.toLocaleString('zh-CN')} 字
+            {activeChars >= budget ? ' · 已到上限，新卡会把最早的自动卡归档' : ''}
           </div>
           <div className={styles.meter} aria-hidden="true">
             <i style={{ width: `${Math.max(limitRatio * 100, autoCount > 0 ? 2 : 0)}%` }} />
           </div>
           <p>
-            {memoryMode === 'off'
-              ? '现在不带任何记忆，记下来的内容还在本机。到「设置 → 长期记忆」打开就能恢复。'
-              : `超过 ${memoryLimit} 张或 ${memoryChars.toLocaleString('zh-CN')} 字以后，最早的自动卡片会归档：内容不删，这里照样能看，只是不再带进对话。`}
+            {pool === 'normal'
+              ? `普通记忆只做关键词检索与开发问答，不参与角色时间线；超过 ${cardLimit} 张或 ${budget.toLocaleString('zh-CN')} 字后，最早的自动卡会归档，文本保留。`
+              : memoryMode === 'off'
+                ? '现在不带角色记忆，记下来的内容还在本机。到「设置 → 长期记忆」打开就能恢复。'
+                : `超过 ${cardLimit} 张或 ${budget.toLocaleString('zh-CN')} 字以后，最早的自动卡片会归档：内容不删，这里照样能看，只是不再带进对话。`}
           </p>
         </div>
 
         <div className={styles.toolbar}>
-          <div className={styles.filters} role="tablist" aria-label="记忆筛选">
+          <div className={styles.filters} role="tablist" aria-label="记忆状态筛选">
             {FILTERS.map((item) => (
               <button
                 key={item.key}
@@ -241,7 +424,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             className={styles.search}
             type="search"
             value={query}
-            placeholder="搜卡片内容，如称呼、地点、约定"
+            placeholder="搜索全部记忆：称呼、地点、代码、报错关键词"
             aria-label="搜索记忆"
             onChange={(event) => {
               setQuery(event.target.value)
@@ -249,6 +432,11 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             }}
           />
         </div>
+        {query.trim() ? (
+          <div className={styles.searchHint}>
+            正在跨角色与普通记忆搜索，共 {filtered.length} 张匹配；清空搜索框恢复分类浏览。
+          </div>
+        ) : null}
 
         <div className={styles.list}>
           {filtered.length === 0 ? (
@@ -256,10 +444,12 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               <strong>{query.trim() ? '没有匹配的卡片' : emptyForFilter}</strong>
               <p>
                 {query.trim()
-                  ? '换个关键词，或切到「全部」再看。'
+                  ? '换个关键词，或清空搜索框再看。'
                   : filter === 'archived'
                     ? '归档来自提炼替换或超出卡片/字数上限的旧卡；文本还在，只是不再注入。调高上限只影响之后的卡片，已归档的旧卡不会自动恢复。'
-                    : '开启自动记忆后，每完成一轮对话就会留一张；也可以在下面手写一条。'}
+                    : pool === 'normal'
+                      ? '长按消息保存时选「普通记忆」，代码块会自动预选代码分类；也可以直接在下面手写一条。'
+                      : '开启自动记忆后，每完成一轮对话就会留一张；也可以在下面手写一条。'}
               </p>
             </div>
           ) : (
@@ -270,8 +460,13 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                   key={card.id}
                   data-off={!card.enabled ? 'true' : undefined}
                   data-archived={card.superseded ? 'true' : undefined}
+                  data-pool={getMemoryPool(card)}
                 >
                   <div className={styles.itemHead}>
+                    <span className={styles.poolTag} data-pool={getMemoryPool(card)}>
+                      {cardPoolLabel(card)}
+                      {card.language ? ` · ${card.language}` : ''}
+                    </span>
                     <span className={styles.tag} data-source={card.source}>
                       {sourceLabel(card)}
                       {card.pinned ? ' · 置顶' : ''}
@@ -327,6 +522,9 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                         </button>
                       </div>
                     </div>
+                  ) : getMemoryPool(card) === 'normal' &&
+                    getNormalMemoryKind(card) === 'code' ? (
+                    <pre className={styles.codeText}>{card.text}</pre>
                   ) : (
                     <p className={styles.text}>{card.text}</p>
                   )}
@@ -362,74 +560,102 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
 
         <footer className={styles.footer}>
           <div className={styles.addBox}>
+            <div className={styles.addPoolRow}>
+              <button
+                type="button"
+                data-active={draftPool === 'character'}
+                onClick={() => setDraftPool('character')}
+              >
+                角色记忆
+              </button>
+              <button
+                type="button"
+                data-active={draftPool === 'normal'}
+                onClick={() => setDraftPool('normal')}
+              >
+                普通记忆
+              </button>
+            </div>
+            {draftPool === 'normal' ? (
+              <div className={styles.addKindRow}>
+                <button
+                  type="button"
+                  data-active={draftKind === 'auto'}
+                  onClick={() => setDraftKind('auto')}
+                >
+                  自动识别
+                </button>
+                {NORMAL_MEMORY_KINDS.map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    data-active={draftKind === kind}
+                    onClick={() => setDraftKind(kind)}
+                  >
+                    {normalMemoryLabel(kind)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <textarea
               value={draft}
               rows={2}
-              maxLength={400}
-              placeholder="手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。"
+              maxLength={4000}
+              placeholder={
+                draftPool === 'normal'
+                  ? '记一条开发/问答参考，例如：报错原因、命令、接口字段；代码块会自动归入代码。'
+                  : '手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。'
+              }
               onChange={(event) => setDraft(event.target.value)}
             />
-            <button
-              className={styles.primary}
-              type="button"
-              onClick={submit}
-              disabled={!draft.trim()}
-            >
+            <button className={styles.primary} type="button" onClick={submit}>
               添加
             </button>
           </div>
-          <div className={styles.footMeta}>
-            <span>整段对话保存已移到消息长按菜单：选择这条对话或全选本对话。</span>
-            <span>
-              记忆总字数上限 {memoryChars.toLocaleString('zh-CN')} 字，超出自动归档，不删除
-            </span>
-            {entries.length > 0 ? (
-              <button
-                className={styles.danger}
-                type="button"
-                onClick={() => setConfirming({ kind: 'all' })}
-              >
-                清空本会话
-              </button>
-            ) : null}
-          </div>
+          <p className={styles.footerHint}>
+            保存历史对话请长按消息 → 选择这条对话 / 全选本对话 → 保存为记忆，并在确认弹窗里选分类。
+          </p>
+          {poolEntries.length > 0 ? (
+            <button
+              className={styles.clearAll}
+              type="button"
+              onClick={() => setConfirming({ kind: 'all' })}
+            >
+              清空当前分类
+            </button>
+          ) : null}
         </footer>
       </section>
+
       {confirming ? (
-        <div className={styles.confirmBackdrop} role="dialog" aria-modal="true">
-          <div className={styles.confirmCard}>
-            <div className={styles.confirmTitle}>
-              {confirming.kind === 'one' ? '删除这条记忆？' : '清空本会话记忆？'}
-            </div>
-            <div className={styles.confirmText}>
-              {confirming.kind === 'one'
-                ? '删除后不会再进入下一轮上下文，也无法恢复。'
-                : `共 ${entries.length} 条记忆，清空后不可恢复，也不会再进入下一轮上下文。`}
-            </div>
-            <div className={styles.confirmActions}>
-              <button
-                type="button"
-                className={styles.confirmCancel}
-                onClick={() => setConfirming(null)}
-              >
+        <div className={styles.confirm} role="dialog" aria-modal="true">
+          <section>
+            <strong>{confirming.kind === 'all' ? '清空当前分类？' : '删除这张卡片？'}</strong>
+            <p>
+              {confirming.kind === 'all'
+                ? '只清空当前分类的全部卡片，另一个分类不受影响。文本会从本机删除，无法恢复。'
+                : '文本会从本机删除，无法恢复；如果只是想停止注入，用「已启用」开关。'}
+            </p>
+            <div>
+              <button type="button" onClick={() => setConfirming(null)}>
                 取消
               </button>
               <button
+                className={styles.danger}
                 type="button"
-                className={styles.confirmDanger}
                 onClick={() => {
-                  if (confirming.kind === 'one') {
-                    deleteMemoryCard(session.id, confirming.messageId, confirming.cardId)
+                  if (confirming.kind === 'all') {
+                    clearMemories(session.id, pool)
                   } else {
-                    clearMemories(session.id)
+                    deleteMemoryCard(session.id, confirming.messageId, confirming.cardId)
                   }
                   setConfirming(null)
                 }}
               >
-                {confirming.kind === 'one' ? '删除' : '清空'}
+                {confirming.kind === 'all' ? '清空' : '删除'}
               </button>
             </div>
-          </div>
+          </section>
         </div>
       ) : null}
     </div>

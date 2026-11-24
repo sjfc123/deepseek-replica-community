@@ -263,7 +263,9 @@
 
 .memoryConfirmCard {
   box-sizing: border-box;
-  width: min(100%, 360px);
+  width: min(100%, 420px);
+  max-height: min(86vh, 620px);
+  overflow-y: auto;
   padding: 20px 18px 16px;
   border-radius: 18px;
   background: var(--ds-bg-elevated, #fff);
@@ -283,6 +285,63 @@
   color: var(--ds-button-text-tertiary, #8c9097);
   font-size: 13px;
   line-height: 1.65;
+}
+
+.memoryConfirmPools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.memoryConfirmPools button {
+  padding: 9px 10px;
+  border: 1px solid var(--ds-border-secondary, #e5e6eb);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #1f2329);
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+
+  &[data-active='true'] {
+    border-color: color-mix(in srgb, var(--replica-accent, #4d6bfe) 55%, transparent);
+    background: color-mix(in srgb, var(--replica-accent, #4d6bfe) 10%, transparent);
+    color: var(--replica-accent, #4d6bfe);
+    font-weight: 600;
+  }
+
+  small {
+    display: block;
+    margin-top: 3px;
+    color: var(--ds-button-text-tertiary, #8c9097);
+    font-size: 10.5px;
+    font-weight: 400;
+  }
+}
+
+.memoryConfirmKinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: -4px 0 12px;
+}
+
+.memoryConfirmKinds button {
+  padding: 4px 9px;
+  border: 1px solid var(--ds-border-secondary, #e5e6eb);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ds-button-text-tertiary, #8c9097);
+  font: inherit;
+  font-size: 11px;
+
+  &[data-active='true'] {
+    border-color: color-mix(in srgb, var(--replica-accent, #4d6bfe) 50%, transparent);
+    background: color-mix(in srgb, var(--replica-accent, #4d6bfe) 10%, transparent);
+    color: var(--replica-accent, #4d6bfe);
+    font-weight: 600;
+  }
 }
 
 .memoryConfirmActions {
@@ -333,6 +392,12 @@
 
 :global([data-ds-dark-theme]) .memoryConfirmCard {
   background: #23262c;
+}
+
+:global([data-ds-dark-theme]) .memoryConfirmPools button,
+:global([data-ds-dark-theme]) .memoryConfirmKinds button {
+  border-color: rgb(255 255 255 / 12%);
+  color: #e9ecf2;
 }
 
 :global([data-ds-dark-theme]) .memoryConfirmCancel {

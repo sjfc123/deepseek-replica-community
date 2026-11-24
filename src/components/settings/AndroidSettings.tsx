@@ -1,6 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { android, saveAndroidHistory } from '../../app/android.js'
-import { exportMemory, importMemory, type MemoryImportMode } from '../../services/chat/memoryArchive.js'
+import {
+  exportMemory,
+  importMemory,
+  type MemoryExportOptions,
+  type MemoryImportMode,
+} from '../../services/chat/memoryArchive.js'
+import {
+  NORMAL_MEMORY_KINDS,
+  normalMemoryLabel,
+  type NormalMemoryKind,
+} from '../../services/chat/memory.js'
 import { importSessionBundle, parseSessionBundle } from '../../services/chat/sessionBundle.js'
 import {
   SettingArchiveError,
@@ -91,6 +101,9 @@ import {
   setMemoryChars,
   setMemoryLimit,
   setMemoryMode,
+  setNormalMemoryChars,
+  setNormalMemoryEnabled,
+  setNormalMemoryLimit,
   MEMORY_LIMIT_MAX,
   MEMORY_LIMIT_MIN,
   MEMORY_CHARS_DEFAULT,
@@ -191,6 +204,7 @@ type Popup =
   | 'messageSpacing'
   | 'tokenLimit'
   | 'backupInterval'
+  | 'memoryExport'
   | 'voice'
   | 'logout'
   | 'delete'
@@ -652,6 +666,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     memoryMode,
     memoryLimit,
     memoryChars,
+    normalMemoryEnabled,
+    normalMemoryLimit,
+    normalMemoryChars,
     characterCards,
     activeCharacterId,
     roleplayEnabled,
@@ -694,6 +711,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const [backupDraft, setBackupDraft] = useState('')
   const [backupUnit, setBackupUnit] = useState<'minute' | 'hour'>('minute')
   const [memoryBusy, setMemoryBusy] = useState(false)
+  const [memoryExportPool, setMemoryExportPool] = useState<'all' | 'normal' | 'character'>('all')
+  const [memoryExportKinds, setMemoryExportKinds] = useState<NormalMemoryKind[]>([
+    ...NORMAL_MEMORY_KINDS,
+  ])
   const [memoryImportMode, setMemoryImportMode] = useState<MemoryImportMode>('merge')
   const [bundleBusy, setBundleBusy] = useState(false)
   const [diagBusy, setDiagBusy] = useState(false)
@@ -1090,6 +1111,67 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       })
     } finally {
       setBusy(false)
+    }
+  }
+
+  const performMemoryExport = async (options?: MemoryExportOptions) => {
+    setMemoryStatus({ type: 'info', text: tr('正在整理记忆…', 'Collecting memories…') })
+    setMemoryBusy(true)
+    try {
+      const exported = await exportMemory((done, total) => {
+        if (total > 0) {
+          setMemoryStatus({
+            type: 'info',
+            text: tr(
+              `正在整理记忆：${done}/${total} 个对话`,
+              `Collecting memories: ${done}/${total} chats`
+            ),
+          })
+        }
+      }, options)
+      if (exported.cards === 0) {
+        setMemoryStatus({
+          type: 'info',
+          text: tr(
+            '所选分类尚无记忆卡片。换一个分类或先保存几条记忆再导出。',
+            'No cards in the selected categories. Pick another category or save a few memories first.'
+          ),
+        })
+        return
+      }
+      if (android) {
+        const saved = await saveAndroidHistory(exported.name, exported.blob)
+        setMemoryStatus({
+          type: saved ? 'done' : 'info',
+          text: saved
+            ? tr(
+                `已导出 ${exported.cards} 张卡片（${exported.sessions} 个对话）：${exported.name}`,
+                `Exported ${exported.cards} cards from ${exported.sessions} chats: ${exported.name}`
+              )
+            : tr('已取消保存', 'Save cancelled'),
+        })
+        return
+      }
+      const url = URL.createObjectURL(exported.blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = exported.name
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      setMemoryStatus({
+        type: 'done',
+        text: tr(
+          `已导出 ${exported.cards} 张卡片：${exported.name}`,
+          `Exported ${exported.cards} cards: ${exported.name}`
+        ),
+      })
+    } catch (error) {
+      setMemoryStatus({
+        type: 'error',
+        text: error instanceof Error ? error.message : String(error),
+      })
+    } finally {
+      setMemoryBusy(false)
     }
   }
 
@@ -2440,6 +2522,104 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 `${memoryChars.toLocaleString('en-US')} chars is both the per-request ceiling and the total memory character limit for this session; it is not the amount sent every turn. Past the total, the oldest automatic cards are archived: text stays visible, injection stops, and saving never fails. Card count, model context and the current reply also constrain injection. If cards grow too large, lower it to 50,000–200,000.`
               )}
             </p>
+            <Group label={tr('普通记忆（开发 / 问答 / 代码）', 'Normal memory (dev / Q&A / code)')}>
+              <Row
+                label={tr('普通记忆注入', 'Normal memory injection')}
+                value={normalMemoryEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('普通记忆注入', 'Normal memory injection')}
+                    checked={normalMemoryEnabled}
+                    toggle={() => setNormalMemoryEnabled(!normalMemoryEnabled)}
+                  />
+                }
+              />
+              <div className={styles.memoryLimitRow}>
+                <span className={styles.memoryLimitLabel}>{tr('普通记忆卡片上限', 'Normal card limit')}</span>
+                <span className={styles.memoryLimitValue}>{normalMemoryLimit}</span>
+                <span className={styles.memoryLimitUnit}>{tr('张', 'cards')}</span>
+              </div>
+              <div className={styles.memoryLimitPresets} role="radiogroup" aria-label={tr('普通记忆卡片预设', 'Normal card presets')}>
+                {[100, 300, 1000, MEMORY_LIMIT_MAX].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    role="radio"
+                    aria-checked={normalMemoryLimit === preset}
+                    onClick={() => setNormalMemoryLimit(preset)}
+                  >
+                    {preset === MEMORY_LIMIT_MAX ? tr('9999 · 近似不限', '9999 · near unlimited') : preset}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.memoryLimitCustom}>
+                <input
+                  className={styles.tokenInput}
+                  type="number"
+                  inputMode="numeric"
+                  min={MEMORY_LIMIT_MIN}
+                  max={MEMORY_LIMIT_MAX}
+                  defaultValue={normalMemoryLimit}
+                  key={`normal-limit-${normalMemoryLimit}`}
+                  aria-label={tr('普通记忆卡片上限', 'Normal memory card limit')}
+                  onBlur={(event) => {
+                    const next = Number(event.target.value)
+                    if (Number.isFinite(next) && next > 0) {
+                      setNormalMemoryLimit(next)
+                    } else {
+                      event.target.value = String(normalMemoryLimit)
+                    }
+                  }}
+                />
+                <span>{tr(`可填 ${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`, `${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`)}</span>
+              </div>
+              <div className={styles.memoryLimitRow}>
+                <span className={styles.memoryLimitLabel}>{tr('普通记忆字数上限', 'Normal char ceiling')}</span>
+                <span className={styles.memoryLimitValue}>{normalMemoryChars.toLocaleString('zh-CN')}</span>
+                <span className={styles.memoryLimitUnit}>{tr('字', 'chars')}</span>
+              </div>
+              <div className={styles.memoryLimitPresets} role="radiogroup" aria-label={tr('普通记忆字数预设', 'Normal char presets')}>
+                {[50_000, 200_000, 500_000, MEMORY_CHARS_MAX].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    role="radio"
+                    aria-checked={normalMemoryChars === preset}
+                    onClick={() => setNormalMemoryChars(preset)}
+                  >
+                    {preset === MEMORY_CHARS_MAX ? '5M' : preset.toLocaleString('zh-CN')}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.memoryLimitCustom}>
+                <input
+                  className={styles.tokenInput}
+                  type="number"
+                  inputMode="numeric"
+                  min={MEMORY_CHARS_MIN}
+                  max={MEMORY_CHARS_MAX}
+                  defaultValue={normalMemoryChars}
+                  key={`normal-chars-${normalMemoryChars}`}
+                  aria-label={tr('普通记忆字数上限', 'Normal memory char ceiling')}
+                  onBlur={(event) => {
+                    const next = Number(event.target.value)
+                    if (Number.isFinite(next) && next > 0) {
+                      setNormalMemoryChars(next)
+                    } else {
+                      event.target.value = String(normalMemoryChars)
+                    }
+                  }}
+                />
+                <span>{tr(`可填 ${MEMORY_CHARS_MIN.toLocaleString('zh-CN')}–${MEMORY_CHARS_MAX.toLocaleString('zh-CN')}`, `${MEMORY_CHARS_MIN}–${MEMORY_CHARS_MAX}`)}</span>
+              </div>
+            </Group>
+            <p className={styles.caption}>
+              {tr(
+                '普通记忆与角色记忆各算各的配额，互不挤占。普通记忆只按关键词检索，不做时间线、好感或关系阶段召回；角色扮演开启时不注入普通记忆，避免代码与开发日志污染人设。三连反引号代码块会自动归入「代码」，其余可在保存时手动选分类。',
+                'Normal and character memories have separate quotas. Normal memory is keyword-only: no timeline, affinity or relationship recall. While role-play is on, normal memory is not injected, so code and dev logs cannot leak into the persona. Triple-backtick code blocks are filed as Code automatically; other categories can be chosen when saving.'
+              )}
+            </p>
             <Group label={tr('使用方式', 'Usage')}>
               <Row
                 label={tr('顶栏记忆胶囊', 'Memory chip in top bar')}
@@ -2760,71 +2940,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             <Group label={tr('长期记忆归档', 'Memory archive')}>
               <Row
                 label={tr('导出记忆', 'Export memories')}
-                value={tr('打包为 ZIP', 'Pack as ZIP')}
+                value={tr('选择分类后打包', 'Choose categories')}
                 disabled={busy || memoryBusy || !sessions}
-                onClick={() => {
-                  void runExportAction(async () => {
-                    setMemoryStatus({ type: 'info', text: tr('正在整理记忆…', 'Collecting memories…') })
-                    setMemoryBusy(true)
-                    try {
-                      const exported = await exportMemory((done, total) => {
-                        if (total > 0) {
-                          setMemoryStatus({
-                            type: 'info',
-                            text: tr(
-                              `正在整理记忆：${done}/${total} 个对话`,
-                              `Collecting memories: ${done}/${total} chats`
-                            ),
-                          })
-                        }
-                      })
-                      if (exported.cards === 0) {
-                        setMemoryStatus({
-                          type: 'info',
-                          text: tr(
-                            '本机尚无长期记忆卡片。产生记忆数据并启用记忆后即可导出。',
-                            'No memory cards yet. Enable memory and chat a few rounds first.'
-                          ),
-                        })
-                        return
-                      }
-                      if (android) {
-                        const saved = await saveAndroidHistory(exported.name, exported.blob)
-                        setMemoryStatus({
-                          type: saved ? 'done' : 'info',
-                          text: saved
-                            ? tr(
-                                `已导出 ${exported.cards} 张卡片（${exported.sessions} 个对话）：${exported.name}`,
-                                `Exported ${exported.cards} cards from ${exported.sessions} chats: ${exported.name}`
-                              )
-                            : tr('已取消保存', 'Save cancelled'),
-                        })
-                        return
-                      }
-                      const url = URL.createObjectURL(exported.blob)
-                      const link = document.createElement('a')
-                      link.href = url
-                      link.download = exported.name
-                      link.click()
-                      setTimeout(() => URL.revokeObjectURL(url), 10_000)
-                      setMemoryStatus({
-                        type: 'done',
-                        text: tr(
-                          `已导出 ${exported.cards} 张卡片：${exported.name}`,
-                          `Exported ${exported.cards} cards: ${exported.name}`
-                        ),
-                      })
-                    } catch (error) {
-                      setMemoryStatus({
-                        type: 'error',
-                        text:
-                          error instanceof Error ? error.message : String(error),
-                      })
-                    } finally {
-                      setMemoryBusy(false)
-                    }
-                  })
-                }}
+                onClick={() => setPopup('memoryExport')}
               />
               <div className={styles.modeRow}>
                 <span className={styles.icon}>
@@ -3336,6 +3454,99 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             >
               {tr('关闭提醒', 'Turn off')}
             </button>
+          </section>
+        </div>
+      ) : null}
+      {popup === 'memoryExport' ? (
+        <div
+          className={styles.overlay}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              back()
+            }
+          }}
+        >
+          <section
+            className={styles.choice}
+            role="dialog"
+            aria-modal="true"
+            aria-label={tr('导出记忆', 'Export memories')}
+          >
+            <header>{tr('导出记忆', 'Export memories')}</header>
+            <p className={styles.choiceHint}>
+              {tr(
+                '先选顶层分类。导出普通记忆时还能勾选对话、代码、用户原话、AI 原话；导入时按分类合并，原分类保持不变。',
+                'Choose the top-level pool first. For normal memory you can also pick dialogue, code, user or AI; imports keep the category.'
+              )}
+            </p>
+            <div className={styles.options} role="radiogroup" aria-label={tr('导出分类', 'Export pool')}>
+              {([
+                ['all', tr('全部记忆', 'All memories')],
+                ['normal', tr('仅普通记忆', 'Normal only')],
+                ['character', tr('仅角色记忆', 'Character only')],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={memoryExportPool === key}
+                  onClick={() => setMemoryExportPool(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {memoryExportPool === 'normal' ? (
+              <div className={styles.memoryLimitPresets} role="group" aria-label={tr('普通记忆子分类', 'Normal categories')}>
+                {NORMAL_MEMORY_KINDS.map((kind) => {
+                  const active = memoryExportKinds.includes(kind)
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() =>
+                        setMemoryExportKinds((current) =>
+                          active
+                            ? current.length > 1
+                              ? current.filter((item) => item !== kind)
+                              : current
+                            : [...current, kind]
+                        )
+                      }
+                      style={active ? { borderColor: 'var(--dsw-alias-brand-primary)' } : undefined}
+                    >
+                      {active ? '✓ ' : ''}
+                      {normalMemoryLabel(kind)}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
+            <div className={styles.tokenRow}>
+              <button
+                className={styles.confirm}
+                type="button"
+                onClick={() => back()}
+              >
+                {tr('取消', 'Cancel')}
+              </button>
+              <button
+                className={styles.tokenApply}
+                type="button"
+                disabled={busy || memoryBusy}
+                onClick={() => {
+                  const options: MemoryExportOptions =
+                    memoryExportPool === 'normal'
+                      ? { pool: 'normal', categories: memoryExportKinds }
+                      : { pool: memoryExportPool }
+                  setPopup(null)
+                  void performMemoryExport(options)
+                }}
+              >
+                {tr('开始导出', 'Export')}
+              </button>
+            </div>
           </section>
         </div>
       ) : null}

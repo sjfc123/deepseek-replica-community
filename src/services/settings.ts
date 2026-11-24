@@ -1,7 +1,11 @@
 import { create } from 'zustand'
 import { android } from '../app/android.js'
 import { DEFAULT_CHAT_CONFIG, readChatConfig, type ChatConfig } from './api/chatConfig.js'
-import type { MemoryMode } from './chat/memory.js'
+import {
+  NORMAL_MEMORY_MAX_CARDS,
+  NORMAL_MEMORY_MAX_CHARS,
+  type MemoryMode,
+} from './chat/memory.js'
 import {
   BUILTIN_ID_PREFIX,
   CHARACTER_CARD_MAX,
@@ -191,6 +195,12 @@ type Settings = {
   memoryLimit: number
   /** 长期记忆总字数上限，同时也是单次注入的字符预算；超出后最早的自动卡片归档 */
   memoryChars: number
+  /** 普通记忆独立注入开关：关闭后普通卡片保留，但不进入请求 */
+  normalMemoryEnabled: boolean
+  /** 普通记忆独立卡片上限 */
+  normalMemoryLimit: number
+  /** 普通记忆独立字数上限 */
+  normalMemoryChars: number
   /** 角色卡：多角色切换；启用中的卡会注入姓名、身份、关系、风格等字段 */
   characterCards: CharacterCard[]
   activeCharacterId: string | null
@@ -280,6 +290,9 @@ const KEYS = {
   memoryMode: 'replica:memory-mode',
   memoryLimit: 'replica:memory-limit',
   memoryChars: 'replica:memory-chars',
+  normalMemoryEnabled: 'replica:normal-memory-enabled',
+  normalMemoryLimit: 'replica:normal-memory-limit',
+  normalMemoryChars: 'replica:normal-memory-chars',
   characterCards: 'replica:character-cards',
   cardAvatars: 'replica:card-avatars',
   /** 用户显式删除过的内置角色卡 id：启动时不再回填，体检清空则照常补回 */
@@ -632,6 +645,9 @@ export const useSettings = create<Settings>(() => ({
   memoryMode: readMemoryMode(),
   memoryLimit: readMemoryLimit(),
   memoryChars: readMemoryChars(),
+  normalMemoryEnabled: read(KEYS.normalMemoryEnabled) !== 'false',
+  normalMemoryLimit: readNormalMemoryLimit(),
+  normalMemoryChars: readNormalMemoryChars(),
   characterCards: initialCharacterCards(),
   activeCharacterId: initialActiveCharacterId(),
   roleplayEnabled: initialRoleplayEnabled(initialActiveCharacterId()),
@@ -1226,6 +1242,45 @@ export const setMemoryChars = (memoryChars: number) => {
   const next = Math.min(MEMORY_CHARS_MAX, Math.max(MEMORY_CHARS_MIN, Math.round(memoryChars)))
   write(KEYS.memoryChars, String(next))
   useSettings.setState({ memoryChars: next })
+}
+
+function readNormalMemoryLimit(): number {
+  const raw = Number(read(KEYS.normalMemoryLimit))
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return NORMAL_MEMORY_MAX_CARDS
+  }
+  return Math.min(MEMORY_LIMIT_MAX, Math.max(MEMORY_LIMIT_MIN, Math.round(raw)))
+}
+
+export const setNormalMemoryLimit = (normalMemoryLimit: number) => {
+  const next = Math.min(
+    MEMORY_LIMIT_MAX,
+    Math.max(MEMORY_LIMIT_MIN, Math.round(normalMemoryLimit))
+  )
+  write(KEYS.normalMemoryLimit, String(next))
+  useSettings.setState({ normalMemoryLimit: next })
+}
+
+function readNormalMemoryChars(): number {
+  const raw = Number(read(KEYS.normalMemoryChars))
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return NORMAL_MEMORY_MAX_CHARS
+  }
+  return Math.min(MEMORY_CHARS_MAX, Math.max(MEMORY_CHARS_MIN, Math.round(raw)))
+}
+
+export const setNormalMemoryChars = (normalMemoryChars: number) => {
+  const next = Math.min(
+    MEMORY_CHARS_MAX,
+    Math.max(MEMORY_CHARS_MIN, Math.round(normalMemoryChars))
+  )
+  write(KEYS.normalMemoryChars, String(next))
+  useSettings.setState({ normalMemoryChars: next })
+}
+
+export const setNormalMemoryEnabled = (normalMemoryEnabled: boolean) => {
+  write(KEYS.normalMemoryEnabled, String(normalMemoryEnabled))
+  useSettings.setState({ normalMemoryEnabled })
 }
 
 function readWorldbookChars(): number {

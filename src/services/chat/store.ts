@@ -34,16 +34,24 @@ import {
   activeMemoryCards,
   activeMemoryChars,
   buildConversationMemoryCards,
+  buildNormalMemoryCards,
   buildRefinePrompt,
   buildTurnMemoryText,
   createMemoryCard,
+  detectCodeBlock,
+  detectCodeLanguage,
   formatMemoryBlock,
+  formatNormalMemoryBlock,
+  getMemoryPool,
   overflowMemoryCards,
   overflowMemoryCardsByChars,
   parseRefinedCards,
   replyPlainText,
   selectMemoryCardsForInjection,
+  selectNormalMemoryCardsForInjection,
   type MemoryCard,
+  type MemoryPool,
+  type NormalMemoryKind,
 } from './memory.js'
 import {
   resolveUserName,
@@ -1410,7 +1418,7 @@ const refineMemories = async (
     return
   }
   const visibleIds = new Set(getVisibleMessages(session).map((message) => message.id))
-  const cards = activeMemoryCards(session, getVisibleMessages(session), 60)
+  const cards = activeMemoryCards(session, getVisibleMessages(session), 60, 'character')
     .filter(
       (entry) =>
         entry.card.source !== 'manual' && entry.card.source !== 'bulk' && !entry.card.pinned
@@ -1459,9 +1467,13 @@ const refineMemories = async (
       if (!visibleIds.has(message.id)) {
         return message
       }
-      // 手写卡片、整段保存的完整卡和置顶卡由用户自己维护，不参与提炼替换
+      // 手写卡片、整段保存的完整卡、置顶卡和普通记忆都由用户自己维护，不参与角色提炼替换
       const archived = (message.memories ?? []).map((card) =>
-        card.superseded || card.source === 'manual' || card.source === 'bulk' || card.pinned
+        card.superseded ||
+        card.source === 'manual' ||
+        card.source === 'bulk' ||
+        card.pinned ||
+        getMemoryPool(card) !== 'character'
           ? card
           : { ...card, superseded: true }
       )
@@ -1477,13 +1489,19 @@ const refineMemories = async (
 }
 
 /** 超出上限时把最早的自动卡片标为归档；手动卡片不动，也不删除任何文本 */
-const enforceMemoryLimit = (sessionId: string) => {
-  const { memoryLimit } = useSettings.getState()
+const enforceMemoryLimit = (sessionId: string, pool: MemoryPool = 'character') => {
+  const settings = useSettings.getState()
+  const limit = pool === 'normal' ? settings.normalMemoryLimit : settings.memoryLimit
   const session = getSession(sessionId)
   if (!session) {
     return
   }
-  const overflow = overflowMemoryCards(session, getVisibleMessages(session), memoryLimit)
+  const overflow = overflowMemoryCards(
+    session,
+    getVisibleMessages(session),
+    limit,
+    pool
+  )
   if (overflow.length === 0) {
     return
   }
@@ -1505,13 +1523,19 @@ const enforceMemoryLimit = (sessionId: string) => {
 }
 
 /** 超出字数上限时把最早的自动卡片标为归档；手动/置顶卡片保留 */
-const enforceMemoryChars = (sessionId: string) => {
-  const { memoryChars } = useSettings.getState()
+const enforceMemoryChars = (sessionId: string, pool: MemoryPool = 'character') => {
+  const settings = useSettings.getState()
+  const limit = pool === 'normal' ? settings.normalMemoryChars : settings.memoryChars
   const session = getSession(sessionId)
   if (!session) {
     return
   }
-  const overflow = overflowMemoryCardsByChars(session, getVisibleMessages(session), memoryChars)
+  const overflow = overflowMemoryCardsByChars(
+    session,
+    getVisibleMessages(session),
+    limit,
+    pool
+  )
   if (overflow.length === 0) {
     return
   }
@@ -1637,8 +1661,52 @@ const recordTurnMemory = (
   }
 }
 
+/**
+ * 普通代码记忆自动入库：回复里出现三连反引号代码块时自动存一张普通-代码卡。
+ * 只在非角色扮演场景生效；同一条回复只记一次，用户仍可在保存弹窗里手动选择其它分类。
+ */
+const recordNormalCodeMemory = (sessionId: string, targetMessageId: string, answer: string) => {
+  if (!useSettings.getState().normalMemoryEnabled || !detectCodeBlock(answer)) {
+    return
+  }
+  const session = getSession(sessionId)
+  if (!session) {
+    return
+  }
+  const target = session.messages.find((message) => message.id === targetMessageId)
+  if (!target) {
+    return
+  }
+  const exists = (target.memories ?? []).some(
+    (card) =>
+      getMemoryPool(card) === 'normal' &&
+      card.category === 'code' &&
+      !card.superseded
+  )
+  if (exists) {
+    return
+  }
+  if (
+    attachMemories(sessionId, target.id, [
+      createMemoryCard(answer, 'auto', target.createdAt, {
+        pool: 'normal',
+        category: 'code',
+        language: detectCodeLanguage(answer),
+      }),
+    ])
+  ) {
+    enforceMemoryLimit(sessionId, 'normal')
+    enforceMemoryChars(sessionId, 'normal')
+    notifyMemoryAdded(sessionId, 'turn')
+  }
+}
+
 /** 面板里手动加一条：挂到当前分支最后一条消息上 */
-export const addManualMemory = (sessionId: string, text: string) => {
+export const addManualMemory = (
+  sessionId: string,
+  text: string,
+  target: { pool?: MemoryPool; category?: NormalMemoryKind } = {}
+) => {
   const session = getSession(sessionId)
   if (!session) {
     return
@@ -1647,8 +1715,16 @@ export const addManualMemory = (sessionId: string, text: string) => {
   if (!last || !text.trim()) {
     return
   }
-  if (attachMemories(sessionId, last.id, [createMemoryCard(text, 'manual')])) {
-    enforceMemoryChars(sessionId)
+  const pool = target.pool === 'normal' ? 'normal' : 'character'
+  const category = pool === 'normal' ? target.category ?? 'dialogue' : undefined
+  const language =
+    pool === 'normal' && category === 'code' ? detectCodeLanguage(text) : undefined
+  if (
+    attachMemories(sessionId, last.id, [
+      createMemoryCard(text, 'manual', undefined, { pool, category, language }),
+    ])
+  ) {
+    enforceMemoryChars(sessionId, pool)
     notifyMemoryAdded(sessionId, 'manual')
   }
 }
@@ -1664,16 +1740,22 @@ export type SaveConversationMemoryResult = {
   chars: number
 }
 
+export type MemorySaveTarget =
+  | { pool: 'character' }
+  | { pool: 'normal'; category?: NormalMemoryKind | 'auto' }
+
 /**
- * 把选中的消息按轮保存为完整记忆卡。选中单条消息时也会成卡：
- * 用户消息单独一张、角色回复单独一张，或相邻的用户+角色合成一轮。
- * 先全部写入，再按卡片上限和字数上限归档最早自动卡；超出不会丢内容，也不会让保存失败。
+ * 把选中的消息保存为记忆卡。
+ * 角色记忆按轮生成完整回合卡；普通记忆每条消息一张，按分类或自动识别代码/用户/AI。
+ * 先全部写入，再按对应分类的卡片上限和字数上限归档最早卡片；超出不会丢内容，也不会让保存失败。
  */
 export const saveMessagesAsMemory = (
   sessionId: string,
-  messageIds: string[]
+  messageIds: string[],
+  target: MemorySaveTarget = { pool: 'character' }
 ): SaveConversationMemoryResult => {
   const empty: SaveConversationMemoryResult = { created: 0, skipped: 0, active: 0, chars: 0 }
+  const pool: MemoryPool = target.pool
   const session = getSession(sessionId)
   if (!session) {
     return empty
@@ -1684,8 +1766,8 @@ export const saveMessagesAsMemory = (
   if (picked.length === 0) {
     return {
       ...empty,
-      active: activeMemoryCards(session, messages).length,
-      chars: activeMemoryChars(session, messages),
+      active: activeMemoryCards(session, messages, undefined, pool).length,
+      chars: activeMemoryChars(session, messages, pool),
     }
   }
   const firstIndex = messages.findIndex((message) => selected.has(message.id))
@@ -1693,14 +1775,24 @@ export const saveMessagesAsMemory = (
     .slice(0, Math.max(0, firstIndex))
     .filter((message) => message.role === 'assistant').length
   const indexById = new Map(messages.map((message, index) => [message.id, index]))
-  const drafts = buildConversationMemoryCards(
-    picked,
-    startTurn,
-    (user, assistant) => indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1
-  )
+  const drafts =
+    pool === 'normal'
+      ? buildNormalMemoryCards(
+          picked,
+          target.pool === 'normal' ? target.category ?? 'auto' : 'auto'
+        )
+      : buildConversationMemoryCards(
+          picked,
+          startTurn,
+          (user, assistant) => indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1
+        )
   const alreadyBulk = new Set(
     session.messages
-      .filter((message) => (message.memories ?? []).some((card) => card.source === 'bulk'))
+      .filter((message) =>
+        (message.memories ?? []).some(
+          (card) => card.source === 'bulk' && getMemoryPool(card) === pool
+        )
+      )
       .map((message) => message.id)
   )
   const fresh = drafts.filter((draft) => !alreadyBulk.has(draft.messageId))
@@ -1709,22 +1801,22 @@ export const saveMessagesAsMemory = (
     return {
       ...empty,
       skipped,
-      active: activeMemoryCards(session, messages).length,
-      chars: activeMemoryChars(session, messages),
+      active: activeMemoryCards(session, messages, undefined, pool).length,
+      chars: activeMemoryChars(session, messages, pool),
     }
   }
   if (!attachMemoriesBatch(sessionId, fresh)) {
     return { ...empty, skipped }
   }
-  enforceMemoryLimit(sessionId)
-  enforceMemoryChars(sessionId)
+  enforceMemoryLimit(sessionId, pool)
+  enforceMemoryChars(sessionId, pool)
   notifyMemoryAdded(sessionId, 'bulk')
   const next = getSession(sessionId)
   return {
     created: fresh.length,
     skipped,
-    active: next ? activeMemoryCards(next, getVisibleMessages(next)).length : 0,
-    chars: next ? activeMemoryChars(next, getVisibleMessages(next)) : 0,
+    active: next ? activeMemoryCards(next, getVisibleMessages(next), undefined, pool).length : 0,
+    chars: next ? activeMemoryChars(next, getVisibleMessages(next), pool) : 0,
   }
 }
 
@@ -1825,14 +1917,21 @@ export const deleteMemoryCard = (sessionId: string, messageId: string, cardId: s
   persist(sessionId)
 }
 
-/** 清空当前会话（当前分支上）的全部记忆 */
-export const clearMemories = (sessionId: string) => {
+/** 清空当前会话（当前分支上）的全部记忆；传 pool 时只清空对应分类 */
+export const clearMemories = (sessionId: string, pool?: MemoryPool) => {
   updateSession(sessionId, (session) => {
     const visibleIds = new Set(getVisibleMessages(session).map((message) => message.id))
     return {
       ...session,
       messages: session.messages.map((message) =>
-        visibleIds.has(message.id) && message.memories ? { ...message, memories: [] } : message
+        visibleIds.has(message.id) && message.memories
+          ? {
+              ...message,
+              memories: pool
+                ? message.memories.filter((card) => getMemoryPool(card) !== pool)
+                : [],
+            }
+          : message
       ),
     }
   })
@@ -2189,6 +2288,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     memoryMode,
     memoryLimit,
     memoryChars,
+    normalMemoryEnabled,
+    normalMemoryLimit,
+    normalMemoryChars,
     characterCards,
     activeCharacterId,
     roleplayEnabled,
@@ -2219,6 +2321,16 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     : undefined
   // 关闭角色扮演时仍保留启用卡的人设；世界书、场景与演出规则随模式暂停
   const roleplayActive = roleplayEnabled && Boolean(activeCard)
+  // 普通记忆只用于开发、排错与问答；角色扮演开启时不注入，避免代码和开发日志污染人设
+  const normalCards =
+    normalMemoryEnabled && sessionForMemory && !roleplayActive
+      ? selectNormalMemoryCardsForInjection(
+          sessionForMemory,
+          visibleForRoleplay,
+          normalMemoryLimit,
+          request.question.content
+        ).map((entry) => entry.card)
+      : []
   const rpActive = roleplayActive
   const effectiveTemperature = rpActive ? (rpTemperature ?? temperature) : temperature
   const effectiveTopP = rpActive ? (rpTopP ?? topP) : topP
@@ -2246,6 +2358,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const worldBefore = worldEntries.filter((entry) => entry.position !== 'tail')
   const worldAfter = worldEntries.filter((entry) => entry.position === 'tail')
   const baseSystem = [
+    formatNormalMemoryBlock(normalCards, normalCards.length, normalMemoryChars).replaceAll(
+      '{{user}}',
+      userName
+    ),
     formatMemoryBlock(memoryCards, memoryCards.length, memoryChars).replaceAll(
       '{{user}}',
       userName
@@ -2611,6 +2727,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     const answerText = replyPlainText(reply)
     if ((reply.status === 'done' || reply.status === 'stopped') && answerText.trim()) {
       recordTurnMemory(sessionId, reply.id, request.question.content, answerText, memoryMode)
+      if (!roleplayActive) {
+        recordNormalCodeMemory(sessionId, reply.id, answerText)
+      }
       if (sceneAutoUpdate && roleplayActive) {
         void updateSceneFromTurn(request.question.content, answerText)
       }

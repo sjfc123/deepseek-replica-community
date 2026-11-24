@@ -3,7 +3,8 @@ import { formatDate } from '../../utils/format.js'
 import { readBlobBuffer } from '../../utils/blob.js'
 import { useSettings } from '../settings.js'
 import * as db from './db.js'
-import type { MemoryCard, MemoryMode } from './memory.js'
+import type { MemoryCard, MemoryMode, MemoryPool, NormalMemoryKind } from './memory.js'
+import { getMemoryPool } from './memory.js'
 import { useChatStore } from './store.js'
 import type { Message, Session } from './types.js'
 
@@ -47,6 +48,12 @@ export type MemoryExportResult = {
   sessions: number
 }
 
+/** 导出筛选：全部 / 仅普通 / 仅角色；普通记忆可再限定子分类 */
+export type MemoryExportOptions = {
+  pool?: MemoryPool | 'all'
+  categories?: NormalMemoryKind[]
+}
+
 export type MemoryImportResult = {
   cards: number
   sessions: number
@@ -61,18 +68,35 @@ const memoryFileName = (date: Date, cards: number) =>
   `deepseek_memory-${formatDate(date)}-${cards}cards.zip`
 
 /** 收集一条消息上可导出的卡片；空数组视为没有记忆 */
-const cardsOf = (message: Message): MemoryCard[] => {
-  const cards = message.memories ?? []
-  return cards.filter((card) => card.text.trim().length > 0)
+const cardsOf = (message: Message, options?: MemoryExportOptions): MemoryCard[] => {
+  const pool = options?.pool ?? 'all'
+  const categories = options?.categories?.length ? new Set(options.categories) : null
+  return (message.memories ?? []).filter((card) => {
+    if (!card.text.trim()) {
+      return false
+    }
+    const cardPool = getMemoryPool(card)
+    if (pool !== 'all' && cardPool !== pool) {
+      return false
+    }
+    if (
+      cardPool === 'normal' &&
+      categories &&
+      !categories.has(card.category ?? 'dialogue')
+    ) {
+      return false
+    }
+    return true
+  })
 }
 
-const buildArchive = async (sessions: Session[]) => {
+const buildArchive = async (sessions: Session[], options?: MemoryExportOptions) => {
   const archived: ArchivedSession[] = []
   let total = 0
   for (const session of sessions) {
     const messages: ArchivedCards[] = []
     for (const message of session.messages) {
-      const cards = cardsOf(message)
+      const cards = cardsOf(message, options)
       if (cards.length === 0) {
         continue
       }
@@ -101,7 +125,8 @@ README.txt   本说明，导入时不读取。
 包含什么
 --------
 每条会话下按消息 id 列出挂在该消息上的长期记忆卡片，含文本、来源
-（auto/refine/manual）、创建时间、是否启用、是否置顶、是否已被提炼取代。
+（auto/refine/manual/bulk）、顶层分类（普通/角色）、普通子分类、创建时间、
+是否启用、是否置顶、是否已被提炼取代。
 不包含对话正文、附件、API Key 与设置项。
 
 导入规则
@@ -118,7 +143,8 @@ README.txt   本说明，导入时不读取。
 
 /** 导出全部会话的记忆卡片；未打开的会话按需从数据库读取 */
 export const exportMemory = async (
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  options?: MemoryExportOptions
 ): Promise<MemoryExportResult> => {
   const { sessions, sessionCache } = useChatStore.getState()
   const loaded: Session[] = []
@@ -131,7 +157,7 @@ export const exportMemory = async (
     }
     onProgress?.(index + 1, sessions.length)
   }
-  const { archived, total } = await buildArchive(loaded)
+  const { archived, total } = await buildArchive(loaded, options)
   const { memoryMode, memoryLimit } = useSettings.getState()
   const payload: MemoryArchiveFile = {
     format: MEMORY_FORMAT,
