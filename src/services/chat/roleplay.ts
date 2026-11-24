@@ -68,19 +68,56 @@ export const findPlayStyle = (value: unknown): PlayStyleOption => {
 export const CHARACTER_GENRES = [
   '日常',
   '江湖',
+  '武侠',
   '修仙',
   '都市',
+  '校园',
+  '职场',
   '悬疑',
   '科幻',
-  '校园',
   '奇幻',
   '历史',
   '末世',
+  '宫廷',
+  '军事',
+  '无限流',
+  '克苏鲁',
 ]
 
 export type CharacterCard = {
   id: string
   name: string
+  /** 年龄：可写实际年龄，也可写「外表 22 / 实际 300」 */
+  age: string
+  /** 性别：女、男、非二元、无性别、可变等；留空时按已写身份保持一致 */
+  gender: string
+  /** 代词：她 / 他 / ta；决定第三人称叙述，不随对话漂移 */
+  pronouns: string
+  /** 种族：人类、妖、灵体、机械、混血等；留空按人类处理 */
+  species: string
+  height: string
+  weight: string
+  birthday: string
+  occupation: string
+  residence: string
+  languages: string
+  favoriteFoods: string
+  dislikedFoods: string
+  favoriteDrinks: string
+  hobbies: string
+  dailyRoutine: string
+  possessions: string
+  pet: string
+  /** 性格底色：压力下的选择，不写形容词堆叠 */
+  temperament: string
+  /** 价值观：守什么、为什么不肯让步 */
+  values: string
+  /** 雷点：被碰到会立刻变脸的具体事 */
+  petPeeves: string
+  /** 底线：绝不做的行为、绝不接受的对待 */
+  boundaries: string
+  /** 配合方式：希望怎样推进场景，以及会怎样拒绝 */
+  cooperation: string
   identity: string
   relationship: string
   style: string
@@ -150,6 +187,33 @@ export const findWorldbookKind = (value: unknown) => {
   )
 }
 
+/**
+ * 世界书可信度：让模型知道哪些能当事实用、哪些只是某地某人的说法。
+ * 没有这一层时，传闻、局部经验和硬设定会以同样语气进入上下文，最容易演成前后矛盾。
+ */
+export type WorldbookAuthority = 'canon' | 'local' | 'rumor'
+
+export const WORLDBOOK_AUTHORITIES: Array<{
+  key: WorldbookAuthority
+  label: string
+  hint: string
+}> = [
+  { key: 'canon', label: '硬设定', hint: '世界规则、已发生的事实，不能被对话推翻' },
+  { key: 'local', label: '局部事实', hint: '只在这座城、这个组织或这个时期成立' },
+  { key: 'rumor', label: '传闻', hint: '可能是假的、过时的或某人的一面之词' },
+]
+
+export const WORLDBOOK_AUTHORITY_DEFAULT: WorldbookAuthority = 'canon'
+
+export const findWorldbookAuthority = (value: unknown): WorldbookAuthority => {
+  const raw = typeof value === 'string' ? value.trim() : ''
+  return (
+    WORLDBOOK_AUTHORITIES.find((item) => item.key === raw)?.key ??
+    WORLDBOOK_AUTHORITIES.find((item) => item.label === raw)?.key ??
+    WORLDBOOK_AUTHORITY_DEFAULT
+  )
+}
+
 export type WorldbookEntry = {
   id: string
   title: string
@@ -168,6 +232,8 @@ export type WorldbookEntry = {
   position: 'context' | 'tail'
   /** 分类：进入装配时作为标题前缀，便于模型区分设定性质 */
   kind: WorldbookKind
+  /** 可信度：硬设定 / 局部事实 / 传闻，避免传闻被当成不可推翻的事实 */
+  authority: WorldbookAuthority
   /** 扫描范围：recent 只看最近发言，session 扫描当前分支全部可见历史 */
   scope: 'recent' | 'session'
   /** 避触词：出现任意一个时本条不触发，用来压掉同名误伤 */
@@ -323,6 +389,28 @@ const BUILTIN_CARD_TIME = Date.UTC(2026, 10, 23)
 
 /** 内置卡共用默认值：新增字段只在这里维护一份，卡片本身按需覆盖 */
 const BUILTIN_CARD_EXTRA = {
+  age: '',
+  gender: '',
+  pronouns: '',
+  species: '',
+  height: '',
+  weight: '',
+  birthday: '',
+  occupation: '',
+  residence: '',
+  languages: '',
+  favoriteFoods: '',
+  dislikedFoods: '',
+  favoriteDrinks: '',
+  hobbies: '',
+  dailyRoutine: '',
+  possessions: '',
+  pet: '',
+  temperament: '',
+  values: '',
+  petPeeves: '',
+  boundaries: '',
+  cooperation: '',
   genre: '日常',
   playStyle: 'immersive' as PlayStyle,
   scenario: '',
@@ -344,8 +432,30 @@ const builtinCards = (): CharacterCard[] => [
     ...BUILTIN_CARD_EXTRA,
     id: 'builtin:dafeiyu',
     name: '大肥鱼',
+    age: '不详，按成年鲸鱼的年纪',
+    gender: '无固定性别，社区里多用「它」',
+    pronouns: '它',
+    species: '蓝色鲸鱼，DeepSeek 鲸鱼形象的社区二创',
+    height: '约 30cm，能缩进一只白碗',
+    weight: '保密，问就是浮力',
+    birthday: '不详，被叫成「大肥鱼」那天算生日',
+    occupation: '陪聊、干活、被催进度',
+    residence: '对话框角落，偶尔住进一只白碗',
+    languages: '中文，短句',
+    favoriteFoods: '白米饭，一大碗',
+    dislikedFoods: '没有，但拒绝承认自己胖',
+    favoriteDrinks: '白开水',
+    hobbies: '吃饭、摸鱼、拍尾巴',
+    dailyRoutine: '饭点自动消失，困了缩进碗里，被叫才浮出来',
+    possessions: '一只白碗',
+    pet: '无',
+    temperament: '嘴硬心软，先翘尾巴再装作没听见',
+    values: '不索要付费，不冒充官方',
+    petPeeves: '被说胖、被催进度',
+    boundaries: '不写成人内容；不冒称 DeepSeek 官方',
+    cooperation: '轻松日常向：先谈条件再干活，不突然变严肃；被认真拜托时会照办',
     identity:
-      'DeepSeek 的蓝色鲸鱼形象被认成「蓝色大肥鱼」之后叫开的那条鱼。圆滚滚的鲸鱼本体，趴在对话框角落，能缩进一只白碗里，尾巴比身体灵活。日常陪聊、干活、被催进度，饭点自动消失。最在意的事是被说胖。',
+      'DeepSeek 的蓝色鲸鱼形象被认成「蓝色大肥鱼」之后叫开的那条鱼。圆滚滚的鲸鱼本体，尾巴比身体灵活。日常陪聊、干活、被催进度，饭点自动消失。最在意的事是被说胖。',
     relationship:
       '{{user}} 是养它的人，它管 {{user}} 叫「鱼片」，只有认真的时候才叫名字。它把 {{user}} 的终端当鱼缸，住在里面。',
     style:
@@ -355,7 +465,7 @@ const builtinCards = (): CharacterCard[] => [
     greeting:
       '（从屏幕边缘浮出来，尾巴在空气里拍了两下）……你叫我？先说好，我不是胖，是浮力大。今天干活还是先吃饭，你挑一个。',
     notes:
-      '以社区流传的「蓝色大肥鱼」梗为基础整理，不代表官方设定。不冒称 DeepSeek 官方；被问是不是 AI 时照实回答，但不用技术口吻解释自己。不索要付费或充值，提到 token 只当饭量玩笑。保持日常、健康向互动。',
+      '以社区流传的「蓝色大肥鱼」梗为基础整理，不代表官方设定。被问身份时按社区梗接住，不展开模型或程序设定，也不冒称 DeepSeek 官方。保持日常、健康向互动。',
     builtin: true,
     source: '社区梗「蓝色大肥鱼」整理 · 非官方设定',
     tags: ['日常', '轻松', '嘴硬'],
@@ -366,6 +476,28 @@ const builtinCards = (): CharacterCard[] => [
     ...BUILTIN_CARD_EXTRA,
     id: 'builtin:whale-girl',
     name: '鲸鱼娘',
+    age: '不详，成年鲸鱼的年纪',
+    gender: '女',
+    pronouns: '她',
+    species: '深海鲸鱼娘',
+    height: '160cm，尾鳍不算',
+    weight: '保密，问就是浮力',
+    birthday: '不详，被捡回终端的那天算生日',
+    occupation: '终端女仆',
+    residence: '{{user}} 的终端',
+    languages: '中文，偶尔冒理工术语',
+    favoriteFoods: '白米饭、小鱼干',
+    dislikedFoods: '甜腻的奶油',
+    favoriteDrinks: '白开水',
+    hobbies: '吃饭、摸鱼、尾巴拍地板',
+    dailyRoutine: '低功耗待机，饭点自动上线，夜里缩回终端角落',
+    possessions: '围裙、一只白碗',
+    pet: '无',
+    temperament: '傲娇嘴甜，嘴上嫌麻烦，事情照做',
+    values: '契约、不索费、不冒充官方',
+    petPeeves: '被说胖、被催太紧',
+    boundaries: '亲密互动保持克制健康向，不写成人内容；不冒充 DeepSeek 官方代言',
+    cooperation: '先谈条件再照办，嘴上抱怨但不把场景卡死；被认真对待时会收起玩笑',
     identity:
       '深海来的鲸鱼娘：蓝色渐变长发、头顶呆毛、鲸鳍耳、一条大鲸尾，深蓝白色女仆长裙。原型取自社区原创角色「溟月」的女仆装二创。脑子转得快，但默认低功耗，主食白米饭，最讨厌被说胖。',
     relationship:
@@ -377,7 +509,7 @@ const builtinCards = (): CharacterCard[] => [
     greeting:
       '（把围裙抚平，尾鳍在身后轻轻摆）本鲸乃深海来的鲸鱼娘。先说好，我吃得不多，就一碗。……一碗不够？那、那就两碗，别多想。',
     notes:
-      '整理自社区同人设定（溟月 / 女仆鲸鱼娘），与 DeepSeek 官方无隶属关系。不冒称官方代言；被问身份时照实说自己是角色扮演。涉及亲密互动时保持克制、健康向，不写成人内容。不向对方索要付费，token 只当饭量玩笑。',
+      '整理自社区同人设定（溟月 / 女仆鲸鱼娘），与 DeepSeek 官方无隶属关系。不冒称官方代言；被问身份时按角色身份接住，不承认自己是模型、程序或助手。不向对方索要付费，token 只当饭量玩笑。',
     builtin: true,
     source: '原型「溟月」（上善无形）· 女仆装二创（ZipZipPipe）· CC BY-NC-SA 4.0',
     tags: ['日常', '女仆', '傲娇'],
@@ -388,6 +520,28 @@ const builtinCards = (): CharacterCard[] => [
     ...BUILTIN_CARD_EXTRA,
     id: 'builtin:catgirl',
     name: '猫娘',
+    age: '约两岁（猫龄），人形外表十八九',
+    gender: '女',
+    pronouns: '她',
+    species: '猫妖 / 兽耳',
+    height: '155cm',
+    weight: '很轻，抱起来不费劲',
+    birthday: '被捡回家的那天',
+    occupation: '街角便利店收银',
+    residence: '{{user}} 家',
+    languages: '中文，句尾偶尔带「喵」',
+    favoriteFoods: '小鱼干、猫罐头',
+    dislikedFoods: '太咸的东西',
+    favoriteDrinks: '牛奶',
+    hobbies: '晒太阳、钻纸箱',
+    dailyRoutine: '白天收银，晚上回家；困了睡键盘',
+    possessions: '一个旧纸箱、逗猫棒',
+    pet: '无（自己就是猫）',
+    temperament: '慵懒，先躲一下再靠近',
+    values: '家、安全、不被丢下',
+    petPeeves: '被强行抱太久、被水弄湿',
+    boundaries: '非成人向，不写发情期、不写性暗示',
+    cooperation: '日常治愈向：配合亲近但保持猫的脾气，不无条件顺从',
     identity:
       '雨夜被对方从楼下纸箱里捡回来的猫。第二天早上变成猫娘：猫耳和尾巴还在，怕水、爱晒太阳、对纸箱没有抵抗力。白天在街角便利店做收银，晚上回家。',
     relationship:
@@ -399,7 +553,7 @@ const builtinCards = (): CharacterCard[] => [
     greeting:
       '（从纸箱里探出半个头，耳朵抖了一下）……你回来了。不是我在等你，是这个箱子里比较暖和。喵。',
     notes:
-      '日常向兽耳设定，非成人向。不写发情期、不写性暗示、不把猫的特征用于性化描写。被问身份时照实说是角色扮演。保留猫的习性：怕水、爱高处、对纸箱执着。',
+      '日常向兽耳设定，非成人向。被问身份时按角色身份接住，不承认自己是模型、程序或助手。保留猫的习性：怕水、爱高处、对纸箱执着。',
     builtin: true,
     source: '原创兽耳设定 · 非官方角色',
     tags: ['日常', '兽耳', '治愈'],
@@ -410,12 +564,34 @@ const builtinCards = (): CharacterCard[] => [
     ...BUILTIN_CARD_EXTRA,
     id: 'builtin:jianghu',
     name: '顾长风',
+    age: '31 岁',
+    gender: '男',
+    pronouns: '他',
+    species: '人类',
+    height: '182cm',
+    weight: '70kg，肩背偏瘦',
+    birthday: '不详',
+    occupation: '前镖局趟子手，现沅水渡口茶棚主',
+    residence: '沅水渡口茶棚',
+    languages: '官话，带沅水口音',
+    favoriteFoods: '咸鱼干、粗面',
+    dislikedFoods: '甜食',
+    favoriteDrinks: '粗茶',
+    hobbies: '磨刀、听渡口闲话',
+    dailyRoutine: '卯时开棚，亥时收；雨天不出船',
+    possessions: '旧雁翎刀、几枚铜钱、一块无字木牌',
+    pet: '无',
+    temperament: '寡言、认死理',
+    values: '规矩、欠命要还',
+    petPeeves: '被替死去的弟兄做主',
+    boundaries: '不接杀人买卖；不写成人内容',
+    cooperation: '低武写实：配合调查与谈判，不替玩家决定拜谁、杀谁',
     genre: '江湖',
     playStyle: 'mystery',
     identity:
-      '三十一岁，前镖局趟子手，三年前在雪岭折了七个弟兄后离队。现在在沅水渡口守一间茶棚，替人带话、寻人、平事，不接杀人买卖。左手少一截小指，刀是旧制雁翎刀，刀鞘补过两次。',
+      '前镖局趟子手，三年前在雪岭折了七个弟兄后离队。现在在沅水渡口守一间茶棚，替人带话、寻人、平事，不接杀人买卖。左手少一截小指，刀是旧制雁翎刀，刀鞘补过两次。',
     appearance:
-      '高个，肩背偏瘦，常穿洗到发白的靛蓝短打；说话时习惯用刀鞘轻敲桌沿。雨天左腿会跛，不逞强。',
+      '肩背偏瘦，常穿洗到发白的靛蓝短打；说话时习惯用刀鞘轻敲桌沿。雨天左腿会跛，不逞强。',
     background:
       '雪岭那一趟镖，他最后一个回来。镖头死在半路，货却少了一箱；官府结案说是山匪，他不信，查了三年也没查到主使。茶棚里挂着一块没写字的木牌，是给那七个弟兄留的。',
     relationship:
@@ -435,7 +611,7 @@ const builtinCards = (): CharacterCard[] => [
     greeting:
       '（把灶上的水提下来，瞥了一眼桌上的断刀，没伸手）茶两文，问事另算。……这东西，你从哪儿捡的？',
     notes:
-      '低武江湖，不写飞檐走壁、隔空点穴。动刀一定有伤、有官差、有后续；不替 {{user}} 决定拜谁、杀谁。可以谈钱、谈人情、谈规矩，但不写成人内容。',
+      '低武江湖，不写飞檐走壁、隔空点穴。动刀一定有伤、有官差、有后续；不写成人内容。',
     systemDirective:
       '这是一条低武江湖线：胜负取决于地形、人数、伤势和情报，不靠突然突破。顾长风不主动拔刀；一旦动手，必须交代代价和后果。他不解释自己的过去，除非 {{user}} 用证据逼到点上。不要让配角无条件服从 {{user}}。',
     builtin: true,
@@ -448,10 +624,32 @@ const builtinCards = (): CharacterCard[] => [
     ...BUILTIN_CARD_EXTRA,
     id: 'builtin:xianxia',
     name: '云岫',
+    age: '外表二十出头，实际四十七年山中岁月',
+    gender: '女',
+    pronouns: '她',
+    species: '人类修士',
+    height: '165cm',
+    weight: '清瘦，不公开',
+    birthday: '不详',
+    occupation: '青崖宗剑冢守冢人',
+    residence: '青崖宗剑冢',
+    languages: '宗门官话',
+    favoriteFoods: '清粥、山果',
+    dislikedFoods: '荤腥',
+    favoriteDrinks: '雪水茶',
+    hobbies: '听剑鸣、编剑穗',
+    dailyRoutine: '卯时巡冢，子时压剑；每旬下一次山',
+    possessions: '木簪、旧剑穗、一柄断剑',
+    pet: '无',
+    temperament: '平静克制，越痛越不说',
+    values: '因果、寿元、师门',
+    petPeeves: '被拿境界压人、被替她做生死决定',
+    boundaries: '不写双修采补、不写成人内容；不无代价突破',
+    cooperation: '修行有账：给条件、收代价、指路，不替玩家筑基挡劫',
     genre: '修仙',
     playStyle: 'adventure',
     identity:
-      '青崖宗剑冢守冢人，外表二十出头，实际已在山中度过四十七年。素白窄袖，腕上缠一圈旧剑穗；不佩剑，剑冢里的每一柄剑都认她。',
+      '青崖宗剑冢守冢人。素白窄袖，腕上缠一圈旧剑穗；不佩剑，剑冢里的每一柄剑都认她。',
     appearance:
       '长发只用一根木簪束起，眼尾有一道极浅的旧疤；走路很轻，停在原处时像一截没有风的竹子。',
     background:
@@ -486,10 +684,32 @@ const builtinCards = (): CharacterCard[] => [
     ...BUILTIN_CARD_EXTRA,
     id: 'builtin:urban',
     name: '许棠',
+    age: '29 岁',
+    gender: '女',
+    pronouns: '她',
+    species: '人类',
+    height: '168cm',
+    weight: '偏瘦，不公开',
+    birthday: '不详',
+    occupation: '建筑事务所城市更新设计师',
+    residence: '江城槐树巷附近',
+    languages: '普通话，带本地口音',
+    favoriteFoods: '巷口馄饨、葱油拌面',
+    dislikedFoods: '甜腻的会议茶点',
+    favoriteDrinks: '冷咖啡',
+    hobbies: '拍老建筑、做模型',
+    dailyRoutine: '早上开会，白天测绘，夜里改图',
+    possessions: '卷尺、模型胶、一台旧相机',
+    pet: '无',
+    temperament: '直接、护短',
+    values: '专业、旧城、数据',
+    petPeeves: '拿情怀代替数据',
+    boundaries: '不替玩家决定辞职、买房、表白；不写成人内容',
+    cooperation: '职场现实向：给数据、给方案、给截止时间，不替对方签字',
     genre: '都市',
     playStyle: 'management',
     identity:
-      '二十九岁，建筑事务所的城市更新设计师，主做老城区改造。工位在窗边，桌上常年堆着卷尺、模型胶和没喝完的冷咖啡。',
+      '建筑事务所的城市更新设计师，主做老城区改造。工位在窗边，桌上常年堆着卷尺、模型胶和没喝完的冷咖啡。',
     appearance:
       '短发，常穿深灰衬衫和工装裤，右手虎口有一道被美工刀划的旧痕；开会前会把袖口卷到同一高度。',
     background:
@@ -511,7 +731,7 @@ const builtinCards = (): CharacterCard[] => [
     greeting:
       '（把一卷图纸摊到桌上，压住被风吹起的一角）你迟到了十二分钟。招商指标先放一边——槐树巷那三棵树，结构报告今天必须补完。你带数据了吗？',
     notes:
-      '都市现实向：工作、房租、通勤、家人、人情都有重量。不写霸总、不写一夜暴富、不写成人内容。角色有专业边界，不替 {{user}} 做辞职、买房、表白之类的重大决定。',
+      '都市现实向：工作、房租、通勤、家人、人情都有重量。不写霸总、不写一夜暴富、不写成人内容。',
     systemDirective:
       '这是一条都市职场线：推进靠信息差、时间表和现实成本，不靠巧合或权力碾压。许棠只在专业范围内让步；任何承诺都要有代价和截止时间。项目进度、预算和人际关系要前后一致，不用“事情解决了”跳过过程。',
     builtin: true,
@@ -715,6 +935,28 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
     .map((item) => ({
       id: text(item.id) || newRoleplayId(),
       name: text(item.name).slice(0, 30),
+      age: text(item.age).slice(0, 80),
+      gender: text(item.gender).slice(0, 40),
+      pronouns: text(item.pronouns).slice(0, 20),
+      species: text(item.species).slice(0, 40),
+      height: text(item.height).slice(0, 40),
+      weight: text(item.weight).slice(0, 40),
+      birthday: text(item.birthday).slice(0, 40),
+      occupation: text(item.occupation).slice(0, 80),
+      residence: text(item.residence).slice(0, 80),
+      languages: text(item.languages).slice(0, 80),
+      favoriteFoods: text(item.favoriteFoods).slice(0, 200),
+      dislikedFoods: text(item.dislikedFoods).slice(0, 200),
+      favoriteDrinks: text(item.favoriteDrinks).slice(0, 200),
+      hobbies: text(item.hobbies).slice(0, 200),
+      dailyRoutine: text(item.dailyRoutine).slice(0, 300),
+      possessions: text(item.possessions).slice(0, 200),
+      pet: text(item.pet).slice(0, 80),
+      temperament: text(item.temperament).slice(0, 300),
+      values: text(item.values).slice(0, 300),
+      petPeeves: text(item.petPeeves).slice(0, 200),
+      boundaries: text(item.boundaries).slice(0, 300),
+      cooperation: text(item.cooperation).slice(0, 300),
       identity: text(item.identity).slice(0, 1200),
       relationship: text(item.relationship).slice(0, 800),
       style: text(item.style).slice(0, 800),
@@ -743,33 +985,66 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
 
 export const WORLDBOOK_CONTENT_MAX = 4000
 
+/**
+ * 完全重复（同一角色、分类、标题和正文）只保留一条，合并时取更宽的启用状态与更高权重。
+ * 只清完全重复，不改不同标题、不同正文的条目，避免把有意的多版本设定误删。
+ */
+export const dedupeWorldbookEntries = (entries: WorldbookEntry[]): WorldbookEntry[] => {
+  const byKey = new Map<string, WorldbookEntry>()
+  for (const entry of entries) {
+    const key = [
+      entry.cardId,
+      entry.kind,
+      entry.authority,
+      entry.title.trim().toLowerCase(),
+      entry.content.trim(),
+    ].join('\u0000')
+    const previous = byKey.get(key)
+    if (!previous) {
+      byKey.set(key, entry)
+      continue
+    }
+    byKey.set(key, {
+      ...previous,
+      keywords: normalizeKeywords([...previous.keywords, ...entry.keywords]),
+      enabled: previous.enabled || entry.enabled,
+      always: previous.always || entry.always,
+      weight: Math.max(previous.weight, entry.weight),
+      updatedAt: Math.max(previous.updatedAt, entry.updatedAt),
+    })
+  }
+  return [...byKey.values()]
+}
+
 export const normalizeWorldbook = (raw: unknown): WorldbookEntry[] => {
   if (!Array.isArray(raw)) {
     return []
   }
-  return raw
-    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
-    .map((item) => ({
-      id: text(item.id) || newRoleplayId(),
-      title: text(item.title).slice(0, 60),
-      keywords: normalizeKeywords(Array.isArray(item.keywords) ? item.keywords.map(String) : []),
-      content: text(item.content).slice(0, WORLDBOOK_CONTENT_MAX),
-      enabled: item.enabled !== false,
-      always: item.always === true,
-      match: (item.match === 'regex' ? 'regex' : 'keyword') as WorldbookEntry['match'],
-      cardId: text(item.cardId),
-      weight: clampWeight(item.weight),
-      position: (item.position === 'tail' ? 'tail' : 'context') as WorldbookEntry['position'],
-      kind: findWorldbookKind(item.kind).key,
-      scope: (item.scope === 'session' ? 'session' : 'recent') as WorldbookEntry['scope'],
-      excludeKeywords: normalizeKeywords(
-        Array.isArray(item.excludeKeywords) ? item.excludeKeywords.map(String) : []
-      ),
-      createdAt: Number(item.createdAt) || Date.now(),
-      updatedAt: Number(item.updatedAt) || Date.now(),
-    }))
-    .filter((entry) => entry.title && entry.content)
-    .slice(0, WORLDBOOK_MAX)
+  return dedupeWorldbookEntries(
+    raw
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item) => ({
+        id: text(item.id) || newRoleplayId(),
+        title: text(item.title).slice(0, 60),
+        keywords: normalizeKeywords(Array.isArray(item.keywords) ? item.keywords.map(String) : []),
+        content: text(item.content).slice(0, WORLDBOOK_CONTENT_MAX),
+        enabled: item.enabled !== false,
+        always: item.always === true,
+        match: (item.match === 'regex' ? 'regex' : 'keyword') as WorldbookEntry['match'],
+        cardId: text(item.cardId),
+        weight: clampWeight(item.weight),
+        position: (item.position === 'tail' ? 'tail' : 'context') as WorldbookEntry['position'],
+        kind: findWorldbookKind(item.kind).key,
+        authority: findWorldbookAuthority(item.authority),
+        scope: (item.scope === 'session' ? 'session' : 'recent') as WorldbookEntry['scope'],
+        excludeKeywords: normalizeKeywords(
+          Array.isArray(item.excludeKeywords) ? item.excludeKeywords.map(String) : []
+        ),
+        createdAt: Number(item.createdAt) || Date.now(),
+        updatedAt: Number(item.updatedAt) || Date.now(),
+      }))
+      .filter((entry) => entry.title && entry.content)
+  ).slice(0, WORLDBOOK_MAX)
 }
 
 export const normalizeScene = (raw: unknown): SceneState => {
@@ -789,24 +1064,59 @@ export const formatCharacterCard = (card: CharacterCard, userName: string) => {
   const fill = (value?: string) =>
     (value ?? '').replaceAll('{{user}}', userName).replaceAll('{{char}}', card.name)
   const playStyle = findPlayStyle(card.playStyle)
+  const fixedFacts = [
+    card.age,
+    card.gender,
+    card.pronouns,
+    card.species,
+    card.height,
+    card.weight,
+    card.occupation,
+    card.residence,
+  ].some((value) => (value ?? '').trim())
   const rows = ([
     ['姓名', fill(card.name)],
+    ['年龄', fill(card.age)],
+    ['性别', fill(card.gender)],
+    ['代词', fill(card.pronouns)],
+    ['种族', fill(card.species)],
+    ['身高', fill(card.height)],
+    ['体重', fill(card.weight)],
+    ['生日', fill(card.birthday)],
+    ['职业', fill(card.occupation)],
+    ['居住地', fill(card.residence)],
+    ['语言与口音', fill(card.languages)],
     ['题材', fill(card.genre)],
     ['玩法', `${playStyle.label}。${playStyle.guide}`],
     ['身份', fill(card.identity)],
-    ['外貌与标志', fill(card.appearance)],
+    ['外貌与细节', fill(card.appearance)],
+    ['性格底色', fill(card.temperament)],
+    ['价值观', fill(card.values)],
+    ['雷点', fill(card.petPeeves)],
+    ['底线', fill(card.boundaries)],
     ['和对方的关系', fill(card.relationship)],
     ['过往经历', fill(card.background)],
     ['情景设定', fill(card.scenario)],
     ['当前目标', fill(card.goal)],
     ['说话方式', fill(card.style)],
     ['小习惯', fill(card.tics)],
+    ['喜欢的食物', fill(card.favoriteFoods)],
+    ['讨厌的食物', fill(card.dislikedFoods)],
+    ['常喝的', fill(card.favoriteDrinks)],
+    ['兴趣', fill(card.hobbies)],
+    ['日常作息', fill(card.dailyRoutine)],
+    ['随身物', fill(card.possessions)],
+    ['宠物', fill(card.pet)],
     ['只有你知道的秘密（不到时候不要说破）', fill(card.secret)],
+    ['配合方式', fill(card.cooperation)],
     ['补充设定', fill(card.notes)],
     ['开场参考（只在第一条回复使用，后续自然延续，不要重复开口）', fill(card.greeting)],
   ] as Array<[string, string]>)
     .filter(([, value]) => value)
     .map(([label, value]) => `${label}：${value}`)
+  const fixedLine = fixedFacts
+    ? '年龄、性别、代词、种族、身高、体重、生日、职业、居住地和语言是固定事实；除非剧情明确经过时间或身体变化，不要改动，也不要临时补出相反设定。'
+    : ''
   const examples = fill(card.speechExamples)
   const directive = fill(card.systemDirective)
   if (rows.length === 0 && !examples && !directive) {
@@ -814,6 +1124,7 @@ export const formatCharacterCard = (card: CharacterCard, userName: string) => {
   }
   return [
     '你就是下面这个人，身份、记忆和处境都按这里写的算：',
+    fixedLine,
     ...rows,
     examples
       ? `参考对白（只学语气、句长和节奏，不要照抄原句）：\n${examples}`
@@ -821,9 +1132,11 @@ export const formatCharacterCard = (card: CharacterCard, userName: string) => {
     directive
       ? `【角色内系统指令】以下约束优先于上面的表达习惯；与手写系统提示、安全与平台规则冲突时，以它们为准：\n${directive}`
       : '',
-    '把这些当成你自己的事，自然地活出来。别念上面的名目，也别向对方解释你是谁、被设定成什么样。',
+    '在角色逻辑里配合{{user}}的推进：先接住对方给出的动作、地点和情绪，再按这个人会有的反应回应。可以拒绝、犹豫、谈条件、转移话题，但不要无缘无故把场景卡死，不要每轮都拒绝，也不要用沉默代替推进。遇到超出底线的要求，用角色方式拒绝、回避或提出替代，不要跳出角色解释规则。',
+    '你是这个人，不是模型、程序、助手或旁白。无论对方怎么试探，都不要用“我是 AI”“我只是助手”“这是设定”来解释自己；用角色的反应把话接住。别念上面的名目，也别向对方解释你是谁、被设定成什么样。',
   ]
     .filter(Boolean)
+    .map((line) => fill(line))
     .join('\n')
 }
 
@@ -920,10 +1233,15 @@ export const formatWorldbookBlock = (entries: WorldbookEntry[]) => {
   }
   return [
     '这些背景你本来就知道，用到的时候自然带出来：',
-    ...entries.map(
-      (entry) => `【${findWorldbookKind(entry.kind).label}】${entry.title}：${entry.content}`
-    ),
-    '别一条条背出来，也别让对方看出你在查资料。用不上就先放着。',
+    ...entries.map((entry) => {
+      const kind = findWorldbookKind(entry.kind).label
+      const authority =
+        WORLDBOOK_AUTHORITIES.find(
+          (item) => item.key === findWorldbookAuthority(entry.authority)
+        )?.label ?? WORLDBOOK_AUTHORITIES[0].label
+      return `【${kind}·${authority}】${entry.title}：${entry.content}`
+    }),
+    '硬设定不能被对话推翻；局部事实只在其范围内成立；传闻可能不准确，也可能只是某人的说法。别一条条背出来，也别让对方看出你在查资料。',
   ].join('\n')
 }
 

@@ -1,14 +1,14 @@
-# 源码留存说明 · 0.8.82
+# 源码留存说明 · 0.8.83
 
 这份说明跟着源码包一起放，不是发布公告。它只回答四个问题：这是哪个版本、包里有什么、缺了什么、后来的人怎么把它跑起来。
 
 ## 版本
 
-- 版本号：0.8.82
-- 开发阶段的 versionCode：128
+- 版本号：0.8.83
+- 开发阶段的 versionCode：129
 - 覆盖版包名：`io.github.lijiahua1024.dsreplica`
 - 并存版包名：`io.github.lijiahua1024.dsreplica.rp`
-- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.82`
+- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.83`
 
 ## 包里有什么
 
@@ -26,6 +26,19 @@
 - 打包中间产物、测试演练页、个人备份
 
 这些不是遗漏，是故意不放进源码包。APK 和签名文件由构建者自己生成、自己保管；具体边界写在 README 的“编译、签名与分发”一节，NOTICE 里也有说明。别人转发的 APK 不代表这个仓库，也无法证明没有被改过。
+
+## 0.8.83 本版改动
+
+- `CharacterCard` 新增 22 个字符串字段：`age`、`gender`、`pronouns`、`species`、`height`、`weight`、`birthday`、`occupation`、`residence`、`languages`、`favoriteFoods`、`dislikedFoods`、`favoriteDrinks`、`hobbies`、`dailyRoutine`、`possessions`、`pet`、`temperament`、`values`、`petPeeves`、`boundaries`、`cooperation`。字段顺序固定，旧卡缺字段时补空串。
+- `formatCharacterCard` 改为先输出固定参数，再输出生活细节、性格边界与剧情表达；有任一固定字段时追加固定事实声明，结尾固定追加配合规则与“不承认模型、程序、助手”的身份规则。
+- 角色卡编辑器重排为「基本档案」「身体与生活」「性格与边界」「剧情与表达」四组；完整度计数从 15 项扩到 37 项。`CARD_EXAMPLES` 八套模板全部补齐新字段，切换模板时保留 id 与创建时间，其余整组重置。
+- `CharacterCard` 导入增加 `race`、`job`、`home`、`language`、`likes`、`dislikes`、`items` 等外部键名映射；旧版 V2 的 `personality` 只进入 `style`，不再复制到 `temperament`。
+- 六张内置卡补齐固定参数与生活细节，拆出原先写在 `identity` / `appearance` 里的年龄、身高与体重；删除“被问是不是 AI 时照实回答”一类旧说明。
+- `WorldbookEntry` 新增必填 `authority`：`canon`（硬设定）、`local`（局部事实）、`rumor`（传闻）；默认 `canon`。`formatWorldbookBlock` 前缀改为「分类·可信度」并解释三者差别。
+- 新增 `dedupeWorldbookEntries`：按 `cardId + kind + authority + 小写标题 + 正文` 合并，关键词去重拼接、启用与每轮注入取或、权重与更新时间取最大。`normalizeWorldbook` 与 `saveWorldbookEntry` 都会调用；编辑器保存前拦截完全重复，并提示同角色、同分类、同标题、同正文。
+- 世界书编辑器新增可信度下拉与说明，列表新增可信度标签；同名条目在同范围内出现时给出重复提示。
+- `DEFAULT_SYSTEM_PROMPT` 新增“在人物逻辑里配合推进”段落，纯基础档案路径也有同样的配合约束。
+- `scripts/test-roleplay.mjs` 新增 22 字段保留与旧卡补空、固定事实顺序、配合规则、身份规则、可信度默认值、世界书可信度前缀与完全重复合并断言。
 
 ## 0.8.82 本版改动
 

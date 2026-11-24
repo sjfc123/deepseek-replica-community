@@ -417,6 +417,8 @@ export const en = {
   roleplayIntroStarted: '“{name}” is active; a new chat was created with the opener',
   roleplaySwitched: 'Switched to “{name}”',
   roleplayEntryFields: 'A worldbook entry needs a title and content',
+  roleplayEntryDuplicate:
+    'An identical entry already exists: same card, kind, title and content',
   roleplayEntrySaved: 'Worldbook entry “{name}” saved',
   roleplayDeleted: 'Deleted “{name}”',
   roleplayExampleApplied: 'Applied the “{name}” example; edit as needed',

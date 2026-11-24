@@ -224,6 +224,46 @@
   border: 1px solid var(--rp-line);
 }
 
+.fieldHint {
+  display: block;
+  margin-top: 4px;
+  color: var(--rp-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.authorityTag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+  color: var(--rp-muted);
+  background: var(--rp-button);
+  border: 1px solid var(--rp-line);
+}
+
+.authorityTag[data-authority='canon'] {
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 10%, transparent);
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 24%, transparent);
+}
+
+.authorityTag[data-authority='local'] {
+  color: #8a5a00;
+  background: rgba(255, 171, 64, 0.14);
+  border-color: rgba(255, 171, 64, 0.26);
+}
+
+.authorityTag[data-authority='rumor'] {
+  color: #6b6b6b;
+  background: color-mix(in srgb, var(--rp-muted) 10%, transparent);
+  border-color: color-mix(in srgb, var(--rp-muted) 24%, transparent);
+}
+
 .offTag {
   color: var(--rp-muted);
   background: var(--rp-button);
@@ -382,6 +422,28 @@
 .fieldGrid .wide,
 .sceneGrid .wide {
   grid-column: 1 / -1;
+}
+
+.fieldGroup {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rp-line);
+}
+
+.fieldGroup strong {
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.fieldGroup span {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--rp-muted);
 }
 
 .fieldGrid input,

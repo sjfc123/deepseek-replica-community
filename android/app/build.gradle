@@ -20,8 +20,8 @@ android {
         applicationId = 'io.github.lijiahua1024.dsreplica'
         minSdk = 29
         targetSdk = 36
-        versionCode = 128
-        versionName = '0.8.82'
+        versionCode = 129
+        versionName = '0.8.83'
     }
 
     signingConfigs {

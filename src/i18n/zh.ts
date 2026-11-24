@@ -405,6 +405,7 @@ export const zh = {
   roleplayIntroStarted: '已启用「{name}」并新建对话，开场白已发出',
   roleplaySwitched: '已切换到「{name}」',
   roleplayEntryFields: '世界书条目需要标题和内容',
+  roleplayEntryDuplicate: '已有完全相同的条目：同角色、同分类、同标题、同正文',
   roleplayEntrySaved: '已保存世界书「{name}」',
   roleplayDeleted: '已删除「{name}」',
   roleplayExampleApplied: '已填入「{name}」示例，可继续修改',

@@ -16,11 +16,14 @@ const {
   normalizeCharacterCards,
   normalizeWorldbook,
   formatCharacterCard,
+  formatWorldbookBlock,
+  dedupeWorldbookEntries,
   findSessionCharacterCard,
   resolveTurnCharacterCard,
   selectWorldbookEntries,
   parseSceneUpdate,
   sceneHasContent,
+  WORLDBOOK_AUTHORITY_DEFAULT,
   EMPTY_SCENE,
 } = await import('../src/services/chat/roleplay.ts')
 
@@ -83,6 +86,73 @@ assert.match(resolved, /每次出手都要有代价/)
 assert.match(resolved, /参考对白/)
 assert.equal(resolved, formatCharacterCard(cardWithAll, '用户'), '角色卡 system 必须稳定')
 
+const fullCard = normalizeCharacterCards([
+  {
+    name: '林晚',
+    age: '28 岁',
+    gender: '女',
+    pronouns: '她',
+    species: '人类',
+    height: '165cm',
+    weight: '50kg',
+    birthday: '三月十七',
+    occupation: '修表铺主',
+    residence: '旧城区巷口',
+    languages: '普通话，旧城口音',
+    favoriteFoods: '牛肉粉',
+    dislikedFoods: '香菜',
+    favoriteDrinks: '淡茶',
+    hobbies: '修旧表',
+    dailyRoutine: '十点开门',
+    possessions: '旧螺丝刀',
+    pet: '无',
+    temperament: '话少',
+    values: '不欠人情',
+    petPeeves: '被催婚',
+    boundaries: '不谈前段婚姻',
+    cooperation: '慢热，但会留继续的细节',
+  },
+])[0]
+for (const [key, value] of Object.entries({
+  age: '28 岁',
+  gender: '女',
+  pronouns: '她',
+  species: '人类',
+  height: '165cm',
+  weight: '50kg',
+  birthday: '三月十七',
+  occupation: '修表铺主',
+  residence: '旧城区巷口',
+  languages: '普通话，旧城口音',
+  favoriteFoods: '牛肉粉',
+  dislikedFoods: '香菜',
+  favoriteDrinks: '淡茶',
+  hobbies: '修旧表',
+  dailyRoutine: '十点开门',
+  possessions: '旧螺丝刀',
+  pet: '无',
+  temperament: '话少',
+  values: '不欠人情',
+  petPeeves: '被催婚',
+  boundaries: '不谈前段婚姻',
+  cooperation: '慢热，但会留继续的细节',
+})) {
+  assert.equal(fullCard[key], value, `角色卡字段 ${key} 必须保留`)
+}
+assert.equal(
+  normalizeCharacterCards([{ name: '旧卡' }])[0].age,
+  '',
+  '旧卡缺少新字段时必须补空串'
+)
+const fullPrompt = formatCharacterCard(fullCard, '用户')
+assert.ok(fullPrompt.indexOf('年龄：') < fullPrompt.indexOf('性别：'), '固定参数必须按顺序靠前')
+assert.match(fullPrompt, /是固定事实；除非剧情明确经过时间或身体变化/)
+assert.match(fullPrompt, /在角色逻辑里配合用户/)
+assert.match(fullPrompt, /不要无缘无故把场景卡死/)
+assert.match(fullPrompt, /不是模型、程序、助手或旁白/)
+assert.match(fullPrompt, /不要用“我是 AI”“我只是助手”“这是设定”来解释自己/)
+assert.match(fullPrompt, /别向对方解释你是谁/)
+
 const session = {
   id: 's1',
   title: '沈砚',
@@ -130,6 +200,59 @@ assert.equal(
   selectWorldbookEntries(worldbook, '渡口已封，别去', 6, 1000, null, '渡口已封，别去').length,
   0,
   '避触词命中时必须跳过'
+)
+
+const normalizedEntry = normalizeWorldbook([
+  { title: '渡口', content: '旧码头已经停用。', kind: '地点' },
+])[0]
+assert.equal(
+  normalizedEntry.authority,
+  WORLDBOOK_AUTHORITY_DEFAULT,
+  '旧条目没有可信度时必须落到默认硬设定'
+)
+assert.match(
+  formatWorldbookBlock([normalizedEntry]),
+  /【地点·硬设定】渡口：旧码头已经停用。/
+)
+assert.match(formatWorldbookBlock([normalizedEntry]), /传闻可能不准确/)
+
+const dedupeSource = [
+  {
+    ...normalizedEntry,
+    id: 'w-a',
+    keywords: ['渡口'],
+    content: '旧码头已经停用。',
+    weight: 40,
+    updatedAt: 10,
+  },
+  {
+    ...normalizedEntry,
+    id: 'w-b',
+    keywords: ['码头', '渡口'],
+    content: '旧码头已经停用。',
+    weight: 70,
+    always: true,
+    updatedAt: 20,
+  },
+  {
+    ...normalizedEntry,
+    id: 'w-c',
+    title: '渡口传闻',
+    content: '据说夜里有人看见船。',
+    authority: 'rumor',
+  },
+]
+const deduped = dedupeWorldbookEntries(dedupeSource)
+assert.equal(deduped.length, 2, '完全重复条目只保留一条')
+const merged = deduped.find((entry) => entry.id === 'w-a')
+assert.ok(merged, '合并应保留先出现的 id')
+assert.equal(merged.weight, 70, '合并取最大权重')
+assert.equal(merged.always, true, '每轮注入取或')
+assert.equal(merged.updatedAt, 20, '更新时间取最大')
+assert.deepEqual(merged.keywords, ['渡口', '码头'], '关键词去重合并')
+assert.ok(
+  deduped.some((entry) => entry.title === '渡口传闻' && entry.authority === 'rumor'),
+  '同文但可信度不同的条目不能被误删'
 )
 
 const scene = parseSceneUpdate(
