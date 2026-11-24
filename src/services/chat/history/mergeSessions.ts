@@ -477,7 +477,6 @@ export const mergeSessions = (
               latestReminder: target.latestReminder ?? inChild.latestReminder,
               thinking: inChild.thinking,
               search: inChild.search,
-              prefix: inChild.prefix,
               status: inChild.status,
               stopReason: inChild.stopReason,
               stopDetails: inChild.stopDetails,

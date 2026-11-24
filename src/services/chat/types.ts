@@ -64,7 +64,7 @@ export type TextPart = {
   type: 'text'
   text: string
   citations?: TextCitation[]
-  /** 服务端提示文案，仅用于展示，不作为模型回答参与上下文或续写。 */
+  /** 服务端提示文案，仅用于展示，不作为模型回答参与上下文。 */
   isTemplate?: boolean
 }
 
@@ -81,25 +81,23 @@ export type AssistantMessage = MessageBranch & {
   id: string
   role: 'assistant'
   createdAt: number
-  /** 未记录模型时为 null，续写使用当前默认模型。 */
+  /** 未记录模型时为 null，缺失时使用当前默认模型。 */
   model: ChatModel | null
   /** 请求时是否开启深度思考 */
   thinking?: boolean
   /** 请求时是否声明 deepseek_web_search；关闭时仍声明 deepseek_read_url */
   search?: boolean
-  /** 本轮请求的系统信息快照；各回答版本独立保存，续写沿用。历史消息中缺省的快照保持为空。 */
+  /** 本轮请求的系统信息快照；各回答版本独立保存。历史消息中缺省的快照保持为空。 */
   latestReminder?: string
-  /** 是否允许作为续写前缀；仍需满足回复状态与内容限制。 */
-  prefix: boolean
   status: ReplyStatus
-  /** 可识别的内容块按接收顺序排列；续写产生的块追加在已有块之后 */
+  /** 可识别的内容块按接收顺序排列 */
   blocks: ReplyBlock[]
   stopReason?: StopReason
   stopDetails?: StopDetails
-  /** 最近一次请求的用量，续写后更新 */
+  /** 最近一次请求的用量 */
   usage?: MessageUsage
   /**
-   * 每次请求结束时的接口用量快照。续写会覆盖 usage，但这里按请求顺序保留，
+   * 每次请求结束时的接口用量快照。重新生成会覆盖 usage，但这里按请求顺序保留，
    * 供会话级精确统计；旧版本回复没有这个字段时退回 usage 单次值。
    */
   usageHistory?: MessageUsage[]

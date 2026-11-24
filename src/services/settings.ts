@@ -146,7 +146,7 @@ type Settings = {
   sendLatestReminder: boolean
   /** 首轮请求服务端生成标题；关闭后用首行文本做标题 */
   autoTitle: boolean
-  /** 被拒轮次进入上下文并可续写；关闭时沿用原版丢弃策略 */
+  /** 被拒轮次进入上下文；关闭时沿用原版丢弃策略 */
   allowRefusedContext: boolean
   /** 关键词拒答：命中时本地直接返回拒答话术，不请求接口 */
   refusalEnabled: boolean

@@ -12,16 +12,13 @@ import {
   IconRefreshOutline16,
   IconSelectAllOutline16,
   IconSelectTextOutline16,
-  IconSendOutline16,
   IconTrashOutline16,
   IconWarningOutline16,
 } from '../base/icons.js'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 import { describeReply } from '../../services/chat/describe.js'
 import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
-import { canContinueReply } from '../../services/chat/reply.js'
 import {
-  continueReply,
   deleteMessage,
   editAssistantMessage,
   regenerateReply,
@@ -101,7 +98,6 @@ export const AssistantMessage = memo(function AssistantMessage({
   const characterAvatar = useSettings((state) => state.characterAvatar)
   const cardAvatar = activeCard ? (cardAvatars[activeCard.id] ?? null) : null
   const characterName = useSettings((state) => state.characterName)
-  const format = useSettings((state) => state.chatConfig.format)
   const thoughtAside = useSettings((state) => state.thoughtAside)
   const memoryInline = useSettings((state) => state.memoryInline)
   const canReadAloud = useSettings((state) => Boolean(state.apiKey))
@@ -417,23 +413,6 @@ export const AssistantMessage = memo(function AssistantMessage({
                     })
                   },
                 },
-                ...(isLast &&
-                !customEndpoint &&
-                format === 'messages' &&
-                canContinueReply(message)
-                  ? [
-                      {
-                        key: 'continue',
-                        label: t('continueGenerating'),
-                        icon: <IconSendOutline16 />,
-                        onSelect: () => {
-                          stopSelecting()
-                          stopReadAloud()
-                          continueReply(sessionId, message.id)
-                        },
-                      },
-                    ]
-                  : []),
                 {
                   key: 'regenerate',
                   label: t('regenerate'),
@@ -636,22 +615,6 @@ export const AssistantMessage = memo(function AssistantMessage({
               <ReadAloudButton messageId={message.id} text={responseText} />
             ) : null}
             <div className={styles.rightActions}>
-              {isLast &&
-              !customEndpoint &&
-              format === 'messages' &&
-              canContinueReply(message) ? (
-                <button
-                  className={styles.continueInline}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    stopReadAloud()
-                    continueReply(sessionId, message.id)
-                  }}
-                >
-                  {t('continueGenerating')}
-                </button>
-              ) : null}
               <IconButton
                 className={styles.regenerate}
                 icon={<IconRefreshOutline16 />}

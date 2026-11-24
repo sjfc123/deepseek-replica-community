@@ -139,7 +139,7 @@ const readBlock = (value: unknown): OutputBlockStart | null => {
       } as OutputBlockStart
     }
     case 'tool_use':
-      // 不展示客户端工具内容；交给回复归并层关闭这条回复的续写能力。
+      // 不展示客户端工具内容。
       break
     default:
       return null

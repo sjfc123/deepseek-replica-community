@@ -233,7 +233,7 @@
   margin-left: auto;
 }
 
-/* 续写与重新生成放在同一组：续写在左，重新生成在右 */
+/* 重新生成按钮单独靠右 */
 .rightActions {
   display: flex;
   align-items: center;
@@ -243,24 +243,6 @@
 
 .rightActions .regenerate {
   margin-left: 0;
-}
-
-.continueInline {
-  padding: 4px 7px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--dsw-alias-brand-primary, #4d6bfe);
-  font: inherit;
-  font-size: 12px;
-  line-height: 1.2;
-  white-space: nowrap;
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
 }
 
 .summary {

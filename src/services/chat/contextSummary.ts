@@ -12,14 +12,12 @@ import type {
 } from '../api/types.js'
 import { getFileExt, getUploadPurpose } from '../attachments.js'
 import {
-  estimatePrefixTokens,
   estimateTextTokens,
   SUMMARY_OUTPUT_TOKENS,
   textPrefixLength,
 } from './context.js'
-import { getReplyText } from './reply.js'
 import type { OfficeFormat } from './officeText.js'
-import type { AssistantMessage, FileAttachment, UserMessage } from './types.js'
+import type { FileAttachment, UserMessage } from './types.js'
 
 const SECTIONS = ['目标与约束', '已确认的进展', '待解决问题', '关键资料'] as const
 const SUMMARY_SYSTEM = [
@@ -110,7 +108,6 @@ export const includeContextSummary = (messages: MessageParam[], summary?: string
 
 const INPUT_BATCH_TOKENS = 96 * 1024
 const INPUT_EXCERPT_TOKENS = 4_096
-const PREFIX_TAIL_TOKENS = 8_192
 const BINARY_DOCUMENT = /^(?:xls[xm]?|epub|mobi|azw3)$/i
 const isOfficeFormat = (extension: string): extension is OfficeFormat =>
   extension === 'docx' || extension === 'pptx' || extension === 'xlsx'
@@ -151,7 +148,6 @@ export const readPlainText = async (
 export const summarizeCurrentInput = async ({
   apiKey,
   question,
-  prefix,
   summarize,
   loadFile,
   signal,
@@ -159,18 +155,16 @@ export const summarizeCurrentInput = async ({
 }: {
   apiKey: string
   question: UserMessage
-  prefix?: AssistantMessage
   summarize: (request: SummaryInput) => Promise<string | null>
   loadFile: (id: string) => Promise<Blob | undefined>
   signal: AbortSignal
   inlineFiles?: (InlineFileBlockParam | TextBlockParam)[]
-}): Promise<{ question: UserMessage; prefix?: AssistantMessage } | null> => {
+}): Promise<{ question: UserMessage } | null> => {
   const shortenQuestion = estimateTextTokens(question.content) > INPUT_EXCERPT_TOKENS
-  const shortenPrefix = estimatePrefixTokens(prefix) > PREFIX_TAIL_TOKENS
   const files = inlineFiles
     ? []
     : question.files.flatMap((file) => (file.serverId ? [{ file, serverId: file.serverId }] : []))
-  if (!shortenQuestion && !shortenPrefix && !files.length && !inlineFiles?.length) {
+  if (!shortenQuestion && !files.length && !inlineFiles?.length) {
     return null
   }
   const excerptBudget = INPUT_EXCERPT_TOKENS / 2
@@ -300,16 +294,6 @@ export const summarizeCurrentInput = async ({
       }
     }
   }
-  if (prefix && shortenPrefix) {
-    const text = getReplyText(prefix)
-    // 保留续写接缝处的正文原文。带签名的思考块只在原请求中整块回传。
-    const tail = textTail(text, PREFIX_TAIL_TOKENS)
-    const earlier = text.slice(0, text.length - tail.length)
-    if (earlier && !(await summarizeText(earlier, '已生成的答复前半部分'))) {
-      return null
-    }
-    prefix = { ...prefix, blocks: tail ? [{ type: 'text', text: tail }] : [] }
-  }
   signal.throwIfAborted()
   return {
     question: {
@@ -319,6 +303,5 @@ export const summarizeCurrentInput = async ({
         : question.content,
       files: [],
     },
-    prefix,
   }
 }

@@ -62,17 +62,6 @@ export const estimateQuestionTokens = ({ content, files }: UserMessage) =>
   estimateTextTokens(content) +
   files.reduce((total, file) => total + estimateFileTokens(file), 0)
 
-export const estimatePrefixTokens = (prefix?: AssistantMessage) =>
-  prefix?.blocks.reduce((total, block) => {
-    if (block.type === 'text') {
-      return total + estimateTextTokens(block.text)
-    }
-    if (block.type === 'thinking') {
-      return total + estimateTextTokens(block.thinking)
-    }
-    return total
-  }, 0) ?? 0
-
 /** 返回可放入预算的前缀长度，优先在换行处结束，避免截断 Unicode 字符。 */
 export const textPrefixLength = (text: string, budget: number): number => {
   if (budget <= 0) {

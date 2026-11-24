@@ -73,7 +73,6 @@ import type { ImportArchiveResult } from './history/importArchive.js'
 import {
   contextBudget,
   estimateBranchScale,
-  estimatePrefixTokens,
   estimateQuestionTokens,
   estimateTextTokens,
   prepareHistoryContext,
@@ -100,17 +99,9 @@ import {
   type DraftFilePayload,
 } from './drafts.js'
 import { createLatestReminder } from './latestReminder.js'
-import { showToast } from '../../components/base/toastState.js'
-import {
-  CONTINUATION_GUARD,
-  createContinuationEchoFilter,
-  filterContinuationEcho,
-} from './continuation.js'
 import {
   applyEvent,
-  canContinueReply,
   getContextRounds,
-  getReplyPrefixText,
   settleReply,
   toRequestMessages,
 } from './reply.js'
@@ -393,7 +384,6 @@ const createReply = (): AssistantMessage => {
     model: chatConfig.model || DEFAULT_CHAT_MODEL,
     thinking: !customEndpoint && thinking,
     search: !customEndpoint && search,
-    prefix: !customEndpoint && chatConfig.format === 'messages',
     status: 'pending',
     blocks: [],
   }
@@ -1024,7 +1014,6 @@ export const startCharacterIntro = (greeting: string, characterName: string): st
     role: 'assistant',
     createdAt: now,
     model: chatConfig.model || DEFAULT_CHAT_MODEL,
-    prefix: false,
     status: 'done',
     blocks: [{ type: 'text', text }],
   }
@@ -1212,7 +1201,6 @@ export const editAssistantMessage = (
     thinking: target.thinking,
     search: target.search,
     latestReminder: target.latestReminder,
-    prefix: target.prefix,
     status: 'done',
     blocks: [{ type: 'text', text }],
   }
@@ -1279,67 +1267,6 @@ export const selectMessageVersion = (sessionId: string, messageId: string) => {
   cancelMessageEdit()
   updateSession(sessionId, (session) => selectVersion(session, messageId))
   persist(sessionId)
-}
-
-/** 继续最后一条未完成的回答：保留原消息与开关，仅将新流的内容追加到原块之后。 */
-export const continueReply = (sessionId: string, messageId: string) => {
-  const { chatConfig } = useSettings.getState()
-  if (
-    get().importingHistory ||
-    deletingSessions.has(sessionId) ||
-    chatConfig.endpoint ||
-    chatConfig.format !== 'messages'
-  ) {
-    return
-  }
-  const session = getSession(sessionId)
-  if (!session || getStreamController(sessionId)) {
-    return
-  }
-  const path = getVisibleMessages(session)
-  const question = path.at(-2)
-  const previous = path.at(-1)
-  if (
-    question?.role !== 'user' ||
-    previous?.role !== 'assistant' ||
-    previous.id !== messageId ||
-    !canContinueReply(previous)
-  ) {
-    return
-  }
-  const { thinking, search } = useSettings.getState()
-  const reply: AssistantMessage = {
-    ...previous,
-    // 旧回复只有最近一次 usage，续写前先把它当成第一条历史，避免覆盖后丢掉上一轮消耗。
-    usageHistory: previous.usageHistory ?? (previous.usage ? [previous.usage] : undefined),
-    // 本次请求还没有拿到 usage，清空快照，失败时不会把上一轮重复记进账本。
-    usage: undefined,
-    // 未记录请求配置的回复，续写时使用默认模型和当前开关。
-    model: previous.model ?? (chatConfig.model || DEFAULT_CHAT_MODEL),
-    thinking: previous.thinking ?? thinking,
-    search: previous.search ?? search,
-    status: 'pending',
-    stopReason: undefined,
-    stopDetails: undefined,
-    error: undefined,
-  }
-  updateReply(sessionId, reply)
-  updateSession(sessionId, (s) => ({ ...s, updatedAt: Date.now() }))
-  persist(sessionId)
-  void streamReply(sessionId, reply, {
-    history: path.slice(0, -2),
-    question,
-    prefix: previous,
-  })
-    .then(({ hasNewContent, status }) => {
-      // 上游只回放原文、没有新内容时，保留原回答并明确提示；不能让它看起来像一次成功续写。
-      if (!hasNewContent && status === 'done') {
-        showToast({ key: 'continueEmpty' })
-      }
-    })
-    .catch(() => {
-      // 请求错误由 streamReply 内部落成消息错误状态，这里只兜底避免未处理的 Promise。
-    })
 }
 
 /** 附件补传失败后重试：保留原回答位置，重新补传并请求 */
@@ -2005,7 +1932,7 @@ export const retryUpload = (sessionId: string, messageId: string) => {
   void streamReply(sessionId, reply, { history: path.slice(0, index - 1), question })
 }
 
-type Request = { history: Message[]; question: UserMessage; prefix?: AssistantMessage }
+type Request = { history: Message[]; question: UserMessage }
 
 /** 把补传得到的 serverId 写回会话里所有引用同一附件的消息（编辑、重新生成会共用附件） */
 const saveUploadedFiles = (sessionId: string, uploads: Map<string, AttachmentUpload>) => {
@@ -2063,7 +1990,6 @@ const refreshRequest = (sessionId: string, request: Request): Request => {
   return {
     history: request.history.map(pick),
     question: pick(request.question),
-    prefix: request.prefix,
   }
 }
 
@@ -2418,14 +2344,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   ]
     .filter(Boolean)
     .join('\n\n')
-  // 续写是请求级操作，不是新设定：只在本次请求的非空 system 末尾临时追加接写约束。
-  // 普通轮次不携带这段，清空提示词时也不因为续写重新造出一段 system。
-  const baseSystemForRequest =
-    baseSystem && request.prefix ? `${baseSystem}\n\n${CONTINUATION_GUARD}` : baseSystem
   // 统一替换占位符：手写提示词、角色卡字段、世界书与记忆都走这一处
   // 没有可用的手写名或卡名时用 AI 兜底，避免 {{char}} 原样漏进 system 或背景资料
   const promptCharName = (roleplayActive ? activeCard?.name : characterName)?.trim() || 'AI'
-  const baseSystemResolved = applyPlaceholders(baseSystemForRequest, {
+  const baseSystemResolved = applyPlaceholders(baseSystem, {
     userName,
     charName: promptCharName,
   })
@@ -2474,11 +2396,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         model: chatConfig.model || DEFAULT_CHAT_MODEL,
         thinking: false,
         search: false,
-        prefix: false,
       }
     : initial
-  // 续写请求是否真的收到新正文；只有回放原文或只有空白时，不能算一次新回复。
-  let continuationReceived = false
   let frame = 0
   const flush = () => {
     cancelAnimationFrame(frame)
@@ -2512,9 +2431,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   let historyBudget = Math.max(
     0,
     budget.input -
-      scaleEstimate(
-        estimateQuestionTokens(request.question) + estimatePrefixTokens(request.prefix)
-      ) -
+      scaleEstimate(estimateQuestionTokens(request.question)) -
       fixedInputTokens -
       PROMPT_OVERHEAD_TOKENS
   )
@@ -2575,7 +2492,6 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           reducedInput = await summarizeCurrentInput({
             apiKey,
             question: prepared.question,
-            prefix: prepared.prefix,
             summarize,
             loadFile: (id) => loadOriginalFile(sessionId, id),
             signal,
@@ -2589,10 +2505,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             Math.min(
               budget.recent,
               contextBudget(Math.min(minOutputReserve, maxOutputTokens), window).input -
-                scaleEstimate(
-                  estimateQuestionTokens(reducedInput.question) +
-                    estimatePrefixTokens(reducedInput.prefix)
-                ) -
+                scaleEstimate(estimateQuestionTokens(reducedInput.question)) -
                 fixedInputTokens -
                 PROMPT_OVERHEAD_TOKENS
             )
@@ -2600,24 +2513,17 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           context = undefined
           continue
         }
-        // 附件就绪后获取本轮信息；续写沿用原回答快照，重新生成的快照独立保存。
+        // 附件就绪后获取本轮信息；重新生成的快照独立保存。
         // 第三方接口默认不附带快照，可用「发送上下文提醒」开关显式打开。
         const latestReminder =
-          custom || !sendLatestReminder
-            ? undefined
-            : prepared.prefix
-              ? prepared.prefix.latestReminder
-              : createLatestReminder(useSettings.getState())
+          custom || !sendLatestReminder ? undefined : createLatestReminder(useSettings.getState())
         reply = { ...reply, latestReminder }
         updateReply(sessionId, reply)
         persist(sessionId)
         const activeQuestion = reducedInput?.question ?? prepared.question
-        const activePrefix = reducedInput ? reducedInput.prefix : prepared.prefix
         messages = toRequestMessages(
           prepared.history,
           activeQuestion,
-          activePrefix,
-          initial.thinking ?? false,
           latestReminder,
           inlineFiles,
           turnContext
@@ -2625,9 +2531,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         includeContextSummary(messages, context.summary)
         estimatedInput =
           context.tokens +
-          scaleEstimate(
-            estimateQuestionTokens(activeQuestion) + estimatePrefixTokens(activePrefix)
-          ) +
+          scaleEstimate(estimateQuestionTokens(activeQuestion)) +
           fixedInputTokens +
           PROMPT_OVERHEAD_TOKENS
         requestMaxOutput = resolveMaxOutputTokens(
@@ -2653,14 +2557,6 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         }
         const events = streamChatMessage(chatConfig, apiKey, body, signal, extraHeaders)
         const blockIndexes = new Map<number, number>()
-        const continuationBlockStart = reply.blocks.length
-        const continuationPrefix = request.prefix
-          ? getReplyPrefixText(request.prefix, initial.thinking ?? false)
-          : ''
-        let continuationEcho =
-          continuationPrefix.length > 0
-            ? createContinuationEchoFilter(continuationPrefix)
-            : null
         for await (const event of events) {
           receivedContent ||= event.type === 'content_block_start'
           if (
@@ -2675,44 +2571,11 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             updateSession(sessionId, (session) => (session.title ? session : { ...session, title }))
             titleRequests.delete(controller)
           }
-          let eventToApply = event
-          if (continuationEcho) {
-            const filtered = filterContinuationEcho(continuationEcho, event)
-            continuationEcho = filtered.filter
-            if (!filtered.event) {
-              continue
-            }
-            eventToApply = filtered.event
-          }
-          if (request.prefix) {
-            const text =
-              eventToApply.type === 'content_block_start'
-                ? eventToApply.content_block.type === 'text'
-                  ? eventToApply.content_block.text
-                  : ''
-                : eventToApply.type === 'content_block_delta' &&
-                    eventToApply.delta.type === 'text_delta'
-                  ? eventToApply.delta.text
-                  : ''
-            if (text.trim()) {
-              continuationReceived = true
-            }
-          }
-          reply = applyEvent(reply, eventToApply, Date.now(), blockIndexes)
+          reply = applyEvent(reply, event, Date.now(), blockIndexes)
           if (document.visibilityState === 'hidden') {
             flush()
           } else {
             frame ||= requestAnimationFrame(flush)
-          }
-        }
-        if (continuationEcho) {
-          // 上游只回放了原文、没有新内容时，不留下一个空文本块。
-          reply = {
-            ...reply,
-            blocks: reply.blocks.filter(
-              (block, index) =>
-                index < continuationBlockStart || block.type !== 'text' || block.text.trim() !== ''
-            ),
           }
         }
         reply = settleLocal(reply, 'done')
@@ -2834,13 +2697,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       ),
     }))
     persist(sessionId)
-    // 续写是同一个回复的延长，不生成第二张记忆卡；只回放原文、没有新正文时更不能算完成一轮。
     const answerText = replyPlainText(reply)
-    if (
-      !request.prefix &&
-      (reply.status === 'done' || reply.status === 'stopped') &&
-      answerText.trim()
-    ) {
+    if ((reply.status === 'done' || reply.status === 'stopped') && answerText.trim()) {
       recordTurnMemory(sessionId, reply.id, request.question.content, answerText, memoryMode)
       if (!roleplayActive) {
         recordNormalCodeMemory(sessionId, reply.id, answerText)
@@ -2850,5 +2708,4 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       }
     }
   }
-  return { hasNewContent: !request.prefix || continuationReceived, status: reply.status }
 }

@@ -259,7 +259,15 @@ registerHooks({
 
 const storageData = new Map()
 globalThis.window = new EventTarget()
-globalThis.document = { visibilityState: 'hidden' }
+globalThis.window.setTimeout = setTimeout
+globalThis.window.clearTimeout = clearTimeout
+globalThis.document = {
+  visibilityState: 'hidden',
+  documentElement: {
+    dataset: {},
+    style: { setProperty() {}, removeProperty() {} },
+  },
+}
 Object.defineProperty(globalThis, 'localStorage', {
   value: {
     getItem: (key) => storageData.get(key) ?? null,
@@ -310,7 +318,6 @@ const assistantMsg = (
     thinking = false,
     search = false,
     model = 'deepseek-flash',
-    prefix = true,
     latestReminder,
     usage,
     error,
@@ -325,7 +332,6 @@ const assistantMsg = (
   thinking,
   search,
   ...(latestReminder !== undefined ? { latestReminder } : {}),
-  prefix,
   status,
   ...(stopReason !== undefined ? { stopReason } : {}),
   blocks,
@@ -439,7 +445,6 @@ test('1. 归档导出再导入与原本地会话深度合并完全幂等，且�
           thinking: true,
           search: true,
           model: 'deepseek-pro',
-          prefix: true,
           latestReminder: '2026-11-20,星期五,,Web,中文',
           usage: {
             input_tokens: 100,
@@ -669,7 +674,6 @@ test('6. 未完成或已停止回复遇到更完整快照时就地升级，已�
       assistantMsg('2', '1', 1500, [{ type: 'text', text: '第一段\n第二段' }], {
         status: 'done',
         model: null,
-        prefix: false,
       }),
     ],
   }

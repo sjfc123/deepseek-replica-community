@@ -236,7 +236,6 @@ const toAssistant = (message: ParsedMessage): AssistantMessage => {
     model: null,
     thinking: message.thinking_enabled,
     search: message.search_enabled,
-    prefix: false,
     status: replyStatus[message.status],
     // 拒绝回复丢弃模型正文和思考，保留模板提示与工具步骤。
     ...(refused ? { stopReason: 'refusal' as const } : {}),

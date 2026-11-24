@@ -179,7 +179,6 @@ export const en = {
   androidEditMessage: 'Edit',
   androidEditingMessage: 'Editing message',
   regenerate: 'Regenerate',
-  continueGenerating: 'Continue',
   changeApiKey: 'Change API Key',
   topUp: 'Top up',
   messageSearchSummary: '1 web page',
@@ -225,8 +224,6 @@ export const en = {
   replyRateLimited: 'Too many requests. Please try again later.',
   replyInputTooLong:
     'This message or its attachments are too long. Split them into smaller parts and try again.',
-  continueEmpty:
-    'Continue generation produced no new content. The previous answer was kept and no memory was saved.',
   completionServerErrorToast: 'Service error, please try again later.',
   unknownError: 'Unknown error',
   replyRefused: "Sorry, that's beyond my current scope. Let's talk about something else.",

@@ -253,14 +253,14 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
                       </p>
                       <p>
                         {t(
-                          `覆盖 ${report.replies} 条带用量的回复、${report.requests} 次接口请求；重新生成、分支和续写都计入。`,
-                          `${report.requests} requests across ${report.replies} replies; regenerations and continuations are included.`
+                          `覆盖 ${report.replies} 条带用量的回复、${report.requests} 次接口请求；重新生成和分支都计入。`,
+                          `${report.requests} requests across ${report.replies} replies; regenerations and branches are included.`
                         )}
                       </p>
                       {report.legacyReplies > 0 ? (
                         <p className={styles.legacy}>
                           {t(
-                            `其中 ${report.legacyReplies} 条是旧回复，只能取最近一次 usage，可能少于实际多次续写的消耗。`,
+                            `其中 ${report.legacyReplies} 条是旧回复，只能取最近一次 usage，可能少于实际多次请求的消耗。`,
                             `${report.legacyReplies} older replies only keep their latest usage and may undercount.`
                           )}
                         </p>

@@ -58,7 +58,7 @@ const addUsage = (totals: UsageTotals, usage: MessageUsage) => {
 
 /**
  * 汇总一个会话里所有助手回复的接口 usage。
- * 会话消息包含分支、重新生成与续写产生的全部请求，正好对应实际消耗。
+ * 会话消息包含分支与重新生成产生的全部请求，正好对应实际消耗。
  */
 export const summarizeSessionUsage = (
   messages: AssistantMessage[]

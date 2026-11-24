@@ -2174,8 +2174,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           <>
             <p className={styles.pageIntro}>
               {tr(
-                '本页控制历史内容如何进入上下文。自动压缩在历史超出预算时额外发送一次摘要请求，并保留近期原文；关闭后不生成摘要，仅按轮次丢弃最旧内容。\n被拒轮次包含两个独立开关：保留正文用于避免气泡空白；允许进入上下文用于保留该轮并继续生成。\n示例：长期角色扮演→关闭压缩，将关键设定放入世界书或记忆；日常问答→开启压缩以降低 Token。\n边界：关闭压缩不代表保存全部历史；摘要会改写旧内容；被拒内容进入上下文后可能再次触发拒答。',
-                'This page controls how history enters the context. Compaction makes one extra summarisation request when history grows too long and keeps recent turns verbatim; with it off, no summary is written and only the oldest rounds are dropped.\nRefused turns have two independent switches: keeping the text prevents an empty bubble; allowing context keeps that round in history so it can be continued.\nExample: long-form role-play → turn compaction off and put key facts in the worldbook or memory; everyday Q&A → keep it on to save tokens.\nBoundary: off does not mean unlimited history; summaries rewrite older content; refused content in context may trigger another refusal.'
+                '本页控制历史内容如何进入上下文。自动压缩在历史超出预算时额外发送一次摘要请求，并保留近期原文；关闭后不生成摘要，仅按轮次丢弃最旧内容。\n被拒轮次包含两个独立开关：保留正文用于避免气泡空白；允许进入上下文用于保留该轮。\n示例：长期角色扮演→关闭压缩，将关键设定放入世界书或记忆；日常问答→开启压缩以降低 Token。\n边界：关闭压缩不代表保存全部历史；摘要会改写旧内容；被拒内容进入上下文后可能再次触发拒答。',
+                'This page controls how history enters the context. Compaction makes one extra summarisation request when history grows too long and keeps recent turns verbatim; with it off, no summary is written and only the oldest rounds are dropped.\nRefused turns have two independent switches: keeping the text prevents an empty bubble; allowing context keeps that round in history.\nExample: long-form role-play → turn compaction off and put key facts in the worldbook or memory; everyday Q&A → keep it on to save tokens.\nBoundary: off does not mean unlimited history; summaries rewrite older content; refused content in context may trigger another refusal.'
               )}
             </p>
             <Group>
@@ -2204,12 +2204,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 }
               />
               <Row
-                label={tr('被拒轮次进入上下文并可续写', 'Keep refused turns in context')}
+                label={tr('被拒轮次进入上下文', 'Keep refused turns in context')}
                 value={allowRefusedContext ? tr('开启', 'On') : tr('关闭', 'Off')}
                 arrow={false}
                 control={
                   <Switch
-                    label={tr('被拒轮次进入上下文并可续写', 'Keep refused turns in context')}
+                    label={tr('被拒轮次进入上下文', 'Keep refused turns in context')}
                     checked={allowRefusedContext}
                     toggle={() => setAllowRefusedContext(!allowRefusedContext)}
                   />
@@ -2218,8 +2218,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption}>
               {tr(
-                '关闭压缩后，仅按轮次丢弃最旧内容，且不生成摘要；保留正文可避免整轮空白；允许被拒轮次进入上下文后，该轮可继续生成。三个开关相互独立，可按需组合。',
-                'With compaction off, only the oldest rounds are dropped and no summary is written. Keeping refused text avoids a blank turn; allowing refused turns lets that round be continued. The three switches are independent.'
+                '关闭压缩后，仅按轮次丢弃最旧内容，且不生成摘要；保留正文可避免整轮空白；允许被拒轮次进入上下文后，该轮保留在历史里。三个开关相互独立，可按需组合。',
+                'With compaction off, only the oldest rounds are dropped and no summary is written. Keeping refused text avoids a blank turn; allowing refused turns keeps that round in history. The three switches are independent.'
               )}
             </p>
             <Group>

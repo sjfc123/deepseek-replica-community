@@ -1,16 +1,13 @@
 /**
- * System 前缀与续写回归测试：
+ * System 前缀回归测试：
  * 1. 角色卡开场白不再随消息数量进出，同一张卡永远拼出同一段；
  * 2. OpenAI Chat 把 system 放在 messages 第一条；
  * 3. OpenAI Responses 把 system 放在顶层 instructions；
- * 4. 空 system 不生成 system 消息，也不写空的 instructions；
- * 5. 续写回放只剥离已发送的 assistant 前缀，不误删正常续写。
+ * 4. 空 system 不生成 system 消息，也不写空的 instructions。
  */
 import assert from 'node:assert/strict'
 
 const { formatCharacterCard } = await import('../src/services/chat/roleplay.ts')
-const { CONTINUATION_GUARD, createContinuationEchoFilter, filterContinuationEcho } =
-  await import('../src/services/chat/continuation.ts')
 const { openAIRequest } = await import('../src/services/api/openaiChat.ts')
 
 const card = {
@@ -52,58 +49,5 @@ const empty = openAIRequest('chat', { ...body, system: '' }, false)
 assert.equal(empty.messages[0].role, 'user', '空 system 不应插入 system 消息')
 const emptyResponses = openAIRequest('responses', { ...body, system: '   ' }, false)
 assert.equal(emptyResponses.instructions, undefined, '空白 system 不应写 instructions')
-
-assert.match(CONTINUATION_GUARD, /从那条回复的最后一个字之后写起/)
-assert.match(CONTINUATION_GUARD, /不要重新开场/)
-assert.match(CONTINUATION_GUARD, /不要替用户说话/)
-
-// 续写回放：上游把已发送的 assistant 原文整段回放时，只能留下真正新增的部分。
-const textEvent = (text) => ({
-  type: 'content_block_delta',
-  index: 0,
-  delta: { type: 'text_delta', text },
-})
-const echo = createContinuationEchoFilter('原来的回答。')
-let step = filterContinuationEcho(echo, textEvent('原来的回答。'))
-assert.equal(step.event, null, '完整回放原文时不能追加')
-step = filterContinuationEcho(step.filter, textEvent('新增内容。'))
-assert.equal(step.event.delta.text, '新增内容。', '回放之后只追加新增内容')
-
-const plain = createContinuationEchoFilter('原来的回答。')
-step = filterContinuationEcho(plain, textEvent('新的开头。'))
-assert.equal(step.event.delta.text, '新的开头。', '正常续写不能被误删')
-
-const partial = createContinuationEchoFilter('原来的回答。')
-step = filterContinuationEcho(partial, textEvent('原来'))
-assert.equal(step.event, null, '与原文一致的开头先暂存')
-step = filterContinuationEcho(step.filter, textEvent('的回答。新增。'))
-assert.equal(step.event.delta.text, '新增。', '跨分片的回放前缀也要剥掉')
-
-// 少数兼容层把正文放在 content_block_start 中，也要能剥掉原文、保留新增内容。
-const startEcho = createContinuationEchoFilter('原来的回答。')
-step = filterContinuationEcho(startEcho, {
-  type: 'content_block_start',
-  index: 0,
-  content_block: { type: 'text', text: '原来的回答。新增。' },
-})
-assert.equal(step.event.content_block.text, '新增。', '块起始回放也要剥掉')
-
-// 上游只回放原文、没有新增时，过滤器不能把原文当成新内容放出来。
-const noNew = createContinuationEchoFilter('原文\n\n第二段')
-step = filterContinuationEcho(noNew, textEvent('原文\n\n第二段'))
-assert.equal(step.event, null, '回放原文后没有新增时应保持无输出')
-step = filterContinuationEcho(step.filter, { type: 'content_block_stop', index: 0 })
-assert.equal(step.event.type, 'content_block_stop', '结束事件可以放行')
-assert.equal(step.filter.resolved, false, '没有新增时不能标记为已续写')
-
-// 多文本段前缀使用实际序列化中的分隔符，回放后只放行新增内容。
-const segmented = createContinuationEchoFilter('原文\n\n第二段')
-step = filterContinuationEcho(segmented, textEvent('原文\n\n第二段新增'))
-assert.equal(step.event.delta.text, '新增', '带分隔符的原文回放也要剥离')
-
-// 回放原文后的空白不构成有效续写；商店层按 trim 后是否为空判断新内容。
-const whitespace = createContinuationEchoFilter('原文')
-step = filterContinuationEcho(whitespace, textEvent('原文\n  '))
-assert.equal(step.event.delta.text.trim(), '', '回放原文后的空白不算新文本')
 
 console.log('system prompt regression: ok')

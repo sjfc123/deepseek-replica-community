@@ -76,7 +76,6 @@ const { createContextSummarizer, includeContextSummary, summarizeCurrentInput } 
   await import('../src/services/chat/contextSummary.ts')
 const { addDraftFiles, setDraftText } = await import('../src/services/chat/drafts.ts')
 const {
-  continueReply,
   regenerateReply,
   sendMessage,
   selectMessageVersion,
@@ -110,7 +109,6 @@ const reply = (id, text) => ({
   blocks: [{ type: 'text', text }],
   createdAt: 0,
   model: 'deepseek-flash',
-  prefix: true,
   status: 'done',
 })
 const round = (id, question, answer = id) => [user(id + ':user', question), reply(id, answer)]
@@ -855,76 +853,6 @@ test('摘要停机时仍可回答，输出已经开始时不重复发送', async
   assert.equal(saved.contextCheckpoints, undefined)
   assert.equal(saved.messages.at(-1).status, 'stopped')
   assert.equal(saved.messages.at(-1).blocks[0].text, '已交付的一段')
-})
-
-test('续写缩短请求里的前缀时，已生成的原文仍完整保留', async () => {
-  const original = '前文' + '字'.repeat(26_000) + '末尾原文'
-  const stopped = { ...reply('stopped', original), status: 'stopped' }
-  const id = seed([user('question', '写长文'), stopped])
-  let main = 0
-  respond = (body) => {
-    if (body.max_tokens === 4_096) return stream(notes('前文要点'))
-    if (++main <= 2) return httpOverflow()
-    const prefix = body.messages.at(-1)
-    assert.equal(prefix.role, 'assistant')
-    assert.ok(prefix.content[0].text.endsWith('末尾原文'))
-    assert.ok(prefix.content[0].text.length < original.length)
-    return stream('续写成功')
-  }
-  continueReply(id, stopped.id)
-  const saved = await finish(id)
-  assert.equal(
-    saved.messages
-      .at(-1)
-      .blocks.map(({ text }) => text)
-      .join(''),
-    original + '续写成功'
-  )
-})
-
-test('续写只回放原文且没有新增时不写记忆，并提示空续写', async (t) => {
-  const original = '原句。'
-  const previous = { ...reply('previous', original), status: 'done' }
-  const id = seed([user('question', '原问题'), previous])
-  const { chatConfig, memoryMode } = useSettings.getState()
-  t.after(() => useSettings.setState({ chatConfig, memoryMode }))
-  useSettings.setState({
-    chatConfig: { ...chatConfig, endpoint: '', format: 'messages' },
-    memoryMode: 'turn',
-  })
-  respond = (body) => {
-    const prefix = body.messages.at(-1)
-    assert.equal(prefix.role, 'assistant')
-    assert.equal(prefix.content[0].text, original)
-    // 只回放已发送的 assistant 原文，不产生任何新正文。
-    return stream(original)
-  }
-  continueReply(id, previous.id)
-  const saved = await finish(id)
-  const last = saved.messages.at(-1)
-  assert.equal(last.blocks.map(({ text }) => text).join(''), original)
-  assert.equal(last.memories, undefined, '没有新增正文时不能写入记忆')
-})
-
-test('续写回放原文后只保留新增内容，不重复写入记忆', async (t) => {
-  const original = '原句。'
-  const previous = { ...reply('previous', original), status: 'done' }
-  const id = seed([user('question', '原问题'), previous])
-  const { chatConfig, memoryMode } = useSettings.getState()
-  t.after(() => useSettings.setState({ chatConfig, memoryMode }))
-  useSettings.setState({
-    chatConfig: { ...chatConfig, endpoint: '', format: 'messages' },
-    memoryMode: 'turn',
-  })
-  respond = (body) => {
-    assert.equal(body.messages.at(-1).role, 'assistant')
-    return stream(original + '新增内容。')
-  }
-  continueReply(id, previous.id)
-  const saved = await finish(id)
-  const last = saved.messages.at(-1)
-  assert.equal(last.blocks.map(({ text }) => text).join(''), original + '新增内容。')
-  assert.equal(last.memories, undefined, '续写不生成第二张记忆卡')
 })
 
 test('切换分支、再发送时只使用当前路径上的检查点', async () => {

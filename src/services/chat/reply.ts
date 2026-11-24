@@ -69,7 +69,7 @@ const updateBlock = (
 
 /**
  * 将流式事件合并进回复：仅追加可识别的块，按本次请求的临时索引映射处理增量。
- * 跳过的块不占位；续写追加至已有内容之后，message_delta 更新结束原因与累计用量。
+ * 跳过的块不占位；追加内容按事件顺序进入已有块。
  */
 export const applyEvent = (
   reply: AssistantMessage,
@@ -86,8 +86,8 @@ export const applyEvent = (
       blockIndexes.delete(event.index)
       const block = toReplyBlock(event.content_block, now)
       if (!block) {
-        // 客户端工具内容不保存；未完成的工具往返也不能作为续写前缀。
-        return event.content_block.type === 'tool_use' ? { ...next, prefix: false } : next
+        // 客户端工具内容不保存；也不进入历史 context。
+        return next
       }
       blockIndexes.set(event.index, next.blocks.length)
       return { ...next, blocks: [...next.blocks, block] }
@@ -138,7 +138,7 @@ export const applyEvent = (
   }
 }
 
-/** 被拒轮次是否回到上下文：默认沿用原版丢弃策略，开关打开后允许续写与重新参考 */
+/** 被拒轮次是否回到上下文：默认沿用原版丢弃策略，开关打开后允许重新参考 */
 const allowsRefusedContext = () => useSettings.getState().allowRefusedContext
 
 /**
@@ -174,32 +174,7 @@ export const settleReply = (
 export const getReplyText = (reply: AssistantMessage) =>
   reply.blocks.map((block) => (block.type === 'text' ? block.text : '')).join('')
 
-/**
- * 只有正常达到输出上限或被停止的回复可续写，报错回复不能续写。
- * 末条限制由调用方判断，拒绝和客户端工具调用不能续写。
- * 本轮含服务端工具调用或结果（含 READ_LINK 和孤立结果块）的回复不能续写。
- * 服务端模板提示不能作为续写前缀。
- */
-export const canContinueReply = (reply: AssistantMessage): boolean => {
-  if (
-    !reply.prefix ||
-    (reply.stopReason === 'refusal' && !allowsRefusedContext()) ||
-    reply.stopReason === 'tool_use' ||
-    reply.blocks.some(
-      (block) =>
-        block.type === 'server_tool_use' ||
-        block.type === 'web_search_tool_result' ||
-        block.type === 'web_fetch_tool_result' ||
-        (block.type === 'text' && block.isTemplate)
-    )
-  ) {
-    return false
-  }
-  return reply.status === 'done' || reply.status === 'stopped'
-}
-
-/**
- * 已结束或停止且有回答文本的回复才放进上下文；被安全拒绝的轮次不回传。
+/** 已结束或停止且有回答文本的回复才放进上下文；被安全拒绝的轮次不回传。
  * 服务端模板提示不进入上下文。
  */
 const isUsableReply = (message: Message): message is AssistantMessage =>
@@ -223,18 +198,16 @@ const toUserParam = (
 }
 
 /**
- * assistant 的内容块按历史与续写场景转换：
- * - 历史思考及其签名不回传；开启思考时续写只保留本轮非空白思考及其签名；
+ * assistant 的内容块按历史场景转换：
+ * - 历史思考及其签名不回传；
  * - 文本块去掉 citations（服务端忽略）。相邻文本直接拼接，被思考或工具隔开的文本用空行连接；
  *   省略历史思考后仍保留其前后正文的空行；
  * - 工具调用和结果只保留 kind 为 read_link 的块，其他历史工具块不回传；
  * - 阅读链接结果原样回传，保留 signature：服务端解密后将页面拼回该轮提问末尾；
  */
-const toAssistantParam = (
-  { blocks }: AssistantMessage,
-  prefix = false,
-  thinking = false
-): Extract<MessageParam, { role: 'assistant' }> => {
+const toAssistantParam = ({
+  blocks,
+}: AssistantMessage): Extract<MessageParam, { role: 'assistant' }> => {
   const content: AssistantBlockParam[] = []
   // 成功阅读的网页靠签名恢复正文；缺少有效签名时，调用与结果都不回传。
   const unsignedReadLinks = new Set(
@@ -250,10 +223,6 @@ const toAssistantParam = (
   /** 正在拼接的文本块；遇到任何非文本块（含不回传的思考块）就结束 */
   let text: TextBlockParam | null = null
   for (const block of blocks) {
-    // 空思考不改变续写位置，也不应把两段正文隔开，导致后端额外插入空行。
-    if (prefix && block.type === 'thinking' && !block.thinking.trim()) {
-      continue
-    }
     if (block.type === 'text') {
       if (text) {
         text.text += block.text
@@ -268,11 +237,7 @@ const toAssistantParam = (
       continue
     }
     text = null
-    if (prefix && thinking && block.type === 'thinking') {
-      // 续写保留本轮思考，历史轮次的思考省略。
-      const { type, thinking, signature } = block
-      content.push({ type, thinking, signature: signature ?? '' })
-    } else if (
+    if (
       block.type === 'server_tool_use' &&
       block.kind === 'read_link' &&
       !unsignedReadLinks.has(block.id)
@@ -291,20 +256,6 @@ const toAssistantParam = (
     role: 'assistant',
     content: content.filter((block) => block.type !== 'text' || block.text !== ''),
   }
-}
-
-/**
- * 续写前缀的正文必须与真正发给接口的 assistant 内容逐字一致。
- * `toAssistantParam` 会在被思考或工具隔开的文本段之间补分隔符，直接拿
- * `getReplyText` 的简单拼接去比对会漏掉这些分隔符，导致回放原文时无法剥离。
- */
-export const getReplyPrefixText = (reply: AssistantMessage, thinking = false): string => {
-  const assistant = toAssistantParam(reply, true, thinking)
-  const content = Array.isArray(assistant.content) ? assistant.content : []
-  return content
-    .filter((block): block is TextBlockParam => block.type === 'text')
-    .map((block) => block.text)
-    .join('')
 }
 
 /** 历史中会进入请求上下文的轮次：提问后紧跟可用回答的才保留 */
@@ -352,13 +303,11 @@ const attachTurnContext = (
 
 /**
  * 把会话转成请求的 messages：只保留「提问 + 有回答的回复」成对的轮次，最后接上本轮提问。
- * 失败或没有回答的轮次不进上下文。续写时末尾再带上本轮 assistant。
+ * 失败或没有回答的轮次不进上下文。
  */
 export const toRequestMessages = (
   history: Message[],
   question: UserMessage,
-  prefix?: AssistantMessage,
-  thinking = prefix?.thinking ?? false,
   latestReminder?: string,
   inlineFiles?: ReadonlyMap<string, UserBlockParam[]>,
   turnContext?: string
@@ -388,19 +337,6 @@ export const toRequestMessages = (
       turnContext
     )
   )
-  if (prefix?.prefix) {
-    const assistant = toAssistantParam(prefix, true, thinking)
-    // 没有非空白正文或有效思考时直接重发原问题，避免服务端拒绝空 Prefill。
-    if (
-      assistant.content.some(
-        (block) =>
-          (block.type === 'text' && block.text.trim()) ||
-          (block.type === 'thinking' && block.thinking.trim())
-      )
-    ) {
-      messages.push(assistant)
-    }
-  }
   return messages
 }
 

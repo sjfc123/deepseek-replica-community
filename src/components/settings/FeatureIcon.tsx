@@ -176,7 +176,7 @@ const BY_LABEL: Record<string, LucideIcon> = {
   'Compact long chats': Minimize2,
   保留被拒回复的正文: FileWarning,
   'Keep refused reply text': FileWarning,
-  被拒轮次进入上下文并可续写: RotateCcw,
+  被拒轮次进入上下文: RotateCcw,
   'Keep refused turns in context': RotateCcw,
   顶栏记忆胶囊: MessageSquareDot,
   'Memory chip in top bar': MessageSquareDot,

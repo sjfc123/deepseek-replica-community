@@ -97,7 +97,15 @@ registerHooks({
 
 const storageData = new Map()
 globalThis.window = new EventTarget()
-globalThis.document = { visibilityState: 'hidden' }
+globalThis.window.setTimeout = setTimeout
+globalThis.window.clearTimeout = clearTimeout
+globalThis.document = {
+  visibilityState: 'hidden',
+  documentElement: {
+    dataset: {},
+    style: { setProperty() {}, removeProperty() {} },
+  },
+}
 Object.defineProperty(globalThis, 'localStorage', {
   value: {
     getItem: (key) => storageData.get(key) ?? null,
@@ -133,7 +141,6 @@ const assistantMsg = (id, parentId, createdAt, blocks, { selectedChildId, stopRe
   role: 'assistant',
   createdAt,
   model: 'deepseek-flash',
-  prefix: true,
   status: 'done',
   ...(stopReason ? { stopReason } : {}),
   blocks,
