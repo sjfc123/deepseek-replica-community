@@ -1389,6 +1389,16 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </Group>
             ) : null}
             <Group label={tr('账户与数据', 'Account & data')}>
+              {!android ? (
+                <Row
+                  label="DeepSeek API Key"
+                  value={editor.apiKey ? tr('已保存', 'Saved') : tr('未填写', 'Not set')}
+                  onClick={() => {
+                    openPage('account')
+                    editor.setEditing(true)
+                  }}
+                />
+              ) : null}
               <Row
                 label={tr('账户', 'Account')}
                 value={accountName}

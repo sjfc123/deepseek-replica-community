@@ -24,6 +24,7 @@
 - 地址：[https://sjfc123.github.io/deepseek-replica-community/](https://sjfc123.github.io/deepseek-replica-community/)
 - 页面来自 `gh-pages` 分支的 0.8.73 构建；源码更新后需要重新构建并推送该分支，网页不会自动跟着源码变。
 - 浏览器版没有 Android 原生桥：API Key 存在 `localStorage`，聊天和设置存在 `localStorage` / IndexedDB，不经过 Keystore 加密。清理浏览器站点数据会丢本地对话，先导出再清。
+- 设置页使用完整分区：根页顶部直接有 `DeepSeek API Key`，下面还有接口与请求、角色卡与世界书、长期记忆、关键词拒答等入口，不再只显示三个精简分类。
 - 请求由浏览器直连模型接口。官方 DeepSeek 接口允许跨域；第三方网关必须自己返回 CORS 头，否则网页端会请求失败。
 - 连续语音通话、原生录音兜底、Keystore 加密和部分系统通知只在 Android 壳里可用；网页版保留聊天、角色卡、世界书、记忆、续写、导入导出等前端功能。
 - 公共网页只托管静态文件，不保存任何人的 Key 和对话；但页面本身公开可访问，不要把私密导出文件放到公开仓库。

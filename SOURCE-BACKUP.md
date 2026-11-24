@@ -109,7 +109,7 @@ git add -A && git commit -m "web: static build"
 git push -f <仓库地址> gh-pages
 ```
 
-网页版没有 Android 原生桥：Key 存在浏览器 `localStorage`，会话和设置存在 `localStorage` / IndexedDB；请求由浏览器直连模型接口，第三方网关必须允许 CORS。连续语音通话、原生录音、Keystore 和系统级能力只在 Android 壳里有效。
+网页版没有 Android 原生桥：Key 存在浏览器 `localStorage`，会话和设置存在 `localStorage` / IndexedDB；请求由浏览器直连模型接口，第三方网关必须允许 CORS。连续语音通话、原生录音、Keystore 和系统级能力只在 Android 壳里有效。浏览器端设置页直接复用完整设置菜单，根页带 `DeepSeek API Key` 快捷入口，接口、角色卡、记忆和拒答都有独立分区。
 
 ## 交接
 

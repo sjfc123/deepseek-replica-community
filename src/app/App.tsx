@@ -24,7 +24,6 @@ import { SessionView } from '../components/session/SessionView.js'
 import { MobileHeader } from '../components/session/MobileHeader.js'
 import { Welcome } from '../components/session/Welcome.js'
 import { ensureApiKey, useSettingsDialog } from '../components/settings/settingsDialogState.js'
-import { SettingsDialog } from '../components/settings/SettingsDialog.js'
 import { AndroidSettings } from '../components/settings/AndroidSettings.js'
 import { ApiKeyScreen } from '../components/settings/ApiKeyScreen.js'
 import { AnnouncementDialog } from '../components/base/AnnouncementDialog.js'
@@ -396,7 +395,7 @@ export const App = () => {
         </main>
         <SearchPanel />
       </div>
-      {android ? <AndroidSettings chatFrame={frameRef} /> : <SettingsDialog />}
+      <AndroidSettings chatFrame={frameRef} />
       <Toast />
       <AnnouncementDialog />
       <MemoryAddedToast />
