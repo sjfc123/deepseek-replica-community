@@ -25,7 +25,7 @@ import {
 } from '../../services/chat/memory.js'
 import {
   addManualMemory,
-  clearMemories,
+  clearMemoryCards,
   deleteMemoryCard,
   setMemoryEnabled,
   setMemoryPinned,
@@ -43,6 +43,13 @@ const formatTime = (value: number) => {
   const date = new Date(value)
   const pad = (input: number) => String(input).padStart(2, '0')
   return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const memoryPoolLabel = (pool: MemoryPool) => (pool === 'normal' ? '普通记忆' : '角色记忆')
+
+const memoryExcerpt = (text: string) => {
+  const compact = text.replace(/\s+/g, ' ').trim()
+  return compact.length > 24 ? `${compact.slice(0, 24)}…` : compact
 }
 
 const sourceLabel = (card: MemoryCard) => {
@@ -114,7 +121,15 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   }
 
   const [confirming, setConfirming] = useState<
-    { kind: 'one'; messageId: string; cardId: string } | { kind: 'all' } | null
+    | { kind: 'one'; messageId: string; cardId: string; text: string; pool: MemoryPool }
+    | {
+        kind: 'filter'
+        label: string
+        count: number
+        pool: MemoryPool
+        targets: Array<{ messageId: string; cardId: string }>
+      }
+    | null
   >(null)
   const [editing, setEditing] = useState<{
     messageId: string
@@ -247,6 +262,10 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     })
   }, [entries, filter, query, pool])
 
+  const activeFilterLabel = FILTERS.find((item) => item.key === filter)?.label ?? '全部'
+  const clearActionLabel =
+    filter === 'all' ? `清空${memoryPoolLabel(pool)}` : `清空“${activeFilterLabel}”卡片`
+  const clearTargets = filtered.map(({ card, messageId }) => ({ messageId, cardId: card.id }))
   const countRatio = Math.min(1, autoCount / Math.max(1, cardLimit))
   const charRatio = Math.min(1, activeChars / Math.max(1, budget))
   const limitRatio = Math.max(countRatio, charRatio)
@@ -513,7 +532,15 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                     <button
                       className={styles.danger}
                       type="button"
-                      onClick={() => setConfirming({ kind: 'one', messageId, cardId: card.id })}
+                      onClick={() =>
+                        setConfirming({
+                          kind: 'one',
+                          messageId,
+                          cardId: card.id,
+                          text: card.text,
+                          pool: getMemoryPool(card),
+                        })
+                      }
                     >
                       删除
                     </button>
@@ -590,13 +617,21 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               ? '角色扮演开启时，长按保存的代码与整轮内容只进角色记忆；普通记忆暂停手动补卡，关闭角色扮演后恢复。'
               : '保存历史对话请长按消息 → 选择这条对话 / 全选本对话 → 保存为记忆，并在确认弹窗里选分类。'}
           </p>
-          {poolEntries.length > 0 ? (
+          {filtered.length > 0 && !query.trim() ? (
             <button
               className={styles.clearAll}
               type="button"
-              onClick={() => setConfirming({ kind: 'all' })}
+              onClick={() =>
+                setConfirming({
+                  kind: 'filter',
+                  label: clearActionLabel,
+                  count: filtered.length,
+                  pool,
+                  targets: clearTargets,
+                })
+              }
             >
-              清空当前分类
+              {clearActionLabel}（{filtered.length} 张）
             </button>
           ) : null}
         </footer>
@@ -605,11 +640,11 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
       {confirming ? (
         <div className={styles.confirm} role="dialog" aria-modal="true">
           <section>
-            <strong>{confirming.kind === 'all' ? '清空当前分类？' : '删除这张卡片？'}</strong>
+            <strong>{confirming.kind === 'filter' ? `${confirming.label}？` : '删除这张卡片？'}</strong>
             <p>
-              {confirming.kind === 'all'
-                ? '只清空当前分类的全部卡片，另一个分类不受影响。文本会从本机删除，无法恢复。'
-                : '文本会从本机删除，无法恢复；如果只是想停止注入，用「已启用」开关。'}
+              {confirming.kind === 'filter'
+                ? `只会删除当前列表里的 ${confirming.count} 张${memoryPoolLabel(confirming.pool)}卡片；另一分类和没有出现在列表里的卡片都不会动。文本从本机删除，无法恢复。`
+                : `只删除这一张「${memoryExcerpt(confirming.text)}」；${memoryPoolLabel(confirming.pool)}里的其他卡片不动。文本从本机删除，无法恢复。`}
             </p>
             <div>
               <button type="button" onClick={() => setConfirming(null)}>
@@ -619,15 +654,15 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                 className={styles.danger}
                 type="button"
                 onClick={() => {
-                  if (confirming.kind === 'all') {
-                    clearMemories(session.id, pool)
+                  if (confirming.kind === 'filter') {
+                    clearMemoryCards(session.id, confirming.targets)
                   } else {
                     deleteMemoryCard(session.id, confirming.messageId, confirming.cardId)
                   }
                   setConfirming(null)
                 }}
               >
-                {confirming.kind === 'all' ? '清空' : '删除'}
+                {confirming.kind === 'filter' ? '清空' : '删除'}
               </button>
             </div>
           </section>

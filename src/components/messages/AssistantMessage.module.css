@@ -1,5 +1,7 @@
 .message {
   position: relative;
+  display: flex;
+  flex-direction: column;
   animation: message-rise 280ms cubic-bezier(0.22, 0.61, 0.36, 1);
 
   &:hover .actions,
@@ -508,6 +510,7 @@
 }
 
 .usageLine[data-position='below'] {
+  order: 2;
   margin: 2px 0 6px;
 }
 

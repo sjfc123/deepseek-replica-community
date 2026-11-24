@@ -69,6 +69,7 @@ import {
   type MemoryPool,
   type NormalMemoryKind,
 } from './memory.js'
+import { removeMemoryCards, type MemoryRemovalTarget } from './memoryPrune.js'
 import {
   resolveUserName,
   matchRefusalKeyword,
@@ -1916,34 +1917,20 @@ export const setMemoryEnabled = (
 export const deleteMemoryCard = (sessionId: string, messageId: string, cardId: string) => {
   updateSession(sessionId, (session) => ({
     ...session,
-    messages: session.messages.map((message) =>
-      message.id === messageId
-        ? {
-            ...message,
-            memories: (message.memories ?? []).filter((card) => card.id !== cardId),
-          }
-        : message
-    ),
+    messages: removeMemoryCards(session.messages, [{ messageId, cardId }]),
   }))
   persist(sessionId)
 }
 
-/** 清空当前会话（当前分支上）的全部记忆；传 pool 时只清空对应分类 */
-export const clearMemories = (sessionId: string, pool?: MemoryPool) => {
-  updateSession(sessionId, (session) => {
-    const visibleIds = new Set(getVisibleMessages(session).map((message) => message.id))
-    return {
-      ...session,
-      messages: session.messages.map((message) =>
-        visibleIds.has(message.id) && message.memories
-          ? {
-              ...message,
-              memories: pool ? message.memories.filter((card) => getMemoryPool(card) !== pool) : [],
-            }
-          : message
-      ),
-    }
-  })
+/** 按当前面板可见的目标精确清空；不按分类扫描，避免误删同分类其他卡片 */
+export const clearMemoryCards = (sessionId: string, targets: MemoryRemovalTarget[]) => {
+  if (targets.length === 0) {
+    return
+  }
+  updateSession(sessionId, (session) => ({
+    ...session,
+    messages: removeMemoryCards(session.messages, targets),
+  }))
   persist(sessionId)
 }
 

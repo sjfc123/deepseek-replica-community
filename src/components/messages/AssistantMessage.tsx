@@ -187,9 +187,10 @@ export const AssistantMessage = memo(function AssistantMessage({
     : 0
   const cacheTotal = cacheRead + cacheMiss
   const cacheHitRate = cacheTotal > 0 ? (cacheRead / cacheTotal) * 100 : 0
-  const usageLine =
+  // 用量行只保留一个节点，位置由 data-position 和消息容器的 order 控制。
+  const renderUsageLine = (position: 'above' | 'below') =>
     showUsage && message.status === 'done' && message.usage ? (
-      <div className={styles.usageLine} data-position={usageBelow ? 'below' : 'above'}>
+      <div className={styles.usageLine} data-position={position}>
         <span>
           输入{' '}
           {formatTokenCount(
@@ -227,7 +228,6 @@ export const AssistantMessage = memo(function AssistantMessage({
           align="start"
         />
       ) : null}
-      {usageBelow ? null : usageLine}
       {refused || editing ? null : (
         <ReplyArea
           message={message}
@@ -236,7 +236,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           hasResponse={!!responseText}
         />
       )}
-      {usageBelow ? usageLine : null}
+      {renderUsageLine(usageBelow ? 'below' : 'above')}
       {confirmDelete
         ? createPortal(
             <div
