@@ -15,7 +15,7 @@ system 在进入请求之前固定，只由「启用中的角色卡 + 手写提�
    - 读到旧版公司身份提示词：迁移为新默认人格。
    - 其他内容：原样返回。
 2. **拼角色卡**：角色扮演开启且启用卡存在时，`formatCharacterCard(card, userName)` 按固定字段拼姓名、身份、关系、说话方式、小习惯、别忘的事、开场参考。
-3. **拼提示词**：`composeSystemPrompt()` 返回手写提示词或默认人格，按需追加 `META_TALK_GUARD`，再统一追加 `ASIDE_AND_ADDRESS_GUARD`。手写提示词为空时，整个 system 保持为空。
+3. **拼提示词**：`composeSystemPrompt()` 返回手写提示词或默认人格，按需追加 `META_TALK_GUARD`，再统一追加 `ASIDE_AND_ADDRESS_GUARD`。手写提示词为空且没有启用角色卡时，整个 system 保持为空。
 4. **续写临时约束**：只有本次请求带 assistant 前缀（继续生成）且 system 非空时，才在末尾追加 `CONTINUATION_GUARD`。这段不写入设置，也不影响下一次普通轮次。
 5. **替换占位符**：`applyPlaceholders()` 把 `{{user}}` 换成用户名；`{{char}}` 使用当前卡名或手写角色名，二者都为空时回退为 `AI`。
 6. **写入请求**：`CreateMessageRequest.system` 保存最终字符串。此时本轮记忆、场景、世界书和 `latest_reminder` 都还没有进入 system。
