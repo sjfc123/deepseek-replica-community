@@ -1466,10 +1466,18 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 label={labels.sampling}
                 value={(() => {
                   const parts: string[] = []
-                  if (temperature !== null) parts.push(tr(`温度 ${temperature}`, `Temp ${temperature}`))
-                  if (topP !== null) parts.push(`Top P ${topP}`)
-                  if (maxTokens !== null) parts.push(tr(`输出 ${maxTokens}`, `Max ${maxTokens}`))
-                  if (thinkingEffort) parts.push(tr('已设思考强度', 'Effort set'))
+                  if (temperature !== null) {
+                    parts.push(tr(`温度 ${temperature}`, `Temp ${temperature}`))
+                  }
+                  if (topP !== null) {
+                    parts.push(`Top P ${topP}`)
+                  }
+                  if (maxTokens !== null) {
+                    parts.push(tr(`输出 ${maxTokens}`, `Max ${maxTokens}`))
+                  }
+                  if (thinkingEffort) {
+                    parts.push(tr('已设思考强度', 'Effort set'))
+                  }
                   return parts.length ? parts.join(' · ') : tr('默认', 'Default')
                 })()}
                 onClick={() => openPage('sampling')}

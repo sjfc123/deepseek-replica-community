@@ -12,6 +12,7 @@ import './app/android.css'
 /* WebView 没有接管 onJsConfirm 时，window.confirm 会把 JS 线程挂住，表现为整页点不动，
    只能强杀应用。应用内确认统一走自绘弹窗，这里留一个不阻塞的兜底。 */
 window.confirm = () => {
+  // oxlint-disable-next-line no-console -- 保留调用方诊断，不弹原生阻塞框
   console.warn('window.confirm 已禁用：请使用应用内确认弹窗')
   return false
 }

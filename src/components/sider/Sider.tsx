@@ -269,7 +269,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
       key: 'androidBulkCopied',
       params: { count: copied },
     })
-  }, [checked, sessions, showToast])
+  }, [checked, sessions])
 
   /** 多选批量：归档选中会话，保持原数据不动 */
   const bulkArchive = useCallback(() => {
@@ -281,7 +281,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
       key: 'androidBulkArchived',
       params: { count: picked.length },
     })
-  }, [checked, sessions, showToast])
+  }, [checked, sessions])
 
   const startSelection = useCallback((session: SessionSummary) => {
     setSelecting(true)

@@ -195,6 +195,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
       normalMemoryLimit,
       lastQuestion,
       normalInjectionAllowed,
+      roleplayActive,
     ]
   )
   const budget = pool === 'normal' ? normalMemoryChars : memoryChars

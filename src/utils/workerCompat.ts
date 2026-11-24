@@ -160,28 +160,26 @@ define(scope, 'structuredClone', (value: unknown): unknown => {
 /* Blob 读取：Worker 同样可能运行在旧内核上 */
 if (typeof Blob !== 'undefined') {
   define(Blob.prototype, 'arrayBuffer', function (this: Blob) {
-    const blob = this
     return new Promise<ArrayBuffer>((resolve, reject) => {
       const reader = new (scope.FileReaderSync as new () => {
         readAsArrayBuffer: (b: Blob) => ArrayBuffer
         readAsText: (b: Blob) => string
       })()
       try {
-        resolve(reader.readAsArrayBuffer(blob))
+        resolve(reader.readAsArrayBuffer(this))
       } catch (error) {
         reject(error)
       }
     })
   })
   define(Blob.prototype, 'text', function (this: Blob) {
-    const blob = this
     return new Promise<string>((resolve, reject) => {
       const reader = new (scope.FileReaderSync as new () => {
         readAsArrayBuffer: (b: Blob) => ArrayBuffer
         readAsText: (b: Blob) => string
       })()
       try {
-        resolve(reader.readAsText(blob))
+        resolve(reader.readAsText(this))
       } catch (error) {
         reject(error)
       }

@@ -405,6 +405,7 @@
       }
       if (event.error && event.error.stack) {
         /* 保留初始化堆栈，便于定位模块循环引用 */
+        // oxlint-disable-next-line no-console -- 启动崩溃诊断只在控制台输出
         console.error(String(event.error.stack));
       }
       fail(event.message || '界面脚本执行出错');

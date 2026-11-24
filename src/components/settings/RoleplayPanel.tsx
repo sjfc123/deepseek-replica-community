@@ -198,7 +198,7 @@ export function RoleplayPanel() {
             activeCharacterId
           )
         : [],
-    [worldbook, lastUserText, activeCharacterId, worldbookChars, worldbookInject, roleplayEnabled]
+    [worldbook, lastUserText, activeCharacterId, worldbookChars, worldbookInject, roleplayOn]
   )
   const entryNeedle = entryQuery.trim().toLowerCase()
   const filteredEntries = entryNeedle

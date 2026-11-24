@@ -44,8 +44,9 @@ export const putIllustration = (messageId: string, url: string, prompt: string) 
 }
 
 export const removeIllustration = (messageId: string) => {
-  const next = { ...read() }
-  delete next[messageId]
+  const next = Object.fromEntries(
+    Object.entries(read()).filter(([id]) => id !== messageId)
+  )
   write(next)
 }
 

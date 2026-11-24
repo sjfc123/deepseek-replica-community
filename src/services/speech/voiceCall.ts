@@ -1130,6 +1130,7 @@ const retryMicrophoneAfterHostGrant = async (error: unknown): Promise<MediaStrea
   if (typeof host?.requestMicrophone !== 'function') {
     return null
   }
+  const requestMicrophone = host.requestMicrophone
   const granted = await new Promise<boolean>((resolve) => {
     let settled = false
     const finish = (value: boolean) => {
@@ -1146,7 +1147,7 @@ const retryMicrophoneAfterHostGrant = async (error: unknown): Promise<MediaStrea
     window.addEventListener('android-microphone', onResult)
     try {
       // 必须经宿主对象调用，直接取方法会丢失注入桥的 this
-      host.requestMicrophone!()
+      requestMicrophone.call(host)
     } catch {
       finish(false)
     }

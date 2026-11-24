@@ -142,15 +142,21 @@ export const importSessionBundle = async (bundle: SessionBundle): Promise<Sessio
   const idMap = new Map<string, string>()
   source.forEach((message) => idMap.set(message.id, createId()))
   const now = Date.now()
-  const messages = source.map((message, index) => ({
-    ...message,
-    id: idMap.get(message.id)!,
-    parentId:
-      index === 0 ? null : message.parentId ? (idMap.get(message.parentId) ?? null) : idMap.get(source[index - 1].id) ?? null,
-    selectedChildId:
-      message.selectedChildId ? idMap.get(message.selectedChildId) : index === source.length - 1 ? undefined : idMap.get(source[index + 1].id),
-    memories: message.memories ? message.memories.map((card) => ({ ...card })) : undefined,
-  }))
+  const messages = source.map((message, index) => {
+    const id = idMap.get(message.id)
+    if (!id) {
+      throw new Error('导入会话包失败：消息 ID 映射缺失')
+    }
+    return {
+      ...message,
+      id,
+      parentId:
+        index === 0 ? null : message.parentId ? (idMap.get(message.parentId) ?? null) : idMap.get(source[index - 1].id) ?? null,
+      selectedChildId:
+        message.selectedChildId ? idMap.get(message.selectedChildId) : index === source.length - 1 ? undefined : idMap.get(source[index + 1].id),
+      memories: message.memories ? message.memories.map((card) => ({ ...card })) : undefined,
+    }
+  })
   const next: Session = {
     id: createId(),
     title: `${bundle.title || bundle.session.title || '导入的对话'}`,

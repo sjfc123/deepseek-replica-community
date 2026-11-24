@@ -954,12 +954,10 @@ export const saveCharacterCard = (card: CharacterCard) => {
  */
 export const setCardAvatar = (cardId: string, avatar: string | null) => {
   const current = useSettings.getState().cardAvatars
-  const next = { ...current }
-  if (avatar && isAvatarDataUrl(avatar)) {
-    next[cardId] = avatar
-  } else {
-    delete next[cardId]
-  }
+  const next =
+    avatar && isAvatarDataUrl(avatar)
+      ? { ...current, [cardId]: avatar }
+      : Object.fromEntries(Object.entries(current).filter(([id]) => id !== cardId))
   const payload = Object.keys(next).length > 0 ? JSON.stringify(next) : null
   if (!write(KEYS.cardAvatars, payload)) {
     return false
@@ -1018,11 +1016,12 @@ export const deleteCharacterCard = (id: string) => {
   if (active === null) {
     write(KEYS.roleplayEnabled, '0')
   }
-  const avatars = { ...useSettings.getState().cardAvatars }
-  let avatarRemoved = false
-  if (avatars[id]) {
-    delete avatars[id]
-    avatarRemoved = true
+  const currentAvatars = useSettings.getState().cardAvatars
+  const avatars = Object.fromEntries(
+    Object.entries(currentAvatars).filter(([avatarId]) => avatarId !== id)
+  )
+  const avatarRemoved = Boolean(currentAvatars[id])
+  if (avatarRemoved) {
     write(KEYS.cardAvatars, Object.keys(avatars).length > 0 ? JSON.stringify(avatars) : null)
   }
   useSettings.setState({
@@ -1169,24 +1168,20 @@ export const createSessionFolder = (name: string) => {
 export const removeSessionFolder = (id: string) => {
   const current = useSettings.getState().sessionFolders
   persistSessionFolders(current.filter((folder) => folder.id !== id))
-  const map = { ...useSettings.getState().sessionFolderMap }
-  for (const [sessionId, folderId] of Object.entries(map)) {
-    if (folderId === id) {
-      delete map[sessionId]
-    }
-  }
+  const currentMap = useSettings.getState().sessionFolderMap
+  const map = Object.fromEntries(
+    Object.entries(currentMap).filter(([, folderId]) => folderId !== id)
+  )
   write(KEYS.sessionFolderMap, JSON.stringify(map))
   useSettings.setState({ sessionFolderMap: map })
 }
 
 /** 把会话放进某个分组；传 null 表示移出分组 */
 export const assignSessionFolder = (sessionId: string, folderId: string | null) => {
-  const map = { ...useSettings.getState().sessionFolderMap }
-  if (folderId) {
-    map[sessionId] = folderId
-  } else {
-    delete map[sessionId]
-  }
+  const current = useSettings.getState().sessionFolderMap
+  const map = folderId
+    ? { ...current, [sessionId]: folderId }
+    : Object.fromEntries(Object.entries(current).filter(([id]) => id !== sessionId))
   write(KEYS.sessionFolderMap, JSON.stringify(map))
   useSettings.setState({ sessionFolderMap: map })
 }

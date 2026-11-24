@@ -4,8 +4,8 @@
  * 条目按「新增 / 优化 / 修复 / 说明」四类组织；文案保持可读，
  * 只说明改动位置、实际行为与使用边界，不评价、不宣传。
  */
-export const ANNOUNCEMENT_ID = '0.8.79'
-export const ANNOUNCEMENT_VERSION = '0.8.79'
+export const ANNOUNCEMENT_ID = '0.8.80'
+export const ANNOUNCEMENT_VERSION = '0.8.80'
 
 export type AnnouncementCategory = 'new' | 'opt' | 'fix' | 'note'
 
@@ -39,7 +39,7 @@ export const ANNOUNCEMENT: {
   title: '更新公告',
   version: ANNOUNCEMENT_VERSION,
   intro: [
-    '这一版保持角色卡、system 与请求前缀的固定口径，记忆、场景和本轮世界书仍作为当前轮背景资料接入。',
+    '这一版修复角色扮演世界书与长期记忆注入预览在开关或角色卡变化后可能不刷新的问题；system 与请求前缀口径保持不变。',
   ].join('\n'),
   warningTitle: '用之前，先说清楚几件事',
   warningLead: '下面的内容不复杂，但和你怎么用、要承担什么有关，尤其是审核开关。',
@@ -61,6 +61,8 @@ export const ANNOUNCEMENT: {
       category: 'fix',
       heading: '修复',
       items: [
+        '角色扮演世界书命中预览此前只跟随“角色扮演总开关”，当前启用卡被替换或清空后可能保留旧命中；现在按实际可用的卡状态重新计算。',
+        '长期记忆注入预览在角色扮演开关变化后可能沿用旧结果；现在开关变化会重新计算角色记忆与普通记忆的注入列表。',
         '角色卡开场白固定留在 system 里，不再因为消息条数达到 2 条就从 system 消失；文案改为“只在第一条回复使用，后续自然延续”，角色卡与历史的前缀不再第二轮突然变化。',
         '纯空白提示词按“主动清空”处理，不再悄悄回落到默认人格；清空后请求体第一条就是 user，不会发出只有空格的 system。',
         '手写角色名和卡名都为空时，`{{char}}` 回退为 `AI`，不再把字面占位符留在 system 或背景资料里。',
@@ -72,6 +74,7 @@ export const ANNOUNCEMENT: {
       category: 'opt',
       heading: '优化',
       items: [
+        '清理 23 条历史静态检查错误：统一条件分支写法与 Hook 依赖，移除对象型本地设置的动态删除，并为会话复制、单会话包导入补上消息 ID 映射校验；正常对话流程不变。',
         'system 在进入请求前一次固定，只由启用中的角色卡、手写提示词和固定演出规则组成；记忆、场景和本轮世界书作为本轮背景资料接在当前 user 消息末尾；上下文提醒是当前 user 之前的独立消息，两者都不进入 system。',
         '新增 `pnpm test:system` 回归测试，固定角色卡前缀、开场白存在性和三种协议的 system 位置；装配顺序与缓存边界写在 `SYSTEM-PROMPT-PIPELINE.md`。',
       ],

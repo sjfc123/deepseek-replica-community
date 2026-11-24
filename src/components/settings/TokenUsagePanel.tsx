@@ -62,7 +62,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
       .catch(() => {
         if (!cancelled) {
           setListError(
-            t('读取会话列表失败，请返回后重试', 'Failed to load sessions, try again')
+            zh ? '读取会话列表失败，请返回后重试' : 'Failed to load sessions, try again'
           )
         }
       })

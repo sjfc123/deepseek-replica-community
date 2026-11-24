@@ -710,13 +710,19 @@ export const forkSession = async (sessionId: string): Promise<string | null> => 
   const idMap = new Map<string, string>()
   path.forEach((message) => idMap.set(message.id, createId()))
   const now = Date.now()
-  const messages = path.map((message, index) => ({
-    ...message,
-    id: idMap.get(message.id)!,
-    parentId: index === 0 ? null : (idMap.get(path[index - 1].id) ?? null),
-    selectedChildId: index === path.length - 1 ? undefined : idMap.get(path[index + 1].id),
-    memories: message.memories ? message.memories.map((card) => ({ ...card })) : undefined,
-  }))
+  const messages = path.map((message, index) => {
+    const id = idMap.get(message.id)
+    if (!id) {
+      throw new Error('复制会话失败：消息 ID 映射缺失')
+    }
+    return {
+      ...message,
+      id,
+      parentId: index === 0 ? null : (idMap.get(path[index - 1].id) ?? null),
+      selectedChildId: index === path.length - 1 ? undefined : idMap.get(path[index + 1].id),
+      memories: message.memories ? message.memories.map((card) => ({ ...card })) : undefined,
+    }
+  })
   const next: Session = {
     id: createId(),
     title: `${source.title || translate('untitledChat')} · ${translate('sessionForkSuffix')}`,

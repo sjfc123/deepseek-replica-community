@@ -209,7 +209,7 @@ export const App = () => {
       })
     }, 2000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [frameRef])
 
   // Android 平板可能上报 hover: hover：仅在真实鼠标移动时启用悬停样式，触控与手写笔点击不残留高亮。
   useEffect(() => {
