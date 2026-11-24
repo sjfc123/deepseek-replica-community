@@ -94,6 +94,23 @@ pnpm build
 
 如果只是想看界面，`pnpm dev` 起本地开发服务即可。真正装到设备上、接自己的 API Key、处理系统权限和 ROM 差异，是另一段工作，源码只能把起点交给你。
 
+### 网页版
+
+`pnpm build` 生成的 `dist/` 本身就是可部署的静态站点，不需要额外改接口。当前网页版发布在 `gh-pages` 分支，地址 `https://sjfc123.github.io/deepseek-replica-community/`。更新源码后，重新 build 再用独立临时仓库推送该分支：
+
+```bash
+pnpm build
+rm -rf /tmp/ghp && mkdir -p /tmp/ghp
+cp -R dist/. /tmp/ghp/
+touch /tmp/ghp/.nojekyll
+cd /tmp/ghp
+git init -b gh-pages
+git add -A && git commit -m "web: static build"
+git push -f <仓库地址> gh-pages
+```
+
+网页版没有 Android 原生桥：Key 存在浏览器 `localStorage`，会话和设置存在 `localStorage` / IndexedDB；请求由浏览器直连模型接口，第三方网关必须允许 CORS。连续语音通话、原生录音、Keystore 和系统级能力只在 Android 壳里有效。
+
 ## 交接
 
 0.8.66 之后不再负责往后的更新。编译、签名与分发由接手的人自行决定，并承担相应责任。这个包的价值是让下一个人不用从零猜请求怎么拼、角色怎么注入、记忆怎么隔离、通话怎么断句，而不是承诺一个长期维护的成品。后面的版本号、发布节奏和分发方式，由接手的人自己决定。
