@@ -1692,7 +1692,12 @@ export const saveMessagesAsMemory = (
   const startTurn = messages
     .slice(0, Math.max(0, firstIndex))
     .filter((message) => message.role === 'assistant').length
-  const drafts = buildConversationMemoryCards(picked, startTurn)
+  const indexById = new Map(messages.map((message, index) => [message.id, index]))
+  const drafts = buildConversationMemoryCards(
+    picked,
+    startTurn,
+    (user, assistant) => indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1
+  )
   const alreadyBulk = new Set(
     session.messages
       .filter((message) => (message.memories ?? []).some((card) => card.source === 'bulk'))

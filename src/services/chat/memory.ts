@@ -456,10 +456,12 @@ export type ConversationMemoryDraft = {
 /**
  * 把当前分支的可见消息按“用户一句 + 角色一句”配对，生成完整回合记忆卡。
  * 不截断正文；时间锚点使用消息自己的时间，保存后仍按原来的先后顺序阅读。
+ * 传入 pairAdjacent 时只配对原对话里真正相邻的用户消息与角色回复，避免手动多选时跨轮硬配。
  */
 export const buildConversationMemoryCards = (
   messages: Message[],
-  startTurn = 0
+  startTurn = 0,
+  pairAdjacent?: (user: Message, assistant: Message) => boolean
 ): ConversationMemoryDraft[] => {
   const drafts: ConversationMemoryDraft[] = []
   let pendingUser: Message | null = null
@@ -486,6 +488,10 @@ export const buildConversationMemoryCards = (
       }
       pendingUser = message
       continue
+    }
+    if (pendingUser && pairAdjacent && !pairAdjacent(pendingUser, message)) {
+      push(pendingUser, pendingUser.content, '')
+      pendingUser = null
     }
     push(message, pendingUser?.content ?? '', replyPlainText(message))
     pendingUser = null
