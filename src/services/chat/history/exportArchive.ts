@@ -20,6 +20,7 @@ export const exportArchive = async (
   const imageEntries: { name: string; blob: Blob }[] = []
   const index: SessionIndexEntry[] = []
   const originals = new Map<string, Blob | undefined>()
+  let sessionCount = 0
   for await (const session of sessions) {
     for (const message of session.messages) {
       if (message.role === 'user') {
@@ -49,6 +50,10 @@ export const exportArchive = async (
       imageEntries.push({ name, blob })
     }
     index.push(toIndexEntry(data))
+    // 多会话导出时给主线程一次绘制机会，长列表/大量图片下仍能响应返回键。
+    if (++sessionCount % 8 === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    }
   }
   entries.push({ name: INDEX_PATH, blob: json(index) })
   return writeArchive(entries.concat(imageEntries))

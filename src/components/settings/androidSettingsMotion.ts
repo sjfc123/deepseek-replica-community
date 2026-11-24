@@ -23,32 +23,50 @@ const secondPhase = (property: Property, from: Value, to: Value, easing: string)
   { [property]: to },
 ]
 
+// 旧 WebView 可能没有 Animation.finished，动画也可能被系统挂起而永远不 settle。
+// 超时按完成处理，页面的返回/进入不能因为一段装饰动画把交互锁死。
+const FALLBACK_TIMEOUT = duration * 2 + 150
+
 const waitForAnimation = (animation: Animation): Promise<boolean> => {
-  // Animation.finished landed in Chrome 84; fall back to Web Animations events on older WebView.
-  if (animation.finished) {
-    return animation.finished.then(
-      () => true,
-      () => false
-    )
-  }
-  if (animation.playState === 'finished') {
-    return Promise.resolve(true)
-  }
-  if (animation.playState === 'idle') {
-    return Promise.resolve(false)
-  }
   return new Promise<boolean>((resolve) => {
+    let settled = false
+    let timer = 0
     const cleanup = () => {
+      if (timer) {
+        window.clearTimeout(timer)
+        timer = 0
+      }
       animation.removeEventListener('finish', onFinish)
       animation.removeEventListener('cancel', onCancel)
     }
-    const onFinish = () => {
+    const settle = (value: boolean) => {
+      if (settled) {
+        return
+      }
+      settled = true
       cleanup()
-      resolve(true)
+      resolve(value)
     }
-    const onCancel = () => {
-      cleanup()
-      resolve(false)
+    const onFinish = () => settle(true)
+    const onCancel = () => settle(false)
+
+    timer = window.setTimeout(() => settle(true), FALLBACK_TIMEOUT)
+
+    // Animation.finished 从 Chrome 84 才有；有它时优先用它，避免旧事件漏发。
+    if (animation.finished) {
+      animation.finished.then(
+        () => settle(true),
+        () => settle(false)
+      )
+      return
+    }
+    if (animation.playState === 'finished') {
+      settle(true)
+      return
+    }
+    if (animation.playState === 'idle') {
+      settle(false)
+      return
     }
     animation.addEventListener('finish', onFinish)
     animation.addEventListener('cancel', onCancel)
@@ -66,8 +84,15 @@ export const createSettingsPageMotion = (
   const left = `translateX(${-distance}px)`
   const rest = 'translateX(0)'
   const background = 'var(--settings-bg)'
+  // 旧内核或系统 WebView 被裁剪时可能没有 Web Animations；此时直接走无动画路径，
+  // 不能让 back() 在 setExiting 之后因 animate 抛错而永久锁住设置页。
+  const canAnimate =
+    typeof page.animate === 'function' &&
+    typeof content.animate === 'function' &&
+    (!previous || typeof previous.animate === 'function')
   let animations: Animation[] = []
   let direction: Direction | undefined
+  let playing = false
 
   const cancel = () => {
     for (const animation of animations) {
@@ -75,6 +100,7 @@ export const createSettingsPageMotion = (
     }
     animations = []
     direction = undefined
+    playing = false
   }
 
   const prepare = (next: Direction) => {
@@ -83,43 +109,59 @@ export const createSettingsPageMotion = (
     }
     cancel()
     direction = next
-    const returning = next === 'back'
-    animations = [
-      page.animate(
-        returning
-          ? secondPhase('backgroundColor', background, 'transparent', fadeIn)
-          : firstPhase('backgroundColor', 'transparent', background, fadeOut),
-        timing
-      ),
-      content.animate(
-        returning ? firstPhase('opacity', 1, 0, fadeOut) : secondPhase('opacity', 0, 1, fadeIn),
-        timing
-      ),
-      content.animate(
-        returning
-          ? firstPhase('transform', rest, right, slideOut)
-          : secondPhase('transform', right, rest, slideIn),
-        timing
-      ),
-    ]
-    if (previous) {
-      animations.push(
-        previous.animate(
-          returning
-            ? secondPhase('transform', left, rest, slideIn)
-            : firstPhase('transform', rest, left, slideOut),
-          timing
-        )
-      )
+    if (!canAnimate) {
+      return
     }
-    for (const animation of animations) {
-      animation.pause()
-      animation.currentTime = 0
+    const returning = next === 'back'
+    try {
+      animations = [
+        page.animate(
+          returning
+            ? secondPhase('backgroundColor', background, 'transparent', fadeIn)
+            : firstPhase('backgroundColor', 'transparent', background, fadeOut),
+          timing
+        ),
+        content.animate(
+          returning ? firstPhase('opacity', 1, 0, fadeOut) : secondPhase('opacity', 0, 1, fadeIn),
+          timing
+        ),
+        content.animate(
+          returning
+            ? firstPhase('transform', rest, right, slideOut)
+            : secondPhase('transform', right, rest, slideIn),
+          timing
+        ),
+      ]
+      if (previous) {
+        animations.push(
+          previous.animate(
+            returning
+              ? secondPhase('transform', left, rest, slideIn)
+              : firstPhase('transform', rest, left, slideOut),
+            timing
+          )
+        )
+      }
+      for (const animation of animations) {
+        animation.pause()
+        animation.currentTime = 0
+      }
+    } catch {
+      // 某些旧 WebView 的 animate 存在但会因属性或时序抛错；退化为立即切换。
+      for (const animation of animations) {
+        animation.cancel()
+      }
+      animations = []
     }
   }
 
   return {
     seek(progress: number) {
+      // 返回手势预览只负责拖动画面；正在执行的 play 不能被 pause，
+      // 否则 Animation.finished 永远不结束，back() 的 exiting 锁不会释放。
+      if (playing) {
+        return
+      }
       prepare('back')
       for (const animation of animations) {
         animation.pause()
@@ -128,14 +170,23 @@ export const createSettingsPageMotion = (
     },
     play(next: Direction) {
       prepare(next)
+      if (!animations.length) {
+        return Promise.resolve(true)
+      }
       if (animations[0].currentTime === timeline) {
         return Promise.resolve(true)
       }
+      playing = true
       for (const animation of animations) {
         animation.playbackRate = timeline / duration
         animation.play()
       }
-      return waitForAnimation(animations[0])
+      const done = waitForAnimation(animations[0])
+      const release = () => {
+        playing = false
+      }
+      done.then(release, release)
+      return done
     },
     cancel,
   }

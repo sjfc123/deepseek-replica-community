@@ -68,6 +68,7 @@ export const writeArchive = async (entries: { name: string; blob: Blob }[]): Pro
   const chunks: Blob[] = []
   let size = 0
   let completed = false
+  let chunkCount = 0
   const zip = new Zip((error, chunk, final) => {
     if (error) {
       throw error
@@ -91,6 +92,11 @@ export const writeArchive = async (entries: { name: string; blob: Blob }[]): Pro
           invalid()
         }
         entry.push(chunk)
+        // 图片与长会话会产生大量 Blob 分片；每 16 片让出一次宏任务，
+        // 避免导出期间微任务链把绘制和返回键一起饿死。
+        if (++chunkCount % 16 === 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 0))
+        }
       }
       if (written !== blob.size) {
         invalid()

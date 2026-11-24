@@ -27,7 +27,10 @@ export const subscribeToAndroidBackPreview = (listener: PreviewListener) => {
   }
   previewListeners.push(listener)
   return () => {
-    previewListeners.splice(previewListeners.indexOf(listener), 1)
+    const index = previewListeners.indexOf(listener)
+    if (index >= 0) {
+      previewListeners.splice(index, 1)
+    }
     if (previewListeners.length === 0) {
       device.setBackPreviewEnabled(false)
       window.removeEventListener('android-back-preview', forwardPreview)

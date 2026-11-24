@@ -732,6 +732,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const settingInput = useRef<HTMLInputElement>(null)
   const [tone, setTone] = useState(ttsVoice)
   const [busy, setBusy] = useState(false)
+  // 只有导入/删除这类会改动本地数据的动作才阻止返回；导出、备份可能等待原生文件选择，
+  // 若也用它挡住 back()，用户会在一段时间内看到“按钮和返回都没反应”。
+  const [blockingBusy, setBlockingBusy] = useState(false)
   const [update, setUpdate] = useState<UpdateStatus>({ phase: 'idle' })
   const [updateFallback, setUpdateFallback] = useState(false)
   const [file, setFile] = useState<File | null>(null)
@@ -893,7 +896,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   }
 
   const back = () => {
-    if (busy || exiting.current) {
+    if (exiting.current) {
       return
     }
     if (usageOpen) {
@@ -901,8 +904,14 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       return
     }
     if (popup) {
+      if (blockingBusy) {
+        return
+      }
       setPopup(null)
       setFile(null)
+      return
+    }
+    if (blockingBusy) {
       return
     }
     const finish = () => {
@@ -921,17 +930,41 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     }
     closeOverlaySider()
     exiting.current = true
-    void motion.play('back').then((finished) => {
-      if (motionRef.current !== motion) {
+    let settled = false
+    let timer = 0
+    const release = (completed: boolean) => {
+      if (settled) {
         return
       }
-      if (finished) {
+      settled = true
+      if (timer) {
+        window.clearTimeout(timer)
+        timer = 0
+      }
+      // 组件或页面 motion 已替换时，旧回调只负责解锁，不再操作新页面。
+      if (motionRef.current !== motion) {
+        exiting.current = false
+        return
+      }
+      if (completed) {
         finish()
       } else {
         exiting.current = false
       }
-    })
+    }
+    // 动画 Promise 在旧 WebView、系统挂起或渲染线程停帧时可能永远不结束。
+    // 超过一次转场的合理等待时间就强制完成返回，避免设置页整页点不动。
+    timer = window.setTimeout(() => release(true), 900)
+    try {
+      const transition = motion.play('back')
+      Promise.resolve(transition).then(release, () => release(true))
+    } catch {
+      release(true)
+    }
   }
+
+  const backRef = useRef(back)
+  backRef.current = back
 
   useAndroidBackInterception()
   useLayoutEffect(() => {
@@ -991,11 +1024,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   useEffect(() => {
     const onBack = (event: Event) => {
       event.preventDefault()
-      back()
+      backRef.current()
     }
     window.addEventListener('android-back', onBack)
     return () => window.removeEventListener('android-back', onBack)
-  })
+  }, [])
 
   /** 设定存档：角色卡、头像、世界书与场景打包成一个 JSON，换机或分享设定时单独迁移 */
   const exportSettings = async () => {
@@ -1188,6 +1221,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       return
     }
     setBusy(true)
+    setBlockingBusy(true)
     try {
       if (popup === 'import' && file) {
         setPopup(null)
@@ -1211,6 +1245,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       }
     } finally {
       setBusy(false)
+      setBlockingBusy(false)
     }
   }
 
