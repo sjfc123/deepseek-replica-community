@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：消息渲染 / CopyButton 开始
+ * 职责：CopyButton 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：CopyButton。
+ * ========================================================================== */
+
 import { useEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { useTranslate } from '../../i18n/index.js'
@@ -26,9 +32,7 @@ export const CopyButton = ({
 
   return (
     <IconButton
-      icon={
-        iconWrapperClassName ? <span className={iconWrapperClassName}>{icon}</span> : icon
-      }
+      icon={iconWrapperClassName ? <span className={iconWrapperClassName}>{icon}</span> : icon}
       tooltip={t('copy')}
       tooltipPlacement="bottom"
       className={className}
@@ -48,3 +52,7 @@ export const CopyButton = ({
     />
   )
 }
+
+/* ============================================================================
+ * 功能区：消息渲染 / CopyButton 结束
+ * ========================================================================== */

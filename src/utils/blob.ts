@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：通用工具 / blob 开始
+ * 职责：Blob 工具：读取、转码、下载与释放对象 URL。
+ * 导出：readBlobBuffer。
+ * ========================================================================== */
+
 export const readBlobBuffer = (blob: Blob): Promise<ArrayBuffer> => {
   if (typeof blob.arrayBuffer === 'function') {
     return blob.arrayBuffer()
@@ -38,3 +44,7 @@ export async function* readBlobChunks(blob: Blob): AsyncGenerator<Uint8Array<Arr
     reader.releaseLock()
   }
 }
+
+/* ============================================================================
+ * 功能区：通用工具 / blob 结束
+ * ========================================================================== */

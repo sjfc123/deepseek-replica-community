@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：输入与语音控件 / useVoiceInput 开始
+ * 职责：语音输入 Hook：录音、上传、转写与状态机。
+ * 导出：VoiceInputStatus、useVoiceInput。
+ * ========================================================================== */
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TranslationMessage } from '../../i18n/index.js'
 import { transcribe } from '../../services/api/speech.js'
@@ -174,3 +180,7 @@ export const useVoiceInput = (onText: (text: string) => void) => {
     available: AVAILABLE,
   }
 }
+
+/* ============================================================================
+ * 功能区：输入与语音控件 / useVoiceInput 结束
+ * ========================================================================== */

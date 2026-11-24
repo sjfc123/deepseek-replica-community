@@ -27,6 +27,14 @@
 
 这些不是遗漏，是故意不放进源码包。APK 和签名文件由构建者自己生成、自己保管；具体边界写在 README 的“编译、签名与分发”一节，NOTICE 里也有说明。别人转发的 APK 不代表这个仓库，也无法证明没有被改过。
 
+## 源码注释与分区整理（2026-11-24）
+
+- 204 个手写 TS/TSX/JS/Java 源文件增加文件级职责说明与 `功能区：<模块> / <文件> 开始/结束` 边界；共 250 个文件级与模块内功能分区，`*.module.css.d.ts` 等生成文件不手工插入。
+- 聊天状态机、设置状态、设置页、角色卡面板、消息列表、侧栏、记忆面板、输入控件、连续语音和 `MainActivity` 再按状态、数据、操作、渲染、权限与媒体链路拆分内部区域，便于从入口直接定位实现。
+- 修正档案开关历史口径 `0.8.83` 为 `0.8.84`，并把“这里/这条/这个”等依赖上下文的注释改为明确指代；同步修正语音通道、错误归一化、消息删除、自动备份、主题色和 Android 媒体采集注释。
+- README 顶部补充重要声明：功能与改动数量、稳定性判断、历史包袱与“屎山量”、随缘维护与可能永久停更；同时清理重复的记忆默认值说明，修正 0.8.74 已被 0.8.86 取代的名字行为。
+- 本轮不改请求协议、数据结构、界面行为与版本号；仍是 0.8.86，运行时与已发布包一致。
+
 ## 0.8.86 本版改动
 
 - `settings.ts` 的 `initialCharacterName()` 不再把与当前启用卡同名的档案名当成历史残留清空；`characterName` 只由用户手动修改，角色卡启用、切换、关闭和保存都不写这个键。
@@ -58,7 +66,7 @@
 - `CHARACTER_PROFILE_FIELDS` 增加 `group`，四组为 `core`、`body`、`personality`、`story`；`CHARACTER_PROFILE_GROUPS` 提供分组标题与说明。`normalizeCharacterProfile` 同步归一化 32 个字段，旧档案缺字段补空串。
 - `formatCharacterProfile` 按四组固定顺序装配；有任一固定字段时追加固定事实声明，结尾追加配合推进与不承认模型/助手的规则。规则文本与 `roleplay.ts` 的 `ROLEPLAY_*_RULE` 逐字一致，回归测试直接比较。
 - `Settings` 新增 `profileEnabled`，存储键 `replica:character-profile-enabled`，默认开启；新增 `setCharacterProfileEnabled`，复位角色页时恢复开启。
-- `streamReply` 改为 `profileEnabled && !activeCard && characterProfileHasContent()` 才装配档案；关闭后只走表达提示词与固定演出规则。
+- `streamReply` 改为 `profileEnabled && !activeCard && characterProfileHasContent()` 才装配完整档案；关闭后 32 项字段不读取。0.8.86 起非空档案名会以轻量身份行保留，不再只走表达提示词。
 - `AndroidSettings` 新增「读取基础档案」开关；关闭后 32 个字段与角色名 `readOnly` 并置灰，重新开启才能编辑。页面由单组改为四组，根页状态显示「已关闭」。搜索索引同步新字段。
 - `AndroidSettings.module.css` 新增 `.profileNotice`、`.profileGroupHint` 与 `.profileField[data-disabled]`、`.profileInput[data-disabled]`、`.inlineInput[data-disabled]`。
 - 设定存档新增 `profileEnabled`；`buildSettingArchive` 写入，`parseSettingArchive` 兼容旧档按开启处理，`applySettingArchive` 通过 `saveProfileEnabled` 恢复。

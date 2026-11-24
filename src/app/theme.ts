@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：应用外壳 / theme 开始
+ * 职责：主题系统：解析深浅色偏好、写入主题变量并应用强调色与间距。
+ * 导出：Theme、useTheme、setupTheme。
+ * ========================================================================== */
+
 import { useSyncExternalStore } from 'react'
 import {
   useSettings,
@@ -60,7 +66,7 @@ const applyTheme = (theme: Theme) => {
 
 /**
  * 主题色只覆盖强调色变量；深浅底色仍由 light / dark 两套样式控制，
- * 因此这里的色值要在白底与深底上都能读，不再按模式分两套。
+ * 因此该组色值需同时满足浅色与深色背景的可读性，不再按模式拆成两套。
  */
 const ACCENTS: Record<AccentColor, { primary: string; text: string }> = {
   blue: { primary: '#4d6bfe', text: '#4256d6' },
@@ -77,7 +83,7 @@ const BUBBLE_RADII: Record<BubbleRadius, string> = {
   round: '28px',
 }
 
-/* 消息列本身没有 gap，这里只补相邻消息的额外留白；标准档为 0，保持默认观感不变 */
+/* 消息列本身不设置 gap，该规则只补相邻消息的额外留白；标准档为 0，保持默认间距。 */
 const MESSAGE_GAPS: Record<MessageSpacing, string> = {
   compact: '0px',
   normal: '10px',
@@ -93,7 +99,7 @@ const applyAppearance = () => {
   // body 上有一套主题变量（深浅色各一份），只在 html 上写会被继承覆盖，
   // 所以在 html 与 body 同时写入，深色模式切换后也仍然优先。
   for (const target of [document.documentElement.style, document.body.style]) {
-    // 实心按钮与局部样式里有不带变量的写死蓝色，这里用 important 把品牌色压在最上层，
+    // 实心按钮与局部样式存在未使用变量的固定蓝色，因此通过 !important 将品牌色置于最高优先级，
     // 避免子选择器或组件内规则把主题色重新拉回默认蓝。
     target.setProperty('--dsw-alias-brand-primary', accent.primary, 'important')
     target.setProperty('--dsw-alias-brand-text', accentText, 'important')
@@ -101,7 +107,10 @@ const applyAppearance = () => {
     target.setProperty('--dsw-alias-button-primary-hover', accent.primary, 'important')
     target.setProperty('--replica-accent', accent.primary, 'important')
     target.setProperty('--replica-accent-text', accentText, 'important')
-    target.setProperty('--replica-bubble-radius', BUBBLE_RADII[bubbleRadius] ?? BUBBLE_RADII.standard)
+    target.setProperty(
+      '--replica-bubble-radius',
+      BUBBLE_RADII[bubbleRadius] ?? BUBBLE_RADII.standard
+    )
     target.setProperty('--replica-message-gap', MESSAGE_GAPS[messageSpacing] ?? MESSAGE_GAPS.normal)
   }
   document.documentElement.dataset.messageSpacing = messageSpacing
@@ -144,3 +153,7 @@ export const setupTheme = () => {
     }
   })
 }
+
+/* ============================================================================
+ * 功能区：应用外壳 / theme 结束
+ * ========================================================================== */

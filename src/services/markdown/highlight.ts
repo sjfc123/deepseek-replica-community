@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 解析 / highlight 开始
+ * 职责：highlight 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
+ * 导出：getHighlightLang、isHighlightLoaded、loadHighlight。
+ * ========================================================================== */
+
 import Prism from 'prismjs'
 
 type Loader = () => Promise<unknown>
@@ -108,3 +114,7 @@ export function isHighlightLoaded(lang: string): boolean {
 export function loadHighlight(lang: string): Promise<unknown> {
   return loaders[lang]()
 }
+
+/* ============================================================================
+ * 功能区：Markdown 解析 / highlight 结束
+ * ========================================================================== */

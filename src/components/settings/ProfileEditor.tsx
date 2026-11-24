@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：设置页 / ProfileEditor 开始
+ * 职责：ProfileEditor 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：ProfileEditor。
+ * ========================================================================== */
+
 import { useRef, useState, type ChangeEvent } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { setAccountProfile, useSettings } from '../../services/settings.js'
@@ -92,3 +98,7 @@ export const ProfileEditor = () => {
     </form>
   )
 }
+
+/* ============================================================================
+ * 功能区：设置页 / ProfileEditor 结束
+ * ========================================================================== */

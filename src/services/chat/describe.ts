@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / describe 开始
+ * 职责：describe 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：Notice、describeReply。
+ * ========================================================================== */
+
 import { isTranslationKey, translate } from '../../i18n/index.js'
 import { classifyStatus } from '../api/errors.js'
 import { useSettings } from '../settings.js'
@@ -60,3 +66,7 @@ export const describeReply = (reply: AssistantMessage): Notice | null => {
   }
   return null
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / describe 结束
+ * ========================================================================== */

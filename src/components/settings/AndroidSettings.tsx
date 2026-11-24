@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：设置页 / AndroidSettings 开始
+ * 职责：Android 设置页：分区导航、账户、角色档案、记忆、数据与外观配置。
+ * ========================================================================== */
+
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { android, saveAndroidHistory } from '../../app/android.js'
 import {
@@ -179,6 +184,7 @@ const updateMessages = {
   installerUnavailable: 'updateInstallerUnavailable',
 } satisfies Record<string, TranslationKey>
 
+/* -------------------- 功能区：页面类型与通用控件 开始 -------------------- */
 type UpdateStatus = {
   phase: 'idle' | 'checking' | 'available' | 'downloading' | 'ready'
   version?: string
@@ -618,6 +624,9 @@ const describeBackupFailure = (result: AutoBackupResult, tr: BackupText) => {
   }
 }
 
+/* -------------------- 功能区：页面类型与通用控件 结束 -------------------- */
+
+/* -------------------- 功能区：设置模块入口 开始 -------------------- */
 export const AndroidSettings = ({ chatFrame }: { chatFrame: RefObject<HTMLDivElement> }) => {
   const open = useSettingsDialog((state) => state.open)
   const section = useSettingsDialog((state) => state.section)
@@ -630,6 +639,9 @@ export const AndroidSettings = ({ chatFrame }: { chatFrame: RefObject<HTMLDivEle
   ) : null
 }
 
+/* -------------------- 功能区：设置模块入口 结束 -------------------- */
+
+/* -------------------- 功能区：设置页状态、派生数据与副作用 开始 -------------------- */
 const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTMLDivElement> }) => {
   const t = useTranslate()
   const [imageModel, setImageModel] = useState('')
@@ -1470,6 +1482,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       )
     : []
 
+  /* -------------------- 功能区：设置页状态、派生数据与副作用 结束 -------------------- */
+
+  /* -------------------- 功能区：各设置页渲染与页面分发 开始 -------------------- */
   const renderPage = (screen: Page) => (
     <>
       <header className={styles.header}>
@@ -3771,6 +3786,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     </>
   )
 
+  /* -------------------- 功能区：各设置页渲染与页面分发 结束 -------------------- */
+
+  /* -------------------- 功能区：弹层、导入与危险操作确认 开始 -------------------- */
   const popups = (
     <>
       {popup === 'locale' ? (
@@ -4521,6 +4539,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     </>
   )
 
+  /* -------------------- 功能区：弹层、导入与危险操作确认 结束 -------------------- */
+
+  /* -------------------- 功能区：页面栈渲染收尾 开始 -------------------- */
   const pages = [page]
   for (let parent = parentPage[page]; parent; parent = parentPage[parent]) {
     pages.unshift(parent)
@@ -4550,3 +4571,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     </div>
   )
 }
+/* -------------------- 功能区：页面栈渲染收尾 结束 -------------------- */
+
+/* ============================================================================
+ * 功能区：设置页 / AndroidSettings 结束
+ * ========================================================================== */

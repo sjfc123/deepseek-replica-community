@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：历史归档 / exportArchive 开始
+ * 职责：历史归档导出：会话、设定与图片打包为可校验 ZIP。
+ * ========================================================================== */
+
 import * as db from '../db.js'
 import type { Session } from '../types.js'
 import { EXPORT_FORMAT_VERSION, type Manifest, type SessionIndexEntry } from './format.js'
@@ -58,3 +63,7 @@ export const exportArchive = async (
   entries.push({ name: INDEX_PATH, blob: json(index) })
   return writeArchive(entries.concat(imageEntries))
 }
+
+/* ============================================================================
+ * 功能区：历史归档 / exportArchive 结束
+ * ========================================================================== */

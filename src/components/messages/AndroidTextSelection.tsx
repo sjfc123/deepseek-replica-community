@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：消息渲染 / AndroidTextSelection 开始
+ * 职责：AndroidTextSelection 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：AndroidTextSelection。
+ * ========================================================================== */
+
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
@@ -53,10 +59,12 @@ type VisualLayout = {
   toolbarLeft: number
 }
 
-const BLOCK_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre, td, th, [data-latex-display="true"]'
+const BLOCK_SELECTOR =
+  'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre, td, th, [data-latex-display="true"]'
 const INLINE_SELECTOR =
   'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre, td, th, span, a, code, em, strong, del'
-const IGNORED_SELECTOR = '[aria-hidden="true"], button, [role="toolbar"], .katex-mathml, .ds-markdown-cite'
+const IGNORED_SELECTOR =
+  '[aria-hidden="true"], button, [role="toolbar"], .katex-mathml, .ds-markdown-cite'
 const HANDLE_SIZE = 22
 const TOOLBAR_MARGIN = 12
 const TOOLBAR_SAFE_BOTTOM = 84
@@ -153,7 +161,11 @@ const getDisplayMathRect = (el: HTMLElement): DOMRect | null => {
   return width > 0.5 && height > 0.5 ? new DOMRect(left, top, width, height) : null
 }
 
-const getSubRangeRects = (seg: SelectionSegment, rangeStart: number, rangeEnd: number): DOMRect[] => {
+const getSubRangeRects = (
+  seg: SelectionSegment,
+  rangeStart: number,
+  rangeEnd: number
+): DOMRect[] => {
   if (rangeEnd <= seg.start || rangeStart >= seg.end) {
     return []
   }
@@ -194,10 +206,7 @@ const getAllSelectedClientRects = (
   return rects
 }
 
-const findBlockScope = (
-  element: Element | null,
-  root: HTMLElement
-): Element | null => {
+const findBlockScope = (element: Element | null, root: HTMLElement): Element | null => {
   let cursor: Element | null = element
   while (cursor && cursor !== root && root.contains(cursor)) {
     if (cursor.matches(BLOCK_SELECTOR)) {
@@ -244,8 +253,18 @@ const findInitialBlockOffsets = (
     let bestSegment: SelectionSegment | null = null
     for (const seg of segments) {
       for (const rect of getSubRangeRects(seg, seg.start, seg.end)) {
-        const dx = point.x < rect.left ? rect.left - point.x : point.x > rect.right ? point.x - rect.right : 0
-        const dy = point.y < rect.top ? rect.top - point.y : point.y > rect.bottom ? point.y - rect.bottom : 0
+        const dx =
+          point.x < rect.left
+            ? rect.left - point.x
+            : point.x > rect.right
+              ? point.x - rect.right
+              : 0
+        const dy =
+          point.y < rect.top
+            ? rect.top - point.y
+            : point.y > rect.bottom
+              ? point.y - rect.bottom
+              : 0
         const dist = dx * dx + dy * dy
         if (dist < bestDistance) {
           bestDistance = dist
@@ -343,7 +362,10 @@ const resolveOffsetGeometric = (
         : clientY > box.rect.bottom
           ? clientY - box.rect.bottom
           : 0
-    if (dy < minDy || (dy === minDy && Math.abs(clientY - box.centerY) < Math.abs(clientY - bestCenterY))) {
+    if (
+      dy < minDy ||
+      (dy === minDy && Math.abs(clientY - box.centerY) < Math.abs(clientY - bestCenterY))
+    ) {
       minDy = dy
       bestCenterY = box.centerY
     }
@@ -396,7 +418,8 @@ const resolveOffsetGeometric = (
       continue
     }
     const targetRect =
-      rects.find((r) => Math.abs((r.top + r.bottom) / 2 - bestCenterY) <= r.height * 0.7) ?? rects[0]
+      rects.find((r) => Math.abs((r.top + r.bottom) / 2 - bestCenterY) <= r.height * 0.7) ??
+      rects[0]
     const midX = (targetRect.left + targetRect.right) / 2
     if (targetRect.bottom < bestCenterY - targetRect.height * 0.5) {
       lo = mid + 1
@@ -573,12 +596,15 @@ export const AndroidTextSelection = ({
     const first = clientRects[0]
     const last = clientRects[clientRects.length - 1]
 
-    const toolbarWidth = toolbarRef.current?.offsetWidth || (current.start === 0 && current.end === totalLength ? 68 : 134)
+    const toolbarWidth =
+      toolbarRef.current?.offsetWidth ||
+      (current.start === 0 && current.end === totalLength ? 68 : 134)
     const toolbarHeight = toolbarRef.current?.offsetHeight || 54
     const safeTop = Math.max(
       TOOLBAR_MARGIN,
-      Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--android-status-inset')) + 58 ||
-        82
+      Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--android-status-inset')
+      ) + 58 || 82
     )
     const safeBottom = window.innerHeight - TOOLBAR_SAFE_BOTTOM
 
@@ -588,14 +614,20 @@ export const AndroidTextSelection = ({
     } else if (last.bottom + HANDLE_SIZE + 14 + toolbarHeight <= safeBottom) {
       toolbarTop = last.bottom + HANDLE_SIZE + 14
     } else {
-      toolbarTop = Math.max(safeTop, Math.min(safeBottom - toolbarHeight, first.top - toolbarHeight - 10))
+      toolbarTop = Math.max(
+        safeTop,
+        Math.min(safeBottom - toolbarHeight, first.top - toolbarHeight - 10)
+      )
     }
 
     const selectionCenterX =
       first.top === last.top ? (first.left + last.right) / 2 : (rootRect.left + rootRect.right) / 2
     const toolbarLeft = Math.max(
       TOOLBAR_MARGIN,
-      Math.min(window.innerWidth - toolbarWidth - TOOLBAR_MARGIN, selectionCenterX - toolbarWidth / 2)
+      Math.min(
+        window.innerWidth - toolbarWidth - TOOLBAR_MARGIN,
+        selectionCenterX - toolbarWidth / 2
+      )
     )
 
     setLayout({
@@ -864,3 +896,7 @@ export const AndroidTextSelection = ({
     </>
   )
 }
+
+/* ============================================================================
+ * 功能区：消息渲染 / AndroidTextSelection 结束
+ * ========================================================================== */

@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：Android 原生容器 / UpdateRelease 开始
+ * 职责：Android 更新配置：更新源、版本比较与下载元信息。
+ * ========================================================================== */
+
 package io.github.lijiahua1024.dsreplica;
 
 import android.content.Context;
@@ -209,3 +214,8 @@ record UpdateRelease(String version, URL url, long size, String digest) {
 
     static final class InvalidApk extends Exception {}
 }
+
+
+/* ============================================================================
+ * 功能区：Android 原生容器 / UpdateRelease 结束
+ * ========================================================================== */

@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Android 原生容器 / UpdateApkProvider 开始
+ * 职责：UpdateApkProvider 原生实现，负责该类的平台能力，并通过 JS 桥或 Intent 与页面交互。
+ * 导出：无对外导出，仅供同目录模块使用。
+ * ========================================================================== */
+
 package io.github.lijiahua1024.dsreplica;
 
 import android.content.ContentProvider;
@@ -57,3 +63,8 @@ public final class UpdateApkProvider extends ContentProvider {
     @Override public int update(Uri uri, ContentValues values, String selection, String[] arguments) { throw new UnsupportedOperationException(); }
     @Override public int delete(Uri uri, String selection, String[] arguments) { throw new UnsupportedOperationException(); }
 }
+
+
+/* ============================================================================
+ * 功能区：Android 原生容器 / UpdateApkProvider 结束
+ * ========================================================================== */

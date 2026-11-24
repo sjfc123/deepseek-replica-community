@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：消息渲染 / MessageList 开始
+ * 职责：消息列表：分支渲染、虚拟滚动、选择模式与底部操作条。
+ * ========================================================================== */
+
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { android } from '../../app/android.js'
@@ -44,6 +49,7 @@ import type { Message } from '../../services/chat/types.js'
  * 会话共用可重试的附件上传失败入口，覆盖当前提问与历史消息中的附件。
  * 点击后按失败的回答重新补传附件并请求。
  */
+/* -------------------- 功能区：列表派生与重试标识 开始 -------------------- */
 const getUploadRetryId = (messages: Message[], streaming: boolean) => {
   const last = messages.at(-1)
   return !streaming &&
@@ -69,6 +75,9 @@ const SEARCH_JUMP_TOP_OFFSET = 10
 const SEARCH_JUMP_SETTLE_MS = 650
 const SEARCH_HIGHLIGHT_MS = 1800
 
+/* -------------------- 功能区：列表派生与重试标识 结束 -------------------- */
+
+/* -------------------- 功能区：消息列表渲染与交互 开始 -------------------- */
 export const MessageList = ({
   session,
   streaming,
@@ -781,9 +790,7 @@ export const MessageList = ({
     const result = saveMessagesAsMemory(
       session.id,
       Array.from(memorySelect.ids),
-      savePool === 'normal'
-        ? { pool: 'normal', category: memoryKind }
-        : { pool: 'character' }
+      savePool === 'normal' ? { pool: 'normal', category: memoryKind } : { pool: 'character' }
     )
     setMemoryConfirm(false)
     setMemorySelect({ active: false, ids: new Set() })
@@ -963,7 +970,8 @@ export const MessageList = ({
               >
                 <strong className={styles.memoryConfirmTitle}>保存为记忆？</strong>
                 <p className={styles.memoryConfirmText}>
-                  已选 {memorySelectedCount} 条消息。先选分类：角色记忆按轮保存剧情与时间线；普通记忆每条独立保存，更适合开发、问答和代码检索。
+                  已选 {memorySelectedCount}{' '}
+                  条消息。先选分类：角色记忆按轮保存剧情与时间线；普通记忆每条独立保存，更适合开发、问答和代码检索。
                 </p>
                 <div className={styles.memoryConfirmPools} role="radiogroup" aria-label="记忆分类">
                   <button
@@ -989,7 +997,11 @@ export const MessageList = ({
                   </button>
                 </div>
                 {memoryPool === 'normal' ? (
-                  <div className={styles.memoryConfirmKinds} role="radiogroup" aria-label="普通记忆子分类">
+                  <div
+                    className={styles.memoryConfirmKinds}
+                    role="radiogroup"
+                    aria-label="普通记忆子分类"
+                  >
                     <button
                       type="button"
                       role="radio"
@@ -1044,3 +1056,8 @@ export const MessageList = ({
     </ScrollToBottomContext.Provider>
   )
 }
+/* -------------------- 功能区：消息列表渲染与交互 结束 -------------------- */
+
+/* ============================================================================
+ * 功能区：消息渲染 / MessageList 结束
+ * ========================================================================== */

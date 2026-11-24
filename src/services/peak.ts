@@ -1,9 +1,15 @@
+/* ============================================================================
+ * 功能区：本地服务 / peak 开始
+ * 职责：峰谷时段：按本地时钟判断高峰/空闲并生成提示。
+ * 导出：PeakHint、getPeakHint。
+ * ========================================================================== */
+
 /**
  * DeepSeek API 峰谷时段。
  *
  * 规则来自官方定价页：北京时间周一至周五 09:00-12:00、14:00-18:00 为高峰，
  * 其余时间、周末和中国法定节假日全天为空闲；空闲价是高峰价的一半。
- * 计费按服务端收到请求的时间判定，所以这里只做本地时钟提示，不参与请求。
+ * 计费以服务端收到请求的时间为准，因此仅生成本地时钟提示，不参与请求计时。
  *
  * 法定节假日使用国务院公布的 2026 年安排；跨年后未更新的日期只能按周末判断。
  */
@@ -50,8 +56,7 @@ export type PeakHint = {
 
 const pad = (value: number) => String(value).padStart(2, '0')
 
-const dateKey = (year: number, month: number, day: number) =>
-  `${year}-${pad(month)}-${pad(day)}`
+const dateKey = (year: number, month: number, day: number) => `${year}-${pad(month)}-${pad(day)}`
 
 const beijingParts = (now: Date) => {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -63,8 +68,7 @@ const beijingParts = (now: Date) => {
     minute: '2-digit',
     hourCycle: 'h23',
   }).formatToParts(now)
-  const read = (type: string) =>
-    Number(parts.find((part) => part.type === type)?.value ?? 0)
+  const read = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0)
   const hour = read('hour') % 24
   return {
     year: read('year'),
@@ -95,9 +99,7 @@ const beijingTime = (year: number, month: number, day: number, minuteOfDay: numb
 const holidayOf = (year: number, month: number, day: number) => {
   const key = dateKey(year, month, day)
   if (year === 2026) {
-    const range = HOLIDAY_RANGES_2026.find(
-      (item) => key >= item.from && key <= item.to
-    )
+    const range = HOLIDAY_RANGES_2026.find((item) => key >= item.from && key <= item.to)
     if (range) {
       return range.name
     }
@@ -118,10 +120,7 @@ const isWorkday = (year: number, month: number, day: number) => {
 }
 
 const isPeakMinute = (workday: boolean, minuteOfDay: number) =>
-  workday &&
-  PEAK_WINDOWS.some(
-    (window) => minuteOfDay >= window.start && minuteOfDay < window.end
-  )
+  workday && PEAK_WINDOWS.some((window) => minuteOfDay >= window.start && minuteOfDay < window.end)
 
 const weekdayLabel = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
@@ -159,12 +158,7 @@ const durationLabel = (minutes: number) => {
 }
 
 /** 找下一个工作日的 09:00；从次日开始，最多查 15 天 */
-const nextWorkdayPeak = (
-  year: number,
-  month: number,
-  day: number,
-  includeToday: boolean
-) => {
+const nextWorkdayPeak = (year: number, month: number, day: number, includeToday: boolean) => {
   for (let offset = includeToday ? 0 : 1; offset <= 15; offset += 1) {
     const target = shiftDay(year, month, day, offset)
     if (isWorkday(target.year, target.month, target.day)) {
@@ -194,11 +188,7 @@ export const getPeakHint = (now = new Date()): PeakHint => {
   } else if (workday && minuteOfDay < PEAK_WINDOWS[0].start) {
     next = { ...today, minuteOfDay: PEAK_WINDOWS[0].start }
     nextPeak = true
-  } else if (
-    workday &&
-    minuteOfDay >= PEAK_WINDOWS[0].end &&
-    minuteOfDay < PEAK_WINDOWS[1].start
-  ) {
+  } else if (workday && minuteOfDay >= PEAK_WINDOWS[0].end && minuteOfDay < PEAK_WINDOWS[1].start) {
     next = { ...today, minuteOfDay: PEAK_WINDOWS[1].start }
     nextPeak = true
   } else {
@@ -209,17 +199,10 @@ export const getPeakHint = (now = new Date()): PeakHint => {
   let nextLabel = ''
   if (next) {
     const targetTime = beijingTime(next.year, next.month, next.day, next.minuteOfDay)
-    const remaining = Math.max(
-      1,
-      Math.ceil((targetTime - now.getTime()) / MINUTE_MS)
-    )
-    const clock = `${pad(Math.floor(next.minuteOfDay / 60))}:${pad(
-      next.minuteOfDay % 60
-    )}`
+    const remaining = Math.max(1, Math.ceil((targetTime - now.getTime()) / MINUTE_MS))
+    const clock = `${pad(Math.floor(next.minuteOfDay / 60))}:${pad(next.minuteOfDay % 60)}`
     const day = dayLabel(today, next)
-    nextLabel = `距${nextPeak ? '高峰' : '空闲'} ${day} ${clock} 还剩 ${durationLabel(
-      remaining
-    )}`
+    nextLabel = `距${nextPeak ? '高峰' : '空闲'} ${day} ${clock} 还剩 ${durationLabel(remaining)}`
   }
 
   const rangeLabel = holiday
@@ -236,3 +219,7 @@ export const getPeakHint = (now = new Date()): PeakHint => {
     rangeLabel,
   }
 }
+
+/* ============================================================================
+ * 功能区：本地服务 / peak 结束
+ * ========================================================================== */

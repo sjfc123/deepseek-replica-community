@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：历史归档 / mergeSessions 开始
+ * 职责：mergeSessions 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
+ * 导出：MergeSessionOptions、MergeSessionResult、mergeSessions。
+ * ========================================================================== */
+
 import { createId } from '../../../utils/id.js'
 import { getVisibleMessages, normalizeSession } from '../branches.js'
 import type {
@@ -600,3 +606,7 @@ export const mergeSessions = (
 
   return { session: mergedSession, changed: true, addedMessages, updatedMessages }
 }
+
+/* ============================================================================
+ * 功能区：历史归档 / mergeSessions 结束
+ * ========================================================================== */

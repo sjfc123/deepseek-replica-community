@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：本地服务 / settings 开始
+ * 职责：设置状态：本机配置读写、迁移、角色卡/档案/世界书存档与全局开关。
+ * ========================================================================== */
+
 import { create } from 'zustand'
 import { android } from '../app/android.js'
 import { DEFAULT_CHAT_CONFIG, readChatConfig, type ChatConfig } from './api/chatConfig.js'
@@ -36,6 +41,7 @@ export type SessionFolder = {
 }
 
 /** 自动备份间隔：以分钟为存储单位，默认 2 小时，允许 5 分钟–168 小时 */
+/* -------------------- 功能区：自动备份参数与默认提示词 开始 -------------------- */
 export const AUTO_BACKUP_MINUTES_DEFAULT = 120
 export const AUTO_BACKUP_MINUTES_MIN = 5
 export const AUTO_BACKUP_MINUTES_MAX = 10080
@@ -278,7 +284,7 @@ const KEYS = {
   characterName: 'replica:character-name',
   /** 角色基础档案：结构固定，单键保存整份 JSON */
   characterProfile: 'replica:character-profile',
-  /** 基础档案开关：没有历史值时默认开启，升级后行为与 0.8.83 一致 */
+  /** 基础档案开关：无历史值时默认开启；该口径自 0.8.84 引入独立开关起生效 */
   profileEnabled: 'replica:character-profile-enabled',
   characterAvatar: 'replica:character-avatar',
   avatarInChat: 'replica:avatar-in-chat',
@@ -320,6 +326,9 @@ const KEYS = {
 } as const
 
 /** 卡片上限允许 10–9999；9999 近似「一直记」，实际仍受存储与注入预算约束 */
+/* -------------------- 功能区：自动备份参数与默认提示词 结束 -------------------- */
+
+/* -------------------- 功能区：记忆与世界书预算 开始 -------------------- */
 export const MEMORY_LIMIT_MIN = 10
 export const MEMORY_LIMIT_MAX = 9999
 /** 每次注入的字符预算：默认 1,000,000，允许 1,000–5,000,000 */
@@ -332,6 +341,9 @@ export const WORLDBOOK_BUDGET_MIN = 500
 export const WORLDBOOK_BUDGET_MAX = 20_000
 export const WORLDBOOK_BUDGET_DEFAULT = 1000
 
+/* -------------------- 功能区：记忆与世界书预算 结束 -------------------- */
+
+/* -------------------- 功能区：本机存储读写与状态初始化 开始 -------------------- */
 const read = (key: string) => {
   try {
     return localStorage.getItem(key)
@@ -465,7 +477,7 @@ const initialActiveCharacterId = (): string | null => {
 
 /**
  * 角色名字属于「手写角色基础档案」，与当前角色卡完全分开。
- * 启用、关闭或编辑角色卡都不会写入这里；这里只保存用户亲手填写的档案名。
+ * 启用、关闭或编辑角色卡均不写入该键；该键只保存用户手动填写的档案名。
  */
 const initialCharacterName = (): string => read(KEYS.characterName)?.trim() ?? ''
 
@@ -615,6 +627,9 @@ const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'tide' ? 'tide'
 /* 建立设置状态之前先体检本机数据：覆盖安装带来的旧值在这里修好或隔离，不让它进读取链路 */
 migrateLocalData()
 
+/* -------------------- 功能区：本机存储读写与状态初始化 结束 -------------------- */
+
+/* -------------------- 功能区：设置状态与通用 Setter 开始 -------------------- */
 export const useSettings = create<Settings>(() => ({
   apiKey: android ? android.readApiKey() : read(KEYS.apiKey),
   chatConfig: readChatConfig(
@@ -935,6 +950,9 @@ export const matchRefusalKeyword = (text: string): string | null => {
 
 /** 角色档案与表达页：只复位表达提示词 */
 
+/* -------------------- 功能区：设置状态与通用 Setter 结束 -------------------- */
+
+/* -------------------- 功能区：角色卡、世界书与场景操作 开始 -------------------- */
 const persistCharacterCards = (cards: CharacterCard[]) =>
   write(KEYS.characterCards, cards.length > 0 ? JSON.stringify(cards) : null)
 
@@ -1094,6 +1112,9 @@ export const setSceneAutoUpdate = (sceneAutoUpdate: boolean) => {
 }
 
 /** 会话分组与归档的读取：坏数据直接丢弃，避免侧栏整体读不出来 */
+/* -------------------- 功能区：角色卡、世界书与场景操作 结束 -------------------- */
+
+/* -------------------- 功能区：会话分组、归档与设定存档 开始 -------------------- */
 function initialSessionFolders(): SessionFolder[] {
   try {
     const parsed: unknown = JSON.parse(read(KEYS.sessionFolders) ?? '[]')
@@ -1198,6 +1219,9 @@ export const setSessionArchived = (sessionId: string, archived: boolean) => {
   useSettings.setState({ archivedSessions: next })
 }
 
+/* -------------------- 功能区：会话分组、归档与设定存档 结束 -------------------- */
+
+/* -------------------- 功能区：角色身份与基础档案 开始 -------------------- */
 export const setCharacterName = (characterName: string) => {
   const value = characterName.trim()
   write(KEYS.characterName, value || null)
@@ -1245,6 +1269,9 @@ export const setCharacterAvatar = (characterAvatar: string | null) => {
 }
 
 /** 重新开启用量提醒时同步恢复此前关闭的顶部小窗 */
+/* -------------------- 功能区：角色身份与基础档案 结束 -------------------- */
+
+/* -------------------- 功能区：Token 限额与使用统计 开始 -------------------- */
 export const setTokenLimit = (tokenLimit: number) => {
   const limit = Number.isFinite(tokenLimit) ? Math.max(0, Math.round(tokenLimit)) : 0
   write(KEYS.tokenLimit, String(limit))
@@ -1498,3 +1525,8 @@ export const resetChatTuning = () => {
 applyChatLayout(useSettings.getState().chatLayout)
 applyAvatarSizes()
 applyAvatarShape(useSettings.getState().avatarShape)
+/* -------------------- 功能区：Token 限额与使用统计 结束 -------------------- */
+
+/* ============================================================================
+ * 功能区：本地服务 / settings 结束
+ * ========================================================================== */

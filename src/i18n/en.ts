@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：国际化 / en 开始
+ * 职责：英文文案字典：维护界面、错误与公告所需英文文本。
+ * 导出：androidWelcomeMessages、androidColdStartGreeting、en。
+ * ========================================================================== */
+
 import type { zh } from './zh.js'
 
 export const androidWelcomeMessages = [
@@ -14,8 +20,10 @@ export const en = {
   whaleInteraction: 'Interact with the whale',
   peakHoursShort: 'peak',
   offpeakHoursShort: 'off-peak',
-  whaleLinePhase1: 'It is {phase} hours. If you want to chat or roleplay, I am here whenever you like.',
-  whaleLinePhase2: 'We are in {phase} hours. If you plan to start a scene, I am ready whenever you are.',
+  whaleLinePhase1:
+    'It is {phase} hours. If you want to chat or roleplay, I am here whenever you like.',
+  whaleLinePhase2:
+    'We are in {phase} hours. If you plan to start a scene, I am ready whenever you are.',
   whaleLinePhase3: 'It is {phase} hours now. For casual talk or roleplay, just type your message.',
   whaleLineTease1: 'Hey, stop poking me. I am not a toy.',
   whaleLineTease2: 'Hmm... you keep tapping me. Is there nothing else you want to do?',
@@ -58,9 +66,11 @@ export const en = {
   androidCopy: 'Copy',
   androidArchive: 'Archive',
   androidBulkCopyConfirmTitle: 'Copy the {count} selected chats?',
-  androidBulkCopyConfirmBody: 'Each chat becomes an independent branch; copies appear at the top and the originals stay unchanged.',
+  androidBulkCopyConfirmBody:
+    'Each chat becomes an independent branch; copies appear at the top and the originals stay unchanged.',
   androidBulkArchiveConfirmTitle: 'Archive the {count} selected chats?',
-  androidBulkArchiveConfirmBody: 'Archived chats leave the current list but stay in backups and exports; you can unarchive anytime.',
+  androidBulkArchiveConfirmBody:
+    'Archived chats leave the current list but stay in backups and exports; you can unarchive anytime.',
   androidBulkCopied: 'Copied {count} chats; copies are at the top of the list',
   androidBulkArchived: 'Archived {count} chats; they stay in backups',
   androidBulkMoved: 'Moved {count} chats to "{name}"',
@@ -90,21 +100,26 @@ export const en = {
   sessionMenuArchive: 'Archive',
   sessionMenuUnarchive: 'Unarchive',
   sessionConfirmPinTitle: 'Pin “{name}”?',
-  sessionConfirmPinBody: 'Pinned chats move to the top of the list; the conversation itself is unchanged.',
+  sessionConfirmPinBody:
+    'Pinned chats move to the top of the list; the conversation itself is unchanged.',
   sessionConfirmUnpinTitle: 'Unpin “{name}”?',
   sessionConfirmUnpinBody: 'It returns to normal ordering; the conversation itself is unchanged.',
   sessionConfirmFolderTitle: 'Move “{name}” to a folder?',
   sessionConfirmFolderBody: 'You will choose the target folder next; the chat is not deleted.',
   sessionConfirmExportTitle: 'Export “{name}” with settings?',
-  sessionConfirmExportBody: 'Packs this chat with character cards, the world book and scene into a ZIP, then opens the system save panel.',
+  sessionConfirmExportBody:
+    'Packs this chat with character cards, the world book and scene into a ZIP, then opens the system save panel.',
   sessionConfirmExportTextTitle: 'Export “{name}” as text?',
-  sessionConfirmExportTextBody: 'Exports only the transcript as .md, without character cards or settings.',
+  sessionConfirmExportTextBody:
+    'Exports only the transcript as .md, without character cards or settings.',
   sessionConfirmForkTitle: 'Duplicate “{name}” as a new chat?',
   sessionConfirmForkBody: 'Copies the current branch into a new chat; the original is untouched.',
   sessionConfirmArchiveTitle: 'Archive “{name}”?',
-  sessionConfirmArchiveBody: 'It leaves the current list but stays in backups and exports; you can unarchive anytime.',
+  sessionConfirmArchiveBody:
+    'It leaves the current list but stays in backups and exports; you can unarchive anytime.',
   sessionConfirmUnarchiveTitle: 'Unarchive “{name}”?',
-  sessionConfirmUnarchiveBody: 'It returns to the normal list; the conversation itself is unchanged.',
+  sessionConfirmUnarchiveBody:
+    'It returns to the normal list; the conversation itself is unchanged.',
   sessionMenuExportBundle: 'Export this chat (with settings)',
   sessionBundleExported: 'Exported “{name}”',
   sessionBundleCanceled: 'Export cancelled',
@@ -359,7 +374,8 @@ export const en = {
   effortLow: 'Low',
   effortHigh: 'High',
   effortMax: 'Max',
-  effortNote: 'Higher effort lengthens the reasoning chain and increases output tokens and latency. Applies to OpenAI-protocol endpoints only.',
+  effortNote:
+    'Higher effort lengthens the reasoning chain and increases output tokens and latency. Applies to OpenAI-protocol endpoints only.',
   deactivatedSearchTooltip: 'Search the web when necessary',
   search: 'Search',
   uploadFile: 'Upload files',
@@ -419,8 +435,7 @@ export const en = {
   roleplayIntroStarted: '“{name}” is active; a new chat was created with the opener',
   roleplaySwitched: 'Switched to “{name}”',
   roleplayEntryFields: 'A worldbook entry needs a title and content',
-  roleplayEntryDuplicate:
-    'An identical entry already exists: same card, kind, title and content',
+  roleplayEntryDuplicate: 'An identical entry already exists: same card, kind, title and content',
   roleplayEntrySaved: 'Worldbook entry “{name}” saved',
   roleplayDeleted: 'Deleted “{name}”',
   roleplayExampleApplied: 'Applied the “{name}” example; edit as needed',
@@ -428,15 +443,23 @@ export const en = {
   roleplayBuiltinPresent: 'All built-in character cards are present',
   roleplayAvatarUpdated: 'Avatar updated',
   roleplayAvatarFailed: 'Avatar could not be processed: {reason}',
-  roleplayClosed: 'The global switch for “{name}” is off. New chats use the handwritten prompt; chats already bound to this persona keep the card.',
+  roleplayClosed:
+    'The global switch for “{name}” is off. New chats use the handwritten prompt; chats already bound to this persona keep the card.',
   roleplayCardCopied: 'Copied as “{name}”; edit it independently',
   roleplayCardLimit: 'Limit is {max} character cards; delete one before copying',
   roleplaySceneCleared: 'Scene cleared',
   roleplaySceneUpdated: 'Scene updated automatically',
   roleplayWorldbookExported: 'Worldbook exported as “{name}”',
   roleplayWorldbookExportCanceled: 'Export cancelled',
-  roleplayCharacterImported: 'Cards imported: {added} added, {skipped} skipped, {entries} lorebook entries, {avatars} avatars',
-  roleplayCharacterBadFile: 'Unsupported card file or missing name; use Character Card V2/V3 JSON, TavernAI JSON or a chara PNG',
+  roleplayCharacterImported:
+    'Cards imported: {added} added, {skipped} skipped, {entries} lorebook entries, {avatars} avatars',
+  roleplayCharacterBadFile:
+    'Unsupported card file or missing name; use Character Card V2/V3 JSON, TavernAI JSON or a chara PNG',
   roleplayWorldbookBadFile: 'This file is not a worldbook archive, or none of it is usable',
-  roleplayWorldbookImported: 'Worldbook imported: {added} added, {updated} updated, {skipped} skipped',
+  roleplayWorldbookImported:
+    'Worldbook imported: {added} added, {updated} updated, {skipped} skipped',
 } satisfies Record<keyof typeof zh, string>
+
+/* ============================================================================
+ * 功能区：国际化 / en 结束
+ * ========================================================================== */

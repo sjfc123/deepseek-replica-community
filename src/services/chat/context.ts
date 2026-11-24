@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / context 开始
+ * 职责：context 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：WINDOW_TOKENS、SUMMARY_OUTPUT_TOKENS、contextBudget、resolveMaxOutputTokens、estimateQuestionTokens、textPrefixLength 等 10 个导出。
+ * ========================================================================== */
+
 import { isContextOverflow } from '../api/errors.js'
 import { getContextRounds, getReplyText } from './reply.js'
 import { estimateTextTokens } from './tokenEstimator.js'
@@ -314,3 +320,7 @@ export const prepareHistoryContext = async ({
 
 const summaryTokens = (summary: string | undefined, scale = 1) =>
   summary ? scaleTokens(estimateTextTokens(summary), scale) + 64 : 0
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / context 结束
+ * ========================================================================== */

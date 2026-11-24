@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：配图生成 / store 开始
+ * 职责：store 服务实现，负责配图请求与本地配图状态的该子能力。
+ * 导出：putIllustration、removeIllustration、useIllustration。
+ * ========================================================================== */
+
 import { useSyncExternalStore } from 'react'
 
 /** 插图按消息 ID 存本机，只保留最近若干张，避免撑爆 localStorage */
@@ -44,9 +50,7 @@ export const putIllustration = (messageId: string, url: string, prompt: string) 
 }
 
 export const removeIllustration = (messageId: string) => {
-  const next = Object.fromEntries(
-    Object.entries(read()).filter(([id]) => id !== messageId)
-  )
+  const next = Object.fromEntries(Object.entries(read()).filter(([id]) => id !== messageId))
   write(next)
 }
 
@@ -58,4 +62,12 @@ const subscribe = (listener: () => void) => {
 const getEntry = (messageId: string) => read()[messageId]?.url ?? null
 
 export const useIllustration = (messageId: string) =>
-  useSyncExternalStore(subscribe, () => getEntry(messageId), () => null)
+  useSyncExternalStore(
+    subscribe,
+    () => getEntry(messageId),
+    () => null
+  )
+
+/* ============================================================================
+ * 功能区：配图生成 / store 结束
+ * ========================================================================== */

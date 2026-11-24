@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：本地服务 / dataMigration 开始
+ * 职责：本地数据迁移：修复旧键、隔离非法值并在启动前完成一次性校准。
+ * 导出：DATA_VERSION、MigrationReport、readMigrationReport、migrateLocalData。
+ * ========================================================================== */
+
 /**
  * 本机数据校验与迁移。
  *
@@ -248,8 +254,7 @@ const checkActiveCharacter = (report: MigrationReport) => {
   }
   const cards = parse(safeRead('replica:character-cards'))
   const exists =
-    Array.isArray(cards) &&
-    cards.some((card) => isRecord(card) && card.id === activeId)
+    Array.isArray(cards) && cards.some((card) => isRecord(card) && card.id === activeId)
   if (!exists) {
     report.removed.push('replica:active-character')
     safeRemove('replica:active-character')
@@ -312,3 +317,7 @@ export const migrateLocalData = (): MigrationReport | null => {
   safeWrite(REPORT_KEY, JSON.stringify(report))
   return report
 }
+
+/* ============================================================================
+ * 功能区：本地服务 / dataMigration 结束
+ * ========================================================================== */

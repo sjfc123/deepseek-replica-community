@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 解析 / katex 开始
+ * 职责：katex 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
+ * 导出：Katex、ensureKatex。
+ * ========================================================================== */
+
 export type Katex = typeof import('katex').default
 
 let katex: Katex | null = null
@@ -15,3 +21,7 @@ export const ensureKatex = (): Katex | Promise<Katex> => {
   ]).then(([module]) => (katex = module.default))
   return katexPromise
 }
+
+/* ============================================================================
+ * 功能区：Markdown 解析 / katex 结束
+ * ========================================================================== */

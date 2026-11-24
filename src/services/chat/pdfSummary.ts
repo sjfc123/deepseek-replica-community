@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / pdfSummary 开始
+ * 职责：pdfSummary 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：summarizePdfPages。
+ * ========================================================================== */
+
 import { readBlobBuffer } from '../../utils/blob.js'
 import { ApiError, deleteFile, uploadFile } from '../api/client.js'
 import { isContextOverflow } from '../api/errors.js'
@@ -91,3 +97,7 @@ export const summarizePdfPages = async ({
   }
   return previous ?? null
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / pdfSummary 结束
+ * ========================================================================== */

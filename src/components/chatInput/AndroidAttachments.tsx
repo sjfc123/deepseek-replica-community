@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：输入与语音控件 / AndroidAttachments 开始
+ * 职责：AndroidAttachments 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：AndroidAttachments。
+ * ========================================================================== */
+
 import { useEffect, useRef, useState } from 'react'
 import { android } from '../../app/android.js'
 import { useTranslate } from '../../i18n/index.js'
@@ -177,3 +183,7 @@ export const AndroidAttachments = ({
     </section>
   )
 }
+
+/* ============================================================================
+ * 功能区：输入与语音控件 / AndroidAttachments 结束
+ * ========================================================================== */

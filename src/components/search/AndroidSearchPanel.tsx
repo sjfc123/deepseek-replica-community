@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：搜索与引用 / AndroidSearchPanel 开始
+ * 职责：AndroidSearchPanel 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：AndroidSearchPanel。
+ * ========================================================================== */
+
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { openAndroidPage } from '../../app/openAndroidPage.js'
 import { useAndroidBackInterception } from '../../app/useAndroidBackInterception.js'
@@ -248,3 +254,7 @@ export const AndroidSearchPanel = () => {
     </div>
   )
 }
+
+/* ============================================================================
+ * 功能区：搜索与引用 / AndroidSearchPanel 结束
+ * ========================================================================== */

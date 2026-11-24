@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / CollapsedSider 开始
+ * 职责：CollapsedSider 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：CollapsedSider。
+ * ========================================================================== */
+
 import { IconPanelLeftOutline16, NewChatIcon } from '../base/icons.js'
 import { useTranslate } from '../../i18n/index.js'
 import { setSiderCollapsed } from '../../services/settings.js'
@@ -29,3 +35,7 @@ export const CollapsedSider = () => {
     </div>
   )
 }
+
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / CollapsedSider 结束
+ * ========================================================================== */

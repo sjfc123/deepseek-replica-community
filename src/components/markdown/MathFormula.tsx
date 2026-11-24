@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 视图 / MathFormula 开始
+ * 职责：MathFormula 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：MathBlock、InlineMath。
+ * ========================================================================== */
+
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { ensureKatex, type Katex } from '../../services/markdown/katex.js'
 
@@ -67,3 +73,7 @@ export const InlineMath = memo(function InlineMath({ value }: { value: string })
     <span className="katex" data-latex={value} dangerouslySetInnerHTML={{ __html: html }}></span>
   )
 })
+
+/* ============================================================================
+ * 功能区：Markdown 视图 / MathFormula 结束
+ * ========================================================================== */

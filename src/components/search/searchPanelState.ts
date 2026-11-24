@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：搜索与引用 / searchPanelState 开始
+ * 职责：搜索面板状态：面板开关、查询与来源筛选。
+ * 导出：SearchPanelTitle、useSearchPanel、toggleSearchPanel、closeSearchPanel。
+ * ========================================================================== */
+
 import { create } from 'zustand'
 import type { Source } from '../../services/chat/view.js'
 
@@ -24,3 +30,7 @@ export const toggleSearchPanel = (
   )
 
 export const closeSearchPanel = () => useSearchPanel.setState(closedPanel)
+
+/* ============================================================================
+ * 功能区：搜索与引用 / searchPanelState 结束
+ * ========================================================================== */

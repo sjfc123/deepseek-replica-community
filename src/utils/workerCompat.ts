@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：通用工具 / workerCompat 开始
+ * 职责：Worker 兼容：检测、创建与降级主线程执行。
+ * 导出：无对外导出，仅供同目录模块使用。
+ * ========================================================================== */
+
 /**
  * Worker 作用域的语言能力补齐。
  *
@@ -40,18 +46,22 @@ define(String.prototype, 'at', function (this: string, index: number) {
   return i >= 0 && i < this.length ? this.charAt(i) : undefined
 })
 
-define(String.prototype, 'replaceAll', function (this: string, search: string, replacement: string) {
-  const source = String(this)
-  if (search === '') {
-    const fill = String(replacement)
-    let out = fill
-    for (let i = 0; i < source.length; i++) {
-      out += source.charAt(i) + fill
+define(
+  String.prototype,
+  'replaceAll',
+  function (this: string, search: string, replacement: string) {
+    const source = String(this)
+    if (search === '') {
+      const fill = String(replacement)
+      let out = fill
+      for (let i = 0; i < source.length; i++) {
+        out += source.charAt(i) + fill
+      }
+      return out
     }
-    return out
+    return source.split(search).join(String(replacement))
   }
-  return source.split(search).join(String(replacement))
-})
+)
 
 define(Array.prototype, 'flat', function (this: unknown[], depth?: number) {
   const limit = depth === undefined ? 1 : Number(depth) || 0
@@ -73,36 +83,41 @@ define(Array.prototype, 'flat', function (this: unknown[], depth?: number) {
   return out
 })
 
-define(Array.prototype, 'flatMap', function (
-  this: unknown[],
-  mapper: (value: unknown, index: number, list: unknown[]) => unknown
-) {
-  const out: unknown[] = []
-  for (let i = 0; i < this.length; i++) {
-    if (!(i in this)) {
-      continue
+define(
+  Array.prototype,
+  'flatMap',
+  function (this: unknown[], mapper: (value: unknown, index: number, list: unknown[]) => unknown) {
+    const out: unknown[] = []
+    for (let i = 0; i < this.length; i++) {
+      if (!(i in this)) {
+        continue
+      }
+      const mapped = mapper(this[i], i, this)
+      if (Array.isArray(mapped)) {
+        out.push(...mapped)
+      } else {
+        out.push(mapped)
+      }
     }
-    const mapped = mapper(this[i], i, this)
-    if (Array.isArray(mapped)) {
-      out.push(...mapped)
-    } else {
-      out.push(mapped)
-    }
+    return out
   }
-  return out
-})
+)
 
-define(Array.prototype, 'findLastIndex', function (
-  this: unknown[],
-  predicate: (value: unknown, index: number, list: unknown[]) => boolean
-) {
-  for (let i = this.length - 1; i >= 0; i--) {
-    if (predicate(this[i], i, this)) {
-      return i
+define(
+  Array.prototype,
+  'findLastIndex',
+  function (
+    this: unknown[],
+    predicate: (value: unknown, index: number, list: unknown[]) => boolean
+  ) {
+    for (let i = this.length - 1; i >= 0; i--) {
+      if (predicate(this[i], i, this)) {
+        return i
+      }
     }
+    return -1
   }
-  return -1
-})
+)
 
 define(Object, 'fromEntries', (entries: Array<[PropertyKey, unknown]>) => {
   const out: Record<PropertyKey, unknown> = {}
@@ -198,3 +213,7 @@ define(scope, 'queueMicrotask', (task: () => void) => {
 })
 
 export {}
+
+/* ============================================================================
+ * 功能区：通用工具 / workerCompat 结束
+ * ========================================================================== */

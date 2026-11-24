@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：历史归档 / importArchive 开始
+ * 职责：历史归档导入：ZIP 读取、结构校验、图片回填与本地落库。
+ * ========================================================================== */
+
 import { stagingWriter, type StoredFile } from '../db.js'
 import type { Session, SessionSummary } from '../types.js'
 import { BackupError, fail } from './errors.js'
@@ -279,3 +284,7 @@ export const importArchive = async (
   }
   return { summaries: staging.summaries, pinnedIds: [...pinnedIds] }
 }
+
+/* ============================================================================
+ * 功能区：历史归档 / importArchive 结束
+ * ========================================================================== */

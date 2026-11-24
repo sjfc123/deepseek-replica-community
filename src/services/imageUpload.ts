@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：本地服务 / imageUpload 开始
+ * 职责：图片上传预处理：尺寸上限、压缩、格式识别与多图预算。
+ * 导出：MAX_IMAGE_EDGE、MANY_IMAGES_MAX_EDGE、MANY_IMAGES_COUNT、APP_DOWNSAMPLE_PIXELS、UploadedImage、prepareImageUpload。
+ * ========================================================================== */
+
 import { readBlobBuffer } from '../utils/blob.js'
 
 /** 公开 API 的单边上限。对话请求包含至少 15 张图片时使用较小的上限。 */
@@ -85,3 +91,7 @@ export const prepareImageUpload = async (
     URL.revokeObjectURL(url)
   }
 }
+
+/* ============================================================================
+ * 功能区：本地服务 / imageUpload 结束
+ * ========================================================================== */

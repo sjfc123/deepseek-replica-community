@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：设置页 / SettingsDialog 开始
+ * 职责：SettingsDialog 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：SettingsDialog。
+ * ========================================================================== */
+
 import clsx from 'clsx'
 import { android, saveAndroidHistory } from '../../app/android.js'
 import { useRef, useState, type ReactNode } from 'react'
@@ -641,3 +647,7 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
     />
   )
 }
+
+/* ============================================================================
+ * 功能区：设置页 / SettingsDialog 结束
+ * ========================================================================== */

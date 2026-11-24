@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：设置页 / settingsDialogState 开始
+ * 职责：设置弹窗状态：打开分区、API Key 引导与关闭。
+ * 导出：SettingsSection、useSettingsDialog、openSettings、closeSettings、ensureApiKey。
+ * ========================================================================== */
+
 import { create } from 'zustand'
 import { useSettings } from '../../services/settings.js'
 
@@ -23,3 +29,7 @@ export const ensureApiKey = (deepSeekOnly = false) => {
   openSettings('data')
   return false
 }
+
+/* ============================================================================
+ * 功能区：设置页 / settingsDialogState 结束
+ * ========================================================================== */

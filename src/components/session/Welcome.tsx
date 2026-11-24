@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话主视图 / Welcome 开始
+ * 职责：Welcome 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：Welcome。
+ * ========================================================================== */
+
 import { useEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
 import { android } from '../../app/android.js'
@@ -92,7 +98,8 @@ export const Welcome = () => {
         // 冷却期只限制“重新洗牌”，不吞掉点击：快速点击仍然继续换一句
         let index = Math.floor(Math.random() * WHALE_RANDOM_LINES.length)
         if (index === whaleLastLine.current) {
-          index = (index + 1 + Math.floor(Math.random() * (WHALE_RANDOM_LINES.length - 1))) %
+          index =
+            (index + 1 + Math.floor(Math.random() * (WHALE_RANDOM_LINES.length - 1))) %
             WHALE_RANDOM_LINES.length
         }
         whaleLastLine.current = index
@@ -187,3 +194,7 @@ export const Welcome = () => {
     </div>
   )
 }
+
+/* ============================================================================
+ * 功能区：会话主视图 / Welcome 结束
+ * ========================================================================== */

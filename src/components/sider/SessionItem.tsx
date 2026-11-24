@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / SessionItem 开始
+ * 职责：SessionItem 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：SessionItem。
+ * ========================================================================== */
+
 import clsx from 'clsx'
 import { memo, useEffect, useRef, useState } from 'react'
 import { android } from '../../app/android.js'
@@ -24,14 +30,25 @@ import { SessionActionDialog } from './SessionActionDialog.js'
 import styles from './SessionItem.module.css'
 
 /** 需要二次确认的会话动作；改状态、写文件、复制分支都不该点一下就执行 */
-type PendingAction = 'pin' | 'unpin' | 'folder' | 'export' | 'exportText' | 'fork' | 'archive' | 'unarchive'
+type PendingAction =
+  | 'pin'
+  | 'unpin'
+  | 'folder'
+  | 'export'
+  | 'exportText'
+  | 'fork'
+  | 'archive'
+  | 'unarchive'
 
 const pendingCopy = (
   action: PendingAction,
   name: string,
   tr: (key: TranslationKey, params?: TranslationParams) => string
 ) => {
-  const map: Record<PendingAction, { title: string; body: string; confirm: string; danger?: boolean }> = {
+  const map: Record<
+    PendingAction,
+    { title: string; body: string; confirm: string; danger?: boolean }
+  > = {
     pin: {
       title: tr('sessionConfirmPinTitle', { name }),
       body: tr('sessionConfirmPinBody'),
@@ -277,7 +294,7 @@ export const SessionItem = memo(function SessionItem({
                 label: t('delete'),
                 icon: <IconTrashOutline16 />,
                 danger: true,
-                      sectionStart: true,
+                sectionStart: true,
                 onSelect: () => onDelete(session),
               },
             ]}
@@ -369,3 +386,7 @@ export const SessionItem = memo(function SessionItem({
     </>
   )
 })
+
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / SessionItem 结束
+ * ========================================================================== */

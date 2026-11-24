@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 视图 / MarkdownAstRenderer 开始
+ * 职责：MarkdownAstRenderer 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：MarkdownAstRenderer。
+ * ========================================================================== */
+
 import { createElement, Fragment, memo, useMemo, type ReactNode } from 'react'
 import clsx from 'clsx'
 import type {
@@ -250,3 +256,7 @@ export const MarkdownAstRenderer = memo(function MarkdownAstRenderer({
     [className, ast.children, loading]
   )
 })
+
+/* ============================================================================
+ * 功能区：Markdown 视图 / MarkdownAstRenderer 结束
+ * ========================================================================== */

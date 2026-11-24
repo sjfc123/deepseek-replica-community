@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话主视图 / PeakWindowHint 开始
+ * 职责：PeakWindowHint 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：PeakWindowHint。
+ * ========================================================================== */
+
 import { useEffect, useState } from 'react'
 import { getPeakHint } from '../../services/peak.js'
 import styles from './PeakWindowHint.module.css'
@@ -38,3 +44,7 @@ export const PeakWindowHint = () => {
     </div>
   )
 }
+
+/* ============================================================================
+ * 功能区：会话主视图 / PeakWindowHint 结束
+ * ========================================================================== */

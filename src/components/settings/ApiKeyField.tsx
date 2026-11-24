@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：设置页 / ApiKeyField 开始
+ * 职责：ApiKeyField 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：useApiKeyEditor、ApiKeyField、ApiKeyConfirm。
+ * ========================================================================== */
+
 import { useState } from 'react'
 import { IconEditOutline16 } from '../base/icons.js'
 import { useSettings } from '../../services/settings.js'
@@ -98,3 +104,7 @@ export const ApiKeyConfirm = ({ editor: { showInput, form } }: { editor: ApiKeyE
     </button>
   ) : null
 }
+
+/* ============================================================================
+ * 功能区：设置页 / ApiKeyField 结束
+ * ========================================================================== */

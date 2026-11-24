@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 解析 / copyText 开始
+ * 职责：copyText 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
+ * 导出：formatAndroidCopyText。
+ * ========================================================================== */
+
 import type { BlockContent, DefinitionContent, List, PhrasingContent, RootContent } from 'mdast'
 import { toMdAst } from './parse.js'
 
@@ -123,3 +129,7 @@ export const formatAndroidCopyText = (markdown: string): string => {
   const ast = toMdAst(markdown, { sources: undefined, disableLink: false })
   return serializeBlocks(ast.children)
 }
+
+/* ============================================================================
+ * 功能区：Markdown 解析 / copyText 结束
+ * ========================================================================== */

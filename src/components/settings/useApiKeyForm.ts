@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：设置页 / useApiKeyForm 开始
+ * 职责：API Key 表单 Hook：读取、校验、保存与清除。
+ * 导出：useApiKeyForm。
+ * ========================================================================== */
+
 import { useState } from 'react'
 import { ApiError, verifyApiKey } from '../../services/api/client.js'
 import { classifyApiError } from '../../services/api/errors.js'
@@ -50,3 +56,7 @@ export const useApiKeyForm = (onSaved?: () => void) => {
 
   return { value, setValue, verifying, error, submit }
 }
+
+/* ============================================================================
+ * 功能区：设置页 / useApiKeyForm 结束
+ * ========================================================================== */

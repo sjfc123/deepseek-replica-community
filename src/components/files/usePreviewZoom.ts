@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：附件与文件预览 / usePreviewZoom 开始
+ * 职责：预览缩放 Hook：双指缩放、平移边界与复位。
+ * 导出：usePreviewZoom。
+ * ========================================================================== */
+
 import { useEffect, useRef, useState, type PointerEvent, type MouseEvent } from 'react'
 import { clamp, type Point, type Size } from './imageCrop.js'
 
@@ -148,3 +154,7 @@ export const usePreviewZoom = (image: Size | undefined, onClose: () => void) => 
     },
   }
 }
+
+/* ============================================================================
+ * 功能区：附件与文件预览 / usePreviewZoom 结束
+ * ========================================================================== */

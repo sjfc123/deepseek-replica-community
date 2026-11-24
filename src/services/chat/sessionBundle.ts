@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / sessionBundle 开始
+ * 职责：sessionBundle 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：SESSION_BUNDLE_FORMAT、SESSION_BUNDLE_VERSION、SessionBundleMemory、SessionBundle、loadSessionForExport、buildSessionBundle 等 10 个导出。
+ * ========================================================================== */
+
 import * as db from './db.js'
 import type { Session, SessionSummary } from './types.js'
 import type { MemoryCard } from './memory.js'
@@ -107,11 +113,11 @@ const isBundle = (value: unknown): value is SessionBundle => {
   const bundle = value as Partial<SessionBundle> | null
   return Boolean(
     bundle &&
-      bundle.format === SESSION_BUNDLE_FORMAT &&
-      typeof bundle.version === 'number' &&
-      bundle.version <= SESSION_BUNDLE_VERSION &&
-      bundle.session &&
-      Array.isArray(bundle.session.messages)
+    bundle.format === SESSION_BUNDLE_FORMAT &&
+    typeof bundle.version === 'number' &&
+    bundle.version <= SESSION_BUNDLE_VERSION &&
+    bundle.session &&
+    Array.isArray(bundle.session.messages)
   )
 }
 
@@ -154,9 +160,16 @@ export const importSessionBundle = async (bundle: SessionBundle): Promise<Sessio
       ...message,
       id,
       parentId:
-        index === 0 ? null : message.parentId ? (idMap.get(message.parentId) ?? null) : idMap.get(source[index - 1].id) ?? null,
-      selectedChildId:
-        message.selectedChildId ? idMap.get(message.selectedChildId) : index === source.length - 1 ? undefined : idMap.get(source[index + 1].id),
+        index === 0
+          ? null
+          : message.parentId
+            ? (idMap.get(message.parentId) ?? null)
+            : (idMap.get(source[index - 1].id) ?? null),
+      selectedChildId: message.selectedChildId
+        ? idMap.get(message.selectedChildId)
+        : index === source.length - 1
+          ? undefined
+          : idMap.get(source[index + 1].id),
       memories: message.memories ? message.memories.map((card) => ({ ...card })) : undefined,
     }
   })
@@ -211,3 +224,7 @@ export const sessionBundleName = (title: string, now = new Date()) => {
   ).padStart(2, '0')}`
   return `deepseek_session-${safe}-${stamp}.json`
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / sessionBundle 结束
+ * ========================================================================== */

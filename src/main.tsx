@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：源码模块 / main 开始
+ * 职责：前端入口：挂载根组件、初始化主题与 Android 视图参数。
+ * ========================================================================== */
+
 import './utils/abort.js'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/App.js'
@@ -42,7 +47,12 @@ createRoot(document.getElementById('root') as HTMLElement).render(
   </CrashScreen>
 )
 requestAnimationFrame(() => {
-  ;(window as Window & { __replicaReady?: boolean; __replicaBootDone?: () => void }).__replicaReady =
-    true
+  ;(
+    window as Window & { __replicaReady?: boolean; __replicaBootDone?: () => void }
+  ).__replicaReady = true
   ;(window as Window & { __replicaBootDone?: () => void }).__replicaBootDone?.()
 })
+
+/* ============================================================================
+ * 功能区：源码模块 / main 结束
+ * ========================================================================== */

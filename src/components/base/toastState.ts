@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：基础 UI / toastState 开始
+ * 职责：轻提示状态：创建、排队与自动关闭 Toast。
+ * 导出：useToast、showToast。
+ * ========================================================================== */
+
 import { create } from 'zustand'
 import type { LinkedMessage } from '../../i18n/index.js'
 
@@ -18,3 +24,7 @@ export const showToast = (message: LinkedMessage | string, duration?: number) =>
   useToast.setState((state) => ({ id: state.id + 1, message, duration: visibleDuration }))
   timer = window.setTimeout(() => useToast.setState({ message: null }), visibleDuration)
 }
+
+/* ============================================================================
+ * 功能区：基础 UI / toastState 结束
+ * ========================================================================== */

@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：模型接口 / chatConfig 开始
+ * 职责：chatConfig 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
+ * 导出：DEFAULT_CHAT_MODEL、CHAT_API_FORMATS、ChatApiFormat、ChatConfig、CHAT_API_PATHS、DEFAULT_CHAT_CONFIG 等 9 个导出。
+ * ========================================================================== */
+
 export const DEFAULT_CHAT_MODEL = 'deepseek-flash'
 
 export const CHAT_API_FORMATS = {
@@ -110,3 +116,7 @@ export const readChatConfig = (stored: string | null): ChatConfig => {
     return DEFAULT_CHAT_CONFIG
   }
 }
+
+/* ============================================================================
+ * 功能区：模型接口 / chatConfig 结束
+ * ========================================================================== */

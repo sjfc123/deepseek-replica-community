@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：本地服务 / tokenUsage 开始
+ * 职责：用量聚合：请求级 usage 汇总、缓存命中与会话统计。
+ * 导出：UsageTotals、SessionUsageSummary、summarizeSessionUsage。
+ * ========================================================================== */
+
 import type { MessageUsage } from './api/types.js'
 import type { AssistantMessage } from './chat/types.js'
 
@@ -60,9 +66,7 @@ const addUsage = (totals: UsageTotals, usage: MessageUsage) => {
  * 汇总一个会话里所有助手回复的接口 usage。
  * 会话消息包含分支与重新生成产生的全部请求，正好对应实际消耗。
  */
-export const summarizeSessionUsage = (
-  messages: AssistantMessage[]
-): SessionUsageSummary => {
+export const summarizeSessionUsage = (messages: AssistantMessage[]): SessionUsageSummary => {
   const totals = emptyTotals()
   let requests = 0
   let replies = 0
@@ -85,3 +89,7 @@ export const summarizeSessionUsage = (
 
   return { totals, requests, replies, legacyReplies }
 }
+
+/* ============================================================================
+ * 功能区：本地服务 / tokenUsage 结束
+ * ========================================================================== */

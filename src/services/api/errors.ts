@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：模型接口 / errors 开始
+ * 职责：errors 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
+ * 导出：isContextOverflow、ApiErrorCondition、classifyStatus、classifyApiError、isRetryableApiError、FileErrorCode 等 12 个导出。
+ * ========================================================================== */
+
 import { ApiError } from './client.js'
 
 const contextOverflow =
@@ -16,7 +22,7 @@ export const isContextOverflow = (error: unknown): error is ApiError =>
 
 /**
  * 接口失败的统一分类。各调用方按自己的场景给同一种情况配不同文案，
- * 例如余额不足在回答、上传、朗读里措辞不同，所以这里只归类，不生成文案。
+ * 例如余额不足在回答、上传、朗读场景中的措辞不同，因此仅做归类，不生成文案。
  */
 export type ApiErrorCondition =
   | 'unauthorized'
@@ -80,7 +86,7 @@ const FILE_ERROR_PATTERNS: ReadonlyArray<readonly [FileErrorCode, RegExp]> = [
 
 /**
  * 只识别「附件 file_id 失效」这一类 400：服务端查不到文件、文件数据丢失、file_id 格式非法。
- * 其余错误（限流、余额、purpose 不合规等）不在这里处理，保持原有失败提示。
+ * 其余错误（限流、余额、purpose 不合规等）不在该模块处理，保持原有失败提示。
  */
 export const getFileErrorCode = (error: unknown): FileErrorCode | null => {
   if (!(error instanceof ApiError) || error.status !== 400) {
@@ -140,3 +146,7 @@ export const getUploadErrorInfo = (error: unknown): UploadErrorInfo | null => {
   }
   return null
 }
+
+/* ============================================================================
+ * 功能区：模型接口 / errors 结束
+ * ========================================================================== */

@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / reply 开始
+ * 职责：reply 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：applyEvent、settleReply、getReplyText、getContextRounds、toRequestMessages、getThinkingSeconds。
+ * ========================================================================== */
+
 import type {
   AssistantBlockParam,
   FileBlockParam,
@@ -343,3 +349,7 @@ export const toRequestMessages = (
 /** 思考用时（秒），至少 1 秒 */
 export const getThinkingSeconds = (startedAt: number, endedAt: number) =>
   Math.max(1, Math.round((endedAt - startedAt) / 1000))
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / reply 结束
+ * ========================================================================== */

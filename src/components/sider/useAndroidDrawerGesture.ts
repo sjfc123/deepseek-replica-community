@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / useAndroidDrawerGesture 开始
+ * 职责：抽屉手势 Hook：边缘拖动、速度判定与回弹。
+ * 导出：useAndroidDrawerGesture。
+ * ========================================================================== */
+
 import { useEffect, useRef, type PointerEvent, type RefObject } from 'react'
 import { android } from '../../app/android.js'
 import { closeMobileSider, openMobileSider, useMobileSider } from './mobileSiderState.js'
@@ -195,3 +201,7 @@ export const useAndroidDrawerGesture = (
     },
   }
 }
+
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / useAndroidDrawerGesture 结束
+ * ========================================================================== */

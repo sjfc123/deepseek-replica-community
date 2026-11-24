@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / tokenTables 开始
+ * 职责：tokenTables 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：HAN1_BITMAP_B64、EN_BIGRAM_B64、HAN2_BLOOM_B64、HAN34_BLOOM_B64。
+ * ========================================================================== */
+
 /**
  * 从 DeepSeek V4 官方词表离线压缩的紧凑特征表（总原始体积 15.6 KB）：
  * - HAN1_BITMAP_B64: 0x4E00–0x9FA5 常用单汉字精确 1-bit 位图（5,246 字，2,613 B）
@@ -246,3 +252,7 @@ export const HAN34_BLOOM_B64 =
   'pnpPwVpUeFUoRKKSAcLj6rzbjimuHxrW5GaA9QK7KYdPnsBREi9KuGIK/FKMLKBQESBslSxnoPIfqxWuZTd8O7QnsRY2' +
   'GcKrVDQFHohOV742gbjU6XHzksCIHsi3CfqOydM7NrckjqUh+JSqhsOautrkTYmAMwbkxwqAlvH96SAZBNmKbimtBj97' +
   '0woR++ThNbgR3A5mmYpkSMgDWLVn5QVY3g=='
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / tokenTables 结束
+ * ========================================================================== */

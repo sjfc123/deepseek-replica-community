@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：消息渲染 / useReplyView 开始
+ * 职责：回复视图 Hook：管理折叠、展开与可见内容。
+ * 导出：useReplyView。
+ * ========================================================================== */
+
 import { useMemo, useState } from 'react'
 import type { AssistantMessage } from '../../services/chat/types.js'
 import { buildReplyView, type Source } from '../../services/chat/view.js'
@@ -30,3 +36,7 @@ export const useReplyView = (message: AssistantMessage, streaming: boolean) => {
 
   return useMemo(() => ({ ...view, sources }), [view, sources])
 }
+
+/* ============================================================================
+ * 功能区：消息渲染 / useReplyView 结束
+ * ========================================================================== */

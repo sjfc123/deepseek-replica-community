@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：输入与语音控件 / ChatInput 开始
+ * 职责：聊天输入容器：文本、附件、发送/停止、工具入口与草稿恢复。
+ * ========================================================================== */
+
 import clsx from 'clsx'
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
@@ -90,11 +95,15 @@ const EFFORT_METEORS = [
 ] as const
 
 /** 输入框：自适应高度的文本框 + 文件 + 深度思考与智能搜索开关 + 语音输入 + 发送 / 停止 */
+/* -------------------- 功能区：聊天输入入口与语音浮层 开始 -------------------- */
 export const ChatInput = memo(function ChatInput({ sessionId }: { sessionId: string | null }) {
   // 切换目标时释放录音、转写和 DOM 状态；文字与附件由草稿服务保留。
   return <Input key={sessionId === null ? 'new' : `session:${sessionId}`} sessionId={sessionId} />
 })
 
+/* -------------------- 功能区：聊天输入入口与语音浮层 结束 -------------------- */
+
+/* -------------------- 功能区：输入控件主体 开始 -------------------- */
 const Input = ({ sessionId }: { sessionId: string | null }) => {
   const t = useTranslate()
   const draft = useDrafts((state) => state.drafts.get(sessionId) ?? EMPTY_DRAFT)
@@ -179,7 +188,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     const left = rect
       ? Math.min(Math.max(rect.left + rect.width / 2, 12 + half), window.innerWidth - 12 - half)
       : window.innerWidth / 2
-    const top = composerTop ? Math.max(8, composerTop - 64) : rect ? Math.max(8, rect.top - 136) : 240
+    const top = composerTop
+      ? Math.max(8, composerTop - 64)
+      : rect
+        ? Math.max(8, rect.top - 136)
+        : 240
     setEffortAnchor({ left, top })
     setEffortValue(initial)
     setEffortOpen(true)
@@ -678,7 +691,10 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           {voiceMode ? null : (
             <div
               ref={mirrorRef}
-              className={clsx(styles.mirror, thoughtAside && hasAside(text) && styles.mirrorVisible)}
+              className={clsx(
+                styles.mirror,
+                thoughtAside && hasAside(text) && styles.mirrorVisible
+              )}
               aria-hidden
             >
               {thoughtAside && hasAside(text)
@@ -764,9 +780,22 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                   className={styles.androidToolButton}
                   icon={
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <rect x="3" y="4.5" width="18" height="15" rx="4" stroke="currentColor" strokeWidth="1.6" />
+                      <rect
+                        x="3"
+                        y="4.5"
+                        width="18"
+                        height="15"
+                        rx="4"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                      />
                       <circle cx="9" cy="10" r="2" fill="currentColor" />
-                      <path d="M4.5 17.5 9.8 13l3 2.6 2.6-2.2 4.1 3.6" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                      <path
+                        d="M4.5 17.5 9.8 13l3 2.6 2.6-2.2 4.1 3.6"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   }
                   aria-label="生成配图"
@@ -1067,3 +1096,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     </div>
   )
 }
+/* -------------------- 功能区：输入控件主体 结束 -------------------- */
+
+/* ============================================================================
+ * 功能区：输入与语音控件 / ChatInput 结束
+ * ========================================================================== */

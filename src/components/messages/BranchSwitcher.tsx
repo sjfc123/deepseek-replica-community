@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：消息渲染 / BranchSwitcher 开始
+ * 职责：BranchSwitcher 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：SelectMessageVersion、BranchSwitcher。
+ * ========================================================================== */
+
 import { useTranslate } from '../../i18n/index.js'
 import { useRef } from 'react'
 import type { MessageVersions } from '../../services/chat/branches.js'
@@ -54,3 +60,7 @@ export const BranchSwitcher = ({
     </div>
   )
 }
+
+/* ============================================================================
+ * 功能区：消息渲染 / BranchSwitcher 结束
+ * ========================================================================== */

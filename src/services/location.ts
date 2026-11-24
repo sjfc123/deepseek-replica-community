@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：本地服务 / location 开始
+ * 职责：定位服务：权限处理、坐标归一化与本地缓存。
+ * 导出：provinces、UserLocation、getRegionName、normalizeLocation。
+ * ========================================================================== */
+
 import '@formatjs/intl-displaynames/polyfill.js'
 import '@formatjs/intl-displaynames/locale-data/en.js'
 import '@formatjs/intl-displaynames/locale-data/zh.js'
@@ -55,3 +61,7 @@ export const normalizeLocation = (value: unknown): UserLocation | null => {
   const selectedCity = selectedProvince.cities.find((item) => item.code === city)
   return selectedCity ? { region, province: selectedProvince.code, city: selectedCity.code } : null
 }
+
+/* ============================================================================
+ * 功能区：本地服务 / location 结束
+ * ========================================================================== */

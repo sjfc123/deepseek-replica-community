@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：应用外壳 / App 开始
+ * 职责：应用根组件：组合会话、输入、消息列表、设置与自动备份生命周期。
+ * 导出：App。
+ * ========================================================================== */
+
 import { memo, useEffect, useLayoutEffect, useRef } from 'react'
 import { android } from './android.js'
 import { useAndroidBackInterception } from './useAndroidBackInterception.js'
@@ -180,7 +186,6 @@ export const App = () => {
       document.documentElement.style.setProperty('--android-chat-font-scale', String(size))
     }
   }, [fontSize])
-
 
   // 交互自愈：抽屉状态与 DOM 不同步时自动复位，避免覆盖层把整页点死
   useEffect(() => {
@@ -417,3 +422,7 @@ export const App = () => {
     </>
   )
 }
+
+/* ============================================================================
+ * 功能区：应用外壳 / App 结束
+ * ========================================================================== */

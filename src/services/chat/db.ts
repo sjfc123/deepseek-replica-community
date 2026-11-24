@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / db 开始
+ * 职责：db 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：StoredFile、getUnreadableRecordCount、loadSessionSummaries、loadSession、scanSessions、saveSession 等 15 个导出。
+ * ========================================================================== */
+
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction } from 'idb'
 import { createId } from '../../utils/id.js'
 import { mergeSessions } from './history/mergeSessions.js'
@@ -752,3 +758,7 @@ export const reportStorageError = (action: string) => (error: unknown) => {
   // eslint-disable-next-line no-console
   console.error(`[storage] ${action} failed`, error)
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / db 结束
+ * ========================================================================== */

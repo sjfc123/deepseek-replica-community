@@ -1,9 +1,15 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / autoBackup 开始
+ * 职责：autoBackup 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：AutoBackupStatus、AutoBackupMeta、readAutoBackupMeta、AutoBackupFailure、AutoBackupResult、readAutoBackupStatus 等 9 个导出。
+ * ========================================================================== */
+
 import { readBlobBuffer } from '../../utils/blob.js'
 import { android, writeAndroidBlob } from '../../app/android.js'
 import { useSettings } from '../settings.js'
 import { exportHistory } from './backup.js'
 
-/** 自动备份落在公共下载目录，卸载重装后仍能找到；这里只记录本机上次备份时间 */
+/** 自动备份写入公共下载目录，卸载重装后仍可找到；本模块仅记录本机上次备份时间 */
 const LAST_KEY = 'replica:auto-backup-at'
 /** 上一次成功备份的指纹，设置页用来展示「已校验」 */
 const META_KEY = 'replica:auto-backup-meta'
@@ -109,9 +115,7 @@ export const readAutoBackupStatus = (): AutoBackupStatus | null => {
  * 立刻导出一次到下载目录。导出会遍历全部会话，和手动导出共用同一个串行队列，
  * 因此不会与用户正在进行的导入/导出互相打断。
  */
-const performAutoBackup = async (
-  options: { notify?: boolean } = {}
-): Promise<AutoBackupResult> => {
+const performAutoBackup = async (options: { notify?: boolean } = {}): Promise<AutoBackupResult> => {
   const target = device()
   const begin = target?.beginAutoBackup
   const write = target?.writeAutoBackup
@@ -209,9 +213,7 @@ const performAutoBackup = async (
 /** 同一时间只允许一次备份；自动与手动撞车时共用同一次执行，避免同秒发布两份文件 */
 let inFlight: Promise<AutoBackupResult> | null = null
 
-export const runAutoBackup = (
-  options: { notify?: boolean } = {}
-): Promise<AutoBackupResult> => {
+export const runAutoBackup = (options: { notify?: boolean } = {}): Promise<AutoBackupResult> => {
   if (inFlight) {
     return inFlight
   }
@@ -285,3 +287,7 @@ export const startAutoBackupScheduler = () => {
     delete lifecycle.__replicaLifecyclePause
   }
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / autoBackup 结束
+ * ========================================================================== */

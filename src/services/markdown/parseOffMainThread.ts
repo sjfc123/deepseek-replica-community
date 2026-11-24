@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 解析 / parseOffMainThread 开始
+ * 职责：parseOffMainThread 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
+ * 导出：ParsedMarkdown、parseOffMainThread。
+ * ========================================================================== */
+
 import type { Root } from 'mdast'
 import type { MarkdownParseOptions } from './parse.js'
 
@@ -71,3 +77,7 @@ export const parseOffMainThread = (
       resolve(null)
     }
   })
+
+/* ============================================================================
+ * 功能区：Markdown 解析 / parseOffMainThread 结束
+ * ========================================================================== */

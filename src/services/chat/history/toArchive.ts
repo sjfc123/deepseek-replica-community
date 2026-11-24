@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：历史归档 / toArchive 开始
+ * 职责：toArchive 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
+ * 导出：ExportImage、toSessionFile、toIndexEntry。
+ * ========================================================================== */
+
 import type { ServerToolUseBlock } from '../../api/types.js'
 import { getVisibleMessages, normalizeSession } from '../branches.js'
 import { describeReply } from '../describe.js'
@@ -282,3 +288,7 @@ export const toIndexEntry = (file: SessionFile): SessionIndexEntry => ({
   inserted_at: file.inserted_at,
   updated_at: file.updated_at,
 })
+
+/* ============================================================================
+ * 功能区：历史归档 / toArchive 结束
+ * ========================================================================== */

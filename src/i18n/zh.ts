@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：国际化 / zh 开始
+ * 职责：中文文案字典：维护界面、错误与公告所需中文文本。
+ * 导出：androidWelcomeMessages、androidColdStartGreeting、zh。
+ * ========================================================================== */
+
 export const androidWelcomeMessages = [
   '你好，有什么我能帮你的吗？',
   '你好，请输入消息开始对话。',
@@ -59,9 +65,11 @@ export const zh = {
   androidCopy: '复制',
   androidArchive: '归档',
   androidBulkCopyConfirmTitle: '确认复制选中的 {count} 个对话？',
-  androidBulkCopyConfirmBody: '复制会为每个对话生成一条独立分支，副本出现在列表顶部；原对话内容不会改变。',
+  androidBulkCopyConfirmBody:
+    '复制会为每个对话生成一条独立分支，副本出现在列表顶部；原对话内容不会改变。',
   androidBulkArchiveConfirmTitle: '确认归档选中的 {count} 个对话？',
-  androidBulkArchiveConfirmBody: '归档后这些对话会从当前列表收起，数据仍保留在备份与导出里，可随时取消归档。',
+  androidBulkArchiveConfirmBody:
+    '归档后这些对话会从当前列表收起，数据仍保留在备份与导出里，可随时取消归档。',
   androidBulkCopied: '已复制 {count} 个对话，副本在列表顶部',
   androidBulkArchived: '已归档 {count} 个对话，仍保留在备份里',
   androidBulkMoved: '已把 {count} 个对话移到「{name}」',
@@ -415,15 +423,22 @@ export const zh = {
   roleplayBuiltinPresent: '内置角色卡都在，没有需要补的',
   roleplayAvatarUpdated: '头像已更新',
   roleplayAvatarFailed: '头像没能处理：{reason}',
-  roleplayClosed: '已关闭「{name}」的全局开关；新会话回到手写提示词，已绑定该人物的会话继续沿用卡设定。',
+  roleplayClosed:
+    '已关闭「{name}」的全局开关；新会话回到手写提示词，已绑定该人物的会话继续沿用卡设定。',
   roleplayCardCopied: '已复制为「{name}」，可以单独改设定',
   roleplayCardLimit: '角色卡最多 {max} 张，先删掉一张再复制',
   roleplaySceneCleared: '场景已清空',
   roleplaySceneUpdated: '场景已自动更新',
   roleplayWorldbookExported: '已导出世界书「{name}」',
   roleplayWorldbookExportCanceled: '导出已取消',
-  roleplayCharacterImported: '角色卡导入完成：新增 {added} 张、跳过 {skipped} 张、附带世界书 {entries} 条、头像 {avatars} 张',
-  roleplayCharacterBadFile: '文件不是支持的角色卡格式，或缺少姓名；支持 Character Card V2/V3 JSON、TavernAI JSON 与 chara PNG',
+  roleplayCharacterImported:
+    '角色卡导入完成：新增 {added} 张、跳过 {skipped} 张、附带世界书 {entries} 条、头像 {avatars} 张',
+  roleplayCharacterBadFile:
+    '文件不是支持的角色卡格式，或缺少姓名；支持 Character Card V2/V3 JSON、TavernAI JSON 与 chara PNG',
   roleplayWorldbookBadFile: '这个文件不是世界书存档，或内容全不可用',
   roleplayWorldbookImported: '世界书已导入：新增 {added} 条、更新 {updated} 条、跳过 {skipped} 条',
 } as const
+
+/* ============================================================================
+ * 功能区：国际化 / zh 结束
+ * ========================================================================== */

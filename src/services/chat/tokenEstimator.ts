@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / tokenEstimator 开始
+ * 职责：tokenEstimator 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：estimateTextTokens。
+ * ========================================================================== */
+
 import { EN_BIGRAM_B64, HAN1_BITMAP_B64, HAN2_BLOOM_B64, HAN34_BLOOM_B64 } from './tokenTables.js'
 
 const HAN_START = 0x4e00
@@ -641,3 +647,7 @@ export const estimateTextTokens = (text: string, end = text.length): number => {
 
   return Math.ceil(total)
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / tokenEstimator 结束
+ * ========================================================================== */

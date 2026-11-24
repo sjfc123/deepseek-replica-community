@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 视图 / MermaidDiagram 开始
+ * 职责：MermaidDiagram 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：MermaidDiagram。
+ * ========================================================================== */
+
 import { useTranslate } from '../../i18n/index.js'
 import { memo, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../../app/theme.js'
@@ -90,3 +96,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({
 
   return <div className="md-mermaid-diagram" dangerouslySetInnerHTML={{ __html: result.svg }} />
 })
+
+/* ============================================================================
+ * 功能区：Markdown 视图 / MermaidDiagram 结束
+ * ========================================================================== */

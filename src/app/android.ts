@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：应用外壳 / android 开始
+ * 职责：Android 桥接：封装原生 JavaScript 接口并为网页环境提供空实现。
+ * 导出：android、writeAndroidBlob、saveAndroidHistory、saveAndroidImage。
+ * ========================================================================== */
+
 import { readBlobChunks } from '../utils/blob.js'
 
 type AndroidBridge = {
@@ -147,3 +153,7 @@ export const saveAndroidImage = async (name: string, blob: Blob) => {
     throw new Error('Unable to save the image')
   }
 }
+
+/* ============================================================================
+ * 功能区：应用外壳 / android 结束
+ * ========================================================================== */

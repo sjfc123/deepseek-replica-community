@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / AndroidContentSearch 开始
+ * 职责：AndroidContentSearch 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：AndroidContentSearch。
+ * ========================================================================== */
+
 import clsx from 'clsx'
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslate } from '../../i18n/index.js'
@@ -417,3 +423,7 @@ export const AndroidContentSearch = memo(function AndroidContentSearch() {
     </div>
   )
 })
+
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / AndroidContentSearch 结束
+ * ========================================================================== */

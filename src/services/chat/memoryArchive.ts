@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / memoryArchive 开始
+ * 职责：memoryArchive 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：MemoryArchiveFile、MemoryExportResult、MemoryExportOptions、MemoryImportResult、exportMemory、MemoryImportMode 等 7 个导出。
+ * ========================================================================== */
+
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 import { formatDate } from '../../utils/format.js'
 import { readBlobBuffer } from '../../utils/blob.js'
@@ -79,11 +85,7 @@ const cardsOf = (message: Message, options?: MemoryExportOptions): MemoryCard[] 
     if (pool !== 'all' && cardPool !== pool) {
       return false
     }
-    if (
-      cardPool === 'normal' &&
-      categories &&
-      !categories.has(card.category ?? 'dialogue')
-    ) {
+    if (cardPool === 'normal' && categories && !categories.has(card.category ?? 'dialogue')) {
       return false
     }
     return true
@@ -253,7 +255,7 @@ export const importMemory = async (
     let touched = false
     let addedHere = 0
     const matchedIds = new Set<string>()
-    // 覆盖模式：先摘掉这条会话上所有旧卡片，再按归档重建，相当于整份记忆回滚到导出时刻
+    // 覆盖模式：先移除该会话关联的全部旧卡片，再按归档重建，等同于将记忆回滚到导出时刻
     const baseMessages =
       mode === 'replace'
         ? cached.messages.map((message) => {
@@ -303,3 +305,7 @@ export const importMemory = async (
 
   return { cards, sessions, skippedCards, skippedSessions, cleared }
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / memoryArchive 结束
+ * ========================================================================== */

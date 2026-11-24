@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：消息渲染 / ReplyArea 开始
+ * 职责：ReplyArea 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：ReplyArea。
+ * ========================================================================== */
+
 import { useTranslate } from '../../i18n/index.js'
 import { android } from '../../app/android.js'
 import { useSettings } from '../../services/settings.js'
@@ -590,3 +596,7 @@ const ReadLinkRow = ({ step, isLast }: { step: ReadLinkStep; isLast: boolean }) 
     </ToolRow>
   )
 }
+
+/* ============================================================================
+ * 功能区：消息渲染 / ReplyArea 结束
+ * ========================================================================== */

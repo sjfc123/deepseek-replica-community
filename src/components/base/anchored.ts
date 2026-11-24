@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：基础 UI / anchored 开始
+ * 职责：锚点定位 Hook：测量触发元素并计算弹层方向与偏移。
+ * 导出：VIEWPORT_PADDING、Side、Align、AnchoredPosition、AnchoredOptions、useAnchoredPosition 等 8 个导出。
+ * ========================================================================== */
+
 import {
   useCallback,
   useEffect,
@@ -177,7 +183,17 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
       left: alignLeft(rect, floating.getBoundingClientRect().width, align, alignOffset),
       maxHeight: height,
     })
-  }, [align, alignOffset, applyPosition, floatingRef, getAnchorRect, maxHeight, minSpace, offset, side])
+  }, [
+    align,
+    alignOffset,
+    applyPosition,
+    floatingRef,
+    getAnchorRect,
+    maxHeight,
+    minSpace,
+    offset,
+    side,
+  ])
 
   // 打开时与内容变化时同步测量，必须在绘制前完成
   useLayoutEffect(() => {
@@ -279,3 +295,7 @@ export const useDelayedOpen = () => {
   const cancel = useCallback(() => window.clearTimeout(timer.current), [])
   return { open, setOpen, schedule, cancel }
 }
+
+/* ============================================================================
+ * 功能区：基础 UI / anchored 结束
+ * ========================================================================== */

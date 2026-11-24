@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：历史归档 / importOffMainThread 开始
+ * 职责：importOffMainThread 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
+ * 导出：ImportRequest、ImportResponse、importOffMainThread。
+ * ========================================================================== */
+
 import type { TranslationKey } from '../../../i18n/index.js'
 import { BackupError } from './errors.js'
 import type { ArchiveProgress, ImportArchiveResult, ImportMode } from './importArchive.js'
@@ -94,3 +100,7 @@ export const importOffMainThread = async (
   const { importArchive } = await import('./importArchive.js')
   return importArchive(file, importId, onProgress, mode)
 }
+
+/* ============================================================================
+ * 功能区：历史归档 / importOffMainThread 结束
+ * ========================================================================== */

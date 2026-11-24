@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：附件与文件预览 / imageCrop 开始
+ * 职责：图片裁剪：读取图像、计算裁剪区域并导出 Blob。
+ * 导出：Size、Point、Rect、Crop、Handle、MAX_CROP_ZOOM 等 16 个导出。
+ * ========================================================================== */
+
 import { APP_DOWNSAMPLE_PIXELS, MAX_IMAGE_EDGE } from '../../services/imageUpload.js'
 import { readBlobBuffer } from '../../utils/blob.js'
 
@@ -202,3 +208,7 @@ export const exportCrop = async (image: HTMLImageElement, name: string, { turns,
     canvas.width = canvas.height = 0
   }
 }
+
+/* ============================================================================
+ * 功能区：附件与文件预览 / imageCrop 结束
+ * ========================================================================== */

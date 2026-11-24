@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / customAttachments 开始
+ * 职责：customAttachments 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：prepareCustomAttachments。
+ * ========================================================================== */
+
 import { readBlobBuffer } from '../../utils/blob.js'
 import type { ChatApiFormat } from '../api/chatConfig.js'
 import { ApiError } from '../api/client.js'
@@ -83,3 +89,7 @@ export const prepareCustomAttachments = async (
   }
   return inline
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / customAttachments 结束
+ * ========================================================================== */

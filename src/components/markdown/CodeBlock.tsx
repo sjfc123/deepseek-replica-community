@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 视图 / CodeBlock 开始
+ * 职责：CodeBlock 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：CodeBlock。
+ * ========================================================================== */
+
 import { useTranslate } from '../../i18n/index.js'
 import { memo, useEffect, useMemo, useReducer, useState } from 'react'
 import Prism from 'prismjs'
@@ -121,3 +127,7 @@ export const CodeBlock = memo(function CodeBlock({
     </div>
   )
 })
+
+/* ============================================================================
+ * 功能区：Markdown 视图 / CodeBlock 结束
+ * ========================================================================== */

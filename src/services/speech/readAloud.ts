@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：语音链路 / readAloud 开始
+ * 职责：readAloud 服务实现，负责语音朗读、录音采集或连续通话链路中的该子能力。
+ * 导出：ReadAloudStatus、useReadAloud、stopReadAloud、setReadAloudBlocked、scheduleTtsStream、describeReadAloudError 等 7 个导出。
+ * ========================================================================== */
+
 import { create } from 'zustand'
 import type { TranslationMessage } from '../../i18n/index.js'
 import { ApiError } from '../api/client.js'
@@ -238,3 +244,7 @@ export const toggleReadAloud = (
     }
   })()
 }
+
+/* ============================================================================
+ * 功能区：语音链路 / readAloud 结束
+ * ========================================================================== */

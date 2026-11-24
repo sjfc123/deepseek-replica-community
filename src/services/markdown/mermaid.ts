@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 解析 / mermaid 开始
+ * 职责：mermaid 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
+ * 导出：renderMermaid。
+ * ========================================================================== */
+
 type Mermaid = typeof import('mermaid').default
 
 let mermaidPromise: Promise<Mermaid> | null = null
@@ -51,3 +57,7 @@ export const renderMermaid = (
   )
   return result
 }
+
+/* ============================================================================
+ * 功能区：Markdown 解析 / mermaid 结束
+ * ========================================================================== */

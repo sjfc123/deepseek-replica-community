@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：基础 UI / IconButton 开始
+ * 职责：IconButton 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：IconButton。
+ * ========================================================================== */
+
 import clsx from 'clsx'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { Tooltip, type TooltipPlacement } from './Tooltip.js'
@@ -40,3 +46,7 @@ export const IconButton = ({
     button
   )
 }
+
+/* ============================================================================
+ * 功能区：基础 UI / IconButton 结束
+ * ========================================================================== */

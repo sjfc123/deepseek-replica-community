@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：搜索与引用 / CitationLink 开始
+ * 职责：CitationLink 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：CitationLink。
+ * ========================================================================== */
+
 import type { MouseEvent } from 'react'
 import { android } from '../../app/android.js'
 import type { Source } from '../../services/chat/view.js'
@@ -49,3 +55,7 @@ export const CitationLink = ({ source }: { source: Source }) => {
     </HoverCard>
   )
 }
+
+/* ============================================================================
+ * 功能区：搜索与引用 / CitationLink 结束
+ * ========================================================================== */

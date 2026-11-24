@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / tokenUsage 开始
+ * 职责：tokenUsage 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：formatTokenCount、sessionActualUsage。
+ * ========================================================================== */
+
 import { getVisibleMessages } from './branches.js'
 import { summarizeSessionUsage } from '../tokenUsage.js'
 import type { AssistantMessage, Session } from './types.js'
@@ -26,3 +32,7 @@ export const sessionActualUsage = (session: Session) => {
   )
   return summarizeSessionUsage(assistants).totals.total
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / tokenUsage 结束
+ * ========================================================================== */

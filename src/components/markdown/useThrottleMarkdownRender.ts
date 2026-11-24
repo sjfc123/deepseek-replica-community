@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 视图 / useThrottleMarkdownRender 开始
+ * 职责：Markdown 节流渲染 Hook：控制流式内容的渲染频率与取消。
+ * 导出：useThrottleMarkdownRender。
+ * ========================================================================== */
+
 import { useEffect, useRef, useState } from 'react'
 
 /** 两次更新的最长间隔 */
@@ -42,3 +48,7 @@ export const useThrottleMarkdownRender = (content: string, enable: boolean, minI
 
   return enable ? output : content
 }
+
+/* ============================================================================
+ * 功能区：Markdown 视图 / useThrottleMarkdownRender 结束
+ * ========================================================================== */

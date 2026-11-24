@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：消息渲染 / MessageIllustration 开始
+ * 职责：MessageIllustration 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：MessageIllustration。
+ * ========================================================================== */
+
 import { useState } from 'react'
 import { useIllustration, removeIllustration } from '../../services/illustration/store.js'
 import styles from './MessageIllustration.module.css'
@@ -41,3 +47,7 @@ export const MessageIllustration = ({ messageId }: { messageId: string }) => {
     </>
   )
 }
+
+/* ============================================================================
+ * 功能区：消息渲染 / MessageIllustration 结束
+ * ========================================================================== */

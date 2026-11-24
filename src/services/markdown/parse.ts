@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 解析 / parse 开始
+ * 职责：parse 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
+ * 导出：CitationNode、MarkdownParseOptions、toMdAst。
+ * ========================================================================== */
+
 import type { Node as MdAstNode, Nodes, Parent, RootContent, Root, Text } from 'mdast'
 import { findAndReplace } from 'mdast-util-find-and-replace'
 import { fromMarkdown } from 'mdast-util-from-markdown'
@@ -86,3 +92,7 @@ export function toMdAst(input: string, { sources, disableLink }: MarkdownParseOp
   simplify(ast)
   return ast
 }
+
+/* ============================================================================
+ * 功能区：Markdown 解析 / parse 结束
+ * ========================================================================== */

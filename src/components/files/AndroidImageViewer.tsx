@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：附件与文件预览 / AndroidImageViewer 开始
+ * 职责：AndroidImageViewer 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：AndroidImageViewer。
+ * ========================================================================== */
+
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 import { android, saveAndroidImage } from '../../app/android.js'
 import {
@@ -561,3 +567,7 @@ export const AndroidImageViewer = ({
     </dialog>
   )
 }
+
+/* ============================================================================
+ * 功能区：附件与文件预览 / AndroidImageViewer 结束
+ * ========================================================================== */

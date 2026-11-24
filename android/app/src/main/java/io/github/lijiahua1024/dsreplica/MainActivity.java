@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：Android 原生容器 / MainActivity 开始
+ * 职责：Android 主 Activity：WebView 生命周期、权限、文件选择、JS 桥与媒体采集。
+ * ========================================================================== */
+
 package io.github.lijiahua1024.dsreplica;
 
 import android.Manifest;
@@ -107,6 +112,7 @@ public final class MainActivity extends Activity {
         };
 
     @Override
+/* -------------------- 功能区：生命周期与 WebView 初始化 开始 -------------------- */
     public void onCreate(Bundle state) {
         super.onCreate(state);
         keys = new ApiKeyStore(this);
@@ -229,6 +235,9 @@ public final class MainActivity extends Activity {
     @Override
     @SuppressWarnings("deprecation")
     @SuppressLint("GestureBackNavigation") // Legacy back still needs to ask the WebView first.
+/* -------------------- 功能区：生命周期与 WebView 初始化 结束 -------------------- */
+
+/* -------------------- 功能区：返回键与系统栏 开始 -------------------- */
     public void onBackPressed() {
         handleBack();
     }
@@ -264,6 +273,9 @@ public final class MainActivity extends Activity {
         }
     }
 
+/* -------------------- 功能区：返回键与系统栏 结束 -------------------- */
+
+/* -------------------- 功能区：WebViewClient、资源拦截与文件选择 开始 -------------------- */
     private static boolean isBundled(Uri url) {
         return "https".equals(url.getScheme()) && ASSET_HOST.equals(url.getHost())
             && url.getPort() == -1;
@@ -445,6 +457,9 @@ public final class MainActivity extends Activity {
         }
     }
 
+/* -------------------- 功能区：WebViewClient、资源拦截与文件选择 结束 -------------------- */
+
+/* -------------------- 功能区：运行时权限与媒体入口 开始 -------------------- */
     private boolean granted(String permission) {
         return checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
     }
@@ -589,6 +604,9 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+/* -------------------- 功能区：运行时权限与媒体入口 结束 -------------------- */
+
+/* -------------------- 功能区：前后台生命周期与导出收尾 开始 -------------------- */
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         if (frame != null) {
@@ -698,6 +716,9 @@ public final class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+/* -------------------- 功能区：前后台生命周期与导出收尾 结束 -------------------- */
+
+/* -------------------- 功能区：JavaScript 桥与设置接口 开始 -------------------- */
         public float statusInset() { return statusInset; }
 
         @JavascriptInterface
@@ -912,6 +933,9 @@ public final class MainActivity extends Activity {
         public boolean finishImageSave(boolean keep) { return imageSave.finish(keep); }
 
         /** 通话入口先调用：已授权直接返回 granted，否则弹出系统授权框 */
+/* -------------------- 功能区：JavaScript 桥与设置接口 结束 -------------------- */
+
+/* -------------------- 功能区：录音、通话采集与选择手势 开始 -------------------- */
         @JavascriptInterface
         public void requestMicrophone() {
             runOnUiThread(() -> {
@@ -948,7 +972,7 @@ public final class MainActivity extends Activity {
         /**
          * 采集前把音频子系统交还给 WebView：结束原生录音、退出通话模式、放弃音频焦点。
          * 部分 ROM（vivo / iQOO 等）在 MODE_IN_CALL 或持有音频焦点时只允许原生层录音，
-         * WebView 的 getUserMedia 会直接抛 NotReadableError，这里把这几个前置条件清掉。
+         * WebView 的 getUserMedia 会直接抛 NotReadableError，因此关闭这几个前置条件。
          */
         @JavascriptInterface
         public boolean prepareMicrophone() {
@@ -1149,3 +1173,8 @@ public final class MainActivity extends Activity {
         }
     }
 }
+/* -------------------- 功能区：录音、通话采集与选择手势 结束 -------------------- */
+
+/* ============================================================================
+ * 功能区：Android 原生容器 / MainActivity 结束
+ * ========================================================================== */

@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / Sider 开始
+ * 职责：侧栏：会话列表、分组、搜索、多选、抽屉手势与移动端壳。
+ * ========================================================================== */
+
 import clsx from 'clsx'
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { android, saveAndroidHistory } from '../../app/android.js'
@@ -48,6 +53,7 @@ import styles from './Sider.module.css'
 const ROW_OVERSCAN = 10
 
 /** 展开的侧边栏：名称与收起按钮、开启新对话、按时间分组的会话列表、底部设置；移动端放在抽屉里，收起按钮关闭抽屉 */
+/* -------------------- 功能区：桌面侧栏 开始 -------------------- */
 export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean }) {
   const t = useTranslate()
   const sessions = useChatStore((state) => state.sessions)
@@ -180,38 +186,35 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
     [archivedIds, t]
   )
   /** 单会话导出：对话 + 当前角色卡 + 相关世界书 + 场景 + 本会话记忆 */
-  const exportBundle = useCallback(
-    async (session: SessionSummary) => {
-      try {
-        const bundle = await buildSessionBundle(session)
-        if (!bundle) {
-          showToast({ key: 'sessionBundleMissing', type: 'error' })
-          return
-        }
-        const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
-        const name = sessionBundleName(bundle.title)
-        if (android) {
-          const saved = await saveAndroidHistory(name, blob)
-          showToast(
-            saved
-              ? { key: 'sessionBundleExported', params: { name } }
-              : { key: 'sessionBundleCanceled' }
-          )
-          return
-        }
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = name
-        link.click()
-        window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
-        showToast({ key: 'sessionBundleExported', params: { name } })
-      } catch {
-        showToast({ key: 'sessionBundleFailed', type: 'error' })
+  const exportBundle = useCallback(async (session: SessionSummary) => {
+    try {
+      const bundle = await buildSessionBundle(session)
+      if (!bundle) {
+        showToast({ key: 'sessionBundleMissing', type: 'error' })
+        return
       }
-    },
-    []
-  )
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
+      const name = sessionBundleName(bundle.title)
+      if (android) {
+        const saved = await saveAndroidHistory(name, blob)
+        showToast(
+          saved
+            ? { key: 'sessionBundleExported', params: { name } }
+            : { key: 'sessionBundleCanceled' }
+        )
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = name
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      showToast({ key: 'sessionBundleExported', params: { name } })
+    } catch {
+      showToast({ key: 'sessionBundleFailed', type: 'error' })
+    }
+  }, [])
   /** 导出为可读文本：标题、角色名、逐条消息与记忆，便于存成笔记 */
   const exportText = useCallback(async (session: SessionSummary) => {
     try {
@@ -390,61 +393,61 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
       )}
       <div className={styles.folderBar} aria-label={t('sessionFolderFilter')}>
         <div className={styles.folderScroller}>
-        <button
-          type="button"
-          data-on={folderFilter === '' ? '' : undefined}
-          onClick={() => setFolderFilter('')}
-        >
-          {t('sessionFolderAll')}
-        </button>
-        <button
-          type="button"
-          data-on={folderFilter === '__none' ? '' : undefined}
-          onClick={() => setFolderFilter('__none')}
-        >
-          {t('sessionFolderNone')}
-        </button>
-        {folders.map((folder) => (
           <button
-            key={folder.id}
             type="button"
-            data-on={folderFilter === folder.id ? '' : undefined}
-            onClick={() => setFolderFilter(folderFilter === folder.id ? '' : folder.id)}
+            data-on={folderFilter === '' ? '' : undefined}
+            onClick={() => setFolderFilter('')}
           >
-            {folder.name}
+            {t('sessionFolderAll')}
           </button>
-        ))}
+          <button
+            type="button"
+            data-on={folderFilter === '__none' ? '' : undefined}
+            onClick={() => setFolderFilter('__none')}
+          >
+            {t('sessionFolderNone')}
+          </button>
+          {folders.map((folder) => (
+            <button
+              key={folder.id}
+              type="button"
+              data-on={folderFilter === folder.id ? '' : undefined}
+              onClick={() => setFolderFilter(folderFilter === folder.id ? '' : folder.id)}
+            >
+              {folder.name}
+            </button>
+          ))}
         </div>
         <div className={styles.folderTools}>
-        {androidDrawer && !selecting ? (
+          {androidDrawer && !selecting ? (
+            <button
+              type="button"
+              className={styles.folderMulti}
+              aria-label={t('androidMultiSelect')}
+              onClick={() => setSelecting(true)}
+            >
+              {t('androidMultiSelect')}
+            </button>
+          ) : null}
           <button
             type="button"
-            className={styles.folderMulti}
-            aria-label={t('androidMultiSelect')}
-            onClick={() => setSelecting(true)}
+            className={styles.folderMore}
+            aria-label={t('more')}
+            aria-expanded={toolsOpen}
+            onClick={() => setToolsOpen((previous) => !previous)}
           >
-            {t('androidMultiSelect')}
+            {t('more')}
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <path
+                d="M3 4.6 6 7.6 9 4.6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                style={{ transform: toolsOpen ? 'rotate(180deg)' : undefined }}
+              />
+            </svg>
           </button>
-        ) : null}
-        <button
-          type="button"
-          className={styles.folderMore}
-          aria-label={t('more')}
-          aria-expanded={toolsOpen}
-          onClick={() => setToolsOpen((previous) => !previous)}
-        >
-          {t('more')}
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-            <path
-              d="M3 4.6 6 7.6 9 4.6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              style={{ transform: toolsOpen ? 'rotate(180deg)' : undefined }}
-            />
-          </svg>
-        </button>
         </div>
       </div>
       {toolsOpen ? (
@@ -551,7 +554,11 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
             <button type="button" disabled={!checked.size} onClick={() => setBulkConfirm('copy')}>
               {t('androidCopy')}
             </button>
-            <button type="button" disabled={!checked.size} onClick={() => setBulkConfirm('archive')}>
+            <button
+              type="button"
+              disabled={!checked.size}
+              onClick={() => setBulkConfirm('archive')}
+            >
               {t('androidArchive')}
             </button>
             <button
@@ -639,10 +646,14 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
             {folders.length === 0 ? (
               <div className={styles.folderEmpty}>{t('sessionFolderEmpty')}</div>
             ) : null}
-            <button type="button" className={styles.folderAdd} onClick={() => {
-              setBulkFolderOpen(false)
-              setNewFolderOpen(true)
-            }}>
+            <button
+              type="button"
+              className={styles.folderAdd}
+              onClick={() => {
+                setBulkFolderOpen(false)
+                setNewFolderOpen(true)
+              }}
+            >
               ＋ {t('sessionFolderNew')}
             </button>
           </div>
@@ -814,6 +825,9 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
 })
 
 /** 移动端侧边栏：窄屏为浮层抽屉（点遮罩关闭）；Android 宽屏为左侧分栏（无遮罩）。 */
+/* -------------------- 功能区：桌面侧栏 结束 -------------------- */
+
+/* -------------------- 功能区：移动端侧栏 开始 -------------------- */
 export const MobileSider = memo(function MobileSider() {
   const t = useTranslate()
   const open = useMobileSider((state) => state.open)
@@ -840,3 +854,8 @@ export const MobileSider = memo(function MobileSider() {
     </>
   )
 })
+/* -------------------- 功能区：移动端侧栏 结束 -------------------- */
+
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / Sider 结束
+ * ========================================================================== */

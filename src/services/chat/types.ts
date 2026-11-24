@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / types 开始
+ * 职责：types 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：FileAttachment、UserMessage、ThinkingPart、TextPart、ReplyBlock、ReplyStatus 等 14 个导出。
+ * ========================================================================== */
+
 import type { TranslationMessage } from '../../i18n/index.js'
 import type { ApiErrorKind } from '../api/client.js'
 import type {
@@ -97,7 +103,7 @@ export type AssistantMessage = MessageBranch & {
   /** 最近一次请求的用量 */
   usage?: MessageUsage
   /**
-   * 每次请求结束时的接口用量快照。重新生成会覆盖 usage，但这里按请求顺序保留，
+   * 每次请求结束时的接口用量快照。重新生成会覆盖 usage，但该字段按请求顺序保留，
    * 供会话级精确统计；旧版本回复没有这个字段时退回 usage 单次值。
    */
   usageHistory?: MessageUsage[]
@@ -183,3 +189,7 @@ export const isReadableSession = (value: unknown): value is Session => {
       typeof (message as Record<string, unknown>).role === 'string'
   )
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / types 结束
+ * ========================================================================== */

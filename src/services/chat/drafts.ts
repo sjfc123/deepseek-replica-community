@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / drafts 开始
+ * 职责：drafts 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：DraftAttachment、DraftFilePayload、ActiveMessageEdit、EMPTY_DRAFT、editDraftKey、useDrafts 等 25 个导出。
+ * ========================================================================== */
+
 import { create } from 'zustand'
 import type { TranslationMessage } from '../../i18n/index.js'
 import { createId } from '../../utils/id.js'
@@ -570,3 +576,7 @@ export const clearAllDrafts = () => {
   }
   useDrafts.setState({ drafts: new Map(), editDrafts: new Map(), editing: null })
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / drafts 结束
+ * ========================================================================== */

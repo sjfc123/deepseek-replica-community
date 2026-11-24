@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：消息渲染 / AssistantMessage 开始
+ * 职责：助手消息：正文、推理、用量、朗读、长按菜单与版本切换。
+ * ========================================================================== */
+
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -95,9 +100,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   // 会话已绑定人物时优先沿用它；关闭全局开关不会把头像和称呼切回手写角色
   const activeCard =
     findSessionCharacterCard(characterCards, session) ??
-    (roleplayEnabled
-      ? findActiveCharacterCard(characterCards, activeCharacterId)
-      : undefined)
+    (roleplayEnabled ? findActiveCharacterCard(characterCards, activeCharacterId) : undefined)
   const cardAvatars = useSettings((state) => state.cardAvatars)
   const characterAvatar = useSettings((state) => state.characterAvatar)
   const cardAvatar = activeCard ? (cardAvatars[activeCard.id] ?? null) : null
@@ -189,9 +192,7 @@ export const AssistantMessage = memo(function AssistantMessage({
         <span>缓存命中 {formatTokenCount(message.usage.cache_read_input_tokens)}</span>
         <span>
           未命中{' '}
-          {formatTokenCount(
-            message.usage.input_tokens + message.usage.cache_creation_input_tokens
-          )}
+          {formatTokenCount(message.usage.input_tokens + message.usage.cache_creation_input_tokens)}
         </span>
       </div>
     ) : null
@@ -637,3 +638,7 @@ export const AssistantMessage = memo(function AssistantMessage({
     </div>
   )
 })
+
+/* ============================================================================
+ * 功能区：消息渲染 / AssistantMessage 结束
+ * ========================================================================== */

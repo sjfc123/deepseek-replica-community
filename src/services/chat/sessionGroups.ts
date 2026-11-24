@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / sessionGroups 开始
+ * 职责：sessionGroups 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：groupSessions。
+ * ========================================================================== */
+
 import { translate } from '../../i18n/index.js'
 import { monthKey } from '../../utils/format.js'
 import type { SessionSummary } from './types.js'
@@ -31,3 +37,7 @@ export const groupSessions = (sessions: SessionSummary[], now: number, t = trans
   }
   return groups
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / sessionGroups 结束
+ * ========================================================================== */

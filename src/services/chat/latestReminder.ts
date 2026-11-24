@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / latestReminder 开始
+ * 职责：latestReminder 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：createLatestReminder。
+ * ========================================================================== */
+
 import { getRegionName, provinces, type UserLocation } from '../location.js'
 import type { Locale } from '../settings.js'
 import { formatDate } from '../../utils/format.js'
@@ -28,3 +34,7 @@ export const createLatestReminder = (
     translate('latestReminderLanguage'),
   ].join(',')
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / latestReminder 结束
+ * ========================================================================== */

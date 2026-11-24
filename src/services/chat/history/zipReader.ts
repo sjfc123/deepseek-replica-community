@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：历史归档 / zipReader 开始
+ * 职责：zipReader 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
+ * 导出：ArchiveError、isZipFile、ArchiveEntry、readEntry、skipEntry。
+ * ========================================================================== */
+
 import { Inflate, inflateSync } from 'fflate'
 import { readBlobBuffer } from '../../../utils/blob.js'
 
@@ -407,3 +413,7 @@ export const skipEntry = async (entry: ArchiveEntry): Promise<void> => {
     // 丢弃数据。
   }
 }
+
+/* ============================================================================
+ * 功能区：历史归档 / zipReader 结束
+ * ========================================================================== */

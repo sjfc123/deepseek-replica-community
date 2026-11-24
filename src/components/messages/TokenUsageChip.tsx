@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：消息渲染 / TokenUsageChip 开始
+ * 职责：TokenUsageChip 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：TokenUsageChip。
+ * ========================================================================== */
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 import styles from './TokenUsageChip.module.css'
@@ -92,3 +98,7 @@ export const TokenUsageChip = ({
     </div>
   )
 }
+
+/* ============================================================================
+ * 功能区：消息渲染 / TokenUsageChip 结束
+ * ========================================================================== */

@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / store 开始
+ * 职责：聊天状态机：会话加载、请求流、历史替换、记忆写入与持久化。
+ * ========================================================================== */
+
 import { create } from 'zustand'
 import { createId } from '../../utils/id.js'
 import { translate } from '../../i18n/index.js'
@@ -142,6 +147,7 @@ const HISTORY_SUMMARY_LIMIT = 6
 const HISTORY_OVERFLOW_RETRIES = 3
 
 /** 阅读链接始终开启，智能搜索开关控制是否另行声明搜索工具（含边想边搜）。 */
+/* -------------------- 功能区：状态模型与持久化基础设施 开始 -------------------- */
 const serverTools = (search: boolean) => {
   const tools: NonNullable<CreateMessageRequest['tools']> = [
     { type: 'deepseek_read_url', name: 'deepseek_read_url' },
@@ -365,6 +371,9 @@ export const bindChatPersistence = () => {
  * 命中本地拒答关键词时不请求接口：直接写入模板文案并标记 refusal，
  * 与「被安全拒绝」走同一套展示路径，拒绝话术可自定义。
  */
+/* -------------------- 功能区：状态模型与持久化基础设施 结束 -------------------- */
+
+/* -------------------- 功能区：会话装载与历史替换 开始 -------------------- */
 const refuseLocally = (sessionId: string, reply: AssistantMessage) => {
   const text = useSettings.getState().refusalMessage.trim() || translate('replyRefused')
   const refused: AssistantMessage = {
@@ -686,6 +695,9 @@ export const mergeHistory = async (
   }
 }
 
+/* -------------------- 功能区：会话装载与历史替换 结束 -------------------- */
+
+/* -------------------- 功能区：会话选择、分叉与增删改 开始 -------------------- */
 export const newChat = () => {
   if (!get().importingHistory) {
     cancelMessageEdit()
@@ -907,6 +919,9 @@ const appendPendingFiles = (sessionId: string, files: readonly DraftFilePayload[
  * 提交指定会话的最新草稿；null 表示新建会话。
  * 同步接收成功才清空草稿，附件原件由会话接管；保存失败仍通过保存入口重试。
  */
+/* -------------------- 功能区：会话选择、分叉与增删改 结束 -------------------- */
+
+/* -------------------- 功能区：消息发送、生成与编辑 开始 -------------------- */
 export const sendMessage = (targetSessionId: string | null) => {
   if (get().importingHistory || !get().ready) {
     return false
@@ -1245,8 +1260,8 @@ export const editAssistantMessage = (
 }
 
 /**
- * 删除助手回复：这条回复和它后面接着的问答一起删，提问本身保留。
- * 若同一个提问下还有别的回答版本，删完自动落到剩下的那一版。
+ * 删除助手回复时级联删除该回复之后的问答对，保留触发本次回复的用户提问。
+ * 同一提问下若仍有其他回答版本，删除后自动切换到剩余版本。
  */
 export const deleteMessage = (sessionId: string, messageId: string): boolean => {
   if (get().importingHistory || deletingSessions.has(sessionId)) {
@@ -1309,6 +1324,9 @@ const MEMORY_REFINE_SYSTEM =
   '只输出清单本身，不要编号以外的任何解释。'
 
 /** 将卡片挂载到生成它的消息上；无法挂载则丢弃，不影响其他轮次 */
+/* -------------------- 功能区：消息发送、生成与编辑 结束 -------------------- */
+
+/* -------------------- 功能区：记忆写入、分类与配额 开始 -------------------- */
 const attachMemories = (sessionId: string, messageId: string, cards: MemoryCard[]) => {
   if (cards.length === 0) {
     return false
@@ -1929,6 +1947,9 @@ export const clearMemories = (sessionId: string, pool?: MemoryPool) => {
   persist(sessionId)
 }
 
+/* -------------------- 功能区：记忆写入、分类与配额 结束 -------------------- */
+
+/* -------------------- 功能区：附件上传、请求组装与流式执行 开始 -------------------- */
 export const retryUpload = (sessionId: string, messageId: string) => {
   if (get().importingHistory || deletingSessions.has(sessionId)) {
     return
@@ -2769,3 +2790,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     }
   }
 }
+/* -------------------- 功能区：附件上传、请求组装与流式执行 结束 -------------------- */
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / store 结束
+ * ========================================================================== */

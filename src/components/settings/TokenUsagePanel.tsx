@@ -1,11 +1,14 @@
+/* ============================================================================
+ * 功能区：设置页 / TokenUsagePanel 开始
+ * 职责：TokenUsagePanel 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：TokenUsagePanel。
+ * ========================================================================== */
+
 import { useEffect, useMemo, useState } from 'react'
 import { useSettings } from '../../services/settings.js'
 import { loadSession, loadSessionSummaries } from '../../services/chat/db.js'
 import type { AssistantMessage, SessionSummary } from '../../services/chat/types.js'
-import {
-  summarizeSessionUsage,
-  type SessionUsageSummary,
-} from '../../services/tokenUsage.js'
+import { summarizeSessionUsage, type SessionUsageSummary } from '../../services/tokenUsage.js'
 import styles from './TokenUsagePanel.module.css'
 
 type Props = {
@@ -61,9 +64,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
       })
       .catch(() => {
         if (!cancelled) {
-          setListError(
-            zh ? '读取会话列表失败，请返回后重试' : 'Failed to load sessions, try again'
-          )
+          setListError(zh ? '读取会话列表失败，请返回后重试' : 'Failed to load sessions, try again')
         }
       })
       .finally(() => {
@@ -117,9 +118,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
     try {
       const session = await loadSession(summary.id)
       if (!session) {
-        setReportError(
-          t('会话内容读取失败，可能已被删除或损坏', 'Session could not be read')
-        )
+        setReportError(t('会话内容读取失败，可能已被删除或损坏', 'Session could not be read'))
         return
       }
       setReport(
@@ -141,8 +140,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
   }
 
   const totals = report?.totals
-  const hitRate =
-    totals && totals.input > 0 ? (totals.cacheRead / totals.input) * 100 : 0
+  const hitRate = totals && totals.input > 0 ? (totals.cacheRead / totals.input) * 100 : 0
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true">
@@ -300,9 +298,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
             ) : listError ? (
               <div className={styles.state}>{listError}</div>
             ) : visibleSummaries.length === 0 ? (
-              <div className={styles.state}>
-                {t('未找到匹配的会话', 'No matching sessions')}
-              </div>
+              <div className={styles.state}>{t('未找到匹配的会话', 'No matching sessions')}</div>
             ) : (
               <div className={styles.list}>
                 {visibleSummaries.map((item) => {
@@ -339,3 +335,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
     </div>
   )
 }
+
+/* ============================================================================
+ * 功能区：设置页 / TokenUsagePanel 结束
+ * ========================================================================== */

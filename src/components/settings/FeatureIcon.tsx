@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：设置页 / FeatureIcon 开始
+ * 职责：FeatureIcon 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：FeatureIcon。
+ * ========================================================================== */
+
 import {
   AlignLeft,
   ArchiveRestore,
@@ -118,17 +124,17 @@ const BY_LABEL: Record<string, LucideIcon> = {
   'Token usage': BarChart3,
   'Token 与费用': PiggyBank,
   'Token & cost': PiggyBank,
-  '费用与消耗': PiggyBank,
+  费用与消耗: PiggyBank,
   'Cost control': PiggyBank,
   版本信息: Info,
   Version: Info,
   运行诊断并保存日志: Stethoscope,
   'Run diagnostics & save log': Stethoscope,
-  '检查更新': RefreshCw,
+  检查更新: RefreshCw,
   'Check for update': RefreshCw,
-  '更新下载': Download,
-  '更新安装': Download,
-  '下载更新': Download,
+  更新下载: Download,
+  更新安装: Download,
+  下载更新: Download,
   服务协议: ScrollText,
   'Service agreement': ScrollText,
   帮助与反馈: LifeBuoy,
@@ -267,3 +273,7 @@ export const FeatureIcon = ({ label }: { label: string }) => {
   const Icon = BY_LABEL[label] ?? FALLBACK[hash(label) % FALLBACK.length]
   return <Icon size={15} strokeWidth={1.7} />
 }
+
+/* ============================================================================
+ * 功能区：设置页 / FeatureIcon 结束
+ * ========================================================================== */

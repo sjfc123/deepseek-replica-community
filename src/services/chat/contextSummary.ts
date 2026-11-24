@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / contextSummary 开始
+ * 职责：contextSummary 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：createContextSummarizer、includeContextSummary、readPlainText、summarizeCurrentInput。
+ * ========================================================================== */
+
 import { readBlobBuffer } from '../../utils/blob.js'
 import { DEFAULT_CHAT_CONFIG, DEFAULT_CHAT_MODEL, type ChatConfig } from '../api/chatConfig.js'
 import { streamChatMessage } from '../api/client.js'
@@ -11,11 +17,7 @@ import type {
   UserBlockParam,
 } from '../api/types.js'
 import { getFileExt, getUploadPurpose } from '../attachments.js'
-import {
-  estimateTextTokens,
-  SUMMARY_OUTPUT_TOKENS,
-  textPrefixLength,
-} from './context.js'
+import { estimateTextTokens, SUMMARY_OUTPUT_TOKENS, textPrefixLength } from './context.js'
 import type { OfficeFormat } from './officeText.js'
 import type { FileAttachment, UserMessage } from './types.js'
 
@@ -305,3 +307,7 @@ export const summarizeCurrentInput = async ({
     },
   }
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / contextSummary 结束
+ * ========================================================================== */

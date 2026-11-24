@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / systemPrompt 开始
+ * 职责：systemPrompt 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：SYSTEM_PROMPT、NEUTRAL_SYSTEM_PROMPT、META_TALK_GUARD、ASIDE_AND_ADDRESS_GUARD、composeSystemPrompt。
+ * ========================================================================== */
+
 import { DEFAULT_SYSTEM_PROMPT } from '../settings.js'
 
 /** 未配置角色设定时的官方助手身份 */
@@ -50,7 +56,7 @@ export const composeSystemPrompt = ({
   suppressMetaTalk: boolean
   userName: string
 }) => {
-  // custom 只影响旧版中性提示，新默认人设两端通用，这里保留参数以兼容调用方
+  // custom 只影响旧版中性提示，新默认人设两端通用，保留该参数用于兼容调用方
   void custom
   const trimmed = savedPrompt.trim()
   // 用户主动清空提示词：不注入任何 system，连中性角色提示也不补。
@@ -59,9 +65,7 @@ export const composeSystemPrompt = ({
     return ''
   }
   // 新默认提示词本身不含公司身份，自定义网关也直接用它，保证「默认不为空且是活人设定」
-  const roleplay = trimmed && trimmed !== SYSTEM_PROMPT
-    ? trimmed
-    : SYSTEM_PROMPT
+  const roleplay = trimmed && trimmed !== SYSTEM_PROMPT ? trimmed : SYSTEM_PROMPT
   const withUser = (text: string) => text.replaceAll('{{user}}', userName)
   const base =
     suppressMetaTalk && roleplay !== SYSTEM_PROMPT
@@ -70,3 +74,7 @@ export const composeSystemPrompt = ({
   // 格式约定对所有非空 system 生效：玩家在普通对话里也可能用括号表达心理活动
   return `${base}${withUser(ASIDE_AND_ADDRESS_GUARD)}`
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / systemPrompt 结束
+ * ========================================================================== */

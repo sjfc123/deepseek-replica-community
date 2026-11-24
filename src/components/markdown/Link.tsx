@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 视图 / Link 开始
+ * 职责：Link 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：Link、ImageAsLink。
+ * ========================================================================== */
+
 import type { Image, Link as LinkNode } from 'mdast'
 import { memo, type MouseEvent, type ReactNode } from 'react'
 import { openAndroidPage } from '../../app/openAndroidPage.js'
@@ -67,3 +73,7 @@ export function ImageAsLink({ node }: { node: Image }) {
     </a>
   )
 }
+
+/* ============================================================================
+ * 功能区：Markdown 视图 / Link 结束
+ * ========================================================================== */

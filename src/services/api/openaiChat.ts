@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：模型接口 / openaiChat 开始
+ * 职责：openaiChat 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
+ * 导出：openAIRequest、readOpenAIFrame。
+ * ========================================================================== */
+
 import type { ChatApiFormat } from './chatConfig.js'
 import type {
   CreateMessageRequest,
@@ -187,3 +193,7 @@ const readResponseEvent = (payload: Record<string, unknown>): OpenAIFrame => {
 
 export const readOpenAIFrame = (format: OpenAIFormat, payload: unknown): OpenAIFrame =>
   format === 'chat' ? readChatChunk(record(payload)) : readResponseEvent(record(payload))
+
+/* ============================================================================
+ * 功能区：模型接口 / openaiChat 结束
+ * ========================================================================== */

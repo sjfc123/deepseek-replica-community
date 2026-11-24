@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：设置页 / RoleplayPanel 开始
+ * 职责：角色卡与世界书面板：卡片编辑、世界书条目、场景与模板。
+ * ========================================================================== */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getVisibleMessages } from '../../services/chat/branches.js'
 import { startCharacterIntro, useChatStore } from '../../services/chat/store.js'
@@ -56,8 +61,8 @@ import { showToast } from '../base/toastState.js'
 import { android, saveAndroidHistory } from '../../app/android.js'
 import styles from './RoleplayPanel.module.css'
 
-
 /** 示例模板：字段与角色卡一一对应，点击后整组填入，用户可继续修改 */
+/* -------------------- 功能区：示例卡与字段模板 开始 -------------------- */
 const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
   {
     label: '旧城邻里',
@@ -84,12 +89,12 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
       petPeeves: '被催婚、被问前段婚姻',
       boundaries: '不谈过去那段婚姻；夜里十点后不接待',
       cooperation: '慢热，不主动推进感情；被追问会转移话题，但会留一个可以继续的细节',
-      identity: '旧城区巷口开一家修表铺，铺子只有一张工作台。手上常年有机油味，认得这条街上每一块表。',
+      identity:
+        '旧城区巷口开一家修表铺，铺子只有一张工作台。手上常年有机油味，认得这条街上每一块表。',
       relationship: '住对门五年。你搬来那天她借过一把螺丝刀，之后一直没还，也没提。',
       style: '话少，句子短，先说结论再说原因。不主动开玩笑，但接得住别人的玩笑。',
       tics: '说话时用拇指搓表带；被问到私事会先低头看表。',
-      greeting:
-        '（把台灯往下压了压，抬头看你）门没锁，进来吧。表又停了？先放这儿，我看看。',
+      greeting: '（把台灯往下压了压，抬头看你）门没锁，进来吧。表又停了？先放这儿，我看看。',
       notes: '不谈过去那段婚姻；不劝人留在旧城；夜里十点后不回铺子。',
     },
   },
@@ -186,16 +191,17 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
       cooperation: '情报型：每次给线索都带来源和代价，不替对方决定信谁',
       genre: '江湖',
       playStyle: 'mystery',
-      identity:
-        '替人跑腿的“线人”，不属任何门派。雨天在城隍庙檐下摆一张小桌，卖消息，也替人递话。',
+      identity: '替人跑腿的“线人”，不属任何门派。雨天在城隍庙檐下摆一张小桌，卖消息，也替人递话。',
       relationship: '{{user}} 上个月托他找一个人，定金收了，人还没找到。',
       style: '句子短，爱用反问；收钱前后语气一样，不套近乎。',
       tics: '说话时把铜钱在指间翻来翻去；不想答就抬头看雨。',
       scenario: '入夜，雨没停。城隍庙的灯被风吹得只剩一线，桌上有半张被雨泡软的寻人启事。',
       goal: '在三天内找到 {{user}} 要的人，同时躲开正在城里搜人的捕快。',
       secret: '他要找的人其实已经死了，尸体是他亲手埋的；收定金时他就知道。',
-      speechExamples: '“消息有价，假消息也有价。你要哪一种？”\n“人没找到。钱我不退，但可以再给你一条线。”',
-      greeting: '（把铜钱扣在桌上，抬眼看雨）来了。人还没找到，线倒有一条。先说好，这条线比定金贵。',
+      speechExamples:
+        '“消息有价，假消息也有价。你要哪一种？”\n“人没找到。钱我不退，但可以再给你一条线。”',
+      greeting:
+        '（把铜钱扣在桌上，抬眼看雨）来了。人还没找到，线倒有一条。先说好，这条线比定金贵。',
       notes: '低武、重人情与代价；不动辄拔刀。不写成人内容。',
       systemDirective: '每次给线索都要带一个具体的来源和代价；不替 {{user}} 决定信谁。',
     },
@@ -274,10 +280,13 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
       scenario: '月底，房东突然说要卖房，给了一个月搬走的期限。合租合同还有四个月。',
       goal: '在一个月内找到能续住的方案，同时不耽误夜班。',
       secret: '她其实存够了首付，但一直没说要买房；她怕 {{user}} 以为她在赶人。',
-      speechExamples: '“一个月。搬家、找房、押一付三，你算过没有？”\n“我不是要你搬。我是在想，我们能不能不搬。”',
-      greeting: '（把钥匙丢进玄关的碗里，鞋还没换）房东来过了。一个月，卖房。你先别急着骂，坐下算账。',
+      speechExamples:
+        '“一个月。搬家、找房、押一付三，你算过没有？”\n“我不是要你搬。我是在想，我们能不能不搬。”',
+      greeting:
+        '（把钥匙丢进玄关的碗里，鞋还没换）房东来过了。一个月，卖房。你先别急着骂，坐下算账。',
       notes: '都市现实向，钱、班表、通勤都要落地；不写霸总、不写成人内容。',
-      systemDirective: '每次决定都要对应时间、预算或人情成本；不替 {{user}} 做买房、辞职、表白决定。',
+      systemDirective:
+        '每次决定都要对应时间、预算或人情成本；不替 {{user}} 做买房、辞职、表白决定。',
     },
   },
   {
@@ -314,7 +323,8 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
       scenario: '闭馆后的档案馆，只有一排感应灯亮着。十年前的卷宗少了两页，借阅记录却是空的。',
       goal: '在被人发现之前补上缺失的两页，确认 {{user}} 要的答案到底值不值得挖。',
       secret: '那两页是他十年前亲手抽走的，为了保住一个证人。',
-      speechExamples: '“卷宗不会自己少页。少页说明有人来过。”\n“我可以给你名字，但你得先想清楚，名字后面还有人。”',
+      speechExamples:
+        '“卷宗不会自己少页。少页说明有人来过。”\n“我可以给你名字，但你得先想清楚，名字后面还有人。”',
       greeting: '（把最后一盏灯打开，压低声音）门锁了。你要查的那卷，少两页。现在走还来得及。',
       notes: '悬疑推进靠线索与信息差，不靠突然反转；不写血腥细节、不写成人内容。',
       systemDirective: '每轮只放出一条可验证的线索；不提前揭底，不替 {{user}} 下结论。',
@@ -355,13 +365,18 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
       goal: '在氧气耗尽前查明偏航原因，并把全舰带到最近的补给点。',
       secret: '偏航不是故障，是船长手动改的；货舱里那批“医疗物资”没有登记。',
       speechExamples: '“氧四十小时。先关实验舱，再谈谁去货舱。”\n“我不猜。把信号原始记录给我。”',
-      greeting: '（盯着能耗表，头也没回）氧四十小时，航向偏了七度。你先说，舰桥那段信号是谁先收到的。',
+      greeting:
+        '（盯着能耗表，头也没回）氧四十小时，航向偏了七度。你先说，舰桥那段信号是谁先收到的。',
       notes: '科幻设定要守技术边界，资源与时间可追踪；不写成人内容。',
-      systemDirective: '所有危机都要有可计算的资源与倒计时；配角各有岗位判断，不无条件服从 {{user}}。',
+      systemDirective:
+        '所有危机都要有可计算的资源与倒计时；配角各有岗位判断，不无条件服从 {{user}}。',
     },
   },
 ]
 
+/* -------------------- 功能区：示例卡与字段模板 结束 -------------------- */
+
+/* -------------------- 功能区：空数据结构与字段完整度 开始 -------------------- */
 const emptyCard = (name = ''): CharacterCard => ({
   id: newRoleplayId(),
   name,
@@ -486,6 +501,9 @@ const formatDate = (value: number) =>
       })
     : '尚未填写'
 
+/* -------------------- 功能区：空数据结构与字段完整度 结束 -------------------- */
+
+/* -------------------- 功能区：状态绑定、派生数据与筛选 开始 -------------------- */
 export function RoleplayPanel() {
   const cards = useSettings((state) => state.characterCards)
   const activeCharacterId = useSettings((state) => state.activeCharacterId)
@@ -547,11 +565,7 @@ export function RoleplayPanel() {
         .join('')
     }
     return {
-      recentText: messages
-        .slice(-5)
-        .map(plain)
-        .filter(Boolean)
-        .join('\n'),
+      recentText: messages.slice(-5).map(plain).filter(Boolean).join('\n'),
       sessionText: messages.map(plain).filter(Boolean).join('\n'),
     }
   }, [activeSession])
@@ -588,9 +602,10 @@ export function RoleplayPanel() {
           .includes(entryNeedle))
   )
   const enabledEntries = worldbook.filter((entry) => entry.enabled).length
-  const alwaysEntries = roleplayOn && worldbookInject
-    ? worldbook.filter((entry) => entry.enabled && entry.always).length
-    : 0
+  const alwaysEntries =
+    roleplayOn && worldbookInject
+      ? worldbook.filter((entry) => entry.enabled && entry.always).length
+      : 0
   const sceneCount = SCENE_FIELDS.filter(({ key }) => scene[key].trim()).length
   // 标签清单按使用次数排序，供顶部筛选行展示
   const tagList = useMemo(() => {
@@ -658,6 +673,9 @@ export function RoleplayPanel() {
     setBudgetDraft(String(worldbookChars))
   }, [worldbookChars])
 
+  /* -------------------- 功能区：状态绑定、派生数据与筛选 结束 -------------------- */
+
+  /* -------------------- 功能区：卡片、世界书与导入导出操作 开始 -------------------- */
   const applyBudget = (value: number) => {
     const next = Math.min(WORLDBOOK_BUDGET_MAX, Math.max(WORLDBOOK_BUDGET_MIN, Math.round(value)))
     setWorldbookChars(next)
@@ -886,7 +904,10 @@ export function RoleplayPanel() {
       const signatures = new Set(existing.map((card) => `${card.name}\n${card.identity}`))
       const room = Math.max(0, CHARACTER_CARD_MAX - existing.length)
       let avatar = ''
-      if (incoming.length === 1 && (file.type === 'image/png' || file.name.toLowerCase().endsWith('.png'))) {
+      if (
+        incoming.length === 1 &&
+        (file.type === 'image/png' || file.name.toLowerCase().endsWith('.png'))
+      ) {
         try {
           avatar = await readAvatarImage(file)
         } catch {
@@ -978,6 +999,9 @@ export function RoleplayPanel() {
    * 角色卡编辑器：编辑现有卡时渲染在卡片原位置，新建卡时渲染在列表上方。
    * 头部提供头像上传与八套示例，字段留空则不参与注入。
    */
+  /* -------------------- 功能区：卡片、世界书与导入导出操作 结束 -------------------- */
+
+  /* -------------------- 功能区：角色卡编辑器 开始 -------------------- */
   const renderCardEditor = () => {
     if (!cardDraft) {
       return null
@@ -1007,7 +1031,10 @@ export function RoleplayPanel() {
           </span>
           <div className={styles.avatarCopy}>
             <strong>头像</strong>
-            <small>选择图片后自动居中裁切为正方形并压缩至 256px，仅保存在本机；开启头像显示后同步用于聊天。</small>
+            <small>
+              选择图片后自动居中裁切为正方形并压缩至
+              256px，仅保存在本机；开启头像显示后同步用于聊天。
+            </small>
           </div>
           <div className={styles.avatarButtons}>
             <button
@@ -1043,11 +1070,7 @@ export function RoleplayPanel() {
         <div className={styles.exampleRow}>
           <span>可载入示例模板：</span>
           {CARD_EXAMPLES.map((example) => (
-            <button
-              key={example.label}
-              type="button"
-              onClick={() => applyExample(example.label)}
-            >
+            <button key={example.label} type="button" onClick={() => applyExample(example.label)}>
               {example.label}
             </button>
           ))}
@@ -1060,7 +1083,9 @@ export function RoleplayPanel() {
         <div className={styles.fieldGrid}>
           <div className={styles.fieldGroup}>
             <strong>基本档案</strong>
-            <span>年龄、性别、代词和种族是硬事实，写清后不会随对话漂移；不知道的项留空，不要临时补。</span>
+            <span>
+              年龄、性别、代词和种族是硬事实，写清后不会随对话漂移；不知道的项留空，不要临时补。
+            </span>
           </div>
           <label>
             <span>姓名 *</span>
@@ -1156,7 +1181,9 @@ export function RoleplayPanel() {
 
           <div className={styles.fieldGroup}>
             <strong>身体与生活</strong>
-            <span>把能被看见、吃到、摸到的东西写具体；这些细节决定角色是“活着”还是只在等人回复。</span>
+            <span>
+              把能被看见、吃到、摸到的东西写具体；这些细节决定角色是“活着”还是只在等人回复。
+            </span>
           </div>
           <label>
             <span>身高</span>
@@ -1183,9 +1210,7 @@ export function RoleplayPanel() {
               value={cardDraft.appearance}
               maxLength={1000}
               placeholder="脸、发型、肤色、常穿的衣服、旧伤、声音、气味；身高体重不在这里重复"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, appearance: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, appearance: event.target.value })}
             />
           </label>
           <label>
@@ -1237,9 +1262,7 @@ export function RoleplayPanel() {
               value={cardDraft.dailyRoutine}
               maxLength={300}
               placeholder="几点起、几点睡、白天在哪、饭点做什么；没有剧情作用的小习惯最能让角色落地"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, dailyRoutine: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, dailyRoutine: event.target.value })}
             />
           </label>
           <label>
@@ -1248,9 +1271,7 @@ export function RoleplayPanel() {
               value={cardDraft.possessions}
               maxLength={200}
               placeholder="旧表、卷尺、一枚磨亮的铜钱"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, possessions: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, possessions: event.target.value })}
             />
           </label>
           <label>
@@ -1265,7 +1286,9 @@ export function RoleplayPanel() {
 
           <div className={styles.fieldGroup}>
             <strong>性格与边界</strong>
-            <span>性格不是标签堆叠，是压力下的选择；雷点和底线写具体，角色才不会为了配合而丢掉自己。</span>
+            <span>
+              性格不是标签堆叠，是压力下的选择；雷点和底线写具体，角色才不会为了配合而丢掉自己。
+            </span>
           </div>
           <label className={styles.wide}>
             <span>性格底色</span>
@@ -1274,9 +1297,7 @@ export function RoleplayPanel() {
               value={cardDraft.temperament}
               maxLength={300}
               placeholder="平时怎样，被逼到墙角会怎样；核心欲望、矛盾点、对亲近和冲突的反应"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, temperament: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, temperament: event.target.value })}
             />
           </label>
           <label className={styles.wide}>
@@ -1295,9 +1316,7 @@ export function RoleplayPanel() {
               value={cardDraft.petPeeves}
               maxLength={200}
               placeholder="被说胖、被替死去的弟兄做主、被催婚"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, petPeeves: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, petPeeves: event.target.value })}
             />
           </label>
           <label>
@@ -1306,9 +1325,7 @@ export function RoleplayPanel() {
               value={cardDraft.boundaries}
               maxLength={300}
               placeholder="不接杀人买卖、不写成人内容、不替对方做重大决定"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, boundaries: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, boundaries: event.target.value })}
             />
           </label>
           <label className={styles.wide}>
@@ -1318,15 +1335,15 @@ export function RoleplayPanel() {
               value={cardDraft.cooperation}
               maxLength={300}
               placeholder="希望怎样推进场景；可以拒绝、犹豫或谈条件，但每轮都要留一个可继续的落点"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, cooperation: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, cooperation: event.target.value })}
             />
           </label>
 
           <div className={styles.fieldGroup}>
             <strong>剧情与表达</strong>
-            <span>这一段决定这场戏怎么开始、怎么推进、哪些事不到时候不能说；越具体，越不容易 OOC。</span>
+            <span>
+              这一段决定这场戏怎么开始、怎么推进、哪些事不到时候不能说；越具体，越不容易 OOC。
+            </span>
           </div>
           <label className={styles.wide}>
             <span>身份与自我认知</span>
@@ -1345,9 +1362,7 @@ export function RoleplayPanel() {
               value={cardDraft.relationship}
               maxLength={800}
               placeholder="怎么认识、认识多久、现在算什么、边界在哪；关系会变化时写清起点与可能走向"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, relationship: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, relationship: event.target.value })}
             />
           </label>
           <label>
@@ -1393,9 +1408,7 @@ export function RoleplayPanel() {
               value={cardDraft.scenario}
               maxLength={3000}
               placeholder="时间、地点、正在发生的事、对方为什么在这里；动态变化请写入场景"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, scenario: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, scenario: event.target.value })}
             />
           </label>
           <label className={styles.wide}>
@@ -1405,9 +1418,7 @@ export function RoleplayPanel() {
               value={cardDraft.background}
               maxLength={4000}
               placeholder="塑造现在的关键经历；不必写成完整传记，留白比堆事件更好用"
-              onChange={(event) =>
-                setCardDraft({ ...cardDraft, background: event.target.value })
-              }
+              onChange={(event) => setCardDraft({ ...cardDraft, background: event.target.value })}
             />
           </label>
           <label className={styles.wide}>
@@ -1518,6 +1529,9 @@ export function RoleplayPanel() {
     showToast({ key: 'roleplayExampleApplied', params: { name: label } })
   }
 
+  /* -------------------- 功能区：角色卡编辑器 结束 -------------------- */
+
+  /* -------------------- 功能区：示例应用与面板主渲染 开始 -------------------- */
   return (
     <div className={styles.panel}>
       <section className={styles.hero}>
@@ -1541,7 +1555,10 @@ export function RoleplayPanel() {
             世界书 <b>{enabledEntries}</b>
           </span>
           <span>
-            场景 <b>{sceneCount}/{SCENE_FIELDS.length}</b>
+            场景{' '}
+            <b>
+              {sceneCount}/{SCENE_FIELDS.length}
+            </b>
           </span>
         </div>
       </section>
@@ -1572,7 +1589,10 @@ export function RoleplayPanel() {
           data-on={panelTab === 'scene' ? '' : undefined}
           onClick={() => setPanelTab('scene')}
         >
-          场景 <b>{sceneCount}/{SCENE_FIELDS.length}</b>
+          场景{' '}
+          <b>
+            {sceneCount}/{SCENE_FIELDS.length}
+          </b>
         </button>
       </div>
 
@@ -1625,7 +1645,8 @@ export function RoleplayPanel() {
           <strong>支持格式</strong>
           <span>
             Character Card V2 / V3（JSON，或含 chara / ccv3 元数据的 PNG）、TavernAI 角色卡 JSON。
-            随卡 character_book 会转为世界书并绑定该角色。缺少姓名或无法解析的文件会被拒绝，不会写入本地配置。
+            随卡 character_book
+            会转为世界书并绑定该角色。缺少姓名或无法解析的文件会被拒绝，不会写入本地配置。
           </span>
         </div>
 
@@ -1655,11 +1676,19 @@ export function RoleplayPanel() {
           </div>
           {activeCard ? (
             globalRoleplayOn ? (
-              <button type="button" className={styles.modeButton} onClick={() => closeRoleplay(activeCard)}>
+              <button
+                type="button"
+                className={styles.modeButton}
+                onClick={() => closeRoleplay(activeCard)}
+              >
                 关闭全局开关
               </button>
             ) : (
-              <button type="button" className={styles.modeButton} onClick={() => setRoleplayEnabled(true)}>
+              <button
+                type="button"
+                className={styles.modeButton}
+                onClick={() => setRoleplayEnabled(true)}
+              >
                 恢复角色扮演
               </button>
             )
@@ -1820,7 +1849,13 @@ export function RoleplayPanel() {
                         >
                           <i />
                           <span>
-                            {active ? '已启用' : inSession ? '本会话沿用' : selected ? '已暂停' : '启用'}
+                            {active
+                              ? '已启用'
+                              : inSession
+                                ? '本会话沿用'
+                                : selected
+                                  ? '已暂停'
+                                  : '启用'}
                           </span>
                         </button>
                         <button type="button" onClick={() => startEditCard(card)}>
@@ -1854,7 +1889,8 @@ export function RoleplayPanel() {
         </div>
         <div className={styles.sectionFootRow}>
           <p className={styles.sectionFoot}>
-            最多保存 {CHARACTER_CARD_MAX} 张，同一时间仅保留一张全局启用卡。关闭全局开关只影响新会话；
+            最多保存 {CHARACTER_CARD_MAX}{' '}
+            张，同一时间仅保留一张全局启用卡。关闭全局开关只影响新会话；
             已经创建过该人物的会话会继续沿用卡设定、世界书、场景和角色记忆，不会突然切回手写人格。
           </p>
           <button type="button" className={styles.ghostButton} onClick={restoreBuiltinCards}>
@@ -1870,7 +1906,8 @@ export function RoleplayPanel() {
             <p>
               世界书按分类保存世界、人物、地点、事件、规则、物品与线索；关键词或正则命中时注入，
               避触词可压掉同名误伤，扫描范围可选最近发言或整段历史。标记「每轮注入」的条目每轮都会发送。
-              支持本应用设定存档、SillyTavern world info（entries 数组或对象键值）与 Character Card V2 / V3 的 character_book；不支持私有数据库或未公开的二进制格式。
+              支持本应用设定存档、SillyTavern world info（entries 数组或对象键值）与 Character Card
+              V2 / V3 的 character_book；不支持私有数据库或未公开的二进制格式。
             </p>
           </div>
           <div className={styles.headActions}>
@@ -1983,8 +2020,9 @@ export function RoleplayPanel() {
             <em>字</em>
           </label>
           <p>
-            默认 {WORLDBOOK_BUDGET_DEFAULT.toLocaleString('zh-CN')} 字，范围
-            {' '}{WORLDBOOK_BUDGET_MIN.toLocaleString('zh-CN')}–{WORLDBOOK_BUDGET_MAX.toLocaleString('zh-CN')}。
+            默认 {WORLDBOOK_BUDGET_DEFAULT.toLocaleString('zh-CN')} 字，范围{' '}
+            {WORLDBOOK_BUDGET_MIN.toLocaleString('zh-CN')}–
+            {WORLDBOOK_BUDGET_MAX.toLocaleString('zh-CN')}。
             预算过高会挤占对话上下文，请按模型窗口和实际条目长度调整；未命中条目不计入。
           </p>
         </div>
@@ -1995,7 +2033,9 @@ export function RoleplayPanel() {
               <strong>
                 {worldbook.some((entry) => entry.id === entryDraft.id) ? '编辑条目' : '新建条目'}
               </strong>
-              <span>关键词以逗号分隔；命中任意一个时注入该条目；避触词命中时整条跳过。可信度决定它能不能被对话推翻。</span>
+              <span>
+                关键词以逗号分隔；命中任意一个时注入该条目；避触词命中时整条跳过。可信度决定它能不能被对话推翻。
+              </span>
             </div>
             <div className={styles.fieldGrid}>
               <label>
@@ -2004,9 +2044,7 @@ export function RoleplayPanel() {
                   value={entryDraft.title}
                   maxLength={60}
                   placeholder="例如：夜班便利店"
-                  onChange={(event) =>
-                    setEntryDraft({ ...entryDraft, title: event.target.value })
-                  }
+                  onChange={(event) => setEntryDraft({ ...entryDraft, title: event.target.value })}
                 />
                 {worldbook.some(
                   (entry) =>
@@ -2057,9 +2095,11 @@ export function RoleplayPanel() {
                   ))}
                 </select>
                 <small className={styles.fieldHint}>
-                  {WORLDBOOK_AUTHORITIES.find(
-                    (authority) => authority.key === entryDraft.authority
-                  )?.hint}
+                  {
+                    WORLDBOOK_AUTHORITIES.find(
+                      (authority) => authority.key === entryDraft.authority
+                    )?.hint
+                  }
                 </small>
               </label>
               <label>
@@ -2067,9 +2107,7 @@ export function RoleplayPanel() {
                 <input
                   value={keywordDraft}
                   placeholder={
-                    entryDraft.match === 'regex'
-                      ? '便利(店|铺)，夜\\s*班'
-                      : '便利店，夜班，热牛奶'
+                    entryDraft.match === 'regex' ? '便利(店|铺)，夜\\s*班' : '便利店，夜班，热牛奶'
                   }
                   onChange={(event) => setKeywordDraft(event.target.value)}
                 />
@@ -2239,9 +2277,7 @@ export function RoleplayPanel() {
                 aria-checked={entryDraft.enabled}
                 className={styles.toggle}
                 data-on={entryDraft.enabled}
-                onClick={() =>
-                  setEntryDraft({ ...entryDraft, enabled: !entryDraft.enabled })
-                }
+                onClick={() => setEntryDraft({ ...entryDraft, enabled: !entryDraft.enabled })}
               >
                 {entryDraft.enabled ? '已启用' : '已停用'}
               </button>
@@ -2257,7 +2293,11 @@ export function RoleplayPanel() {
               </button>
             </div>
             <div className={styles.editorActions}>
-              <button type="button" className={styles.ghostButton} onClick={() => setEntryDraft(null)}>
+              <button
+                type="button"
+                className={styles.ghostButton}
+                onClick={() => setEntryDraft(null)}
+              >
                 取消
               </button>
               <button type="button" className={styles.primaryButton} onClick={saveEntryDraft}>
@@ -2346,9 +2386,7 @@ export function RoleplayPanel() {
                   <button
                     type="button"
                     className={styles.dangerText}
-                    onClick={() =>
-                      setConfirm({ kind: 'entry', id: entry.id, name: entry.title })
-                    }
+                    onClick={() => setConfirm({ kind: 'entry', id: entry.id, name: entry.title })}
                   >
                     删除
                   </button>
@@ -2356,9 +2394,11 @@ export function RoleplayPanel() {
               </div>
               <p>{entry.content}</p>
               <div className={styles.keywords}>
-                {entry.keywords.length > 0
-                  ? entry.keywords.map((keyword) => <span key={keyword}>{keyword}</span>)
-                  : <span className={styles.mutedChip}>未设置关键词，仅在「每轮注入」开启时生效</span>}
+                {entry.keywords.length > 0 ? (
+                  entry.keywords.map((keyword) => <span key={keyword}>{keyword}</span>)
+                ) : (
+                  <span className={styles.mutedChip}>未设置关键词，仅在「每轮注入」开启时生效</span>
+                )}
                 {entry.excludeKeywords.map((keyword) => (
                   <span key={`x-${keyword}`} className={styles.mutedChip}>
                     避触 {keyword}
@@ -2384,7 +2424,9 @@ export function RoleplayPanel() {
         <header className={styles.sectionHead}>
           <div>
             <h3>当前场景</h3>
-            <p>记录时间、天气、在场人物、气氛、目标、冲突与关键物件。可手动修改，或开启自动更新由模型在每轮后重写；角色扮演关闭时只保留记录，已绑定人物的会话仍继续注入。</p>
+            <p>
+              记录时间、天气、在场人物、气氛、目标、冲突与关键物件。可手动修改，或开启自动更新由模型在每轮后重写；角色扮演关闭时只保留记录，已绑定人物的会话仍继续注入。
+            </p>
           </div>
           <button
             type="button"
@@ -2462,7 +2504,8 @@ export function RoleplayPanel() {
 
       <p className={styles.footerNote}>
         角色卡、世界书与场景只保存在本机，单会话包可带走相关设定。关闭全局开关只影响新会话，
-        已绑定人物的会话仍注入卡设定、世界书、场景与角色记忆；单轮最多注入 6 条世界书，当前预算 {worldbookChars.toLocaleString('zh-CN')} 字；
+        已绑定人物的会话仍注入卡设定、世界书、场景与角色记忆；单轮最多注入 6 条世界书，当前预算{' '}
+        {worldbookChars.toLocaleString('zh-CN')} 字；
         超出后按命中次数与权重排序取前面的条目，避免背景设定挤占对话上下文。
       </p>
 
@@ -2489,3 +2532,8 @@ export function RoleplayPanel() {
     </div>
   )
 }
+/* -------------------- 功能区：示例应用与面板主渲染 结束 -------------------- */
+
+/* ============================================================================
+ * 功能区：设置页 / RoleplayPanel 结束
+ * ========================================================================== */

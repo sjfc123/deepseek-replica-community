@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：基础 UI / icons 开始
+ * 职责：icons 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：IconCheckOutline16、IconChevronDownOutline14、IconChevronDownOutline20、IconChevronRightOutline14、IconCloseFill14、IconCloseOutline16 等 46 个导出。
+ * ========================================================================== */
+
 export const IconCheckOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
@@ -88,7 +94,15 @@ export const IconSelectTextOutline16 = () => (
 
 export const IconSelectAllOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2.2" y="2.2" width="11.6" height="11.6" rx="2.6" stroke="currentColor" strokeWidth="1.4" />
+    <rect
+      x="2.2"
+      y="2.2"
+      width="11.6"
+      height="11.6"
+      rx="2.6"
+      stroke="currentColor"
+      strokeWidth="1.4"
+    />
     <path
       d="M5.2 8.2 7.1 10.1 10.9 6.1"
       stroke="currentColor"
@@ -550,7 +564,7 @@ export const NewChatIcon = () => {
 
 /**
  * 语音输入入口：16px 框内的麦克风。
- * 按 Figma 输入框里那一版矢量绘制，其 0.1 的描边已折算进轮廓，这里只用填充。
+ * 按输入框图标的矢量轮廓绘制；0.1 描边宽度已折算进轮廓，填充即可还原。
  */
 export const IconMicOutline16 = () => (
   <svg
@@ -629,3 +643,7 @@ export const IconToastError16 = () => (
     />
   </svg>
 )
+
+/* ============================================================================
+ * 功能区：基础 UI / icons 结束
+ * ========================================================================== */

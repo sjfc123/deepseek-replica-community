@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：Android 原生容器 / CallAudioCapture 开始
+ * 职责：Android 通话采集：AudioRecord 读取、状态上报与线程退出。
+ * ========================================================================== */
+
 package io.github.lijiahua1024.dsreplica;
 
 import android.media.AudioFormat;
@@ -87,7 +92,7 @@ final class CallAudioCapture {
 
     /**
      * 取出已采集的 PCM16LE，按字节顺序拼接后交给 JS；没有数据时返回空串。
-     * Android 13 之前没有 ByteArrayOutputStream.writeBytes(byte[])，这里使用 API 1 就存在的
+     * Android 13 之前不存在 ByteArrayOutputStream.writeBytes(byte[])，因此使用 API 1 起可用的
      * write(byte[], int, int)，避免旧系统在首次读取时抛 NoSuchMethodError。
      * 返回值以 ERR| 开头表示通道异常，调用方据此重新建立采集或结束通话，不让异常穿过 JS 桥。
      */
@@ -165,3 +170,8 @@ final class CallAudioCapture {
         running = false;
     }
 }
+
+
+/* ============================================================================
+ * 功能区：Android 原生容器 / CallAudioCapture 结束
+ * ========================================================================== */

@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / officeText 开始
+ * 职责：officeText 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：OfficeFormat、readOfficeText。
+ * ========================================================================== */
+
 import { SaxesParser } from 'saxes'
 import { readArchive } from './history/zipReader.js'
 
@@ -303,3 +309,7 @@ export const readOfficeText = async (format: OfficeFormat, blob: Blob, signal: A
   }
   return text.join('\n')
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / officeText 结束
+ * ========================================================================== */

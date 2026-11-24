@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：输入与语音控件 / AndroidVoiceOverlay 开始
+ * 职责：AndroidVoiceOverlay 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：AndroidVoiceOverlay。
+ * ========================================================================== */
+
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslate } from '../../i18n/index.js'
@@ -72,7 +78,9 @@ export const AndroidVoiceOverlay = ({
     }
     const renderer = rendererRef.current
 
-    const elements = waveform.current ? (Array.from(waveform.current.children) as HTMLElement[]) : []
+    const elements = waveform.current
+      ? (Array.from(waveform.current.children) as HTMLElement[])
+      : []
     const samples = new Float32Array(elements.length / 2)
     let lastSample = 0
     let lastTime = performance.now()
@@ -160,3 +168,7 @@ export const AndroidVoiceOverlay = ({
     document.body
   )
 }
+
+/* ============================================================================
+ * 功能区：输入与语音控件 / AndroidVoiceOverlay 结束
+ * ========================================================================== */

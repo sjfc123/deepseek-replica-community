@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：历史归档 / paths 开始
+ * 职责：paths 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
+ * 导出：MANIFEST_PATH、USER_PATH、INDEX_PATH、sessionPath、sessionFilesDir、parseSessionPath 等 7 个导出。
+ * ========================================================================== */
+
 /** ZIP 条目名。条目顺序固定：manifest → user（可能缺失）→ 全部会话 JSON → index → 全部图片。 */
 
 export const MANIFEST_PATH = 'manifest.json'
@@ -22,3 +28,7 @@ const safeName = (name: string) => {
 /** chat_sessions/{session_id}_files/{file_id}_{file_name}；与 ZIP 读写端一致使用 NFC。 */
 export const imagePath = (sessionId: string, fileId: string, fileName: string) =>
   `${sessionFilesDir(sessionId)}${safeName(fileId)}_${safeName(fileName)}`.normalize('NFC')
+
+/* ============================================================================
+ * 功能区：历史归档 / paths 结束
+ * ========================================================================== */

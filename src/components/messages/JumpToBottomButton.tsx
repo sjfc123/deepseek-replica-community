@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：消息渲染 / JumpToBottomButton 开始
+ * 职责：JumpToBottomButton 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：JumpToBottomButton。
+ * ========================================================================== */
+
 import clsx from 'clsx'
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
@@ -280,3 +286,7 @@ export const JumpToBottomButton = ({
     </button>
   )
 }
+
+/* ============================================================================
+ * 功能区：消息渲染 / JumpToBottomButton 结束
+ * ========================================================================== */

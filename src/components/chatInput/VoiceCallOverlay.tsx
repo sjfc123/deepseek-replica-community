@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：输入与语音控件 / VoiceCallOverlay 开始
+ * 职责：VoiceCallOverlay 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：VoiceCallOverlay。
+ * ========================================================================== */
+
 import clsx from 'clsx'
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -13,7 +19,12 @@ import {
   toggleVoiceCallMute,
   useVoiceCall,
 } from '../../services/speech/voiceCall.js'
-import { IconCloseOutline16, IconMicOutline16, IconSendOutline16, IconStopFill16 } from '../base/icons.js'
+import {
+  IconCloseOutline16,
+  IconMicOutline16,
+  IconSendOutline16,
+  IconStopFill16,
+} from '../base/icons.js'
 import styles from './VoiceCallOverlay.module.css'
 
 /** 角色语音通话：全屏浮层，连续「听 → 想 → 说」循环 */
@@ -42,9 +53,7 @@ export const VoiceCallOverlay = () => {
   // 手写名字即使和某张卡同名也照常显示，不再用「卡名等于通用标题」的启发式误伤。
   const activeCard =
     findSessionCharacterCard(characterCards, callSession) ??
-    (roleplayEnabled
-      ? findActiveCharacterCard(characterCards, activeCharacterId)
-      : undefined)
+    (roleplayEnabled ? findActiveCharacterCard(characterCards, activeCharacterId) : undefined)
   const cardName = activeCard?.name?.trim() ?? ''
   const fallbackName = characterName.trim()
   const displayName = cardName || fallbackName
@@ -120,9 +129,7 @@ export const VoiceCallOverlay = () => {
       <div className={styles.header}>
         <div className={styles.titleGroup}>
           <span className={clsx(styles.liveDot, muted && styles.liveDotMuted)} />
-          <span className={styles.title}>
-            {displayName ? `与${displayName}通话` : '语音通话'}
-          </span>
+          <span className={styles.title}>{displayName ? `与${displayName}通话` : '语音通话'}</span>
         </div>
         <div className={styles.headerRight}>
           <span className={styles.micState} data-state={micReady} aria-live="polite">
@@ -172,16 +179,16 @@ export const VoiceCallOverlay = () => {
               {displayAvatar ? (
                 <img className={styles.orbAvatar} src={displayAvatar} alt="" aria-hidden="true" />
               ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M12 4a2.2 2.2 0 0 1 2.2 2.2v4.4a2.2 2.2 0 1 1-4.4 0V6.2A2.2 2.2 0 0 1 12 4Z"
-                  fill="currentColor"
-                />
-                <path
-                  d="M5.6 10.6a.9.9 0 1 1 1.8 0 4.6 4.6 0 1 0 9.2 0 .9.9 0 0 1 1.8 0 6.4 6.4 0 0 1-5 6.2V19a.9.9 0 0 1-1.8 0v-2.2a6.4 6.4 0 0 1-5-6.2Z"
-                  fill="currentColor"
-                />
-              </svg>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M12 4a2.2 2.2 0 0 1 2.2 2.2v4.4a2.2 2.2 0 1 1-4.4 0V6.2A2.2 2.2 0 0 1 12 4Z"
+                    fill="currentColor"
+                  />
+                  <path
+                    d="M5.6 10.6a.9.9 0 1 1 1.8 0 4.6 4.6 0 1 0 9.2 0 .9.9 0 0 1 1.8 0 6.4 6.4 0 0 1-5 6.2V19a.9.9 0 0 1-1.8 0v-2.2a6.4 6.4 0 0 1-5-6.2Z"
+                    fill="currentColor"
+                  />
+                </svg>
               )}
             </span>
           </span>
@@ -263,3 +270,7 @@ export const VoiceCallOverlay = () => {
     document.body
   )
 }
+
+/* ============================================================================
+ * 功能区：输入与语音控件 / VoiceCallOverlay 结束
+ * ========================================================================== */

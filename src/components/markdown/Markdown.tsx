@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 视图 / Markdown 开始
+ * 职责：Markdown 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：Markdown。
+ * ========================================================================== */
+
 import { memo, startTransition, useEffect, useMemo, useRef, useState } from 'react'
 import { android } from '../../app/android.js'
 import type { Source } from '../../services/chat/view.js'
@@ -92,3 +98,7 @@ export const Markdown = memo(function Markdown({
     />
   ) : null
 })
+
+/* ============================================================================
+ * 功能区：Markdown 视图 / Markdown 结束
+ * ========================================================================== */

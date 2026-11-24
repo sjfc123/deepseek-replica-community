@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：输入与语音控件 / useHoldToTalk 开始
+ * 职责：按住说话 Hook：处理触摸、取消阈值与录音收尾。
+ * 导出：useHoldToTalk。
+ * ========================================================================== */
+
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import type { useVoiceInput } from './useVoiceInput.js'
 import type { VoiceTouchPoint } from './voiceMaskShader.js'
@@ -102,3 +108,7 @@ export const useHoldToTalk = (
     delayed: { ...events, onPointerDown: (event: PointerEvent<HTMLElement>) => begin(event, 380) },
   }
 }
+
+/* ============================================================================
+ * 功能区：输入与语音控件 / useHoldToTalk 结束
+ * ========================================================================== */

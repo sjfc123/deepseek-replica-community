@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：Android 原生容器 / SourceBrowserActivity 开始
+ * 职责：Android 源码浏览页：本地 HTML/源码查看与返回处理。
+ * ========================================================================== */
+
 package io.github.lijiahua1024.dsreplica;
 
 import android.annotation.SuppressLint;
@@ -338,3 +343,8 @@ public final class SourceBrowserActivity extends Activity {
         }
     }
 }
+
+
+/* ============================================================================
+ * 功能区：Android 原生容器 / SourceBrowserActivity 结束
+ * ========================================================================== */

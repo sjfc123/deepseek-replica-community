@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / backup 开始
+ * 职责：backup 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：ImportHistoryResult、exportHistory、importHistory、formatImportResult、clearHistory。
+ * ========================================================================== */
+
 import { autoBackupFileName } from './backupName.js'
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { useSettings } from '../settings.js'
@@ -137,3 +143,7 @@ export const clearHistory = (): Promise<void> =>
   enqueueBackup(async () => {
     await replaceHistory(async () => ({ summaries: [], pinnedIds: [] }))
   })
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / backup 结束
+ * ========================================================================== */

@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：应用外壳 / diagnostics 开始
+ * 职责：运行诊断：记录渲染、网络、生命周期与异常事件。
+ * 导出：installDiagnostics、buildDiagnostics、copyDiagnostics、DiagnosticFinding、DiagnosticFact、collectDiagnosticReport 等 7 个导出。
+ * ========================================================================== */
+
 import { android, saveAndroidHistory } from './android.js'
 import { useChatStore } from '../services/chat/store.js'
 import { useSettings } from '../services/settings.js'
@@ -164,11 +170,10 @@ export const installDiagnostics = () => {
     schedulePersist()
   })
   // 任何点击都留一条，包含功能和两次操作之间的间隔
-  window.addEventListener(
-    'pointerdown',
-    (event) => recordInteraction('tap', event.target),
-    { capture: true, passive: true }
-  )
+  window.addEventListener('pointerdown', (event) => recordInteraction('tap', event.target), {
+    capture: true,
+    passive: true,
+  })
   // 返回键、抽屉、弹窗这类不一定有 pointerdown 的入口也记
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Back' || event.key === 'Escape') {
@@ -181,7 +186,7 @@ export const installDiagnostics = () => {
     const previous = JSON.parse(localStorage.getItem('replica:last-session-log') ?? 'null') as {
       cleanExit?: boolean
       stalls?: Array<{ ms: number }>
-        at?: string
+      at?: string
     } | null
     if (previous && previous.cleanExit === false) {
       pushError(
@@ -376,7 +381,10 @@ const probeIndexedDb = (): Promise<{ ok: boolean; detail: string }> =>
         finish(true, `可打开，${names.length} 个表：${names.join('、') || '空'}`)
       }
       request.onerror = () =>
-        finish(false, `打开失败：${request.error?.name ?? '未知错误'} ${request.error?.message ?? ''}`)
+        finish(
+          false,
+          `打开失败：${request.error?.name ?? '未知错误'} ${request.error?.message ?? ''}`
+        )
       request.onblocked = () => finish(false, '被其它标签页占用，打开被阻塞')
       window.setTimeout(() => finish(false, '4 秒内没有打开，可能被阻塞'), 4000)
     } catch (error) {
@@ -428,7 +436,11 @@ const probeNativeMic = (): Record<string, unknown> | null => {
     const raw = bridge.probeMicrophone()
     return JSON.parse(raw) as Record<string, unknown>
   } catch (error) {
-    return { ok: false, stage: 'bridge', error: error instanceof Error ? error.message : String(error) }
+    return {
+      ok: false,
+      stage: 'bridge',
+      error: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 
@@ -524,9 +536,11 @@ export const collectDiagnosticReport = async () => {
     }
   }
 
-  const jsMemory = (performance as Performance & {
-    memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number }
-  }).memory
+  const jsMemory = (
+    performance as Performance & {
+      memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number }
+    }
+  ).memory
   const device = readDeviceStats()
   if (device === null) {
     facts.push({ area: '设备资源', detail: '跳过：当前环境没有 deviceStats 桥（浏览器）' })
@@ -547,10 +561,10 @@ export const collectDiagnosticReport = async () => {
       device.lowMemory ? '是' : '否'
     }；应用缓存 ${mb(cache)}，应用数据 ${mb(dataBytes)}，WebView 存储 ${mb(
       Number(device.webviewBytes ?? 0)
-    )}；机身剩余 ${mb(free)}；Java 堆 ${mb(
-      heapUsed
-    )} / ${mb(heapMax)}；JS 堆 ${
-      jsMemory ? `${mb(jsMemory.usedJSHeapSize)} / ${mb(jsMemory.jsHeapSizeLimit)}` : '当前内核不提供'
+    )}；机身剩余 ${mb(free)}；Java 堆 ${mb(heapUsed)} / ${mb(heapMax)}；JS 堆 ${
+      jsMemory
+        ? `${mb(jsMemory.usedJSHeapSize)} / ${mb(jsMemory.jsHeapSizeLimit)}`
+        : '当前内核不提供'
     }`
     facts.push({ area: '设备资源', detail })
     if (device.lowMemory) {
@@ -560,7 +574,11 @@ export const collectDiagnosticReport = async () => {
       findings.push({ level: 'problem', area: '设备内存', detail: `可用内存低于 12%：${detail}` })
     }
     if (free > 0 && free < 500 * 1048576) {
-      findings.push({ level: 'problem', area: '设备存储', detail: `机身剩余不足 500 MB：${mb(free)}` })
+      findings.push({
+        level: 'problem',
+        area: '设备存储',
+        detail: `机身剩余不足 500 MB：${mb(free)}`,
+      })
     }
     if (cache > 200 * 1048576) {
       findings.push({ level: 'problem', area: '应用缓存', detail: `缓存偏大：${mb(cache)}` })
@@ -681,9 +699,7 @@ export const collectDiagnosticReport = async () => {
     lines.push('- 没有记录到操作')
   } else {
     for (const item of interactions.slice(-30)) {
-      lines.push(
-        `- ${item.at} ${item.action}「${item.target}」，距上次操作 ${item.gapMs} ms`
-      )
+      lines.push(`- ${item.at} ${item.action}「${item.target}」，距上次操作 ${item.gapMs} ms`)
     }
   }
 
@@ -714,10 +730,9 @@ export const saveDiagnosticReport = async () => {
   const stamp = new Date()
   const name = `deepseek_diagnose-${stamp.getFullYear()}${String(stamp.getMonth() + 1).padStart(2, '0')}${String(
     stamp.getDate()
-  ).padStart(2, '0')}-${String(stamp.getHours()).padStart(2, '0')}${String(stamp.getMinutes()).padStart(
-    2,
-    '0'
-  )}.txt`
+  ).padStart(2, '0')}-${String(stamp.getHours()).padStart(2, '0')}${String(
+    stamp.getMinutes()
+  ).padStart(2, '0')}.txt`
   const blob = new Blob([text], { type: 'text/plain' })
   if (android) {
     const saved = await saveAndroidHistory(name, blob)
@@ -731,3 +746,7 @@ export const saveDiagnosticReport = async () => {
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
   return { saved: true, name, findings: report.findings }
 }
+
+/* ============================================================================
+ * 功能区：应用外壳 / diagnostics 结束
+ * ========================================================================== */

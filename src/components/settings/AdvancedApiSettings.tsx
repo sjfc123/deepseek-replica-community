@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：设置页 / AdvancedApiSettings 开始
+ * 职责：AdvancedApiSettings 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：AdvancedApiDialog、AdvancedApiSettings。
+ * ========================================================================== */
+
 import { useState } from 'react'
 import { useTranslate, type TranslationKey } from '../../i18n/index.js'
 import {
@@ -165,3 +171,7 @@ export const AdvancedApiSettings = ({ onSave }: { onSave: () => void }) => {
     </form>
   )
 }
+
+/* ============================================================================
+ * 功能区：设置页 / AdvancedApiSettings 结束
+ * ========================================================================== */

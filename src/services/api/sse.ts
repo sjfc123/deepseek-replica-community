@@ -1,9 +1,15 @@
+/* ============================================================================
+ * 功能区：模型接口 / sse 开始
+ * 职责：sse 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
+ * 导出：ServerSentEvent、ServerSentEventDecoder。
+ * ========================================================================== */
+
 /**
  * SSE（text/event-stream）解析，按 WHATWG 规范实现：
  * https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation
  *
  * 字节流 → UTF-8 解码 → 按 CRLF / LF / CR 切行 → 字段累积 → 空行派发事件。
- * 注释行（如服务端保活的 `: keep-alive`）直接忽略；`retry` 只对 EventSource 重连有意义，这里不处理。
+ * 注释行（如服务端保活的 `: keep-alive`）直接忽略；`retry` 仅对 EventSource 重连有意义，本解析器不处理。
  */
 
 export type ServerSentEvent = {
@@ -134,3 +140,7 @@ export async function* readServerSentEvents(
     reader.releaseLock()
   }
 }
+
+/* ============================================================================
+ * 功能区：模型接口 / sse 结束
+ * ========================================================================== */

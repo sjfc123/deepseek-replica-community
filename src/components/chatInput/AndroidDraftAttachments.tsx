@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：输入与语音控件 / AndroidDraftAttachments 开始
+ * 职责：AndroidDraftAttachments 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：AndroidDraftAttachments。
+ * ========================================================================== */
+
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useTranslate, type TranslationKey } from '../../i18n/index.js'
 import type { DraftAttachment } from '../../services/chat/drafts.js'
@@ -122,3 +128,7 @@ export const AndroidDraftAttachments = ({
     </div>
   )
 }
+
+/* ============================================================================
+ * 功能区：输入与语音控件 / AndroidDraftAttachments 结束
+ * ========================================================================== */

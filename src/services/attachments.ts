@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：本地服务 / attachments 开始
+ * 职责：附件服务：上传、取消、重试、状态汇总与错误描述。
+ * 导出：ACCEPTED_EXTS、ACCEPT、MAX_SIZE_MB、MAX_USER_DATA_SIZE_MB、MAX_COUNT、getFileExt 等 22 个导出。
+ * ========================================================================== */
+
 import { create } from 'zustand'
 import { android } from '../app/android.js'
 import type { LinkedMessage, TranslationMessage } from '../i18n/index.js'
@@ -310,3 +316,7 @@ export const formatSize = (bytes: number) => {
   }
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`
 }
+
+/* ============================================================================
+ * 功能区：本地服务 / attachments 结束
+ * ========================================================================== */

@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / settingArchive 开始
+ * 职责：settingArchive 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：SETTING_ARCHIVE_FORMAT、SETTING_ARCHIVE_VERSION、SettingArchive、SettingArchiveInput、SettingArchiveErrorCode、SettingArchiveError 等 13 个导出。
+ * ========================================================================== */
+
 import {
   CHARACTER_CARD_MAX,
   WORLDBOOK_MAX,
@@ -45,12 +51,7 @@ export type SettingArchiveInput = {
   scene: SceneState
 }
 
-export type SettingArchiveErrorCode =
-  | 'json'
-  | 'format'
-  | 'version'
-  | 'empty'
-  | 'write'
+export type SettingArchiveErrorCode = 'json' | 'format' | 'version' | 'empty' | 'write'
 
 export class SettingArchiveError extends Error {
   code: SettingArchiveErrorCode
@@ -253,3 +254,7 @@ export const applySettingArchive = (
   api.saveProfileEnabled(archive.profileEnabled !== false)
   return { cards, cardsSkipped, worldbook, worldbookSkipped, avatars, scene, profile }
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / settingArchive 结束
+ * ========================================================================== */

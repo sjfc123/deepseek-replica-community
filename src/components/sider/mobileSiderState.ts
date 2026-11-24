@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / mobileSiderState 开始
+ * 职责：移动侧栏状态：抽屉开关、宽度与手势阈值。
+ * 导出：useMobileSider、openMobileSider、closeMobileSider、toggleMobileSider、openDrawerSearch、closeDrawerSearch 等 7 个导出。
+ * ========================================================================== */
+
 import { create } from 'zustand'
 import { isAndroidWide } from '../../app/viewport.js'
 
@@ -24,3 +30,7 @@ export const closeOverlaySider = () => {
     closeMobileSider()
   }
 }
+
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / mobileSiderState 结束
+ * ========================================================================== */

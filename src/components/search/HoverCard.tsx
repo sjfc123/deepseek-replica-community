@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：搜索与引用 / HoverCard 开始
+ * 职责：HoverCard 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：HoverCardTrigger、HoverCard。
+ * ========================================================================== */
+
 import { useEffect, type HTMLAttributes, type MutableRefObject, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDelayedOpen } from '../base/anchored.js'
@@ -54,3 +60,7 @@ export const HoverCard = ({
     </>
   )
 }
+
+/* ============================================================================
+ * 功能区：搜索与引用 / HoverCard 结束
+ * ========================================================================== */

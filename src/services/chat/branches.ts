@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / branches 开始
+ * 职责：branches 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：normalizeSession、getVisibleMessages、MessageVersions、buildMessageVersions、appendBranch、selectVersion 等 8 个导出。
+ * ========================================================================== */
+
 import type { Message, Session } from './types.js'
 
 /** 将线性消息列表规范化为单分支，保留消息 ID、内容及时间。 */
@@ -225,3 +231,7 @@ export const activateBranch = (original: Session, messageId: string): Session =>
     }),
   }
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / branches 结束
+ * ========================================================================== */

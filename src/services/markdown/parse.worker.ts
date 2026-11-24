@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：Markdown 解析 / parse.worker 开始
+ * 职责：parse.worker 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
+ * 导出：无对外导出，仅供同目录模块使用。
+ * ========================================================================== */
+
 import '../../utils/workerCompat.js'
 import type { RootContent } from 'mdast'
 import { toMdAst, type MarkdownParseOptions } from './parse.js'
@@ -27,3 +33,7 @@ globalThis.addEventListener('message', ({ data }: MessageEvent<ParseRequest>) =>
     globalThis.postMessage({ id })
   }
 })
+
+/* ============================================================================
+ * 功能区：Markdown 解析 / parse.worker 结束
+ * ========================================================================== */

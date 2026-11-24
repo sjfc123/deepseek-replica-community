@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：基础 UI / AndroidIcons 开始
+ * 职责：AndroidIcons 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：AndroidSound、AndroidCircle、AndroidAttachment。
+ * ========================================================================== */
+
 export const AndroidSound = ({ muted }: { muted: boolean }) => (
   <svg
     width="22"
@@ -16,10 +22,7 @@ export const AndroidSound = ({ muted }: { muted: boolean }) => (
       stroke={muted ? 'currentColor' : 'none'}
     />
     <path d="M16 7.7a6.1 6.1 0 0 1 .7 7.9" />
-    <path
-      d="M18.4 4.7a10.3 10.3 0 0 1 1.3 12.6"
-      opacity={muted ? 1 : 0.25}
-    />
+    <path d="M18.4 4.7a10.3 10.3 0 0 1 1.3 12.6" opacity={muted ? 1 : 0.25} />
     {muted ? <path d="m1.5 3.2 18.6 18.6" /> : null}
   </svg>
 )
@@ -77,3 +80,7 @@ export const AndroidAttachment = ({ kind }: { kind: 'camera' | 'gallery' | 'file
     ) : null}
   </svg>
 )
+
+/* ============================================================================
+ * 功能区：基础 UI / AndroidIcons 结束
+ * ========================================================================== */

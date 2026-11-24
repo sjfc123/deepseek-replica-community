@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：历史归档 / schema 开始
+ * 职责：schema 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
+ * 导出：ParsedMessage、ParsedSessionFile、checkManifest、readSessionIndex、readSessionFile。
+ * ========================================================================== */
+
 import { BackupError, fail } from './errors.js'
 import {
   EXPORT_FORMAT_VERSION,
@@ -277,3 +283,7 @@ export const readSessionFile: Read<ParsedSessionFile> = (value) => {
     messages: list(message)(item.messages),
   }
 }
+
+/* ============================================================================
+ * 功能区：历史归档 / schema 结束
+ * ========================================================================== */

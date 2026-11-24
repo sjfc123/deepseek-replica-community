@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / SessionActionDialog 开始
+ * 职责：SessionActionDialog 组件，负责该组件的渲染、状态与交互出口。
+ * 导出：SessionActionDialog。
+ * ========================================================================== */
+
 import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAndroidBackInterception } from '../../app/useAndroidBackInterception.js'
@@ -97,3 +103,7 @@ export const SessionActionDialog = ({
     document.body
   )
 }
+
+/* ============================================================================
+ * 功能区：侧栏与会话管理 / SessionActionDialog 结束
+ * ========================================================================== */

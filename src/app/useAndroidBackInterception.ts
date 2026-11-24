@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：应用外壳 / useAndroidBackInterception 开始
+ * 职责：Android 返回拦截：注册返回事件、预览与阻塞条件，并同步给原生壳。
+ * 导出：subscribeToAndroidBackPreview、useAndroidBackInterception。
+ * ========================================================================== */
+
 import { useLayoutEffect } from 'react'
 import { android } from './android.js'
 
@@ -54,3 +60,7 @@ export const useAndroidBackInterception = (active = true) => {
     }
   }, [active])
 }
+
+/* ============================================================================
+ * 功能区：应用外壳 / useAndroidBackInterception 结束
+ * ========================================================================== */

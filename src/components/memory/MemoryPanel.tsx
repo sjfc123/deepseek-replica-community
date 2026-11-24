@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：长期记忆界面 / MemoryPanel 开始
+ * 职责：长期记忆面板：双分类、筛选、编辑、补卡、配额与注入预览。
+ * ========================================================================== */
+
 import { useMemo, useState } from 'react'
 import { getVisibleMessages } from '../../services/chat/branches.js'
 import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
@@ -33,6 +38,7 @@ import styles from './MemoryPanel.module.css'
 
 const PAGE_SIZE = 40
 
+/* -------------------- 功能区：展示辅助与分类映射 开始 -------------------- */
 const formatTime = (value: number) => {
   const date = new Date(value)
   const pad = (input: number) => String(input).padStart(2, '0')
@@ -66,6 +72,9 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
 ]
 
 /** 长期记忆面板：普通/角色双分类，普通记忆再分对话、代码、用户、AI */
+/* -------------------- 功能区：展示辅助与分类映射 结束 -------------------- */
+
+/* -------------------- 功能区：记忆面板数据与渲染 开始 -------------------- */
 export const MemoryPanel = ({ session }: { session: Session }) => {
   const memoryMode = useSettings((state) => state.memoryMode)
   const memoryLimit = useSettings((state) => state.memoryLimit)
@@ -140,9 +149,8 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   )
   const autoCount = useMemo(
     () =>
-      poolEntries.filter(
-        ({ card }) => card.source !== 'manual' && !card.pinned && !card.superseded
-      ).length,
+      poolEntries.filter(({ card }) => card.source !== 'manual' && !card.pinned && !card.superseded)
+        .length,
     [poolEntries]
   )
   const archivedCount = useMemo(
@@ -181,12 +189,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             roleplayActive
           )
         : normalInjectionAllowed
-          ? selectNormalMemoryCardsForInjection(
-              session,
-              messages,
-              normalMemoryLimit,
-              lastQuestion
-            )
+          ? selectNormalMemoryCardsForInjection(session, messages, normalMemoryLimit, lastQuestion)
           : [],
     [
       pool,
@@ -476,8 +479,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                         </button>
                       </div>
                     </div>
-                  ) : getMemoryPool(card) === 'normal' &&
-                    getNormalMemoryKind(card) === 'code' ? (
+                  ) : getMemoryPool(card) === 'normal' && getNormalMemoryKind(card) === 'code' ? (
                     <pre className={styles.codeText}>{card.text}</pre>
                   ) : (
                     <p className={styles.text}>{card.text}</p>
@@ -634,3 +636,8 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     </div>
   )
 }
+/* -------------------- 功能区：记忆面板数据与渲染 结束 -------------------- */
+
+/* ============================================================================
+ * 功能区：长期记忆界面 / MemoryPanel 结束
+ * ========================================================================== */

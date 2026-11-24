@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / contentSearch 开始
+ * 职责：contentSearch 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：HighlightRange、SessionSearchResult、MessageSearchResult、ContentSearchResult、buildSearchSnippet、searchSessionContent 等 8 个导出。
+ * ========================================================================== */
+
 import type { Locale } from '../settings.js'
 import { buildMessageVersions, getReachableMessageIds, normalizeSession } from './branches.js'
 import { scanSessions } from './db.js'
@@ -383,3 +389,7 @@ export const formatSearchDate = (timestamp: number, now: number, locale: Locale)
     ? `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
     : enMonthDayYear.format(date)
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / contentSearch 结束
+ * ========================================================================== */

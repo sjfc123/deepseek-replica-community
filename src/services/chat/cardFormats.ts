@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / cardFormats 开始
+ * 职责：cardFormats 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
+ * 导出：readCharacterFile、parseCharacterPayload、parseWorldbookPayload。
+ * ========================================================================== */
+
 import {
   WORLDBOOK_CONTENT_MAX,
   findPlayStyle,
@@ -33,7 +39,12 @@ const stringList = (value: unknown): string[] => {
     return value.map((item) => text(item)).filter(Boolean)
   }
   const raw = text(value)
-  return raw ? raw.split(/[，,、;；|]+/).map((item) => item.trim()).filter(Boolean) : []
+  return raw
+    ? raw
+        .split(/[，,、;；|]+/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : []
 }
 
 const decodeBase64Utf8 = (value: string) => {
@@ -140,7 +151,12 @@ const toCard = (source: unknown): CharacterCard | null => {
     data.persona
   )
   const personality = firstText(data.personality, outer.personality)
-  const scenario = firstText(data.scenario, outer.scenario, data.world_scenario, outer.world_scenario)
+  const scenario = firstText(
+    data.scenario,
+    outer.scenario,
+    data.world_scenario,
+    outer.world_scenario
+  )
   const greeting = firstText(
     data.first_mes,
     outer.first_mes,
@@ -162,15 +178,9 @@ const toCard = (source: unknown): CharacterCard | null => {
     outer.creatorcomment
   )
   const systemPrompt = firstText(data.system_prompt, outer.system_prompt)
-  const postInstruction = firstText(
-    data.post_history_instructions,
-    outer.post_history_instructions
-  )
+  const postInstruction = firstText(data.post_history_instructions, outer.post_history_instructions)
   const identity = description.slice(0, 1200)
-  const systemDirective = [
-    systemPrompt,
-    postInstruction ? `后置指令：${postInstruction}` : '',
-  ]
+  const systemDirective = [systemPrompt, postInstruction ? `后置指令：${postInstruction}` : '']
     .filter(Boolean)
     .join('\n')
   const creator = firstText(data.creator, outer.creator)
@@ -186,13 +196,29 @@ const toCard = (source: unknown): CharacterCard | null => {
     birthday: firstText(data.birthday, outer.birthday).slice(0, 40),
     occupation: firstText(data.occupation, outer.occupation, data.job, outer.job).slice(0, 80),
     residence: firstText(data.residence, outer.residence, data.home, outer.home).slice(0, 80),
-    languages: firstText(data.languages, outer.languages, data.language, outer.language).slice(0, 80),
-    favoriteFoods: firstText(data.favoriteFoods, outer.favoriteFoods, data.likes, outer.likes).slice(0, 200),
-    dislikedFoods: firstText(data.dislikedFoods, outer.dislikedFoods, data.dislikes, outer.dislikes).slice(0, 200),
+    languages: firstText(data.languages, outer.languages, data.language, outer.language).slice(
+      0,
+      80
+    ),
+    favoriteFoods: firstText(
+      data.favoriteFoods,
+      outer.favoriteFoods,
+      data.likes,
+      outer.likes
+    ).slice(0, 200),
+    dislikedFoods: firstText(
+      data.dislikedFoods,
+      outer.dislikedFoods,
+      data.dislikes,
+      outer.dislikes
+    ).slice(0, 200),
     favoriteDrinks: firstText(data.favoriteDrinks, outer.favoriteDrinks).slice(0, 200),
     hobbies: firstText(data.hobbies, outer.hobbies).slice(0, 200),
     dailyRoutine: firstText(data.dailyRoutine, outer.dailyRoutine).slice(0, 300),
-    possessions: firstText(data.possessions, outer.possessions, data.items, outer.items).slice(0, 200),
+    possessions: firstText(data.possessions, outer.possessions, data.items, outer.items).slice(
+      0,
+      200
+    ),
     pet: firstText(data.pet, outer.pet).slice(0, 80),
     temperament: firstText(data.temperament, outer.temperament).slice(0, 300),
     values: firstText(data.values, outer.values).slice(0, 300),
@@ -225,7 +251,9 @@ const toCard = (source: unknown): CharacterCard | null => {
 }
 
 /** 解析单卡、角色卡数组与 character_book；返回可直接保存的卡与随卡世界书。 */
-export const parseCharacterPayload = (payload: unknown): Array<{
+export const parseCharacterPayload = (
+  payload: unknown
+): Array<{
   card: CharacterCard
   worldbook: WorldbookEntry[]
 }> => {
@@ -273,20 +301,17 @@ const toWorldbookEntry = (
   if (!content) {
     return null
   }
-  const title = firstText(item.title, item.comment, item.name, item.key).slice(0, 60) ||
-    `条目 ${index + 1}`
+  const title =
+    firstText(item.title, item.comment, item.name, item.key).slice(0, 60) || `条目 ${index + 1}`
   const keys = stringList(item.keywords ?? item.keys ?? item.key)
   const weightRaw = Number(item.weight)
   const weight = Number.isFinite(weightRaw)
     ? Math.min(100, Math.max(0, Math.round(weightRaw)))
     : WORLDBOOK_WEIGHT_DEFAULT
   const position = firstText(item.position)
-  const kind = findWorldbookKind(
-    firstText(item.kind, item.category, item.type, item.group)
-  ).key
-  const scope = firstText(item.scope) === 'session' || item.scanDepth === 'session'
-    ? 'session'
-    : 'recent'
+  const kind = findWorldbookKind(firstText(item.kind, item.category, item.type, item.group)).key
+  const scope =
+    firstText(item.scope) === 'session' || item.scanDepth === 'session' ? 'session' : 'recent'
   return {
     id: text(item.id) || newRoleplayId(),
     title,
@@ -297,7 +322,8 @@ const toWorldbookEntry = (
     match: item.regex === true || item.match === 'regex' ? 'regex' : 'keyword',
     cardId: text(item.cardId) || cardId,
     weight,
-    position: position.toLowerCase().includes('after') || item.position === 'tail' ? 'tail' : 'context',
+    position:
+      position.toLowerCase().includes('after') || item.position === 'tail' ? 'tail' : 'context',
     kind,
     authority: findWorldbookAuthority(firstText(item.authority, item.reliability)),
     scope,
@@ -310,10 +336,7 @@ const toWorldbookEntry = (
 }
 
 /** 解析世界书：兼容本应用、SillyTavern world info（entries 数组或对象键值）及角色卡 character_book。 */
-export const parseWorldbookPayload = (
-  payload: unknown,
-  cardId = ''
-): WorldbookEntry[] => {
+export const parseWorldbookPayload = (payload: unknown, cardId = ''): WorldbookEntry[] => {
   const outer = record(payload)
   let list: unknown[] = []
   if (Array.isArray(payload)) {
@@ -342,11 +365,8 @@ export const parseWorldbookPayload = (
 }
 
 const entryLike = (value: Record<string, unknown>) =>
-  Boolean(
-    value.content ||
-      value.entry ||
-      value.text ||
-      value.keys ||
-      value.key ||
-      value.keywords
-  )
+  Boolean(value.content || value.entry || value.text || value.keys || value.key || value.keywords)
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / cardFormats 结束
+ * ========================================================================== */

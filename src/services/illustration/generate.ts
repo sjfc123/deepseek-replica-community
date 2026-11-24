@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：配图生成 / generate 开始
+ * 职责：generate 服务实现，负责配图请求与本地配图状态的该子能力。
+ * 导出：IllustrationResult、IllustrationSource、buildIllustrationPrompt、generateIllustration。
+ * ========================================================================== */
+
 import { useSettings } from '../settings.js'
 
 /** 把聊天接口地址还原成服务根地址，拼上 /images/generations */
@@ -61,9 +67,11 @@ export const buildIllustrationPrompt = (input: string, source: IllustrationSourc
       plain,
     ].join('\n')
   }
-  return ['严格按下面的画面描述绘制，不要自行添加描述里没有的主要元素。', '画面里不要出现多余文字。', plain].join(
-    '\n'
-  )
+  return [
+    '严格按下面的画面描述绘制，不要自行添加描述里没有的主要元素。',
+    '画面里不要出现多余文字。',
+    plain,
+  ].join('\n')
 }
 
 /**
@@ -78,7 +86,10 @@ export const generateIllustration = async (
   const config = chatConfig
   const endpoint = chatConfig.endpoint?.trim()
   if (!endpoint) {
-    return { ok: false, message: '当前使用内置接口，未配置可用的绘图地址；到「接口与请求」里填写自定义接口后再试' }
+    return {
+      ok: false,
+      message: '当前使用内置接口，未配置可用的绘图地址；到「接口与请求」里填写自定义接口后再试',
+    }
   }
   if (!apiKey) {
     return { ok: false, message: '缺少 API Key，先在设置里填写密钥' }
@@ -116,6 +127,13 @@ export const generateIllustration = async (
     }
     return { ok: true, url: await shrink(raw) }
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? `绘图请求失败：${error.name}` : '绘图请求失败' }
+    return {
+      ok: false,
+      message: error instanceof Error ? `绘图请求失败：${error.name}` : '绘图请求失败',
+    }
   }
 }
+
+/* ============================================================================
+ * 功能区：配图生成 / generate 结束
+ * ========================================================================== */

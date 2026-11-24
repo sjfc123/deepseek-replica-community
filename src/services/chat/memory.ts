@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / memory 开始
+ * 职责：长期记忆数据层：卡片生成、时间锚点、分类、预算与注入格式化。
+ * ========================================================================== */
+
 import type { Message, Session } from './types.js'
 import { createId } from '../../utils/id.js'
 
@@ -45,10 +50,7 @@ export const detectCodeLanguage = (text: string): string | undefined => {
  * 普通记忆的子分类推荐：只做预选，用户可以在保存弹窗里改。
  * 代码块优先；其余按消息角色区分用户原话与 AI 原话。
  */
-export const detectNormalMemoryKind = (
-  text: string,
-  role?: Message['role']
-): NormalMemoryKind => {
+export const detectNormalMemoryKind = (text: string, role?: Message['role']): NormalMemoryKind => {
   if (detectCodeBlock(text)) {
     return 'code'
   }
@@ -298,8 +300,7 @@ export const activeMemoryCards = (
 ) => {
   const active = collectVisibleMemories(session, messages)
     .filter(
-      ({ card }) =>
-        card.enabled && !card.superseded && (!pool || getMemoryPool(card) === pool)
+      ({ card }) => card.enabled && !card.superseded && (!pool || getMemoryPool(card) === pool)
     )
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
   return limit && limit > 0 ? active.slice(-limit) : active
@@ -333,8 +334,7 @@ export const overflowMemoryCards = (
 export const activeMemoryChars = (session: Session, messages: Message[], pool?: MemoryPool) =>
   collectVisibleMemories(session, messages)
     .filter(
-      ({ card }) =>
-        card.enabled && !card.superseded && (!pool || getMemoryPool(card) === pool)
+      ({ card }) => card.enabled && !card.superseded && (!pool || getMemoryPool(card) === pool)
     )
     .reduce((total, entry) => total + entry.card.text.length, 0)
 
@@ -350,8 +350,7 @@ export const overflowMemoryCardsByChars = (
 ) => {
   const active = collectVisibleMemories(session, messages)
     .filter(
-      ({ card }) =>
-        card.enabled && !card.superseded && (!pool || getMemoryPool(card) === pool)
+      ({ card }) => card.enabled && !card.superseded && (!pool || getMemoryPool(card) === pool)
     )
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
   const total = active.reduce((sum, entry) => sum + entry.card.text.length, 0)
@@ -412,10 +411,7 @@ export const selectMemoryCardsForInjection = (
   query: string
 ) => {
   const active = collectVisibleMemories(session, messages)
-    .filter(
-      ({ card }) =>
-        card.enabled && !card.superseded && getMemoryPool(card) === 'character'
-    )
+    .filter(({ card }) => card.enabled && !card.superseded && getMemoryPool(card) === 'character')
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
   const manual = active.filter(({ card }) => card.source === 'manual')
   const manualIds = new Set(manual.map(({ card }) => card.id))
@@ -486,10 +482,7 @@ export const selectNormalMemoryCardsForInjection = (
   query: string
 ) => {
   const active = collectVisibleMemories(session, messages)
-    .filter(
-      ({ card }) =>
-        card.enabled && !card.superseded && getMemoryPool(card) === 'normal'
-    )
+    .filter(({ card }) => card.enabled && !card.superseded && getMemoryPool(card) === 'normal')
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
   const manual = active.filter(({ card }) => card.source === 'manual')
   const manualIds = new Set(manual.map(({ card }) => card.id))
@@ -497,9 +490,7 @@ export const selectNormalMemoryCardsForInjection = (
     .filter(({ card }) => card.pinned && !manualIds.has(card.id))
     .slice(-MEMORY_PINNED_MAX)
   const pinnedIds = new Set(pinned.map(({ card }) => card.id))
-  const rest = active.filter(
-    ({ card }) => !manualIds.has(card.id) && !pinnedIds.has(card.id)
-  )
+  const rest = active.filter(({ card }) => !manualIds.has(card.id) && !pinnedIds.has(card.id))
   const terms = queryTerms(query)
   const relevant =
     terms.length === 0
@@ -548,9 +539,8 @@ export const formatNormalMemoryBlock = (
   let used = 0
   for (const card of normal.slice(0, limit)) {
     const kind = getNormalMemoryKind(card)
-    const label = kind === 'code' && card.language
-      ? `代码 · ${card.language}`
-      : normalMemoryLabel(kind)
+    const label =
+      kind === 'code' && card.language ? `代码 · ${card.language}` : normalMemoryLabel(kind)
     const body = kind === 'code' ? card.text : card.text.replace(/\n/g, ' / ')
     const line = `- 【${label}】${body}`
     if (used + line.length > Math.max(1, chars)) {
@@ -751,3 +741,7 @@ export const buildNormalMemoryCards = (
       }
     })
     .filter((draft): draft is ConversationMemoryDraft => draft !== null)
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / memory 结束
+ * ========================================================================== */

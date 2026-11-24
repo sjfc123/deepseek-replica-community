@@ -1,3 +1,8 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / roleplay 开始
+ * 职责：角色扮演数据层：角色卡、世界书、场景、内置卡种子与 system 装配。
+ * ========================================================================== */
+
 /**
  * 角色扮演层：角色卡、世界书与场景状态。
  * 数据存于本机 settings，仅在请求时装配为 system 内容，原始文本不被改写。
@@ -1002,7 +1007,7 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
       style: text(item.style).slice(0, 800),
       tics: text(item.tics).slice(0, 600),
       greeting: text(item.greeting).slice(0, 2000),
-      // 补充设定不限字数：这里不切，界面也不再设 maxLength
+      // 补充设定不限制字数：该字段不截断，界面也不设置 maxLength
       notes: text(item.notes),
       genre: text(item.genre).slice(0, 12),
       playStyle: findPlayStyle(item.playStyle).key,
@@ -1337,3 +1342,7 @@ export const parseSceneUpdate = (raw: string, current: SceneState): SceneState =
   }
   return changed ? { ...next, updatedAt: Date.now() } : current
 }
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / roleplay 结束
+ * ========================================================================== */

@@ -1,3 +1,9 @@
+/* ============================================================================
+ * 功能区：应用外壳 / viewport 开始
+ * 职责：视口适配：判断移动端、监听尺寸变化并生成布局断点。
+ * 导出：useIsMobile、isAndroidWide、useIsAndroidWide、usePreventPageScroll、useMobileViewport。
+ * ========================================================================== */
+
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { android } from './android.js'
 
@@ -20,10 +26,7 @@ const subscribeAndroidWide = (onChange: () => void) => {
 }
 
 export const useIsMobile = () =>
-  useSyncExternalStore(
-    android ? subscribeNoop : subscribe,
-    () => Boolean(android) || query.matches
-  )
+  useSyncExternalStore(android ? subscribeNoop : subscribe, () => Boolean(android) || query.matches)
 
 export const isAndroidWide = () => Boolean(android && androidWideQuery.matches)
 
@@ -129,3 +132,7 @@ export const useMobileViewport = (enabled: boolean) => {
 
   return frameRef
 }
+
+/* ============================================================================
+ * 功能区：应用外壳 / viewport 结束
+ * ========================================================================== */
