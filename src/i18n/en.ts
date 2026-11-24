@@ -424,7 +424,7 @@ export const en = {
   roleplayBuiltinPresent: 'All built-in character cards are present',
   roleplayAvatarUpdated: 'Avatar updated',
   roleplayAvatarFailed: 'Avatar could not be processed: {reason}',
-  roleplayClosed: 'Roleplay for “{name}” is off. Persona stays; lorebook, scene, and performance rules are paused.',
+  roleplayClosed: 'The global switch for “{name}” is off. New chats use the handwritten prompt; chats already bound to this persona keep the card.',
   roleplayCardCopied: 'Copied as “{name}”; edit it independently',
   roleplayCardLimit: 'Limit is {max} character cards; delete one before copying',
   roleplaySceneCleared: 'Scene cleared',

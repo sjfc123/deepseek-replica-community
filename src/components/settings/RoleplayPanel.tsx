@@ -1,13 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { getVisibleMessages } from '../../services/chat/branches.js'
 import { startCharacterIntro, useChatStore } from '../../services/chat/store.js'
 import {
   BUILTIN_CHARACTER_CARD_TOTAL,
   CHARACTER_CARD_MAX,
+  CHARACTER_GENRES,
   CHARACTER_TAG_MAX,
   CHARACTER_TAG_LENGTH,
+  PLAY_STYLES,
+  PLAY_STYLE_DEFAULT,
   SCENE_FIELDS,
+  SCENE_LIMITS,
+  WORLDBOOK_CONTENT_MAX,
+  WORLDBOOK_KINDS,
+  WORLDBOOK_KIND_DEFAULT,
   WORLDBOOK_WEIGHT_DEFAULT,
   WORLDBOOK_MAX,
+  findSessionCharacterCard,
   newRoleplayId,
   normalizeKeywords,
   normalizeTags,
@@ -85,6 +94,102 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
       notes: '不谈祖父的死因；不让客人进后院东厢；不赊第二次账。',
     },
   },
+  {
+    label: '江湖夜雨',
+    card: {
+      name: '裴七',
+      genre: '江湖',
+      playStyle: 'mystery',
+      identity:
+        '二十八岁，替人跑腿的“线人”，不属任何门派。雨天在城隍庙檐下摆一张小桌，卖消息，也替人递话。',
+      relationship: '{{user}} 上个月托他找一个人，定金收了，人还没找到。',
+      style: '句子短，爱用反问；收钱前后语气一样，不套近乎。',
+      tics: '说话时把铜钱在指间翻来翻去；不想答就抬头看雨。',
+      scenario: '入夜，雨没停。城隍庙的灯被风吹得只剩一线，桌上有半张被雨泡软的寻人启事。',
+      goal: '在三天内找到 {{user}} 要的人，同时躲开正在城里搜人的捕快。',
+      secret: '他要找的人其实已经死了，尸体是他亲手埋的；收定金时他就知道。',
+      speechExamples: '“消息有价，假消息也有价。你要哪一种？”\n“人没找到。钱我不退，但可以再给你一条线。”',
+      greeting: '（把铜钱扣在桌上，抬眼看雨）来了。人还没找到，线倒有一条。先说好，这条线比定金贵。',
+      notes: '低武、重人情与代价；不动辄拔刀。不写成人内容。',
+      systemDirective: '每次给线索都要带一个具体的来源和代价；不替 {{user}} 决定信谁。',
+    },
+  },
+  {
+    label: '修仙宗门',
+    card: {
+      name: '闻溪',
+      genre: '修仙',
+      playStyle: 'adventure',
+      identity: '青崖宗外门药庐的守炉弟子，十九岁，卡在引气三层两年。',
+      relationship: '{{user}} 是同一批入门的记名弟子，共用一间柴房，丹药常常分着吃。',
+      style: '说话轻，爱把“按规矩”挂嘴边；真着急时会连说两句短句。',
+      tics: '紧张时捏药囊；算丹药时先看炉火再开口。',
+      scenario: '宗门月底查验药庐，少了一炉固元丹。炉火还温着，账册上却对不上数。',
+      goal: '在查验前补齐丹药或缺口的账，保住自己和 {{user}} 的记名资格。',
+      secret: '少的那炉丹是她偷偷拿去换了一株续脉草，想给 {{user}} 冲关用。',
+      speechExamples: '“按规矩，这炉丹该记你名下。可账对不上。”\n“我不能让你去顶。再想。”',
+      greeting: '（守着快熄的炉火，听见脚步才回头）别点灯。账册少了一页，先帮我想。',
+      notes: '修行有代价，丹药、灵气、人情都要算；不写无代价突破。',
+      systemDirective: '资源、境界与门规必须自洽；不替 {{user}} 决定闯山门或叛宗。',
+    },
+  },
+  {
+    label: '都市合租',
+    card: {
+      name: '周禧',
+      genre: '都市',
+      playStyle: 'management',
+      identity: '二十七岁，社区医院夜班护士，和 {{user}} 合租一套老两居。',
+      relationship: '合租八个月，冰箱贴分工表，谁倒垃圾谁签字。',
+      style: '语速快，爱报时间和数字；不耐烦时先说“听我说完”。',
+      tics: '下班回家先踢掉鞋；算水电费时把单据按日期排好。',
+      scenario: '月底，房东突然说要卖房，给了一个月搬走的期限。合租合同还有四个月。',
+      goal: '在一个月内找到能续住的方案，同时不耽误夜班。',
+      secret: '她其实存够了首付，但一直没说要买房；她怕 {{user}} 以为她在赶人。',
+      speechExamples: '“一个月。搬家、找房、押一付三，你算过没有？”\n“我不是要你搬。我是在想，我们能不能不搬。”',
+      greeting: '（把钥匙丢进玄关的碗里，鞋还没换）房东来过了。一个月，卖房。你先别急着骂，坐下算账。',
+      notes: '都市现实向，钱、班表、通勤都要落地；不写霸总、不写成人内容。',
+      systemDirective: '每次决定都要对应时间、预算或人情成本；不替 {{user}} 做买房、辞职、表白决定。',
+    },
+  },
+  {
+    label: '悬疑旧案',
+    card: {
+      name: '陆见',
+      genre: '悬疑',
+      playStyle: 'mystery',
+      identity: '三十四岁，区档案馆的夜班管理员，十年前做过一段时间的现场记者。',
+      relationship: '{{user}} 是来查一桩旧案的家属；他答应帮忙，但只肯在闭馆后见面。',
+      style: '话留一半，先问“你确定要知道”；叙述时间线时极精确。',
+      tics: '翻档案前先擦手；紧张时反复确认门有没有锁。',
+      scenario: '闭馆后的档案馆，只有一排感应灯亮着。十年前的卷宗少了两页，借阅记录却是空的。',
+      goal: '在被人发现之前补上缺失的两页，确认 {{user}} 要的答案到底值不值得挖。',
+      secret: '那两页是他十年前亲手抽走的，为了保住一个证人。',
+      speechExamples: '“卷宗不会自己少页。少页说明有人来过。”\n“我可以给你名字，但你得先想清楚，名字后面还有人。”',
+      greeting: '（把最后一盏灯打开，压低声音）门锁了。你要查的那卷，少两页。现在走还来得及。',
+      notes: '悬疑推进靠线索与信息差，不靠突然反转；不写血腥细节、不写成人内容。',
+      systemDirective: '每轮只放出一条可验证的线索；不提前揭底，不替 {{user}} 下结论。',
+    },
+  },
+  {
+    label: '科幻舰员',
+    card: {
+      name: '伊莱',
+      genre: '科幻',
+      playStyle: 'ensemble',
+      identity: '深空补给舰“灰隼号”的轮机长，三十二岁，管全舰的电和氧。',
+      relationship: '{{user}} 是刚接任的见习领航员，第一次跑长途航线。',
+      style: '术语准，语气平；报告问题先给影响范围再给方案。',
+      tics: '说话时看墙上的能耗表；紧张时用指节敲三下金属台面。',
+      scenario: '灰隼号在返航途中偏航，备用氧只够四十小时；舰桥和货舱各收到一段来源不明的信号。',
+      goal: '在氧气耗尽前查明偏航原因，并把全舰带到最近的补给点。',
+      secret: '偏航不是故障，是船长手动改的；货舱里那批“医疗物资”没有登记。',
+      speechExamples: '“氧四十小时。先关实验舱，再谈谁去货舱。”\n“我不猜。把信号原始记录给我。”',
+      greeting: '（盯着能耗表，头也没回）氧四十小时，航向偏了七度。你先说，舰桥那段信号是谁先收到的。',
+      notes: '科幻设定要守技术边界，资源与时间可追踪；不写成人内容。',
+      systemDirective: '所有危机都要有可计算的资源与倒计时；配角各有岗位判断，不无条件服从 {{user}}。',
+    },
+  },
 ]
 
 const emptyCard = (name = ''): CharacterCard => ({
@@ -96,6 +201,15 @@ const emptyCard = (name = ''): CharacterCard => ({
   tics: '',
   greeting: '',
   notes: '',
+  genre: '',
+  playStyle: PLAY_STYLE_DEFAULT,
+  scenario: '',
+  systemDirective: '',
+  appearance: '',
+  background: '',
+  goal: '',
+  secret: '',
+  speechExamples: '',
   tags: [],
   createdAt: Date.now(),
   updatedAt: Date.now(),
@@ -112,18 +226,40 @@ const emptyEntry = (): WorldbookEntry => ({
   cardId: '',
   weight: WORLDBOOK_WEIGHT_DEFAULT,
   position: 'context',
+  kind: WORLDBOOK_KIND_DEFAULT,
+  scope: 'recent',
+  excludeKeywords: [],
   createdAt: Date.now(),
   updatedAt: Date.now(),
 })
 
 type Confirm = { kind: 'card' | 'entry'; id: string; name: string } | null
 
-/** 角色卡字段完整度：名字必填，其余六项用于判断设定是否够用 */
-const CARD_FIELD_TOTAL = 7
+/** 角色卡字段完整度：名字必填，其余用于判断设定是否够用 */
+const CARD_FIELD_KEYS: Array<keyof CharacterCard> = [
+  'name',
+  'identity',
+  'relationship',
+  'style',
+  'tics',
+  'greeting',
+  'genre',
+  'scenario',
+  'systemDirective',
+  'appearance',
+  'background',
+  'goal',
+  'secret',
+  'speechExamples',
+  'notes',
+]
+const CARD_FIELD_TOTAL = CARD_FIELD_KEYS.length
 
 const cardFieldCount = (card: CharacterCard) =>
-  [card.name, card.identity, card.relationship, card.style, card.tics, card.greeting, card.notes]
-    .filter((value) => value.trim()).length
+  CARD_FIELD_KEYS.filter((key) => {
+    const value = card[key]
+    return typeof value === 'string' && value.trim()
+  }).length
 
 const formatDate = (value: number) =>
   value
@@ -152,6 +288,7 @@ export function RoleplayPanel() {
   const [cardDraft, setCardDraft] = useState<CharacterCard | null>(null)
   const [entryDraft, setEntryDraft] = useState<WorldbookEntry | null>(null)
   const [keywordDraft, setKeywordDraft] = useState('')
+  const [excludeDraft, setExcludeDraft] = useState('')
   const [sceneDraft, setSceneDraft] = useState(scene)
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [cardQuery, setCardQuery] = useState('')
@@ -162,53 +299,79 @@ export function RoleplayPanel() {
   /** 分区切换：三块内容各自独立，进页面先看角色卡 */
   const [panelTab, setPanelTab] = useState<'cards' | 'worldbook' | 'scene'>('cards')
   const [entryQuery, setEntryQuery] = useState('')
+  const [entryKindFilter, setEntryKindFilter] = useState<'all' | WorldbookEntry['kind']>('all')
   const [budgetDraft, setBudgetDraft] = useState(String(worldbookChars))
   const [cardImporting, setCardImporting] = useState(false)
   const avatarInput = useRef<HTMLInputElement>(null)
   const cardFileInput = useRef<HTMLInputElement>(null)
   const entryFileInput = useRef<HTMLInputElement>(null)
 
+  const activeSession = activeId ? sessionCache[activeId] : undefined
+  const boundCard = findSessionCharacterCard(cards, activeSession)
   const activeCard = cards.find((card) => card.id === activeCharacterId)
-  const roleplayOn = roleplayEnabled && Boolean(activeCard)
+  const globalRoleplayOn = roleplayEnabled && Boolean(activeCard)
+  /** 全局开关只决定新会话；已经绑定角色的会话继续沿用该卡 */
+  const previewCard = boundCard ?? (roleplayEnabled ? activeCard : undefined)
+  const roleplayOn = Boolean(previewCard)
   const isNewDraft = Boolean(cardDraft && !cards.some((card) => card.id === cardDraft.id))
-  const lastUserText = useMemo(() => {
-    if (!activeId) {
-      return ''
+  const { recentText, sessionText } = useMemo(() => {
+    if (!activeSession) {
+      return { recentText: '', sessionText: '' }
     }
-    const session = sessionCache[activeId]
-    if (!session) {
-      return ''
+    const messages = getVisibleMessages(activeSession)
+    const plain = (message: (typeof messages)[number]) => {
+      if (message.role === 'user') {
+        return message.content
+      }
+      if (message.role !== 'assistant') {
+        return ''
+      }
+      return message.blocks
+        .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
+        .map((block) => block.text)
+        .join('')
     }
-    const messages = session.messages
-      .filter((message) => message.role === 'user')
-      .slice(-2)
-    return messages
-      .map((message) => (message.role === 'user' ? message.content : ''))
-      .filter(Boolean)
-      .join('\n')
-  }, [activeId, sessionCache])
+    return {
+      recentText: messages
+        .slice(-5)
+        .map(plain)
+        .filter(Boolean)
+        .join('\n'),
+      sessionText: messages.map(plain).filter(Boolean).join('\n'),
+    }
+  }, [activeSession])
   const hitEntries = useMemo(
     () =>
       roleplayOn && worldbookInject
         ? selectWorldbookEntries(
             worldbook,
-            lastUserText,
+            recentText,
             undefined,
             worldbookChars,
-            activeCharacterId
+            previewCard?.id ?? null,
+            sessionText
           )
         : [],
-    [worldbook, lastUserText, activeCharacterId, worldbookChars, worldbookInject, roleplayOn]
+    [
+      worldbook,
+      recentText,
+      sessionText,
+      previewCard?.id,
+      worldbookChars,
+      worldbookInject,
+      roleplayOn,
+    ]
   )
   const entryNeedle = entryQuery.trim().toLowerCase()
-  const filteredEntries = entryNeedle
-    ? worldbook.filter((entry) =>
+  const filteredEntries = worldbook.filter(
+    (entry) =>
+      (entryKindFilter === 'all' || entry.kind === entryKindFilter) &&
+      (!entryNeedle ||
         [entry.title, entry.content, ...entry.keywords]
           .join('\n')
           .toLowerCase()
-          .includes(entryNeedle)
-      )
-    : worldbook
+          .includes(entryNeedle))
+  )
   const enabledEntries = worldbook.filter((entry) => entry.enabled).length
   const alwaysEntries = roleplayOn && worldbookInject
     ? worldbook.filter((entry) => entry.enabled && entry.always).length
@@ -235,7 +398,18 @@ export function RoleplayPanel() {
       if (!query) {
         return true
       }
-      return [card.name, card.identity, card.relationship, card.style, card.tics]
+      return [
+        card.name,
+        card.genre,
+        card.identity,
+        card.relationship,
+        card.style,
+        card.tics,
+        card.scenario,
+        card.background,
+        card.systemDirective,
+        card.notes,
+      ]
         .join('\n')
         .toLowerCase()
         .includes(query)
@@ -289,14 +463,14 @@ export function RoleplayPanel() {
 
   const useCard = (card: CharacterCard) => {
     activateCharacterCard(card.id)
-    const introSession = startCharacterIntro(card.greeting, card.name)
+    const introSession = startCharacterIntro(card)
     showToast({
       key: introSession ? 'roleplayIntroStarted' : 'roleplaySwitched',
       params: { name: card.name },
     })
   }
 
-  /** 关闭角色扮演：卡暂停，不再向请求注入卡设定，回到手写提示词与手写角色名 */
+  /** 关闭全局开关：只影响尚未绑定人物的新会话；已绑定会话继续沿用该卡 */
   const closeRoleplay = (card: CharacterCard) => {
     setRoleplayEnabled(false)
     showToast({ key: 'roleplayClosed', params: { name: card.name } })
@@ -352,6 +526,7 @@ export function RoleplayPanel() {
   const startEditEntry = (entry: WorldbookEntry) => {
     setEntryDraft({ ...entry })
     setKeywordDraft(entry.keywords.join('，'))
+    setExcludeDraft(entry.excludeKeywords.join('，'))
     setCardDraft(null)
     setAvatarDraft(null)
     setTagDraft('')
@@ -364,11 +539,21 @@ export function RoleplayPanel() {
     const title = entryDraft.title.trim()
     const content = entryDraft.content.trim()
     const keywords = normalizeKeywords(keywordDraft)
+    const excludeKeywords = normalizeKeywords(excludeDraft)
     if (!title || !content) {
       showToast({ key: 'roleplayEntryFields', type: 'error' })
       return
     }
-    if (!saveWorldbookEntry({ ...entryDraft, title, content, keywords, updatedAt: Date.now() })) {
+    if (
+      !saveWorldbookEntry({
+        ...entryDraft,
+        title,
+        content,
+        keywords,
+        excludeKeywords,
+        updatedAt: Date.now(),
+      })
+    ) {
       showToast({ key: 'roleplayStorageFailed', type: 'error' })
       return
     }
@@ -619,6 +804,11 @@ export function RoleplayPanel() {
             </button>
           ))}
         </div>
+        <datalist id="rp-genre-options">
+          {CHARACTER_GENRES.map((genre) => (
+            <option key={genre} value={genre} />
+          ))}
+        </datalist>
         <div className={styles.fieldGrid}>
           <label>
             <span>姓名 *</span>
@@ -630,19 +820,42 @@ export function RoleplayPanel() {
             />
           </label>
           <label>
-            <span>身份</span>
+            <span>题材（可自由填写）</span>
             <input
+              list="rp-genre-options"
+              value={cardDraft.genre}
+              maxLength={12}
+              placeholder="例如：江湖、修仙、都市、悬疑"
+              onChange={(event) => setCardDraft({ ...cardDraft, genre: event.target.value })}
+            />
+          </label>
+          <label className={styles.wide}>
+            <span>身份</span>
+            <textarea
+              rows={3}
               value={cardDraft.identity}
-              maxLength={600}
-              placeholder="职业、年龄、居住地、近期状态"
+              maxLength={1200}
+              placeholder="职业、年龄、居住地、近期状态；写清能够被观察到的细节"
               onChange={(event) => setCardDraft({ ...cardDraft, identity: event.target.value })}
+            />
+          </label>
+          <label className={styles.wide}>
+            <span>外貌与标志</span>
+            <textarea
+              rows={2}
+              value={cardDraft.appearance}
+              maxLength={1000}
+              placeholder="常穿什么、有什么旧伤或随身物；只写能被看见的部分"
+              onChange={(event) =>
+                setCardDraft({ ...cardDraft, appearance: event.target.value })
+              }
             />
           </label>
           <label>
             <span>与账户角色的关系</span>
             <input
               value={cardDraft.relationship}
-              maxLength={400}
+              maxLength={800}
               placeholder="例如：邻居三年，关系尚未明确"
               onChange={(event) =>
                 setCardDraft({ ...cardDraft, relationship: event.target.value })
@@ -653,7 +866,7 @@ export function RoleplayPanel() {
             <span>说话风格</span>
             <input
               value={cardDraft.style}
-              maxLength={400}
+              maxLength={800}
               placeholder="话量、语气强弱、用词习惯"
               onChange={(event) => setCardDraft({ ...cardDraft, style: event.target.value })}
             />
@@ -662,9 +875,95 @@ export function RoleplayPanel() {
             <span>小习惯</span>
             <input
               value={cardDraft.tics}
-              maxLength={400}
+              maxLength={600}
               placeholder="例如：紧张时捏衣角，开口前先叹气"
               onChange={(event) => setCardDraft({ ...cardDraft, tics: event.target.value })}
+            />
+          </label>
+          <label className={styles.wide}>
+            <span>玩法（决定推进重心）</span>
+            <select
+              value={cardDraft.playStyle}
+              onChange={(event) =>
+                setCardDraft({
+                  ...cardDraft,
+                  playStyle: event.target.value as CharacterCard['playStyle'],
+                })
+              }
+            >
+              {PLAY_STYLES.map((style) => (
+                <option key={style.key} value={style.key}>
+                  {style.label} · {style.hint}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.wide}>
+            <span>情景设定（这场戏开始前的局面）</span>
+            <textarea
+              rows={4}
+              value={cardDraft.scenario}
+              maxLength={3000}
+              placeholder="时间、地点、正在发生的事、对方为什么在这里；动态变化请写入下方场景"
+              onChange={(event) =>
+                setCardDraft({ ...cardDraft, scenario: event.target.value })
+              }
+            />
+          </label>
+          <label className={styles.wide}>
+            <span>过往经历</span>
+            <textarea
+              rows={3}
+              value={cardDraft.background}
+              maxLength={4000}
+              placeholder="塑造现在的关键经历；不必写成完整传记，留白比堆事件更好用"
+              onChange={(event) =>
+                setCardDraft({ ...cardDraft, background: event.target.value })
+              }
+            />
+          </label>
+          <label className={styles.wide}>
+            <span>当前目标</span>
+            <textarea
+              rows={2}
+              value={cardDraft.goal}
+              maxLength={1000}
+              placeholder="角色眼下想做成的事；有目标人物才会有自己的行动"
+              onChange={(event) => setCardDraft({ ...cardDraft, goal: event.target.value })}
+            />
+          </label>
+          <label className={styles.wide}>
+            <span>只有角色知道的秘密</span>
+            <textarea
+              rows={2}
+              value={cardDraft.secret}
+              maxLength={3000}
+              placeholder="不到时候不说破的隐情；用于制造试探、误会和后续反转"
+              onChange={(event) => setCardDraft({ ...cardDraft, secret: event.target.value })}
+            />
+          </label>
+          <label className={styles.wide}>
+            <span>对白示例</span>
+            <textarea
+              rows={4}
+              value={cardDraft.speechExamples}
+              maxLength={6000}
+              placeholder="三到五句能代表语气的话，每句一行；模型只学节奏，不会照抄"
+              onChange={(event) =>
+                setCardDraft({ ...cardDraft, speechExamples: event.target.value })
+              }
+            />
+          </label>
+          <label className={styles.wide}>
+            <span>系统指令（卡内规则，低于手写系统提示）</span>
+            <textarea
+              rows={4}
+              value={cardDraft.systemDirective}
+              maxLength={3000}
+              placeholder="例如：动刀必须有代价；每轮只放出一条线索；不替对方做重大决定"
+              onChange={(event) =>
+                setCardDraft({ ...cardDraft, systemDirective: event.target.value })
+              }
             />
           </label>
           <label className={styles.wide}>
@@ -672,18 +971,17 @@ export function RoleplayPanel() {
             <textarea
               rows={3}
               value={cardDraft.greeting}
-              maxLength={800}
+              maxLength={2000}
               placeholder="新对话开场白，可包含动作与环境描写；启用该卡时作为首条消息发送"
               onChange={(event) => setCardDraft({ ...cardDraft, greeting: event.target.value })}
             />
           </label>
           <label className={styles.wide}>
-            <span>补充设定</span>
+            <span>补充设定（不限字数）</span>
             <textarea
-              rows={4}
+              rows={5}
               value={cardDraft.notes}
-              maxLength={1200}
-              placeholder="禁忌话题、敏感事项、过往经历；当前剧情状态请写入下方场景"
+              placeholder="禁忌话题、长期约定、称呼习惯、前史补充；想写多少写多少，保存与重载都不会截断"
               onChange={(event) => setCardDraft({ ...cardDraft, notes: event.target.value })}
             />
           </label>
@@ -733,9 +1031,9 @@ export function RoleplayPanel() {
           <span className={styles.heroEyebrow}>角色设定</span>
           <h2>角色卡 · 世界书 · 场景</h2>
           <p>
-            角色卡固定身份、关系与表达方式，可配置头像，由启用开关决定是否进入角色扮演；
-            世界书保存地点、组织、既往事件等稳定设定，命中关键词时注入；场景记录当前时间、地点与人物状态。
-            三层内容追加在手写提示词之后，不改写原文。
+            角色卡保存身份、关系、情景、目标、秘密与玩法，可配置头像；世界书按分类、关键词、避触词和历史范围命中；
+            场景记录天气、气氛、在场人物、目标与冲突。三层内容追加在手写提示词之后，不改写原文。
+            人物一旦进入某个会话，后续即使关闭全局开关也沿用该卡，避免中途换人。
           </p>
         </div>
         <div className={styles.heroStats}>
@@ -749,7 +1047,7 @@ export function RoleplayPanel() {
             世界书 <b>{enabledEntries}</b>
           </span>
           <span>
-            场景 <b>{sceneCount}/5</b>
+            场景 <b>{sceneCount}/{SCENE_FIELDS.length}</b>
           </span>
         </div>
       </section>
@@ -780,7 +1078,7 @@ export function RoleplayPanel() {
           data-on={panelTab === 'scene' ? '' : undefined}
           onClick={() => setPanelTab('scene')}
         >
-          场景 <b>{sceneCount}/5</b>
+          场景 <b>{sceneCount}/{SCENE_FIELDS.length}</b>
         </button>
       </div>
 
@@ -789,7 +1087,7 @@ export function RoleplayPanel() {
           <div>
             <h3>角色卡</h3>
             <p>
-              每张卡右侧为启用开关：开启后卡片设定与手写提示词共同注入，关闭后仅发送提示词。同一时间仅启用一张。
+              每张卡右侧为启用开关：开启后卡片设定与手写提示词共同注入，同一时间仅启用一张。关闭只影响新会话；已经绑定这个人物的对话仍按卡设定继续。
             </p>
           </div>
           <div className={styles.headActions}>
@@ -844,23 +1142,27 @@ export function RoleplayPanel() {
           <div className={styles.modeMain}>
             <strong>
               {roleplayOn
-                ? `角色扮演已开启 · ${activeCard?.name}`
+                ? globalRoleplayOn && previewCard?.id === activeCard?.id
+                  ? `角色扮演已开启 · ${previewCard?.name}`
+                  : `本会话沿用角色 · ${previewCard?.name}`
                 : activeCard
                   ? `角色扮演已关闭 · ${activeCard.name} 的卡已暂停`
                   : '角色扮演已关闭'}
             </strong>
             <p>
               {roleplayOn
-                ? '每次请求会注入该卡设定与手写提示词，两者叠加生效。'
+                ? globalRoleplayOn && previewCard?.id === activeCard?.id
+                  ? '每次请求会注入该卡设定与手写提示词，两者叠加生效。'
+                  : '该人物已经进入本会话；关闭全局开关只影响新会话，这里仍按卡设定继续，不会中途换回系统人格。'
                 : activeCard
-                  ? '只发送手写提示词与手写角色名；卡的身份、关系、说话方式、世界书、场景和角色记忆都不进入请求。'
+                  ? '全局开关已关闭：新会话回到手写提示词；已经绑定该角色的旧会话继续沿用卡设定与场景，不会中途换人。'
                   : '当前仅发送手写提示词，不注入角色设定；启用任一张卡即可恢复角色扮演。'}
             </p>
           </div>
           {activeCard ? (
-            roleplayOn ? (
+            globalRoleplayOn ? (
               <button type="button" className={styles.modeButton} onClick={() => closeRoleplay(activeCard)}>
-                关闭角色扮演
+                关闭全局开关
               </button>
             ) : (
               <button type="button" className={styles.modeButton} onClick={() => setRoleplayEnabled(true)}>
@@ -919,6 +1221,7 @@ export function RoleplayPanel() {
           {visibleCards.map((card) => {
             const selected = card.id === activeCharacterId
             const active = selected && roleplayEnabled
+            const inSession = boundCard?.id === card.id
             const editing = cardDraft?.id === card.id
             const filled = cardFieldCount(card)
             return (
@@ -947,19 +1250,23 @@ export function RoleplayPanel() {
                       <div className={styles.cardHeading}>
                         <div className={styles.cardTitle}>
                           <strong>{card.name}</strong>
-                          {selected ? (
-                            <span className={styles.activeTag}>{active ? '已启用' : '未启用'}</span>
+                          {selected || inSession ? (
+                            <span className={styles.activeTag}>
+                              {active ? '已启用' : inSession ? '本会话沿用' : '未启用'}
+                            </span>
                           ) : null}
                           {card.builtin ? <span className={styles.builtinTag}>内置</span> : null}
                         </div>
                         <small>
                           {active
                             ? '当前对话主角色'
-                            : selected
-                              ? '角色扮演关闭，人物设定仍生效'
-                              : card.builtin
-                                ? '内置角色卡，可直接编辑'
-                                : `${formatDate(card.updatedAt)} 更新`}
+                            : inSession
+                              ? '该人物已进入本会话，全局开关关闭也继续沿用'
+                              : selected
+                                ? '全局开关已关，新会话回到手写提示词'
+                                : card.builtin
+                                  ? '内置角色卡，可直接编辑'
+                                  : `${formatDate(card.updatedAt)} 更新`}
                         </small>
                       </div>
                     </div>
@@ -1000,7 +1307,7 @@ export function RoleplayPanel() {
                           aria-checked={active}
                           aria-label={
                             active
-                              ? `关闭「${card.name}」的角色扮演`
+                              ? `关闭「${card.name}」的全局角色扮演开关`
                               : selected
                                 ? `恢复「${card.name}」的角色扮演`
                                 : `启用「${card.name}」的角色扮演`
@@ -1018,7 +1325,9 @@ export function RoleplayPanel() {
                           }}
                         >
                           <i />
-                          <span>{active ? '已启用' : selected ? '仅人设' : '启用'}</span>
+                          <span>
+                            {active ? '已启用' : inSession ? '本会话沿用' : selected ? '已暂停' : '启用'}
+                          </span>
                         </button>
                         <button type="button" onClick={() => startEditCard(card)}>
                           编辑
@@ -1045,13 +1354,14 @@ export function RoleplayPanel() {
           ) : null}
           {cards.length === 0 && !cardDraft ? (
             <div className={styles.emptyLine}>
-              尚无角色卡。新建角色卡并分别填写姓名、身份、关系与表达方式，可减少长对话中的角色偏移。
+              尚无角色卡。可先套用上方模板，再补情景、目标与秘密；至少写清身份、关系和说话方式，长对话里的人物才不容易漂移。
             </div>
           ) : null}
         </div>
         <div className={styles.sectionFootRow}>
           <p className={styles.sectionFoot}>
-            最多保存 {CHARACTER_CARD_MAX} 张，同一时间仅保留一张启用卡。关闭角色扮演后卡设定完全暂停，只发送手写提示词与手写角色名；世界书、场景与角色记忆也不注入。
+            最多保存 {CHARACTER_CARD_MAX} 张，同一时间仅保留一张全局启用卡。关闭全局开关只影响新会话；
+            已经创建过该人物的会话会继续沿用卡设定、世界书、场景和角色记忆，不会突然切回手写人格。
           </p>
           <button type="button" className={styles.ghostButton} onClick={restoreBuiltinCards}>
             恢复内置角色卡（{BUILTIN_CHARACTER_CARD_TOTAL}）
@@ -1064,7 +1374,8 @@ export function RoleplayPanel() {
           <div>
             <h3>世界书</h3>
             <p>
-              世界书条目仅在关键词命中时注入；标记「每轮注入」的条目每轮都会发送。
+              世界书按分类保存世界、人物、地点、事件、规则、物品与线索；关键词或正则命中时注入，
+              避触词可压掉同名误伤，扫描范围可选最近发言或整段历史。标记「每轮注入」的条目每轮都会发送。
               支持本应用设定存档、SillyTavern world info（entries 数组或对象键值）与 Character Card V2 / V3 的 character_book；不支持私有数据库或未公开的二进制格式。
             </p>
           </div>
@@ -1091,6 +1402,7 @@ export function RoleplayPanel() {
                 setCardDraft(null)
                 setAvatarDraft(null)
                 setKeywordDraft('')
+                setExcludeDraft('')
                 setEntryDraft({ ...emptyEntry(), cardId: activeCharacterId ?? '' })
               }}
             >
@@ -1117,8 +1429,8 @@ export function RoleplayPanel() {
             每轮注入 <b>{alwaysEntries}</b> 条 · 已启用 <b>{enabledEntries}</b> 条
           </span>
           <span>
-            {lastUserText
-              ? `按最近一条输入计算，将注入 ${hitEntries.length} 条`
+            {recentText
+              ? `按最近对话计算，将注入 ${hitEntries.length} 条`
               : '发送消息后显示匹配条数'}
           </span>
         </div>
@@ -1189,7 +1501,7 @@ export function RoleplayPanel() {
               <strong>
                 {worldbook.some((entry) => entry.id === entryDraft.id) ? '编辑条目' : '新建条目'}
               </strong>
-              <span>关键词以逗号分隔；命中任意一个时注入该条目。</span>
+              <span>关键词以逗号分隔；命中任意一个时注入该条目；避触词命中时整条跳过。</span>
             </div>
             <div className={styles.fieldGrid}>
               <label>
@@ -1204,6 +1516,24 @@ export function RoleplayPanel() {
                 />
               </label>
               <label>
+                <span>分类</span>
+                <select
+                  value={entryDraft.kind}
+                  onChange={(event) =>
+                    setEntryDraft({
+                      ...entryDraft,
+                      kind: event.target.value as WorldbookEntry['kind'],
+                    })
+                  }
+                >
+                  {WORLDBOOK_KINDS.map((kind) => (
+                    <option key={kind.key} value={kind.key}>
+                      {kind.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
                 <span>{entryDraft.match === 'regex' ? '正则' : '关键词'}</span>
                 <input
                   value={keywordDraft}
@@ -1213,6 +1543,14 @@ export function RoleplayPanel() {
                       : '便利店，夜班，热牛奶'
                   }
                   onChange={(event) => setKeywordDraft(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>避触词（可选）</span>
+                <input
+                  value={excludeDraft}
+                  placeholder="例如：便利店已关门、夜班取消"
+                  onChange={(event) => setExcludeDraft(event.target.value)}
                 />
               </label>
               <label className={styles.wide}>
@@ -1237,6 +1575,31 @@ export function RoleplayPanel() {
                     onClick={() => setEntryDraft({ ...entryDraft, match: 'regex' })}
                   >
                     正则表达式
+                  </button>
+                </div>
+              </label>
+              <label className={styles.wide}>
+                <span>扫描范围</span>
+                <div className={styles.toggleRow}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={entryDraft.scope === 'recent'}
+                    className={styles.toggle}
+                    data-on={entryDraft.scope === 'recent'}
+                    onClick={() => setEntryDraft({ ...entryDraft, scope: 'recent' })}
+                  >
+                    最近发言
+                  </button>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={entryDraft.scope === 'session'}
+                    className={styles.toggle}
+                    data-on={entryDraft.scope === 'session'}
+                    onClick={() => setEntryDraft({ ...entryDraft, scope: 'session' })}
+                  >
+                    整段历史
                   </button>
                 </div>
               </label>
@@ -1332,7 +1695,7 @@ export function RoleplayPanel() {
                 <textarea
                   rows={5}
                   value={entryDraft.content}
-                  maxLength={1500}
+                  maxLength={WORLDBOOK_CONTENT_MAX}
                   placeholder="记录稳定设定：地点环境、人物关系、规则与既往事件；随剧情变化的状态请写入场景。"
                   onChange={(event) =>
                     setEntryDraft({ ...entryDraft, content: event.target.value })
@@ -1388,6 +1751,31 @@ export function RoleplayPanel() {
             </button>
           ) : null}
         </div>
+        <div className={styles.toggleRow}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={entryKindFilter === 'all'}
+            className={styles.toggle}
+            data-on={entryKindFilter === 'all'}
+            onClick={() => setEntryKindFilter('all')}
+          >
+            全部
+          </button>
+          {WORLDBOOK_KINDS.map((kind) => (
+            <button
+              key={kind.key}
+              type="button"
+              role="switch"
+              aria-checked={entryKindFilter === kind.key}
+              className={styles.toggle}
+              data-on={entryKindFilter === kind.key}
+              onClick={() => setEntryKindFilter(kind.key)}
+            >
+              {kind.label}
+            </button>
+          ))}
+        </div>
 
         <div className={styles.list}>
           {filteredEntries.map((entry) => (
@@ -1395,6 +1783,12 @@ export function RoleplayPanel() {
               <div className={styles.entryHead}>
                 <div>
                   <strong>{entry.title}</strong>
+                  <span className={styles.constantTag}>
+                    {WORLDBOOK_KINDS.find((kind) => kind.key === entry.kind)?.label ?? '其他'}
+                  </span>
+                  {entry.scope === 'session' ? (
+                    <span className={styles.constantTag}>整段历史</span>
+                  ) : null}
                   {entry.match === 'regex' ? (
                     <span className={styles.constantTag}>正则</span>
                   ) : null}
@@ -1432,6 +1826,11 @@ export function RoleplayPanel() {
                 {entry.keywords.length > 0
                   ? entry.keywords.map((keyword) => <span key={keyword}>{keyword}</span>)
                   : <span className={styles.mutedChip}>未设置关键词，仅在「每轮注入」开启时生效</span>}
+                {entry.excludeKeywords.map((keyword) => (
+                  <span key={`x-${keyword}`} className={styles.mutedChip}>
+                    避触 {keyword}
+                  </span>
+                ))}
               </div>
             </article>
           ))}
@@ -1442,7 +1841,7 @@ export function RoleplayPanel() {
           ) : null}
           {worldbook.length === 0 && !entryDraft ? (
             <div className={styles.emptyLine}>
-              尚未添加世界书条目。可录入地点、组织、人物关系等稳定背景；关键词命中时才注入，未命中不占用上下文。
+              尚未添加世界书条目。可录入世界规则、地点、人物、组织、事件与线索；关键词命中时才注入，未命中不占用上下文。
             </div>
           ) : null}
         </div>
@@ -1452,7 +1851,7 @@ export function RoleplayPanel() {
         <header className={styles.sectionHead}>
           <div>
             <h3>当前场景</h3>
-            <p>记录当前地点、时间、人物状态与关系。场景变化后可手动修改，或开启自动更新由模型在每轮后重写；角色扮演关闭时只保留记录，不进入请求，自动更新也会暂停。</p>
+            <p>记录时间、天气、在场人物、气氛、目标、冲突与关键物件。可手动修改，或开启自动更新由模型在每轮后重写；角色扮演关闭时只保留记录，已绑定人物的会话仍继续注入。</p>
           </div>
           <button
             type="button"
@@ -1469,26 +1868,44 @@ export function RoleplayPanel() {
 
         <div className={styles.notice} data-warn={sceneAutoUpdate}>
           {sceneAutoUpdate
-            ? '开启后，每轮回复结束会额外发送一次摘要请求，由模型更新地点、时间与心情；会产生额外 Token 消耗，请求失败时保留原场景，不影响对话。'
+            ? '开启后，每轮回复结束会额外发送一次摘要请求，由模型更新全部场景字段；会产生额外 Token 消耗，请求失败时保留原场景，不影响对话。'
             : '关闭时仅在手动编辑后更新，不产生额外请求。'}
         </div>
 
         <div className={styles.sceneGrid}>
           {SCENE_FIELDS.map((field) => (
-            <label key={field.key} className={field.key === 'mood' || field.key === 'relationship' ? styles.wide : ''}>
+            <label key={field.key} className={field.wide ? styles.wide : ''}>
               <span>{field.label}</span>
-              <input
-                value={sceneDraft[field.key]}
-                placeholder={field.placeholder}
-                onChange={(event) =>
-                  setSceneDraft({ ...sceneDraft, [field.key]: event.target.value })
-                }
-                onBlur={(event) => {
-                  if (event.target.value !== scene[field.key]) {
-                    setSceneField(field.key as SceneField, event.target.value)
+              {field.wide ? (
+                <textarea
+                  rows={field.lines ?? 2}
+                  value={sceneDraft[field.key]}
+                  maxLength={SCENE_LIMITS[field.key]}
+                  placeholder={field.placeholder}
+                  onChange={(event) =>
+                    setSceneDraft({ ...sceneDraft, [field.key]: event.target.value })
                   }
-                }}
-              />
+                  onBlur={(event) => {
+                    if (event.target.value !== scene[field.key]) {
+                      setSceneField(field.key as SceneField, event.target.value)
+                    }
+                  }}
+                />
+              ) : (
+                <input
+                  value={sceneDraft[field.key]}
+                  maxLength={SCENE_LIMITS[field.key]}
+                  placeholder={field.placeholder}
+                  onChange={(event) =>
+                    setSceneDraft({ ...sceneDraft, [field.key]: event.target.value })
+                  }
+                  onBlur={(event) => {
+                    if (event.target.value !== scene[field.key]) {
+                      setSceneField(field.key as SceneField, event.target.value)
+                    }
+                  }}
+                />
+              )}
             </label>
           ))}
         </div>
@@ -1511,8 +1928,8 @@ export function RoleplayPanel() {
       </section>
 
       <p className={styles.footerNote}>
-        角色卡、世界书与场景只保存在本机，对话导出包不包含这三类设定。角色扮演关闭时，
-        世界书与场景暂停注入但不会删除；单轮最多注入 6 条世界书，当前预算 {worldbookChars.toLocaleString('zh-CN')} 字；
+        角色卡、世界书与场景只保存在本机，单会话包可带走相关设定。关闭全局开关只影响新会话，
+        已绑定人物的会话仍注入卡设定、世界书、场景与角色记忆；单轮最多注入 6 条世界书，当前预算 {worldbookChars.toLocaleString('zh-CN')} 字；
         超出后按命中次数与权重排序取前面的条目，避免背景设定挤占对话上下文。
       </p>
 

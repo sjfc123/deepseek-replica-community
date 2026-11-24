@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { getVisibleMessages } from '../../services/chat/branches.js'
-import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
+import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
 import {
   activeMemoryCards,
   activeMemoryChars,
@@ -77,7 +77,8 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const activeCharacterId = useSettings((state) => state.activeCharacterId)
   const characterCards = useSettings((state) => state.characterCards)
   const roleplayActive =
-    roleplayEnabled && Boolean(findActiveCharacterCard(characterCards, activeCharacterId))
+    Boolean(findSessionCharacterCard(characterCards, session)) ||
+    (roleplayEnabled && Boolean(findActiveCharacterCard(characterCards, activeCharacterId)))
   const [draft, setDraft] = useState('')
   const [draftKind, setDraftKind] = useState<NormalMemoryKind | 'auto'>('auto')
   const [query, setQuery] = useState('')

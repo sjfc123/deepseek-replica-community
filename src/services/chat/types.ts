@@ -131,6 +131,8 @@ export type Session = {
   /** undefined 表示线性消息列表；null 表示空会话。 */
   rootMessageId?: string | null
   contextCheckpoints?: ContextCheckpoint[]
+  /** 已进入本会话的角色卡；关闭全局角色扮演后仍按这张卡延续人物 */
+  characterId?: string
 }
 
 /** 会话列表元数据；消息只在打开会话时加载。 */

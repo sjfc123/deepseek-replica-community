@@ -2,6 +2,7 @@ import * as db from './db.js'
 import type { Session, SessionSummary } from './types.js'
 import type { MemoryCard } from './memory.js'
 import type { CharacterCard, WorldbookEntry, SceneState } from './roleplay.js'
+import { findSessionCharacterCard } from './roleplay.js'
 import { useSettings } from '../settings.js'
 import { useChatStore } from './store.js'
 import { createId } from '../../utils/id.js'
@@ -71,7 +72,7 @@ export const loadSessionForExport = async (id: string): Promise<Session | undefi
   return db.loadSession(id)
 }
 
-/** 组装单会话包：角色卡取当前启用那张，世界书只带走与该卡相关或全局的可用条目 */
+/** 组装单会话包：角色卡优先取本会话绑定人物，其次才用全局启用卡；世界书只带走相关或全局的可用条目 */
 export const buildSessionBundle = async (
   summary: SessionSummary,
   now = Date.now()
@@ -81,9 +82,11 @@ export const buildSessionBundle = async (
     return null
   }
   const { characterCards, activeCharacterId, worldbook, scene } = useSettings.getState()
-  const card = activeCharacterId
-    ? (characterCards.find((item) => item.id === activeCharacterId) ?? null)
-    : null
+  const card =
+    findSessionCharacterCard(characterCards, session) ??
+    (activeCharacterId
+      ? (characterCards.find((item) => item.id === activeCharacterId) ?? null)
+      : null)
   const related = worldbook.filter(
     (entry) => entry.enabled && (!entry.cardId || entry.cardId === (card?.id ?? ''))
   )
@@ -96,7 +99,7 @@ export const buildSessionBundle = async (
     card,
     worldbook: related,
     scene,
-    memories: collectMemories( selectedPath(session)),
+    memories: collectMemories(selectedPath(session)),
   }
 }
 
@@ -167,6 +170,7 @@ export const importSessionBundle = async (bundle: SessionBundle): Promise<Sessio
     contextCheckpoints: bundle.session.contextCheckpoints
       ? bundle.session.contextCheckpoints.map((checkpoint) => ({ ...checkpoint }))
       : undefined,
+    characterId: bundle.session.characterId,
   }
   await db.saveSession(next)
   useChatStore.setState((state) => ({

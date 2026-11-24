@@ -678,7 +678,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     sceneAutoUpdate,
   } = useSettings()
   const tr = (chinese: string, english: string) => (locale === 'zh-CN' ? chinese : english)
-  // 角色卡启用期间，名字输入框显示卡名；手写名字另存，关闭角色卡后自动恢复
+  // 角色卡启用期间，名字输入框显示卡名；手写名字另存，关闭后仅新会话恢复
   const activeCharacterCard = roleplayEnabled
     ? findActiveCharacterCard(characterCards, activeCharacterId)
     : undefined
@@ -1774,7 +1774,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.pageIntro}>
               {tr(
-                '角色名字在启用角色卡期间显示为卡名，关闭后恢复这里保存的手写名字。系统提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：身份（是谁、与{{user}}什么关系）、表达（称呼、语气、动作密度）、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n你是{{char}}，28 岁，夜班便利店店员。\n你对{{user}}克制但关心，称呼「你」。\n用对话和动作推进，不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
+                '角色名字在启用角色卡期间显示为卡名，关闭后新会话恢复这里保存的手写名字；已经绑定人物的会话仍沿用卡名。系统提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：身份（是谁、与{{user}}什么关系）、表达（称呼、语气、动作密度）、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n你是{{char}}，28 岁，夜班便利店店员。\n你对{{user}}克制但关心，称呼「你」。\n用对话和动作推进，不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
                 'While a character card is active, the name field shows the card name; when roleplay is off it returns to the handwritten name saved here. The system prompt is sent every turn and overrides other behavioural hints. Write it in three layers: identity (who the character is and the relationship with {{user}}), delivery (address, tone, action density), constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nYou are {{char}}, 28, night-shift clerk.\nYou are restrained but caring toward {{user}}, and call them 「你」.\nAdvance through dialogue and action; do not restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
               )}
             </p>

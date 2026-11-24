@@ -15,6 +15,7 @@ import {
   normalizeCharacterCards,
   normalizeScene,
   normalizeWorldbook,
+  sceneHasContent,
   type CharacterCard,
   type SceneField,
   type SceneState,
@@ -1058,9 +1059,7 @@ export const deleteWorldbookEntry = (id: string) => {
 }
 
 const persistScene = (scene: SceneState) =>
-  write(KEYS.scene, scene.time || scene.place || scene.outfit || scene.mood || scene.relationship
-    ? JSON.stringify(scene)
-    : null)
+  write(KEYS.scene, sceneHasContent(scene) ? JSON.stringify(scene) : null)
 
 export const setSceneField = (field: SceneField, value: string) => {
   const scene = { ...useSettings.getState().scene, [field]: value, updatedAt: Date.now() }

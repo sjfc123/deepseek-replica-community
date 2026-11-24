@@ -27,9 +27,12 @@ import {
   formatSceneBlock,
   formatWorldbookBlock,
   parseSceneUpdate,
+  SCENE_FIELDS,
   selectWorldbookEntries,
   WORLDBOOK_INJECT_MAX,
-  findActiveCharacterCard,
+  resolveTurnCharacterCard,
+  type CharacterCard,
+  type SceneState,
 } from './roleplay.js'
 import {
   activeMemoryCards,
@@ -730,6 +733,7 @@ export const forkSession = async (sessionId: string): Promise<string | null> => 
     updatedAt: now,
     messages,
     rootMessageId: messages[0].id,
+    characterId: source.characterId,
     contextCheckpoints: source.contextCheckpoints
       ? source.contextCheckpoints.map((checkpoint) => ({ ...checkpoint }))
       : undefined,
@@ -945,6 +949,13 @@ export const sendMessage = (targetSessionId: string | null) => {
   if (!current) {
     return false
   }
+  const settingsNow = useSettings.getState()
+  const turnCard = resolveTurnCharacterCard(
+    settingsNow.characterCards,
+    current,
+    settingsNow.activeCharacterId,
+    settingsNow.roleplayEnabled
+  )
   const history = getVisibleMessages(current)
   const question: UserMessage = {
     id: createId(),
@@ -959,6 +970,7 @@ export const sendMessage = (targetSessionId: string | null) => {
     ...appendBranch(session, history.at(-1)?.id ?? null, [question, reply]),
     title: session.title || (files.length === 0 && SIMPLE_ARITHMETIC.test(text) ? text.trim() : ''),
     updatedAt: now,
+    characterId: turnCard?.id ?? session.characterId,
   }))
   appendPendingFiles(sessionId, files)
   persist(sessionId)
@@ -972,16 +984,15 @@ export const sendMessage = (targetSessionId: string | null) => {
 }
 
 /**
- * 语音通话专用提交：文本直接来自 ASR，不读草稿、不占草稿状态。
- * 返回新建会话与回复的 id，通话界面据此订阅流式正文。
+ * 启用带开场白的角色卡时调用：把开场白作为一条已完成的助手消息写入会话，
+ * 并把 card.id 写入会话绑定。当前会话已有历史时新建会话，避免开场白插进旧对话。
  */
-/**
- * 启用带开场白的角色卡时调用：把开场白作为一条已完成的助手消息写入会话。
- * 当前会话已有历史时新建会话，避免开场白插进旧对话；返回写入的会话 id。
- */
-export const startCharacterIntro = (greeting: string, characterName: string): string | null => {
-  const text = greeting.trim()
-  if (!text || get().importingHistory || !get().ready) {
+export const startCharacterIntro = (
+  card: Pick<CharacterCard, 'id' | 'name' | 'greeting'>
+): string | null => {
+  const text = card.greeting.trim()
+  const name = card.name.trim()
+  if (!text || !name || get().importingHistory || !get().ready) {
     return null
   }
   const now = Date.now()
@@ -1001,6 +1012,7 @@ export const startCharacterIntro = (greeting: string, characterName: string): st
       updatedAt: now,
       messages: [],
       rootMessageId: null,
+      characterId: card.id,
     }
     touchSession(session.id)
     set((state) => ({
@@ -1025,15 +1037,20 @@ export const startCharacterIntro = (greeting: string, characterName: string): st
   }
   updateSession(sessionId, (session) => ({
     ...session,
-    title: session.title || characterName.trim(),
+    title: session.title || name,
     messages: [intro],
     rootMessageId: intro.id,
     updatedAt: now,
+    characterId: card.id,
   }))
   persist(sessionId)
   return sessionId
 }
 
+/**
+ * 语音通话专用提交：文本直接来自 ASR，不读草稿、不占草稿状态。
+ * 返回新建会话与回复的 id，通话界面据此订阅流式正文。
+ */
 export const sendVoicePrompt = (
   targetSessionId: string | null,
   content: string
@@ -1071,6 +1088,13 @@ export const sendVoicePrompt = (
   if (!current) {
     return null
   }
+  const settingsNow = useSettings.getState()
+  const turnCard = resolveTurnCharacterCard(
+    settingsNow.characterCards,
+    current,
+    settingsNow.activeCharacterId,
+    settingsNow.roleplayEnabled
+  )
   const history = getVisibleMessages(current)
   const question: UserMessage = {
     id: createId(),
@@ -1084,6 +1108,7 @@ export const sendVoicePrompt = (
     ...appendBranch(session, history.at(-1)?.id ?? null, [question, reply]),
     title: session.title || text.split(/\r?\n/, 1)[0].slice(0, 40),
     updatedAt: now,
+    characterId: turnCard?.id ?? session.characterId,
   }))
   persist(sessionId)
   if (matchRefusalKeyword(text)) {
@@ -1512,14 +1537,15 @@ const enforceMemoryChars = (sessionId: string, pool: MemoryPool = 'character') =
   persist(sessionId)
 }
 
-const SCENE_UPDATE_SYSTEM = `你负责维护角色扮演的场景状态。根据最近一轮对话，判断时间、地点、穿着、心情、关系阶段是否发生变化。
-只输出下面五行，没有变化的字段写“不变”：
-时间：...
-地点：...
-穿着：...
-心情：...
-关系阶段：...
-不要解释，不要写分析，不要用列表符号，不要编造对话里没有的信息。`
+const SCENE_UPDATE_SYSTEM = `你负责维护角色扮演的场景状态。根据最近一轮对话，判断下面这些字段是否发生变化。
+只输出字段行，没有变化的字段写“不变”；不要解释，不要写分析，不要用列表符号，不要编造对话里没有的信息。
+${SCENE_FIELDS.map((field) => `${field.label}：...`).join('\n')}`
+
+/** 把当前场景按字段摊平，空值写“未记录”，供自动更新请求使用 */
+const sceneUpdateSnapshot = (scene: SceneState) =>
+  SCENE_FIELDS.map(
+    (field) => `${field.label}：${scene[field.key].trim() || '未记录'}`
+  ).join('\n')
 
 /** 自动场景更新：多发一次很小的请求；失败就保持原场景，不影响聊天 */
 const updateSceneFromTurn = async (question: string, answer: string) => {
@@ -1535,12 +1561,12 @@ const updateSceneFromTurn = async (question: string, answer: string) => {
       apiKey,
       {
         model: chatConfig.model || DEFAULT_CHAT_MODEL,
-        max_tokens: 220,
+        max_tokens: 360,
         system: SCENE_UPDATE_SYSTEM,
         messages: [
           {
             role: 'user',
-            content: `【当前场景】\n时间：${scene.time || '未记录'}\n地点：${scene.place || '未记录'}\n穿着：${scene.outfit || '未记录'}\n心情：${scene.mood || '未记录'}\n关系阶段：${scene.relationship || '未记录'}\n\n【最近一轮】\n用户：${question}\n角色：${answer.slice(0, 1200)}`,
+            content: `【当前场景】\n${sceneUpdateSnapshot(scene)}\n\n【最近一轮】\n用户：${question}\n角色：${answer.slice(0, 1200)}`,
           },
         ],
         thinking: { type: 'disabled' },
@@ -1551,7 +1577,7 @@ const updateSceneFromTurn = async (question: string, answer: string) => {
     for await (const event of events) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
         text += event.delta.text
-        if (text.length > 1200) {
+        if (text.length > 2400) {
           break
         }
       }
@@ -1620,11 +1646,18 @@ const recordTurnMemory = (
 /**
  * 角色扮演开启且角色卡真实存在时，记忆写入锁在角色池：
  * 代码、开发日志和整轮剧情都不允许意外落进普通记忆。
+ * 会话已绑定角色时同样视为角色扮演，避免关闭全局开关后记忆写错池。
  */
-const roleplayMemoryLocked = () => {
+const roleplayMemoryLocked = (sessionId?: string) => {
   const settings = useSettings.getState()
-  return settings.roleplayEnabled && Boolean(
-    findActiveCharacterCard(settings.characterCards, settings.activeCharacterId)
+  const session = sessionId ? getSession(sessionId) : null
+  return Boolean(
+    resolveTurnCharacterCard(
+      settings.characterCards,
+      session,
+      settings.activeCharacterId,
+      settings.roleplayEnabled
+    )
   )
 }
 
@@ -1634,7 +1667,7 @@ const roleplayMemoryLocked = () => {
  */
 const recordNormalCodeMemory = (sessionId: string, targetMessageId: string, answer: string) => {
   if (
-    roleplayMemoryLocked() ||
+    roleplayMemoryLocked(sessionId) ||
     !useSettings.getState().normalMemoryEnabled ||
     !detectCodeBlock(answer)
   ) {
@@ -1686,7 +1719,7 @@ export const addManualMemory = (
   if (!last || !text.trim()) {
     return
   }
-  const pool: MemoryPool = roleplayMemoryLocked()
+  const pool: MemoryPool = roleplayMemoryLocked(sessionId)
     ? 'character'
     : target.pool === 'normal'
       ? 'normal'
@@ -1730,11 +1763,11 @@ export const saveMessagesAsMemory = (
   target: MemorySaveTarget = { pool: 'character' }
 ): SaveConversationMemoryResult => {
   const empty: SaveConversationMemoryResult = { created: 0, skipped: 0, active: 0, chars: 0 }
-  const pool: MemoryPool = roleplayMemoryLocked() ? 'character' : target.pool
   const session = getSession(sessionId)
   if (!session) {
     return empty
   }
+  const pool: MemoryPool = roleplayMemoryLocked(sessionId) ? 'character' : target.pool
   const messages = getVisibleMessages(session)
   const selected = new Set(messageIds)
   const picked = messages.filter((message) => selected.has(message.id))
@@ -2282,9 +2315,14 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 打开出戏压制时再在后面追加演出规则；本地保存的提示词不会被改写。
   const sessionForMemory = getSession(sessionId)
   const visibleForRoleplay = sessionForMemory ? getVisibleMessages(sessionForMemory) : []
-  const activeCard = findActiveCharacterCard(characterCards, activeCharacterId)
-  // 关闭角色扮演后完全不使用启用卡：身份、关系、说话方式、世界书、场景与角色记忆都不注入
-  const roleplayActive = roleplayEnabled && Boolean(activeCard)
+  const activeCard = resolveTurnCharacterCard(
+    characterCards,
+    sessionForMemory,
+    activeCharacterId,
+    roleplayEnabled
+  )
+  // 会话已绑定人物时优先沿用该卡：关闭全局开关只影响新会话，不会中途换回系统人格
+  const roleplayActive = Boolean(activeCard)
   const selectedMemoryEntries =
     memoryMode === 'off' || !sessionForMemory
       ? []
@@ -2320,6 +2358,14 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   ]
     .filter(Boolean)
     .join('\n')
+  const sessionText = [
+    request.question.content,
+    ...visibleForRoleplay.map((message) =>
+      message.role === 'assistant' ? replyPlainText(message) : message.content
+    ),
+  ]
+    .filter(Boolean)
+    .join('\n')
   const worldEntries =
     worldbookInject && roleplayActive
       ? selectWorldbookEntries(
@@ -2327,7 +2373,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           recentText,
           WORLDBOOK_INJECT_MAX,
           useSettings.getState().worldbookChars,
-          activeCard?.id ?? null
+          activeCard?.id ?? null,
+          sessionText
         )
       : []
   const userName = resolveUserName()

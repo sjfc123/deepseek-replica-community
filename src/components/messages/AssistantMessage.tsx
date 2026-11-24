@@ -17,11 +17,12 @@ import {
 } from '../base/icons.js'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 import { describeReply } from '../../services/chat/describe.js'
-import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
+import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
 import {
   deleteMessage,
   editAssistantMessage,
   regenerateReply,
+  useChatStore,
 } from '../../services/chat/store.js'
 import {
   describeReadAloudError,
@@ -90,10 +91,13 @@ export const AssistantMessage = memo(function AssistantMessage({
   const roleplayEnabled = useSettings((state) => state.roleplayEnabled)
   const characterCards = useSettings((state) => state.characterCards)
   const activeCharacterId = useSettings((state) => state.activeCharacterId)
-  // 只有角色扮演开启时才采用卡名与卡头像；关闭后回落到手写角色设定
-  const activeCard = roleplayEnabled
-    ? findActiveCharacterCard(characterCards, activeCharacterId)
-    : undefined
+  const session = useChatStore((state) => state.sessionCache[sessionId])
+  // 会话已绑定人物时优先沿用它；关闭全局开关不会把头像和称呼切回手写角色
+  const activeCard =
+    findSessionCharacterCard(characterCards, session) ??
+    (roleplayEnabled
+      ? findActiveCharacterCard(characterCards, activeCharacterId)
+      : undefined)
   const cardAvatars = useSettings((state) => state.cardAvatars)
   const characterAvatar = useSettings((state) => state.characterAvatar)
   const cardAvatar = activeCard ? (cardAvatars[activeCard.id] ?? null) : null

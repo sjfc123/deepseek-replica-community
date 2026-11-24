@@ -1,4 +1,7 @@
 import {
+  WORLDBOOK_CONTENT_MAX,
+  findPlayStyle,
+  findWorldbookKind,
   newRoleplayId,
   normalizeKeywords,
   normalizeTags,
@@ -162,30 +165,35 @@ const toCard = (source: unknown): CharacterCard | null => {
     data.post_history_instructions,
     outer.post_history_instructions
   )
-  const identity = [description, personality ? `性格：${personality}` : '']
-    .filter(Boolean)
-    .join('\n')
-    .slice(0, 600)
-  const notes = [
-    scenario ? `场景：${scenario}` : '',
-    example ? `示例对话：${example}` : '',
-    creatorNotes ? `作者备注：${creatorNotes}` : '',
-    systemPrompt ? `系统提示：${systemPrompt}` : '',
+  const identity = description.slice(0, 1200)
+  const systemDirective = [
+    systemPrompt,
     postInstruction ? `后置指令：${postInstruction}` : '',
   ]
     .filter(Boolean)
     .join('\n')
-    .slice(0, 1200)
   const creator = firstText(data.creator, outer.creator)
   return {
     id: newRoleplayId(),
     name,
     identity,
-    relationship: firstText(data.relationship, outer.relationship).slice(0, 400),
-    style: personality.slice(0, 400),
-    tics: firstText(data.tics, outer.tics).slice(0, 400),
-    greeting: greeting.slice(0, 800),
-    notes,
+    relationship: firstText(data.relationship, outer.relationship).slice(0, 800),
+    style: personality.slice(0, 800),
+    tics: firstText(data.tics, outer.tics).slice(0, 600),
+    greeting: greeting.slice(0, 2000),
+    notes: creatorNotes,
+    genre: firstText(data.genre, outer.genre, data.category, outer.category).slice(0, 12),
+    playStyle: findPlayStyle(firstText(data.play_style, outer.play_style)).key,
+    scenario: scenario.slice(0, 3000),
+    systemDirective: systemDirective.slice(0, 3000),
+    appearance: firstText(data.appearance, outer.appearance).slice(0, 1000),
+    background: firstText(data.background, outer.background, data.backstory, outer.backstory).slice(
+      0,
+      4000
+    ),
+    goal: firstText(data.goal, outer.goal, data.objective, outer.objective).slice(0, 1000),
+    secret: firstText(data.secret, outer.secret).slice(0, 3000),
+    speechExamples: example.slice(0, 6000),
     tags: normalizeTags(data.tags ?? outer.tags),
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -250,17 +258,28 @@ const toWorldbookEntry = (
     ? Math.min(100, Math.max(0, Math.round(weightRaw)))
     : WORLDBOOK_WEIGHT_DEFAULT
   const position = firstText(item.position)
+  const kind = findWorldbookKind(
+    firstText(item.kind, item.category, item.type, item.group)
+  ).key
+  const scope = firstText(item.scope) === 'session' || item.scanDepth === 'session'
+    ? 'session'
+    : 'recent'
   return {
     id: text(item.id) || newRoleplayId(),
     title,
     keywords: normalizeKeywords(keys),
-    content: content.slice(0, 1500),
+    content: content.slice(0, WORLDBOOK_CONTENT_MAX),
     enabled: item.disable === true ? false : item.enabled !== false,
     always: item.constant === true || item.always === true,
     match: item.regex === true || item.match === 'regex' ? 'regex' : 'keyword',
     cardId: text(item.cardId) || cardId,
     weight,
     position: position.toLowerCase().includes('after') || item.position === 'tail' ? 'tail' : 'context',
+    kind,
+    scope,
+    excludeKeywords: normalizeKeywords(
+      stringList(item.excludeKeywords ?? item.exclude_keys ?? item.avoid)
+    ),
     createdAt: Number(item.createdAt) || Date.now(),
     updatedAt: Number(item.updatedAt) || Date.now(),
   }

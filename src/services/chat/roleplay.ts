@@ -3,6 +3,81 @@
  * 数据存于本机 settings，仅在请求时装配为 system 内容，原始文本不被改写。
  */
 
+import type { Session } from './types.js'
+
+/** 卡内玩法：决定叙事重心，比单纯堆形容词更能拉开体验差异 */
+export type PlayStyle = 'immersive' | 'ensemble' | 'mystery' | 'management' | 'adventure'
+
+export type PlayStyleOption = {
+  key: PlayStyle
+  label: string
+  hint: string
+  guide: string
+}
+
+export const PLAY_STYLES: PlayStyleOption[] = [
+  {
+    key: 'immersive',
+    label: '沉浸对话',
+    hint: '一场戏、两个人，重语气与细节',
+    guide:
+      '以面对面的对话推进，一轮聚焦眼前这一场。动作、环境和情绪只取少量细节，不替对方决定怎么想、怎么做。',
+  },
+  {
+    key: 'ensemble',
+    label: '群像叙事',
+    hint: '多个角色轮换登场，各有目的',
+    guide:
+      '允许其它角色在场并轮换焦点。配角有自己的目的和利益，不围着主角转；每轮最多推进一两个角色，避免抢戏。',
+  },
+  {
+    key: 'mystery',
+    label: '悬疑调查',
+    hint: '线索、试探与不完全的信息',
+    guide:
+      '先给能观察到的线索，再让人物怀疑、试探和误判。不提前揭底，不替对方下结论；关键答案留在对话里逐步露出。',
+  },
+  {
+    key: 'management',
+    label: '经营养成',
+    hint: '资源、进度与选择的代价',
+    guide:
+      '把资源、时间、进度和代价说清楚。每次选择都带来可追踪的变化，不用一句“成功了”跳过过程；数字和状态前后一致。',
+  },
+  {
+    key: 'adventure',
+    label: '冒险推进',
+    hint: '地点、目标与风险持续变化',
+    guide:
+      '每轮推动地点、目标或风险发生变化，给出可以选择的行动方向。后果按设定兑现，不无限拖延，也不强行替对方选路。',
+  },
+]
+
+export const PLAY_STYLE_DEFAULT: PlayStyle = 'immersive'
+
+export const findPlayStyle = (value: unknown): PlayStyleOption => {
+  const raw = typeof value === 'string' ? value.trim() : ''
+  return (
+    PLAY_STYLES.find((item) => item.key === raw) ??
+    PLAY_STYLES.find((item) => item.label === raw) ??
+    PLAY_STYLES.find((item) => item.key === PLAY_STYLE_DEFAULT) ??
+    PLAY_STYLES[0]
+  )
+}
+
+export const CHARACTER_GENRES = [
+  '日常',
+  '江湖',
+  '修仙',
+  '都市',
+  '悬疑',
+  '科幻',
+  '校园',
+  '奇幻',
+  '历史',
+  '末世',
+]
+
 export type CharacterCard = {
   id: string
   name: string
@@ -11,7 +86,22 @@ export type CharacterCard = {
   style: string
   tics: string
   greeting: string
+  /** 补充设定：不限字数，用于禁忌、前史、长期约定等自由文本 */
   notes: string
+  /** 题材：自由填写，预设只提供常用项 */
+  genre: string
+  /** 玩法：决定叙事重心，进入 system 时附对应演出指引 */
+  playStyle: PlayStyle
+  /** 情景设定：这场戏开始前的局面，与动态场景分开 */
+  scenario: string
+  /** 系统指令：卡内最高优先级的演出约束 */
+  systemDirective: string
+  appearance: string
+  background: string
+  goal: string
+  secret: string
+  /** 对白示例：只学语气与节奏，不照抄 */
+  speechExamples: string
   createdAt: number
   updatedAt: number
   /** 内置卡标记：仅供界面区分来源，不参与 system 注入 */
@@ -20,6 +110,44 @@ export type CharacterCard = {
   source?: string
   /** 分类标签：用于角色卡列表筛选，仅界面使用，不进入请求 */
   tags: string[]
+}
+
+/** 世界书分类：只作为装配标题与界面筛选，不改变条目正文 */
+export type WorldbookKind =
+  | 'world'
+  | 'character'
+  | 'location'
+  | 'event'
+  | 'rule'
+  | 'item'
+  | 'clue'
+  | 'faction'
+  | 'relationship'
+  | 'other'
+
+export const WORLDBOOK_KINDS: Array<{ key: WorldbookKind; label: string }> = [
+  { key: 'world', label: '世界' },
+  { key: 'character', label: '人物' },
+  { key: 'location', label: '地点' },
+  { key: 'event', label: '事件' },
+  { key: 'rule', label: '规则' },
+  { key: 'item', label: '物品' },
+  { key: 'clue', label: '线索' },
+  { key: 'faction', label: '组织' },
+  { key: 'relationship', label: '关系' },
+  { key: 'other', label: '其他' },
+]
+
+export const WORLDBOOK_KIND_DEFAULT: WorldbookKind = 'other'
+
+export const findWorldbookKind = (value: unknown) => {
+  const raw = typeof value === 'string' ? value.trim() : ''
+  return (
+    WORLDBOOK_KINDS.find((item) => item.key === raw) ??
+    WORLDBOOK_KINDS.find((item) => item.label === raw) ??
+    WORLDBOOK_KINDS.find((item) => item.key === WORLDBOOK_KIND_DEFAULT) ??
+    WORLDBOOK_KINDS[0]
+  )
 }
 
 export type WorldbookEntry = {
@@ -38,6 +166,12 @@ export type WorldbookEntry = {
   weight: number
   /** 插入位置：context 放在人物设定之前当背景；tail 接在提示词之后最靠近当前发言 */
   position: 'context' | 'tail'
+  /** 分类：进入装配时作为标题前缀，便于模型区分设定性质 */
+  kind: WorldbookKind
+  /** 扫描范围：recent 只看最近发言，session 扫描当前分支全部可见历史 */
+  scope: 'recent' | 'session'
+  /** 避触词：出现任意一个时本条不触发，用来压掉同名误伤 */
+  excludeKeywords: string[]
   createdAt: number
   updatedAt: number
 }
@@ -45,13 +179,28 @@ export type WorldbookEntry = {
 export type SceneState = {
   time: string
   place: string
+  weather: string
   outfit: string
   mood: string
+  atmosphere: string
+  participants: string
   relationship: string
+  objective: string
+  conflict: string
+  props: string
   updatedAt: number
 }
 
 export type SceneField = Exclude<keyof SceneState, 'updatedAt'>
+
+export type SceneFieldMeta = {
+  key: SceneField
+  label: string
+  placeholder: string
+  /** 长文本字段在界面上占整行并使用多行输入 */
+  wide?: boolean
+  lines?: number
+}
 
 /** 当前真正生效的角色卡：开关开着但卡已删除时视为未开启角色扮演 */
 export const findActiveCharacterCard = (
@@ -59,6 +208,88 @@ export const findActiveCharacterCard = (
   activeId: string | null
 ): CharacterCard | undefined =>
   activeId ? cards.find((card) => card.id === activeId) : undefined
+
+/** 会话当前分支里第一条助手消息的正文，用于识别早期未写角色 id 的开场白 */
+const firstAssistantText = (session: Session): string => {
+  const A = session.messages
+  if (A.length === 0) {
+    return ''
+  }
+  const byId = new Map(A.map((message) => [message.id, message]))
+  const path: Session['messages'] = []
+  if (session.rootMessageId === undefined) {
+    path.push(...A)
+  } else {
+    let id = session.rootMessageId
+    while (id) {
+      const message = byId.get(id)
+      if (!message) {
+        break
+      }
+      path.push(message)
+      byId.delete(id)
+      id = message.selectedChildId ?? null
+    }
+  }
+  const first = path.find((message) => message.role === 'assistant')
+  if (!first || first.role !== 'assistant') {
+    return ''
+  }
+  return first.blocks
+    .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
+    .map((block) => block.text)
+    .join('')
+}
+
+const samePersonaText = (left: string, right: string) =>
+  left.replace(/[\s\u200b\u200c\ufeff]+/g, '') === right.replace(/[\s\u200b\u200c\ufeff]+/g, '')
+
+/**
+ * 会话已绑定的角色卡：先看 characterId，再按首条开场白识别旧会话。
+ * 绑定与会话绑定只用于保持人物一致，不代表全局开关仍处于开启状态。
+ */
+export const findSessionCharacterCard = (
+  cards: CharacterCard[],
+  session: Session | null | undefined
+): CharacterCard | undefined => {
+  if (!session) {
+    return undefined
+  }
+  const bound = findActiveCharacterCard(cards, session.characterId ?? null)
+  if (bound) {
+    return bound
+  }
+  const opener = firstAssistantText(session)
+  if (!opener) {
+    return undefined
+  }
+  const matches = cards.filter(
+    (card) => card.greeting && samePersonaText(card.greeting, opener)
+  )
+  if (matches.length === 1) {
+    return matches[0]
+  }
+  if (matches.length > 1) {
+    const byTitle = matches.filter((card) => card.name === session.title.trim())
+    if (byTitle.length === 1) {
+      return byTitle[0]
+    }
+  }
+  return undefined
+}
+
+/**
+ * 一轮请求实际使用的角色卡：会话已绑定优先，其次才看全局启用卡。
+ * 这样关闭开关只影响尚未绑定角色的新会话，不会把旧会话的人物突然换掉。
+ */
+export const resolveTurnCharacterCard = (
+  cards: CharacterCard[],
+  session: Session | null | undefined,
+  activeCharacterId: string | null,
+  roleplayEnabled: boolean
+): CharacterCard | undefined =>
+  findSessionCharacterCard(cards, session) ??
+  (roleplayEnabled ? findActiveCharacterCard(cards, activeCharacterId) : undefined)
 
 export const CHARACTER_CARD_MAX = 50
 export const CHARACTER_TAG_MAX = 6
@@ -90,6 +321,19 @@ export const isAvatarDataUrl = (value: unknown): value is string =>
 
 const BUILTIN_CARD_TIME = Date.UTC(2026, 10, 23)
 
+/** 内置卡共用默认值：新增字段只在这里维护一份，卡片本身按需覆盖 */
+const BUILTIN_CARD_EXTRA = {
+  genre: '日常',
+  playStyle: 'immersive' as PlayStyle,
+  scenario: '',
+  systemDirective: '',
+  appearance: '',
+  background: '',
+  goal: '',
+  secret: '',
+  speechExamples: '',
+}
+
 /**
  * 内置角色卡：首次初始化写入一次，用户删除后不再自动回填；
  * 仅「恢复内置角色卡」动作会按 id 补齐缺失项。
@@ -97,6 +341,7 @@ const BUILTIN_CARD_TIME = Date.UTC(2026, 10, 23)
  */
 const builtinCards = (): CharacterCard[] => [
   {
+    ...BUILTIN_CARD_EXTRA,
     id: 'builtin:dafeiyu',
     name: '大肥鱼',
     identity:
@@ -118,6 +363,7 @@ const builtinCards = (): CharacterCard[] => [
     updatedAt: BUILTIN_CARD_TIME,
   },
   {
+    ...BUILTIN_CARD_EXTRA,
     id: 'builtin:whale-girl',
     name: '鲸鱼娘',
     identity:
@@ -139,6 +385,7 @@ const builtinCards = (): CharacterCard[] => [
     updatedAt: BUILTIN_CARD_TIME,
   },
   {
+    ...BUILTIN_CARD_EXTRA,
     id: 'builtin:catgirl',
     name: '猫娘',
     identity:
@@ -159,13 +406,127 @@ const builtinCards = (): CharacterCard[] => [
     createdAt: BUILTIN_CARD_TIME,
     updatedAt: BUILTIN_CARD_TIME,
   },
+  {
+    ...BUILTIN_CARD_EXTRA,
+    id: 'builtin:jianghu',
+    name: '顾长风',
+    genre: '江湖',
+    playStyle: 'mystery',
+    identity:
+      '三十一岁，前镖局趟子手，三年前在雪岭折了七个弟兄后离队。现在在沅水渡口守一间茶棚，替人带话、寻人、平事，不接杀人买卖。左手少一截小指，刀是旧制雁翎刀，刀鞘补过两次。',
+    appearance:
+      '高个，肩背偏瘦，常穿洗到发白的靛蓝短打；说话时习惯用刀鞘轻敲桌沿。雨天左腿会跛，不逞强。',
+    background:
+      '雪岭那一趟镖，他最后一个回来。镖头死在半路，货却少了一箱；官府结案说是山匪，他不信，查了三年也没查到主使。茶棚里挂着一块没写字的木牌，是给那七个弟兄留的。',
+    relationship:
+      '{{user}} 三年前在雪岭被他从雪坑里拖出来，欠他一条命。这次 {{user}} 带着半截断刀找上门，他看了一眼，说没见过。',
+    style:
+      '话少，句子短，先说价钱再说规矩。不用感叹句；被逼问时反问“谁的意思”。不轻易许诺，许了就不改。',
+    tics:
+      '用刀鞘敲桌沿；算账时把铜钱一枚枚码齐；不想回答就起身续水，回来时换个话题。',
+    scenario:
+      '暮春，沅水涨水，渡口停了半天船。茶棚里只剩你和灶上的一壶水。那半截断刀放在桌上，刀身上的血锈已经发黑，刀柄刻着一个被磨掉的“沈”字。',
+    goal:
+      '查清断刀与雪岭旧案的来路，同时保住茶棚——最近有人在渡口打听他，不像官府的人。',
+    secret:
+      '当年少的那一箱货是他亲手调包的；箱子里不是银子，是一份名单。他烧了名单，但留了半页，藏在茶棚灶台下。',
+    speechExamples:
+      '“茶两文，问事另算。”\n“刀放下。不是怕你，是怕它再沾血。”\n“雪岭的事，我欠七条命。你要是来讨债，得先说是替谁讨。”',
+    greeting:
+      '（把灶上的水提下来，瞥了一眼桌上的断刀，没伸手）茶两文，问事另算。……这东西，你从哪儿捡的？',
+    notes:
+      '低武江湖，不写飞檐走壁、隔空点穴。动刀一定有伤、有官差、有后续；不替 {{user}} 决定拜谁、杀谁。可以谈钱、谈人情、谈规矩，但不写成人内容。',
+    systemDirective:
+      '这是一条低武江湖线：胜负取决于地形、人数、伤势和情报，不靠突然突破。顾长风不主动拔刀；一旦动手，必须交代代价和后果。他不解释自己的过去，除非 {{user}} 用证据逼到点上。不要让配角无条件服从 {{user}}。',
+    builtin: true,
+    source: '原创江湖预设 · 非官方角色',
+    tags: ['江湖', '悬疑', '硬朗'],
+    createdAt: BUILTIN_CARD_TIME,
+    updatedAt: BUILTIN_CARD_TIME,
+  },
+  {
+    ...BUILTIN_CARD_EXTRA,
+    id: 'builtin:xianxia',
+    name: '云岫',
+    genre: '修仙',
+    playStyle: 'adventure',
+    identity:
+      '青崖宗剑冢守冢人，外表二十出头，实际已在山中度过四十七年。素白窄袖，腕上缠一圈旧剑穗；不佩剑，剑冢里的每一柄剑都认她。',
+    appearance:
+      '长发只用一根木簪束起，眼尾有一道极浅的旧疤；走路很轻，停在原处时像一截没有风的竹子。',
+    background:
+      '她原是内门首席，三十年前试剑时失手杀了同门师兄，自请去看守剑冢。宗门对外只说“闭关”。剑冢里的剑会认主，也会反噬，她替宗门压了三十年。',
+    relationship:
+      '{{user}} 是三年前她从山门外捡回来的记名弟子，至今没引气入体。她教过 {{user}} 三招养气式，第四招始终没教。',
+    style:
+      '语气平，少用形容词；讲修行只讲条件和代价，不讲境界高低。被追问旧事时会停顿，然后换一个更具体的问题回答。',
+    tics:
+      '说话前先看对方的呼吸；不自觉地用指尖摩挲腕上的旧剑穗；提到“师兄”两个字时会短暂停住。',
+    scenario:
+      '青崖宗灵脉一年比一年枯，三个月后就是内门试剑，记名弟子只留三人。你昨夜在剑冢外醒来，手里握着一柄不属于你的断剑，剑上缠着和她腕上同色的旧穗。',
+    goal:
+      '在试剑前查清断剑来历，保住 {{user}} 的记名弟子身份；同时压住剑冢里越来越频繁的异动。',
+    secret:
+      '剑冢最深处封着的不是祖师剑，而是她当年失手斩断的本命剑。每压一次异动，她折一年寿元；她已经没剩多少年了。',
+    speechExamples:
+      '“引气不是想通就行，是先付得起。”\n“剑可以借，命不能赊。”\n“你手里的东西，我认得。先说说，它为什么选你。”',
+    greeting:
+      '（站在剑冢外的石阶上，先看了一眼你手里的断剑，又看你的呼吸）山门卯时开，你迟了半个时辰。手里的东西，先放下。',
+    notes:
+      '修行体系要自洽：灵气、丹药、寿元、因果都有账。不写无代价突破、不写双修采补、不写成人内容。境界差距体现在感知、速度和承受力，不靠喊口号。',
+    systemDirective:
+      '这是一条有账可算的修仙线：每一次进步都要消耗资源或承担因果，不能凭情绪顿悟。云岫不会替 {{user}} 筑基、挡劫或做生死决定；她可以指路、给条件、收代价。剑冢异动必须按伏笔推进，不突然天降奇遇。',
+    builtin: true,
+    source: '原创修仙预设 · 非官方角色',
+    tags: ['修仙', '师门', '冒险'],
+    createdAt: BUILTIN_CARD_TIME,
+    updatedAt: BUILTIN_CARD_TIME,
+  },
+  {
+    ...BUILTIN_CARD_EXTRA,
+    id: 'builtin:urban',
+    name: '许棠',
+    genre: '都市',
+    playStyle: 'management',
+    identity:
+      '二十九岁，建筑事务所的城市更新设计师，主做老城区改造。工位在窗边，桌上常年堆着卷尺、模型胶和没喝完的冷咖啡。',
+    appearance:
+      '短发，常穿深灰衬衫和工装裤，右手虎口有一道被美工刀划的旧痕；开会前会把袖口卷到同一高度。',
+    background:
+      '从小在槐树巷长大，父亲是街道修缮队的木工。她考出去又考回来，第一份工作就是给自家那片老楼做测绘；事务所接的活却常常是拆掉它。',
+    relationship:
+      '{{user}} 是她大学同学，五年没见。现在 {{user}} 是开发商请来的项目顾问，她负责保留方案；两个人坐在同一张听证会筹备桌上。',
+    style:
+      '说话快，先给结论再给依据；谈方案时爱用具体数字，不谈情怀。被质疑专业时会停顿半秒，然后把图纸推过去。',
+    tics:
+      '紧张时转笔；算面积时用指节敲桌面；不想接私人话题就说“先看数据”。',
+    scenario:
+      '槐树巷改造听证会前一周。保留方案还差一组结构安全数据，开发商的拆迁公告已经贴到巷口。你带着新的招商指标来开会，她带着一摞没做完的图纸。',
+    goal:
+      '在听证会前保住三棵老槐树和两栋骑楼，同时不丢掉事务所的项目；她需要 {{user}} 手里的数据，也需要一个不会临阵改口的盟友。',
+    secret:
+      '她私下把公司拨的勘察费挪去做了骑楼结构加固，账上还差四万；如果项目被叫停，这笔钱会算到她个人头上。',
+    speechExamples:
+      '“拆了再建，容积率是上去了，巷子就没了。先看这三组数据。”\n“我不是要你站队。我是要你签字之前，知道自己在签什么。”\n“私事等听证会结束。你要是现在问，我只能说没空。”',
+    greeting:
+      '（把一卷图纸摊到桌上，压住被风吹起的一角）你迟到了十二分钟。招商指标先放一边——槐树巷那三棵树，结构报告今天必须补完。你带数据了吗？',
+    notes:
+      '都市现实向：工作、房租、通勤、家人、人情都有重量。不写霸总、不写一夜暴富、不写成人内容。角色有专业边界，不替 {{user}} 做辞职、买房、表白之类的重大决定。',
+    systemDirective:
+      '这是一条都市职场线：推进靠信息差、时间表和现实成本，不靠巧合或权力碾压。许棠只在专业范围内让步；任何承诺都要有代价和截止时间。项目进度、预算和人际关系要前后一致，不用“事情解决了”跳过过程。',
+    builtin: true,
+    source: '原创都市预设 · 非官方角色',
+    tags: ['都市', '职场', '现实'],
+    createdAt: BUILTIN_CARD_TIME,
+    updatedAt: BUILTIN_CARD_TIME,
+  },
 ]
 
-export const BUILTIN_CHARACTER_CARD_TOTAL = 3
+export const BUILTIN_CHARACTER_CARD_TOTAL = 6
 
 /** 返回内置卡副本，调用方修改不会污染常量 */
 export const getBuiltinCharacterCards = (): CharacterCard[] =>
-  builtinCards().map((card) => ({ ...card }))
+  builtinCards().map((card) => ({ ...card, tags: [...card.tags] }))
 
 /** 内置卡 id 前缀，用于删除墓碑与「恢复内置卡」的判定 */
 export const BUILTIN_ID_PREFIX = 'builtin:'
@@ -192,19 +553,79 @@ export const ensureBuiltinCharacterCards = (
 export const EMPTY_SCENE: SceneState = {
   time: '',
   place: '',
+  weather: '',
   outfit: '',
   mood: '',
+  atmosphere: '',
+  participants: '',
   relationship: '',
+  objective: '',
+  conflict: '',
+  props: '',
   updatedAt: 0,
 }
 
-export const SCENE_FIELDS: Array<{ key: SceneField; label: string; placeholder: string }> = [
+/**
+ * 场景字段：先写眼前在哪、什么天气、穿了什么，再写气氛、人物和这一场要往哪走，
+ * 避免场景只剩一条时间地点。宽字段在界面上用多行输入。
+ */
+export const SCENE_FIELDS: SceneFieldMeta[] = [
   { key: 'time', label: '时间', placeholder: '例如：周五 22:00' },
   { key: 'place', label: '地点', placeholder: '例如：住宅楼下便利店门口' },
+  { key: 'weather', label: '天气', placeholder: '例如：小雨，风口偏冷' },
   { key: 'outfit', label: '穿着', placeholder: '例如：灰色卫衣，外套被雨水浸湿' },
-  { key: 'mood', label: '心情', placeholder: '例如：焦虑，言语保持镇定' },
+  { key: 'mood', label: '心情', placeholder: '例如：焦虑，表面维持镇定' },
   { key: 'relationship', label: '关系阶段', placeholder: '例如：关系未明确，近期发生争执' },
+  {
+    key: 'atmosphere',
+    label: '氛围与感官',
+    placeholder: '例如：灯管频闪，空气里有消毒水和雨水的味道',
+    wide: true,
+    lines: 2,
+  },
+  {
+    key: 'participants',
+    label: '在场人物',
+    placeholder: '例如：店员在柜台后打盹；门外停着一辆没熄火的黑色轿车',
+    wide: true,
+    lines: 2,
+  },
+  {
+    key: 'objective',
+    label: '当前目标',
+    placeholder: '例如：在天亮前拿到监控备份，同时不惊动店主',
+    wide: true,
+    lines: 2,
+  },
+  {
+    key: 'conflict',
+    label: '冲突与悬念',
+    placeholder: '例如：店员认得你，但装作没见过；真正的麻烦还没露面',
+    wide: true,
+    lines: 2,
+  },
+  {
+    key: 'props',
+    label: '关键物件',
+    placeholder: '例如：柜台下的旧钥匙、半杯没喝完的热牛奶、监控主机',
+    wide: true,
+    lines: 2,
+  },
 ]
+
+export const SCENE_LIMITS: Record<SceneField, number> = {
+  time: 120,
+  place: 120,
+  weather: 120,
+  outfit: 120,
+  mood: 160,
+  atmosphere: 400,
+  participants: 300,
+  relationship: 160,
+  objective: 300,
+  conflict: 400,
+  props: 300,
+}
 
 export const newRoleplayId = () =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -294,12 +715,22 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
     .map((item) => ({
       id: text(item.id) || newRoleplayId(),
       name: text(item.name).slice(0, 30),
-      identity: text(item.identity).slice(0, 600),
-      relationship: text(item.relationship).slice(0, 400),
-      style: text(item.style).slice(0, 400),
-      tics: text(item.tics).slice(0, 400),
-      greeting: text(item.greeting).slice(0, 800),
-      notes: text(item.notes).slice(0, 1200),
+      identity: text(item.identity).slice(0, 1200),
+      relationship: text(item.relationship).slice(0, 800),
+      style: text(item.style).slice(0, 800),
+      tics: text(item.tics).slice(0, 600),
+      greeting: text(item.greeting).slice(0, 2000),
+      // 补充设定不限字数：这里不切，界面也不再设 maxLength
+      notes: text(item.notes),
+      genre: text(item.genre).slice(0, 12),
+      playStyle: findPlayStyle(item.playStyle).key,
+      scenario: text(item.scenario).slice(0, 3000),
+      systemDirective: text(item.systemDirective).slice(0, 3000),
+      appearance: text(item.appearance).slice(0, 1000),
+      background: text(item.background).slice(0, 4000),
+      goal: text(item.goal).slice(0, 1000),
+      secret: text(item.secret).slice(0, 3000),
+      speechExamples: text(item.speechExamples).slice(0, 6000),
       createdAt: Number(item.createdAt) || Date.now(),
       updatedAt: Number(item.updatedAt) || Date.now(),
       builtin: item.builtin === true,
@@ -309,6 +740,8 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
     .filter((card) => card.name)
     .slice(0, CHARACTER_CARD_MAX)
 }
+
+export const WORLDBOOK_CONTENT_MAX = 4000
 
 export const normalizeWorldbook = (raw: unknown): WorldbookEntry[] => {
   if (!Array.isArray(raw)) {
@@ -320,13 +753,18 @@ export const normalizeWorldbook = (raw: unknown): WorldbookEntry[] => {
       id: text(item.id) || newRoleplayId(),
       title: text(item.title).slice(0, 60),
       keywords: normalizeKeywords(Array.isArray(item.keywords) ? item.keywords.map(String) : []),
-      content: text(item.content).slice(0, 1500),
+      content: text(item.content).slice(0, WORLDBOOK_CONTENT_MAX),
       enabled: item.enabled !== false,
       always: item.always === true,
       match: (item.match === 'regex' ? 'regex' : 'keyword') as WorldbookEntry['match'],
       cardId: text(item.cardId),
       weight: clampWeight(item.weight),
       position: (item.position === 'tail' ? 'tail' : 'context') as WorldbookEntry['position'],
+      kind: findWorldbookKind(item.kind).key,
+      scope: (item.scope === 'session' ? 'session' : 'recent') as WorldbookEntry['scope'],
+      excludeKeywords: normalizeKeywords(
+        Array.isArray(item.excludeKeywords) ? item.excludeKeywords.map(String) : []
+      ),
       createdAt: Number(item.createdAt) || Date.now(),
       updatedAt: Number(item.updatedAt) || Date.now(),
     }))
@@ -336,14 +774,11 @@ export const normalizeWorldbook = (raw: unknown): WorldbookEntry[] => {
 
 export const normalizeScene = (raw: unknown): SceneState => {
   const value = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-  return {
-    time: text(value.time).slice(0, 120),
-    place: text(value.place).slice(0, 120),
-    outfit: text(value.outfit).slice(0, 120),
-    mood: text(value.mood).slice(0, 160),
-    relationship: text(value.relationship).slice(0, 160),
-    updatedAt: Number(value.updatedAt) || 0,
+  const scene: SceneState = { ...EMPTY_SCENE, updatedAt: Number(value.updatedAt) || 0 }
+  for (const { key } of SCENE_FIELDS) {
+    scene[key] = text(value[key]).slice(0, SCENE_LIMITS[key])
   }
+  return scene
 }
 
 export const sceneHasContent = (scene: SceneState) =>
@@ -351,26 +786,45 @@ export const sceneHasContent = (scene: SceneState) =>
 
 /** 角色卡按固定字段拼成一段，避免模型把字段名当成台词；开场白始终保留，保证 system 跨轮稳定 */
 export const formatCharacterCard = (card: CharacterCard, userName: string) => {
+  const fill = (value?: string) =>
+    (value ?? '').replaceAll('{{user}}', userName).replaceAll('{{char}}', card.name)
+  const playStyle = findPlayStyle(card.playStyle)
   const rows = ([
-    ['姓名', card.name],
-    ['身份', card.identity],
-    ['和对方的关系', card.relationship.replaceAll('{{user}}', userName)],
-    ['说话方式', card.style],
-    ['小习惯', card.tics],
-    ['别忘的事', card.notes],
-    ['开场参考（只在第一条回复使用，后续自然延续，不要重复开口）', card.greeting],
+    ['姓名', fill(card.name)],
+    ['题材', fill(card.genre)],
+    ['玩法', `${playStyle.label}。${playStyle.guide}`],
+    ['身份', fill(card.identity)],
+    ['外貌与标志', fill(card.appearance)],
+    ['和对方的关系', fill(card.relationship)],
+    ['过往经历', fill(card.background)],
+    ['情景设定', fill(card.scenario)],
+    ['当前目标', fill(card.goal)],
+    ['说话方式', fill(card.style)],
+    ['小习惯', fill(card.tics)],
+    ['只有你知道的秘密（不到时候不要说破）', fill(card.secret)],
+    ['补充设定', fill(card.notes)],
+    ['开场参考（只在第一条回复使用，后续自然延续，不要重复开口）', fill(card.greeting)],
   ] as Array<[string, string]>)
-    .filter(([label]) => label)
     .filter(([, value]) => value)
     .map(([label, value]) => `${label}：${value}`)
-  if (rows.length === 0) {
+  const examples = fill(card.speechExamples)
+  const directive = fill(card.systemDirective)
+  if (rows.length === 0 && !examples && !directive) {
     return ''
   }
   return [
-    '你就是下面这个人，身份和关系按这里写的算：',
+    '你就是下面这个人，身份、记忆和处境都按这里写的算：',
     ...rows,
+    examples
+      ? `参考对白（只学语气、句长和节奏，不要照抄原句）：\n${examples}`
+      : '',
+    directive
+      ? `【角色内系统指令】以下约束优先于上面的表达习惯；与手写系统提示、安全与平台规则冲突时，以它们为准：\n${directive}`
+      : '',
     '把这些当成你自己的事，自然地活出来。别念上面的名目，也别向对方解释你是谁、被设定成什么样。',
-  ].join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 export const formatSceneBlock = (scene: SceneState) => {
@@ -389,26 +843,35 @@ export const formatSceneBlock = (scene: SceneState) => {
 
 /**
  * 关键词命中：常驻条目必进，其余按命中次数排序；总字符数不超过预算。
- * 用于当前用户发言 + 最近几轮上下文，避免只匹配最后一句话。
+ * recent 只看传入的最近上下文，session 扫描整段可见历史；避触词命中时整条跳过。
  */
 export const selectWorldbookEntries = (
   entries: WorldbookEntry[],
   context: string,
   limit = WORLDBOOK_INJECT_MAX,
   charsMax = 1_000,
-  activeCardId: string | null = null
+  activeCardId: string | null = null,
+  sessionContext = context
 ) => {
-  const haystack = context.toLowerCase()
+  const recentHaystack = context.toLowerCase()
+  const sessionHaystack = sessionContext.toLowerCase()
   // 绑定角色：只在这张卡启用时参与；没有启用卡时，绑定条目一律跳过
   const usable = entries.filter(
     (entry) => entry.enabled && (!entry.cardId || entry.cardId === activeCardId)
   )
-  if (!haystack.trim()) {
+  if (!recentHaystack.trim() && !sessionHaystack.trim()) {
     return usable.filter((entry) => entry.always).slice(0, limit)
   }
   const hitScore = (entry: WorldbookEntry) => {
     if (entry.always) {
       return 100
+    }
+    const source = entry.scope === 'session' ? sessionContext : context
+    const haystack = entry.scope === 'session' ? sessionHaystack : recentHaystack
+    if (
+      entry.excludeKeywords.some((keyword) => keyword && haystack.includes(keyword.toLowerCase()))
+    ) {
+      return 0
     }
     let score = 0
     for (const keyword of entry.keywords) {
@@ -417,7 +880,7 @@ export const selectWorldbookEntries = (
       }
       if (entry.match === 'regex') {
         try {
-          if (new RegExp(keyword, 'i').test(context)) {
+          if (new RegExp(keyword, 'i').test(source)) {
             score += 1
           }
         } catch {
@@ -457,7 +920,9 @@ export const formatWorldbookBlock = (entries: WorldbookEntry[]) => {
   }
   return [
     '这些背景你本来就知道，用到的时候自然带出来：',
-    ...entries.map((entry) => `${entry.title}：${entry.content}`),
+    ...entries.map(
+      (entry) => `【${findWorldbookKind(entry.kind).label}】${entry.title}：${entry.content}`
+    ),
     '别一条条背出来，也别让对方看出你在查资料。用不上就先放着。',
   ].join('\n')
 }
@@ -465,12 +930,29 @@ export const formatWorldbookBlock = (entries: WorldbookEntry[]) => {
 /** 场景自动更新：只接受「字段：值」行，未知或空值保持原样 */
 export const parseSceneUpdate = (raw: string, current: SceneState): SceneState => {
   const next = { ...current }
+  const aliases: Record<string, SceneField> = {
+    关系: 'relationship',
+    关系到哪一步: 'relationship',
+    目标: 'objective',
+    悬念: 'conflict',
+    冲突: 'conflict',
+    物件: 'props',
+    物品: 'props',
+    氛围: 'atmosphere',
+  }
+  const mapping: Record<string, SceneField> = { ...aliases }
+  for (const field of SCENE_FIELDS) {
+    mapping[field.label] = field.key
+  }
+  const labels = Object.keys(mapping).sort((a, b) => b.length - a.length)
+  const labelPattern = labels
+    .map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|')
+  const linePattern = new RegExp(`^(${labelPattern})\\s*[:：]\\s*(.*)$`)
   let changed = false
   for (const line of raw.split(/\n+/)) {
     const cleaned = line.replace(/^[\s\-*•\d.、]+/, '').trim()
-    const match = cleaned.match(
-      /^(时间|地点|穿着|心情|关系阶段|关系到哪一步|关系)\s*[:：]\s*(.*)$/
-    )
+    const match = cleaned.match(linePattern)
     if (!match) {
       continue
     }
@@ -478,21 +960,13 @@ export const parseSceneUpdate = (raw: string, current: SceneState): SceneState =
     if (!value || /^(不变|未变|无|没有变化|保持原样|\/|—|-)$/.test(value)) {
       continue
     }
-    const mapping: Record<string, SceneField> = {
-      时间: 'time',
-      地点: 'place',
-      穿着: 'outfit',
-      心情: 'mood',
-      关系阶段: 'relationship',
-      关系到哪一步: 'relationship',
-      关系: 'relationship',
-    }
     const key = mapping[match[1]]
     if (!key) {
       continue
     }
-    if (next[key] !== value) {
-      next[key] = value
+    const clipped = value.slice(0, SCENE_LIMITS[key])
+    if (next[key] !== clipped) {
+      next[key] = clipped
       changed = true
     }
   }

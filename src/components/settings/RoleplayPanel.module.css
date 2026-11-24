@@ -386,7 +386,9 @@
 
 .fieldGrid input,
 .fieldGrid textarea,
-.sceneGrid input {
+.fieldGrid select,
+.sceneGrid input,
+.sceneGrid textarea {
   width: 100%;
   box-sizing: border-box;
   padding: 9px 11px;
@@ -398,7 +400,12 @@
   outline: none;
 }
 
-.fieldGrid textarea {
+.fieldGrid select {
+  font-family: inherit;
+}
+
+.fieldGrid textarea,
+.sceneGrid textarea {
   resize: vertical;
   line-height: 1.6;
   font-family: inherit;
@@ -406,7 +413,9 @@
 
 .fieldGrid input:focus,
 .fieldGrid textarea:focus,
-.sceneGrid input:focus {
+.fieldGrid select:focus,
+.sceneGrid input:focus,
+.sceneGrid textarea:focus {
   border-color: var(--dsw-alias-brand-primary, #4d6bfe);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 12%, transparent);
@@ -871,14 +880,17 @@
 }
 
 .fieldGrid input,
-.sceneGrid input {
+.fieldGrid select,
+.sceneGrid input,
+.sceneGrid textarea {
   min-height: 40px;
   padding: 10px 12px;
   border-radius: 11px;
   font-size: 12.5px;
 }
 
-.fieldGrid textarea {
+.fieldGrid textarea,
+.sceneGrid textarea {
   padding: 10px 12px;
   border-radius: 11px;
   font-size: 12.5px;

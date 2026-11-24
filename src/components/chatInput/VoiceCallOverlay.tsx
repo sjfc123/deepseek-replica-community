@@ -2,7 +2,8 @@ import clsx from 'clsx'
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAndroidBackInterception } from '../../app/useAndroidBackInterception.js'
-import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
+import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
+import { useChatStore } from '../../services/chat/store.js'
 import { useSettings } from '../../services/settings.js'
 import {
   endVoiceCall,
@@ -31,13 +32,19 @@ export const VoiceCallOverlay = () => {
   const activeCharacterId = useSettings((state) => state.activeCharacterId)
   const characterCards = useSettings((state) => state.characterCards)
   const cardAvatars = useSettings((state) => state.cardAvatars)
+  const callSessionId = useVoiceCall((state) => state.sessionId)
+  const callSession = useChatStore((state) =>
+    callSessionId ? state.sessionCache[callSessionId] : undefined
+  )
   const centerRef = useRef<HTMLDivElement | null>(null)
 
-  // 角色卡只在角色扮演开启时参与通话身份：关闭后回到手写角色设定的名字与头像。
+  // 角色卡优先按本会话已绑定的人物判断；没有绑定时才看全局开关。
   // 手写名字即使和某张卡同名也照常显示，不再用「卡名等于通用标题」的启发式误伤。
-  const activeCard = roleplayEnabled
-    ? findActiveCharacterCard(characterCards, activeCharacterId)
-    : undefined
+  const activeCard =
+    findSessionCharacterCard(characterCards, callSession) ??
+    (roleplayEnabled
+      ? findActiveCharacterCard(characterCards, activeCharacterId)
+      : undefined)
   const cardName = activeCard?.name?.trim() ?? ''
   const fallbackName = characterName.trim()
   const displayName = cardName || fallbackName

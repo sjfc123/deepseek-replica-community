@@ -21,7 +21,7 @@ import {
   type MemoryPool,
   type NormalMemoryKind,
 } from '../../services/chat/memory.js'
-import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
+import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
 import type { Session } from '../../services/chat/types.js'
 import { sessionActualUsage } from '../../services/chat/tokenUsage.js'
 import {
@@ -89,7 +89,8 @@ export const MessageList = ({
   const activeCharacterId = useSettings((state) => state.activeCharacterId)
   const characterCards = useSettings((state) => state.characterCards)
   const roleplayActive =
-    roleplayEnabled && Boolean(findActiveCharacterCard(characterCards, activeCharacterId))
+    Boolean(findSessionCharacterCard(characterCards, session)) ||
+    (roleplayEnabled && Boolean(findActiveCharacterCard(characterCards, activeCharacterId)))
   const tokenLimit = useSettings((state) => state.tokenLimit)
   const [tokenWarning, setTokenWarning] = useState<{ limit: number; used: number } | null>(null)
   const [chipHidden, setChipHidden] = useState(() => tokenUsageChipDismissed())
