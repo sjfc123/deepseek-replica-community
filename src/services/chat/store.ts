@@ -687,11 +687,7 @@ export const newChat = () => {
  * 消息 ID 全部换新，避免之后合并历史时被当成同一条消息；记忆卡片、附件引用、分支结构原样带过去。
  */
 export const forkSession = async (sessionId: string): Promise<string | null> => {
-  if (
-    get().importingHistory ||
-    deletingSessions.has(sessionId) ||
-    getStreamController(sessionId)
-  ) {
+  if (get().importingHistory || deletingSessions.has(sessionId) || getStreamController(sessionId)) {
     return null
   }
   const cached = getSession(sessionId)
@@ -969,10 +965,7 @@ export const sendMessage = (targetSessionId: string | null) => {
  * 启用带开场白的角色卡时调用：把开场白作为一条已完成的助手消息写入会话。
  * 当前会话已有历史时新建会话，避免开场白插进旧对话；返回写入的会话 id。
  */
-export const startCharacterIntro = (
-  greeting: string,
-  characterName: string
-): string | null => {
+export const startCharacterIntro = (greeting: string, characterName: string): string | null => {
   const text = greeting.trim()
   if (!text || get().importingHistory || !get().ready) {
     return null
@@ -1250,8 +1243,7 @@ export const deleteMessage = (sessionId: string, messageId: string): boolean => 
       messages: kept.map((message) =>
         message.id === parentId ? { ...message, selectedChildId: sibling?.id } : message
       ),
-      rootMessageId:
-        messageId === base.rootMessageId ? (sibling?.id ?? null) : base.rootMessageId,
+      rootMessageId: messageId === base.rootMessageId ? (sibling?.id ?? null) : base.rootMessageId,
       updatedAt: Date.now(),
     }
   })
@@ -1398,9 +1390,7 @@ const notifyMemoryAdded = (sessionId: string, kind: 'turn' | 'refine' | 'manual'
     return
   }
   const count = activeMemoryCards(session, getVisibleMessages(session)).length
-  window.dispatchEvent(
-    new CustomEvent('replica:memory-added', { detail: { kind, count } })
-  )
+  window.dispatchEvent(new CustomEvent('replica:memory-added', { detail: { kind, count } }))
 }
 
 /** 一轮结束后用模型把记忆合并重写；失败就保留整轮记录，不影响聊天 */
@@ -1423,9 +1413,7 @@ const refineMemories = async (
   const cards = activeMemoryCards(session, getVisibleMessages(session), 60)
     .filter(
       (entry) =>
-        entry.card.source !== 'manual' &&
-        entry.card.source !== 'bulk' &&
-        !entry.card.pinned
+        entry.card.source !== 'manual' && entry.card.source !== 'bulk' && !entry.card.pinned
     )
     .map((entry) => entry.card)
     .slice(-30)
@@ -1543,7 +1531,6 @@ const enforceMemoryChars = (sessionId: string) => {
   }))
   persist(sessionId)
 }
-
 
 const SCENE_UPDATE_SYSTEM = `你负责维护角色扮演的场景状态。根据最近一轮对话，判断时间、地点、穿着、心情、关系阶段是否发生变化。
 只输出下面五行，没有变化的字段写“不变”：
@@ -1678,17 +1665,34 @@ export type SaveConversationMemoryResult = {
 }
 
 /**
- * 把当前分支的全部对话按轮保存为完整记忆卡。
+ * 把选中的消息按轮保存为完整记忆卡。选中单条消息时也会成卡：
+ * 用户消息单独一张、角色回复单独一张，或相邻的用户+角色合成一轮。
  * 先全部写入，再按卡片上限和字数上限归档最早自动卡；超出不会丢内容，也不会让保存失败。
  */
-export const saveConversationAsMemory = (sessionId: string): SaveConversationMemoryResult => {
+export const saveMessagesAsMemory = (
+  sessionId: string,
+  messageIds: string[]
+): SaveConversationMemoryResult => {
   const empty: SaveConversationMemoryResult = { created: 0, skipped: 0, active: 0, chars: 0 }
   const session = getSession(sessionId)
   if (!session) {
     return empty
   }
   const messages = getVisibleMessages(session)
-  const drafts = buildConversationMemoryCards(messages)
+  const selected = new Set(messageIds)
+  const picked = messages.filter((message) => selected.has(message.id))
+  if (picked.length === 0) {
+    return {
+      ...empty,
+      active: activeMemoryCards(session, messages).length,
+      chars: activeMemoryChars(session, messages),
+    }
+  }
+  const firstIndex = messages.findIndex((message) => selected.has(message.id))
+  const startTurn = messages
+    .slice(0, Math.max(0, firstIndex))
+    .filter((message) => message.role === 'assistant').length
+  const drafts = buildConversationMemoryCards(picked, startTurn)
   const alreadyBulk = new Set(
     session.messages
       .filter((message) => (message.memories ?? []).some((card) => card.source === 'bulk'))
@@ -1717,6 +1721,18 @@ export const saveConversationAsMemory = (sessionId: string): SaveConversationMem
     active: next ? activeMemoryCards(next, getVisibleMessages(next)).length : 0,
     chars: next ? activeMemoryChars(next, getVisibleMessages(next)) : 0,
   }
+}
+
+/** 全选当前分支的全部对话；面板里的整段保存仍走这里 */
+export const saveConversationAsMemory = (sessionId: string): SaveConversationMemoryResult => {
+  const session = getSession(sessionId)
+  if (!session) {
+    return { created: 0, skipped: 0, active: 0, chars: 0 }
+  }
+  return saveMessagesAsMemory(
+    sessionId,
+    getVisibleMessages(session).map((message) => message.id)
+  )
 }
 
 /** 置顶开关：置顶卡片每轮必进注入名单，最多 8 张 */
@@ -1766,7 +1782,12 @@ export const updateMemoryText = (
   enforceMemoryChars(sessionId)
 }
 
-export const setMemoryEnabled = (sessionId: string, messageId: string, cardId: string, enabled: boolean) => {
+export const setMemoryEnabled = (
+  sessionId: string,
+  messageId: string,
+  cardId: string,
+  enabled: boolean
+) => {
   updateSession(sessionId, (session) => ({
     ...session,
     messages: session.messages.map((message) =>
@@ -1806,9 +1827,7 @@ export const clearMemories = (sessionId: string) => {
     return {
       ...session,
       messages: session.messages.map((message) =>
-        visibleIds.has(message.id) && message.memories
-          ? { ...message, memories: [] }
-          : message
+        visibleIds.has(message.id) && message.memories ? { ...message, memories: [] } : message
       ),
     }
   })
@@ -2203,32 +2222,32 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     request.question.content,
     ...visibleForRoleplay
       .slice(-5)
-      .map((message) =>
-        message.role === 'assistant' ? replyPlainText(message) : message.content
-      ),
+      .map((message) => (message.role === 'assistant' ? replyPlainText(message) : message.content)),
   ]
     .filter(Boolean)
     .join('\n')
-  const worldEntries = worldbookInject && roleplayActive
-    ? selectWorldbookEntries(
-        worldbook,
-        recentText,
-        WORLDBOOK_INJECT_MAX,
-        useSettings.getState().worldbookChars,
-        activeCard?.id ?? null
-      )
-    : []
+  const worldEntries =
+    worldbookInject && roleplayActive
+      ? selectWorldbookEntries(
+          worldbook,
+          recentText,
+          WORLDBOOK_INJECT_MAX,
+          useSettings.getState().worldbookChars,
+          activeCard?.id ?? null
+        )
+      : []
   const userName = resolveUserName()
   // 插入位置分两段：默认贴人物设定之前当背景，标了 tail 的接在提示词之后，离当前发言最近
   const worldBefore = worldEntries.filter((entry) => entry.position !== 'tail')
   const worldAfter = worldEntries.filter((entry) => entry.position === 'tail')
   const baseSystem = [
-    formatMemoryBlock(memoryCards, memoryCards.length, memoryChars).replaceAll('{{user}}', userName),
+    formatMemoryBlock(memoryCards, memoryCards.length, memoryChars).replaceAll(
+      '{{user}}',
+      userName
+    ),
     roleplayActive ? formatSceneBlock(scene).replaceAll('{{user}}', userName) : '',
     formatWorldbookBlock(worldBefore).replaceAll('{{user}}', userName),
-    activeCard
-      ? formatCharacterCard(activeCard, userName, visibleForRoleplay.length < 2)
-      : '',
+    activeCard ? formatCharacterCard(activeCard, userName, visibleForRoleplay.length < 2) : '',
     composeSystemPrompt({
       savedPrompt: systemPrompt,
       custom,
@@ -2394,11 +2413,12 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         }
         // 附件就绪后获取本轮信息；续写沿用原回答快照，重新生成的快照独立保存。
         // 第三方接口默认不附带快照，可用「发送上下文提醒」开关显式打开。
-        const latestReminder = custom || !sendLatestReminder
-          ? undefined
-          : prepared.prefix
-            ? prepared.prefix.latestReminder
-            : createLatestReminder(useSettings.getState())
+        const latestReminder =
+          custom || !sendLatestReminder
+            ? undefined
+            : prepared.prefix
+              ? prepared.prefix.latestReminder
+              : createLatestReminder(useSettings.getState())
         reply = { ...reply, latestReminder }
         updateReply(sessionId, reply)
         persist(sessionId)
@@ -2585,13 +2605,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     // 记忆在收尾时写入：正常完成和「内容已出来但被停止」都算一轮，报错不记
     const answerText = replyPlainText(reply)
     if ((reply.status === 'done' || reply.status === 'stopped') && answerText.trim()) {
-      recordTurnMemory(
-        sessionId,
-        reply.id,
-        request.question.content,
-        answerText,
-        memoryMode
-      )
+      recordTurnMemory(sessionId, reply.id, request.question.content, answerText, memoryMode)
       if (sceneAutoUpdate && roleplayActive) {
         void updateSceneFromTurn(request.question.content, answerText)
       }

@@ -53,7 +53,14 @@ const addDays = (value: number, days: number) => {
 /** 周一为一周起点，周日是第 6 天 */
 const weekdayIndex = (label: string) => {
   const map: Record<string, number> = {
-    一: 0, 二: 1, 三: 2, 四: 3, 五: 4, 六: 5, 日: 6, 天: 6,
+    一: 0,
+    二: 1,
+    三: 2,
+    四: 3,
+    五: 4,
+    六: 5,
+    日: 6,
+    天: 6,
   }
   return map[label]
 }
@@ -96,7 +103,8 @@ export const parseMemoryTimeHints = (query: string, now = new Date()): MemoryTim
 
   const lastWeek = weekStart(today) - 7 * 86400000
   const currentWeek = weekStart(today)
-  const weekMatch = text.match(/上上周([一二三四五六日天])?/) ?? text.match(/上周([一二三四五六日天])?/)
+  const weekMatch =
+    text.match(/上上周([一二三四五六日天])?/) ?? text.match(/上周([一二三四五六日天])?/)
   if (weekMatch) {
     const base = weekMatch[0].startsWith('上上周') ? lastWeek - 7 * 86400000 : lastWeek
     const day = weekMatch[1] ? weekdayIndex(weekMatch[1]) : null
@@ -106,7 +114,10 @@ export const parseMemoryTimeHints = (query: string, now = new Date()): MemoryTim
       push(base + day * 86400000, base + (day + 1) * 86400000)
     }
   } else {
-    const weeklyText = text.replace(/上上周(?:[一二三四五六日天])?|上周(?:[一二三四五六日天])?/g, '')
+    const weeklyText = text.replace(
+      /上上周(?:[一二三四五六日天])?|上周(?:[一二三四五六日天])?/g,
+      ''
+    )
     const thisWeekMatch = weeklyText.match(/周([一二三四五六日天])/)
     if (thisWeekMatch) {
       const day = weekdayIndex(thisWeekMatch[1])
@@ -173,7 +184,6 @@ export const parseMemoryTimeHints = (query: string, now = new Date()): MemoryTim
   return ranges
 }
 
-
 /** 回复正文（不含思考块），用于生成记忆与提炼材料 */
 export const replyPlainText = (message: Message): string => {
   if (message.role !== 'assistant') {
@@ -202,11 +212,7 @@ export const buildTurnMemoryText = (
   const head = meta.at
     ? `【${formatMemoryStamp(meta.at)}${meta.turnIndex ? ` · 第${meta.turnIndex}轮` : ''}${meta.relationship ? ` · 关系：${meta.relationship}` : ''}】`
     : ''
-  return [
-    head,
-    asked ? `用户：${asked}` : '',
-    replied ? `角色：${replied}` : '',
-  ]
+  return [head, asked ? `用户：${asked}` : '', replied ? `角色：${replied}` : '']
     .filter(Boolean)
     .join('\n')
 }
@@ -218,11 +224,7 @@ export const collectVisibleMemories = (_session: Session, messages: Message[]) =
   )
 
 /** 实际注入 system 的卡片：启用、未被取代，按时间先后；limit 为保留上限 */
-export const activeMemoryCards = (
-  session: Session,
-  messages: Message[],
-  limit?: number
-) => {
+export const activeMemoryCards = (session: Session, messages: Message[], limit?: number) => {
   const active = collectVisibleMemories(session, messages)
     .filter(({ card }) => card.enabled && !card.superseded)
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
@@ -233,11 +235,7 @@ export const activeMemoryCards = (
  * 超出保留上限的自动卡片（手动卡片不占配额）。
  * 返回最早的那批，由 store 标成归档：不删除、可在面板查看，只是不再注入。
  */
-export const overflowMemoryCards = (
-  session: Session,
-  messages: Message[],
-  limit: number
-) => {
+export const overflowMemoryCards = (session: Session, messages: Message[], limit: number) => {
   const auto = collectVisibleMemories(session, messages)
     .filter(({ card }) => card.source !== 'manual' && !card.pinned && !card.superseded)
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
@@ -427,7 +425,12 @@ export const buildRefinePrompt = (
 export const parseRefinedCards = (text: string, limit = MEMORY_MAX_CARDS) =>
   text
     .split(/\r?\n/)
-    .map((line) => line.replace(/^[\s\-•·*]+/, '').replace(/^\d+[.、)]\s*/, '').trim())
+    .map((line) =>
+      line
+        .replace(/^[\s\-•·*]+/, '')
+        .replace(/^\d+[.、)]\s*/, '')
+        .trim()
+    )
     .filter((line) => line.length > 0 && !line.startsWith('【'))
     .slice(0, limit)
 
@@ -454,10 +457,13 @@ export type ConversationMemoryDraft = {
  * 把当前分支的可见消息按“用户一句 + 角色一句”配对，生成完整回合记忆卡。
  * 不截断正文；时间锚点使用消息自己的时间，保存后仍按原来的先后顺序阅读。
  */
-export const buildConversationMemoryCards = (messages: Message[]): ConversationMemoryDraft[] => {
+export const buildConversationMemoryCards = (
+  messages: Message[],
+  startTurn = 0
+): ConversationMemoryDraft[] => {
   const drafts: ConversationMemoryDraft[] = []
   let pendingUser: Message | null = null
-  let turn = 0
+  let turn = startTurn
   const push = (target: Message, question: string, answer: string) => {
     const text = buildTurnMemoryText(question, answer, {
       at: target.createdAt,

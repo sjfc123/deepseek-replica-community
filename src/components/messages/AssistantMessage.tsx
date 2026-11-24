@@ -7,8 +7,10 @@ import {
   IconBrowseOutline16,
   IconCopyOutline16,
   IconEditOutline16,
+  IconMultiSelectOutline16,
   IconPlayMediaOutline16,
   IconRefreshOutline16,
+  IconSelectAllOutline16,
   IconSelectTextOutline16,
   IconTrashOutline16,
   IconWarningOutline16,
@@ -68,6 +70,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   searchHighlightNonce = null,
   versions,
   onSelectVersion,
+  onStartMemorySelect,
 }: {
   sessionId: string
   message: AssistantMessageType
@@ -77,6 +80,8 @@ export const AssistantMessage = memo(function AssistantMessage({
   searchHighlightNonce?: number | null
   versions: MessageVersions
   onSelectVersion: SelectMessageVersion
+  /** 长按菜单进入记忆选择：one=本轮，all=当前分支全部 */
+  onStartMemorySelect?: (scope: 'one' | 'all') => void
 }) {
   const t = useTranslate()
   const customEndpoint = useSettings((state) => Boolean(state.chatConfig.endpoint))
@@ -186,7 +191,14 @@ export const AssistantMessage = memo(function AssistantMessage({
       )}
       {showUsage && message.status === 'done' && message.usage ? (
         <div className={styles.usageLine}>
-          <span>输入 {formatTokenCount(message.usage.input_tokens + message.usage.cache_creation_input_tokens + message.usage.cache_read_input_tokens)}</span>
+          <span>
+            输入{' '}
+            {formatTokenCount(
+              message.usage.input_tokens +
+                message.usage.cache_creation_input_tokens +
+                message.usage.cache_read_input_tokens
+            )}
+          </span>
           <span>输出 {formatTokenCount(message.usage.output_tokens)}</span>
           <span>缓存命中 {formatTokenCount(message.usage.cache_read_input_tokens)}</span>
           <span>未命中 {formatTokenCount(message.usage.input_tokens)}</span>
@@ -331,6 +343,31 @@ export const AssistantMessage = memo(function AssistantMessage({
                   icon: <IconSelectTextOutline16 />,
                   onSelect: startSelecting,
                 },
+                ...(onStartMemorySelect
+                  ? [
+                      {
+                        key: 'memorySelectOne',
+                        label: '选择这条对话',
+                        sectionStart: true,
+                        icon: <IconMultiSelectOutline16 />,
+                        onSelect: () => {
+                          stopSelecting()
+                          stopReadAloud()
+                          onStartMemorySelect('one')
+                        },
+                      },
+                      {
+                        key: 'memorySelectAll',
+                        label: '全选本对话',
+                        icon: <IconSelectAllOutline16 />,
+                        onSelect: () => {
+                          stopSelecting()
+                          stopReadAloud()
+                          onStartMemorySelect('all')
+                        },
+                      },
+                    ]
+                  : []),
                 {
                   key: 'editReply',
                   label: '编辑这条回复',
@@ -349,7 +386,9 @@ export const AssistantMessage = memo(function AssistantMessage({
                   icon: <IconBrowseOutline16 />,
                   onSelect: () => {
                     if (!customEndpoint) {
-                      showToast('当前使用内置接口，未配置绘图地址；到「接口与请求」填写自定义接口后再试')
+                      showToast(
+                        '当前使用内置接口，未配置绘图地址；到「接口与请求」填写自定义接口后再试'
+                      )
                       return
                     }
                     showToast('正在根据这段剧情生成插画…')

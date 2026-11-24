@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { android } from '../../app/android.js'
 import { useIsMobile } from '../../app/viewport.js'
 import {
@@ -7,7 +8,12 @@ import {
   type MessageVersions,
 } from '../../services/chat/branches.js'
 import { cancelMessageEdit, useDrafts } from '../../services/chat/drafts.js'
-import { clearPendingJump, selectMessageVersion, useChatStore } from '../../services/chat/store.js'
+import {
+  clearPendingJump,
+  selectMessageVersion,
+  useChatStore,
+  saveMessagesAsMemory,
+} from '../../services/chat/store.js'
 import type { Session } from '../../services/chat/types.js'
 import { sessionActualUsage } from '../../services/chat/tokenUsage.js'
 import {
@@ -17,6 +23,7 @@ import {
 } from '../../services/settings.js'
 import { TokenLimitDialog } from './TokenLimitDialog.js'
 import { TokenUsageChip } from './TokenUsageChip.js'
+import { showToast } from '../base/toastState.js'
 import { closeSearchPanel } from '../search/searchPanelState.js'
 import { AssistantMessage } from './AssistantMessage.js'
 import { JumpToBottomButton } from './JumpToBottomButton.js'
@@ -123,6 +130,15 @@ export const MessageList = ({
   const editingMessageIdRef = useRef(editingMessageId)
   editingMessageIdRef.current = editingMessageId
   const messages = useMemo(() => getVisibleMessages(session), [session])
+  const [memorySelect, setMemorySelect] = useState<{ active: boolean; ids: Set<string> }>({
+    active: false,
+    ids: new Set(),
+  })
+  const [memoryConfirm, setMemoryConfirm] = useState(false)
+  useEffect(() => {
+    setMemorySelect({ active: false, ids: new Set() })
+    setMemoryConfirm(false)
+  }, [session.id])
   const pendingJumpIndex = pendingJump
     ? messages.findIndex((message) => message.id === pendingJump.messageId)
     : -1
@@ -677,6 +693,70 @@ export const MessageList = ({
   }, [isMobile, cancelJump, scrollToBottom, updateJumpVisibility])
 
   const lastIndex = messages.length - 1
+  const memorySelectedCount = memorySelect.ids.size
+  const memoryAllSelected = messages.length > 0 && memorySelectedCount === messages.length
+  const toggleMemorySelected = (id: string) => {
+    setMemorySelect((state) => {
+      if (!state.active) {
+        return state
+      }
+      const ids = new Set(state.ids)
+      if (ids.has(id)) {
+        ids.delete(id)
+      } else {
+        ids.add(id)
+      }
+      return { ...state, ids }
+    })
+  }
+  // 长按任意一条都按“一轮”选择：用户消息带上紧邻的角色回复，角色回复带上紧邻的用户提问
+  const roundMessageIds = (id: string) => {
+    const index = messages.findIndex((message) => message.id === id)
+    if (index < 0) {
+      return [id]
+    }
+    if (messages[index].role === 'user') {
+      const reply = messages[index + 1]
+      return reply?.role === 'assistant' ? [id, reply.id] : [id]
+    }
+    const prompt = messages[index - 1]
+    return prompt?.role === 'user' ? [prompt.id, id] : [id]
+  }
+  const startMemorySelect = (id: string, scope: 'one' | 'all') => {
+    setMemoryConfirm(false)
+    setMemorySelect({
+      active: true,
+      ids: new Set(scope === 'all' ? messages.map((message) => message.id) : roundMessageIds(id)),
+    })
+  }
+  const selectAllMemory = () => {
+    setMemorySelect((state) => ({
+      ...state,
+      ids: new Set(memoryAllSelected ? [] : messages.map((message) => message.id)),
+    }))
+  }
+  const exitMemorySelect = () => {
+    setMemoryConfirm(false)
+    setMemorySelect({ active: false, ids: new Set() })
+  }
+  const confirmSaveMemory = () => {
+    const result = saveMessagesAsMemory(session.id, Array.from(memorySelect.ids))
+    setMemoryConfirm(false)
+    setMemorySelect({ active: false, ids: new Set() })
+    if (result.created === 0) {
+      showToast(
+        result.skipped > 0
+          ? `选中的内容已经有 ${result.skipped} 张整段记忆卡，没有重复保存`
+          : '没有可保存的消息'
+      )
+      return
+    }
+    showToast(
+      result.skipped > 0
+        ? `已保存 ${result.created} 张记忆卡，跳过 ${result.skipped} 张已有记录`
+        : `已保存 ${result.created} 张记忆卡，可在记忆面板查看`
+    )
+  }
   const uploadRetryId = getUploadRetryId(messages, streaming)
   const jumpButton = (
     <JumpToBottomButton
@@ -707,32 +787,68 @@ export const MessageList = ({
                   searchHighlight.messageId === message.id
                     ? searchHighlight.nonce
                     : null
-                return message.role === 'user' ? (
-                  <UserMessage
+                const selected = memorySelect.active && memorySelect.ids.has(message.id)
+                return (
+                  <div
                     key={message.id}
-                    sessionId={session.id}
-                    message={message}
-                    retryUploadId={uploadRetryId}
-                    isFirst={index === 0}
-                    isLast={index === lastIndex || index === lastIndex - 1}
-                    busy={streaming}
-                    editingTarget={editingMessageId === message.id}
-                    searchHighlightNonce={highlightNonce}
-                    versions={versions.get(message.id) ?? EMPTY_VERSIONS}
-                    onSelectVersion={selectVersion}
-                  />
-                ) : (
-                  <AssistantMessage
-                    key={message.id}
-                    sessionId={session.id}
-                    message={message}
-                    isLast={index === lastIndex}
-                    streaming={streaming && index === lastIndex}
-                    busy={streaming}
-                    searchHighlightNonce={highlightNonce}
-                    versions={versions.get(message.id) ?? EMPTY_VERSIONS}
-                    onSelectVersion={selectVersion}
-                  />
+                    className={styles.memorySelectRow}
+                    data-memory-selecting={memorySelect.active ? 'true' : undefined}
+                    data-memory-selected={selected ? 'true' : undefined}
+                    onClickCapture={
+                      memorySelect.active
+                        ? (event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            toggleMemorySelected(message.id)
+                          }
+                        : undefined
+                    }
+                    onContextMenuCapture={
+                      memorySelect.active
+                        ? (event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            toggleMemorySelected(message.id)
+                          }
+                        : undefined
+                    }
+                  >
+                    {memorySelect.active ? (
+                      <span
+                        className={styles.memorySelectMark}
+                        data-on={selected ? 'true' : undefined}
+                      >
+                        {selected ? '✓' : null}
+                      </span>
+                    ) : null}
+                    {message.role === 'user' ? (
+                      <UserMessage
+                        sessionId={session.id}
+                        message={message}
+                        retryUploadId={uploadRetryId}
+                        isFirst={index === 0}
+                        isLast={index === lastIndex || index === lastIndex - 1}
+                        busy={streaming}
+                        editingTarget={editingMessageId === message.id}
+                        searchHighlightNonce={highlightNonce}
+                        versions={versions.get(message.id) ?? EMPTY_VERSIONS}
+                        onSelectVersion={selectVersion}
+                        onStartMemorySelect={(scope) => startMemorySelect(message.id, scope)}
+                      />
+                    ) : (
+                      <AssistantMessage
+                        sessionId={session.id}
+                        message={message}
+                        isLast={index === lastIndex}
+                        streaming={streaming && index === lastIndex}
+                        busy={streaming}
+                        searchHighlightNonce={highlightNonce}
+                        versions={versions.get(message.id) ?? EMPTY_VERSIONS}
+                        onSelectVersion={selectVersion}
+                        onStartMemorySelect={(scope) => startMemorySelect(message.id, scope)}
+                      />
+                    )}
+                  </div>
                 )
               })}
             </div>
@@ -743,6 +859,27 @@ export const MessageList = ({
             </div>
           ) : null}
         </div>
+        {memorySelect.active ? (
+          <div className={styles.memoryBar}>
+            <span className={styles.memoryBarInfo}>
+              已选 {memorySelectedCount} / {messages.length} 条
+            </span>
+            <button type="button" className={styles.memoryBarButton} onClick={selectAllMemory}>
+              {memoryAllSelected ? '取消全选' : '全选'}
+            </button>
+            <button type="button" className={styles.memoryBarSecondary} onClick={exitMemorySelect}>
+              退出
+            </button>
+            <button
+              type="button"
+              className={styles.memoryBarPrimary}
+              disabled={memorySelectedCount === 0}
+              onClick={() => setMemoryConfirm(true)}
+            >
+              保存为记忆
+            </button>
+          </div>
+        ) : null}
         {isMobile ? (
           footer
         ) : (
@@ -770,6 +907,42 @@ export const MessageList = ({
           onClose={() => setTokenWarning(null)}
         />
       </div>
+      {memoryConfirm
+        ? createPortal(
+            <div className={styles.memoryConfirmBackdrop} onClick={() => setMemoryConfirm(false)}>
+              <section
+                className={styles.memoryConfirmCard}
+                role="dialog"
+                aria-modal="true"
+                aria-label="保存为记忆"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <strong className={styles.memoryConfirmTitle}>保存为记忆？</strong>
+                <p className={styles.memoryConfirmText}>
+                  已选 {memorySelectedCount}{' '}
+                  条消息，会按轮生成完整记忆卡。同一轮已有整段卡会跳过；超出卡片或字数上限时自动归档最早的自动卡，不会保存失败。这里只处理记忆保存，不含分享。
+                </p>
+                <div className={styles.memoryConfirmActions}>
+                  <button
+                    type="button"
+                    className={styles.memoryConfirmCancel}
+                    onClick={() => setMemoryConfirm(false)}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.memoryConfirmPrimary}
+                    onClick={confirmSaveMemory}
+                  >
+                    保存
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </ScrollToBottomContext.Provider>
   )
 }

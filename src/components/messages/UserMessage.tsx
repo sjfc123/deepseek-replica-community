@@ -4,7 +4,13 @@ import clsx from 'clsx'
 import { Fragment, memo, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { android } from '../../app/android.js'
 import { useIsMobile } from '../../app/viewport.js'
-import { IconCopyOutline16, IconEditOutline16, IconSelectTextOutline16 } from '../base/icons.js'
+import {
+  IconCopyOutline16,
+  IconEditOutline16,
+  IconMultiSelectOutline16,
+  IconSelectAllOutline16,
+  IconSelectTextOutline16,
+} from '../base/icons.js'
 import { hasAside, splitAsides } from '../../services/chat/aside.js'
 import { startMessageEdit } from '../../services/chat/drafts.js'
 import { editMessage, retryUpload } from '../../services/chat/store.js'
@@ -38,6 +44,7 @@ export const UserMessage = memo(function UserMessage({
   searchHighlightNonce = null,
   versions,
   onSelectVersion,
+  onStartMemorySelect,
 }: {
   sessionId: string
   message: UserMessageType
@@ -50,6 +57,8 @@ export const UserMessage = memo(function UserMessage({
   searchHighlightNonce?: number | null
   versions: MessageVersions
   onSelectVersion: SelectMessageVersion
+  /** 长按菜单进入记忆选择：one=本轮，all=当前分支全部 */
+  onStartMemorySelect?: (scope: 'one' | 'all') => void
 }) {
   const t = useTranslate()
   const avatarInChat = useSettings((state) => state.avatarInChat)
@@ -259,6 +268,29 @@ export const UserMessage = memo(function UserMessage({
                         icon: <IconSelectTextOutline16 />,
                         onSelect: startSelecting,
                       },
+                      ...(onStartMemorySelect
+                        ? [
+                            {
+                              key: 'memorySelectOne',
+                              label: '选择这条对话',
+                              sectionStart: true,
+                              icon: <IconMultiSelectOutline16 />,
+                              onSelect: () => {
+                                stopSelecting()
+                                onStartMemorySelect('one')
+                              },
+                            },
+                            {
+                              key: 'memorySelectAll',
+                              label: '全选本对话',
+                              icon: <IconSelectAllOutline16 />,
+                              onSelect: () => {
+                                stopSelecting()
+                                onStartMemorySelect('all')
+                              },
+                            },
+                          ]
+                        : []),
                       {
                         key: 'edit',
                         label: t('androidEditMessage'),
