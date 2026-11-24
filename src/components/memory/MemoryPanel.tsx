@@ -306,6 +306,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               setPool('character')
               setFilter('all')
               setShown(PAGE_SIZE)
+              setDraftPool('character')
             }}
           >
             <span className={styles.poolIcon}>✦</span>

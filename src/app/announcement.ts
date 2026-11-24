@@ -4,8 +4,8 @@
  * 条目按「新增 / 优化 / 修复 / 说明」四类组织；文案保持可读，
  * 只说明改动位置、实际行为与使用边界，不评价、不宣传。
  */
-export const ANNOUNCEMENT_ID = '0.8.67'
-export const ANNOUNCEMENT_VERSION = '0.8.67'
+export const ANNOUNCEMENT_ID = '0.8.68'
+export const ANNOUNCEMENT_VERSION = '0.8.68'
 
 export type AnnouncementCategory = 'new' | 'opt' | 'fix' | 'note'
 
@@ -39,7 +39,7 @@ export const ANNOUNCEMENT: {
   title: '更新公告',
   version: ANNOUNCEMENT_VERSION,
   intro: [
-    '这一版修复长对话缓存命中率异常偏低：记忆、场景和世界书不再塞进 system 开头，而是接在本轮发言末尾。system 与历史保持逐字不变，下一轮可以继续命中前面的长前缀。',
+    '这一版修正记忆面板的分类联动，并保留长对话缓存前缀修复：记忆、场景和世界书不再塞进 system 开头，而是接在本轮发言末尾。',
   ].join('\n'),
   warningTitle: '用之前，先说清楚几件事',
   warningLead: '下面的内容不复杂，但和你怎么用、要承担什么有关，尤其是审核开关。',
@@ -71,6 +71,7 @@ export const ANNOUNCEMENT: {
       items: [
         '长对话中缓存命中只有一百多个 token、未命中十二万级：根因是每轮都在 system 最前面注入当前记忆、场景和关键词世界书。前缀缓存从第一个变化处失效，后面的全部历史都按未命中计费。动态内容移到本轮末尾后，稳定前缀保留在 system 和历史里。',
         '跨客户端导入的长对话第一轮仍可能冷启动：缓存按请求前缀匹配，不按会话或导入关系匹配。第一轮发送的是本软件的 system 与消息格式，和原客户端不一致；从第二轮起，保持同一角色卡、同一开关、同一分支时才会连续命中。',
+        '从普通记忆切回角色记忆后，底部手动补卡仍停在普通记忆，子分类按钮也继续显示；现在顶部 Tab 与手动补卡分类同步，切回角色会同时收起普通子分类。',
       ],
     },
     {

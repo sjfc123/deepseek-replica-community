@@ -1,7 +1,7 @@
 # DeepSeek Replica 二创版
 
 > 一个 Android 上的本地优先 AI 聊天客户端。日常聊天、角色卡、世界书、场景、长期记忆、连续语音通话和费用观测都在同一个应用里跑。  
-> 当前源码版本：**0.8.67**。  
+> 当前源码版本：**0.8.68**。  
 > GitHub 仓库：[sjfc123/deepseek-replica-community](https://github.com/sjfc123/deepseek-replica-community)
 
 ## 项目状态
@@ -517,4 +517,4 @@ cd android
 
 感谢 LiJiaHua1024 打下最初的 Android 壳和 Web UI，感谢赤石科技（YanJiuWeiYuanHui）在 DeepChat 里把多模型、记忆、语音这些难啃的部分先跑通，也感谢 DeepSeek 开源的 chat-demo 和一路反馈问题、帮忙试功能的人。
 
-这个项目能走到 0.8.67，不是功能清单堆出来的，是一次次把崩掉的地方补回来。后面的路由，交给下一个接手的人。
+这个项目能走到 0.8.68，不是功能清单堆出来的，是一次次把崩掉的地方补回来。后面的路由，交给下一个接手的人。
