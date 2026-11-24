@@ -4,8 +4,8 @@
  * 条目按「新增 / 优化 / 修复 / 说明」四类组织；文案保持可读，
  * 只说明改动位置、实际行为与使用边界，不评价、不宣传。
  */
-export const ANNOUNCEMENT_ID = '0.8.76'
-export const ANNOUNCEMENT_VERSION = '0.8.76'
+export const ANNOUNCEMENT_ID = '0.8.77'
+export const ANNOUNCEMENT_VERSION = '0.8.77'
 
 export type AnnouncementCategory = 'new' | 'opt' | 'fix' | 'note'
 
@@ -39,7 +39,7 @@ export const ANNOUNCEMENT: {
   title: '更新公告',
   version: ANNOUNCEMENT_VERSION,
   intro: [
-    '这一版收口 System 前缀：角色卡开场白不再随消息条数进入或退出 system，纯空白提示词按清空处理，手写角色名为空时占位符回退为 AI，避免同一会话里 system 时有时无、时短时长。',
+    '这一版修复继续生成：续写请求会明确要求从上一个字之后接写，并过滤上游回放的原文前缀，避免原句被再追加一遍；同时把 System、记忆、场景、世界书与上下文提醒的实际位置写清楚。',
   ].join('\n'),
   warningTitle: '用之前，先说清楚几件事',
   warningLead: '下面的内容不复杂，但和你怎么用、要承担什么有关，尤其是审核开关。',
@@ -61,6 +61,7 @@ export const ANNOUNCEMENT: {
       category: 'fix',
       heading: '修复',
       items: [
+        '继续生成不再把原句重复一遍：本次请求在非空 system 末尾临时追加续写约束，要求从最后一个字之后接写，不重发、不改写、不总结、不重新开场、不替用户说话；上游若整段回放已发送的 assistant 原文，客户端会剥掉前缀后再追加。该入口仍只对官方 Messages 协议开放。',
         '角色卡开场白固定留在 system 里，不再因为消息条数达到 2 条就从 system 消失；文案改为“只在第一条回复使用，后续自然延续”，角色卡与历史的前缀不再第二轮突然变化。',
         '纯空白提示词按“主动清空”处理，不再悄悄回落到默认人格；清空后请求体第一条就是 user，不会发出只有空格的 system。',
         '手写角色名和卡名都为空时，`{{char}}` 回退为 `AI`，不再把字面占位符留在 system 或背景资料里。',
@@ -72,7 +73,7 @@ export const ANNOUNCEMENT: {
       category: 'opt',
       heading: '优化',
       items: [
-        'system 在进入请求前一次固定，只由启用中的角色卡、手写提示词和固定演出规则组成；记忆、场景、世界书和日期地点提醒仍接在当前 user 消息末尾，不挤进 system。',
+        'system 在进入请求前一次固定，只由启用中的角色卡、手写提示词和固定演出规则组成；记忆、场景和本轮世界书作为本轮背景资料接在当前 user 消息末尾；上下文提醒是当前 user 之前的独立消息，两者都不进入 system。',
         '新增 `pnpm test:system` 回归测试，固定角色卡前缀、开场白存在性和三种协议的 system 位置；装配顺序与缓存边界写在 `SYSTEM-PROMPT-PIPELINE.md`。',
       ],
     },
@@ -80,8 +81,8 @@ export const ANNOUNCEMENT: {
       category: 'note',
       heading: '说明',
       items: [
-        '主动切换或关闭角色卡、修改手写提示词、修改角色名、开关“抑制元叙述”时，system 会按新设定变化，这是预期行为；除此之外不会因为轮数、记忆、场景、世界书或日期变化而改动 system。',
-        '请求体逐字稳定只证明客户端没有制造前缀差异，不代表服务商一定命中缓存；实际缓存还取决于服务商策略、模型和计费口径。',
+        '主动切换或关闭角色卡、修改手写提示词、修改角色名、开关“抑制元叙述”时，system 会按新设定变化，这是预期行为；继续生成会在本次请求临时追加续写约束，下一轮普通请求恢复原 system。',
+        'system 不变不等于整个请求前缀不变：自动压缩或预算裁剪会丢弃最旧轮次，开启自动压缩时摘要会插入首条 user 消息；编辑或删除历史、切换分支、latest_reminder 内容变化也会改变请求前缀。请求体逐字稳定只证明客户端没有制造前缀差异，不代表服务商一定命中缓存。',
         '0.8.75 的会话菜单实心底板与内部滚动继续保留，本次不改菜单行为。',
       ],
     },

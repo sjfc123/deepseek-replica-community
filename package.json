@@ -1,6 +1,6 @@
 {
   "name": "deepseek-app-replica",
-  "version": "0.8.76",
+  "version": "0.8.77",
   "description": "基于 DeepSeek App Replica 与 DeepChat 部分功能移植的 Android 角色扮演客户端；仓库保存源码，编译、签名与分发由操作者自行承担。",
   "license": "GPL-3.0-or-later",
   "private": true,

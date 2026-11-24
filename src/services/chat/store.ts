@@ -101,9 +101,15 @@ import {
 } from './drafts.js'
 import { createLatestReminder } from './latestReminder.js'
 import {
+  CONTINUATION_GUARD,
+  createContinuationEchoFilter,
+  filterContinuationEcho,
+} from './continuation.js'
+import {
   applyEvent,
   canContinueReply,
   getContextRounds,
+  getReplyText,
   settleReply,
   toRequestMessages,
 } from './reply.js'
@@ -2398,10 +2404,14 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   ]
     .filter(Boolean)
     .join('\n\n')
+  // 续写是请求级操作，不是新设定：只在本次请求的非空 system 末尾临时追加接写约束。
+  // 普通轮次不携带这段，清空提示词时也不因为续写重新造出一段 system。
+  const baseSystemForRequest =
+    baseSystem && request.prefix ? `${baseSystem}\n\n${CONTINUATION_GUARD}` : baseSystem
   // 统一替换占位符：手写提示词、角色卡字段、世界书与记忆都走这一处
   // 没有可用的手写名或卡名时用 AI 兜底，避免 {{char}} 原样漏进 system 或背景资料
   const promptCharName = (roleplayActive ? activeCard?.name : characterName)?.trim() || 'AI'
-  const baseSystemResolved = applyPlaceholders(baseSystem, {
+  const baseSystemResolved = applyPlaceholders(baseSystemForRequest, {
     userName,
     charName: promptCharName,
   })
@@ -2627,6 +2637,12 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         }
         const events = streamChatMessage(chatConfig, apiKey, body, signal, extraHeaders)
         const blockIndexes = new Map<number, number>()
+        const continuationBlockStart = reply.blocks.length
+        const continuationPrefix = request.prefix ? getReplyText(request.prefix) : ''
+        let continuationEcho =
+          continuationPrefix.length > 0
+            ? createContinuationEchoFilter(continuationPrefix)
+            : null
         for await (const event of events) {
           receivedContent ||= event.type === 'content_block_start'
           if (
@@ -2641,11 +2657,30 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             updateSession(sessionId, (session) => (session.title ? session : { ...session, title }))
             titleRequests.delete(controller)
           }
-          reply = applyEvent(reply, event, Date.now(), blockIndexes)
+          let eventToApply = event
+          if (continuationEcho) {
+            const filtered = filterContinuationEcho(continuationEcho, event)
+            continuationEcho = filtered.filter
+            if (!filtered.event) {
+              continue
+            }
+            eventToApply = filtered.event
+          }
+          reply = applyEvent(reply, eventToApply, Date.now(), blockIndexes)
           if (document.visibilityState === 'hidden') {
             flush()
           } else {
             frame ||= requestAnimationFrame(flush)
+          }
+        }
+        if (continuationEcho) {
+          // 上游只回放了原文、没有新内容时，不留下一个空文本块。
+          reply = {
+            ...reply,
+            blocks: reply.blocks.filter(
+              (block, index) =>
+                index < continuationBlockStart || block.type !== 'text' || block.text.trim() !== ''
+            ),
           }
         }
         reply = settleLocal(reply, 'done')

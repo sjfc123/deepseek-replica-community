@@ -1,14 +1,14 @@
-# 源码留存说明 · 0.8.76
+# 源码留存说明 · 0.8.77
 
 这份说明跟着源码包一起放，不是发布公告。它只回答四个问题：这是哪个版本、包里有什么、缺了什么、后来的人怎么把它跑起来。
 
 ## 版本
 
-- 版本号：0.8.76
-- 开发阶段的 versionCode：122
+- 版本号：0.8.77
+- 开发阶段的 versionCode：123
 - 覆盖版包名：`io.github.lijiahua1024.dsreplica`
 - 并存版包名：`io.github.lijiahua1024.dsreplica.rp`
-- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.76`
+- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.77`
 
 ## 包里有什么
 
@@ -26,6 +26,13 @@
 - 打包中间产物、测试演练页、个人备份
 
 这些不是遗漏，是故意不放进源码包。APK 和签名文件由构建者自己生成、自己保管；具体边界写在 README 的“编译、签名与分发”一节，NOTICE 里也有说明。别人转发的 APK 不代表这个仓库，也无法证明没有被改过。
+
+## 0.8.77 本版改动
+
+- 修复继续生成重复原句：`CONTINUATION_GUARD` 只在带 assistant 前缀的续写请求、且 system 非空时，临时追加到 system 末尾，要求从最后一个字之后接写，不重发、不改写、不总结、不重新开场、不替用户说话。
+- 新增 `filterContinuationEcho`：在文本增量进入回复块前比对已发送的 assistant 前缀；上游整段回放原文时剥掉前缀，只追加真正新增的内容，界面不会把旧文再写一遍。
+- 校正 README 与 `SYSTEM-PROMPT-PIPELINE.md`：system 只含角色卡、手写提示词和固定演出规则；记忆、场景、本轮世界书以 `turnContext` 接在当前 user 末尾；`latest_reminder` 是当前 user 前的独立提醒消息；自动压缩、历史编辑、分支和续写约束会改变请求前缀，但前四类不改 system。
+- `pnpm test:system` 增加续写回放断言：完整回放、跨分片回放、正常续写三种情况都必须得到正确结果。
 
 ## 0.8.76 本版改动
 

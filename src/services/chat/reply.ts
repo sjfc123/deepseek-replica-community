@@ -308,7 +308,8 @@ export const getContextRounds = (history: Message[]): [UserMessage, AssistantMes
 
 /**
  * 本轮背景资料只接在当前提问后面，不进入历史消息原文。
- * 这样上一轮已经发送过的 system 与历史仍然逐字不变，下一轮能继续命中前缀缓存。
+ * 这样普通新轮不会因为新增记忆、场景或世界书改写已发送的历史；自动压缩、
+ * 历史编辑、分支切换和 latest_reminder 变化仍会改变请求内容，边界见 SYSTEM-PROMPT-PIPELINE.md。
  */
 const attachTurnContext = (
   message: Extract<MessageParam, { role: 'user' }>,
