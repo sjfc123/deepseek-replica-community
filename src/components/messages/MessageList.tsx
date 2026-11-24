@@ -153,7 +153,7 @@ export const MessageList = ({
   const editingMessageIdRef = useRef(editingMessageId)
   editingMessageIdRef.current = editingMessageId
   const messages = useMemo(() => getVisibleMessages(session), [session])
-  // 深度思考与非思考在上游按不同缓存池处理：切换模式后的首条回复会重建缓存。
+  // 缓存按完整请求前缀匹配：切换深度思考或智能搜索后，首条回复通常需要重建缓存。
   // 这里只负责识别这次切换，让用量明细把“未命中”解释清楚。
   const modeSwitchMessageIds = useMemo(() => {
     const ids = new Set<string>()

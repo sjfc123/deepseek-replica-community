@@ -263,8 +263,8 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
                       </p>
                       <p>
                         {t(
-                          '深度思考开启与关闭在上游使用不同缓存池：切换后的首条回复通常会重建缓存，随后同模式连续请求恢复命中。频繁来回切换会让每一轮都接近首轮，单条回复的未命中不代表回答质量下降。',
-                          'Thinking and non-thinking requests use separate upstream cache pools: the first reply after switching usually rebuilds the cache, while consecutive requests in the same mode recover hits. Frequent switching makes nearly every turn a cold turn; a single miss does not mean answer quality dropped.'
+                          '缓存按完整请求前缀匹配。切换深度思考或智能搜索后，请求形态发生变化，首条回复通常需要重新建立缓存，随后同模式连续请求恢复命中。频繁切换会让每一轮都接近首轮，单条回复的未命中不代表回答质量下降。',
+                          'Cache matching works on the full request prefix. Switching thinking or search changes the request shape, so the first reply usually rebuilds the cache and consecutive requests in the same mode recover hits. Frequent switching makes nearly every turn a cold turn; a single miss does not mean answer quality dropped.'
                         )}
                       </p>
                       {report.legacyReplies > 0 ? (

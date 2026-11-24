@@ -2493,8 +2493,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 checked={thinking}
                 toggle={() => setThinking(!thinking)}
                 description={tr(
-                  '开启后请求携带 thinking.enabled，模型先写推理链再回答；推理与正文都计入输出 Token，耗时也更长。关闭只改默认状态，输入区仍可为单条消息临时开启。深度思考与非思考在上游使用不同缓存池，来回切换后首轮会重建缓存。',
-                  'Sends thinking.enabled; the model writes a reasoning chain before replying. Reasoning and reply both count as output tokens and take longer. Turning it off changes the default only; the composer can still enable it per message. Thinking and non-thinking use separate upstream cache pools, so toggling rebuilds the cache on the first turn.'
+                  '开启后请求携带 thinking.enabled，模型先写推理链再回答；推理与正文都计入输出 Token，耗时也更长。关闭只改默认状态，输入区仍可为单条消息临时开启。缓存按完整请求前缀匹配，来回切换思考模式后首轮会重建缓存。',
+                  'Sends thinking.enabled; the model writes a reasoning chain before replying. Reasoning and reply both count as output tokens and take longer. Turning it off changes the default only; the composer can still enable it per message. Cache matching works on the full request prefix, so toggling thinking rebuilds the cache on the first turn.'
                 )}
               />
               <CostRow
