@@ -11,9 +11,6 @@ type AndroidBridge = {
   buttonNavigationInset: () => number
   systemFontScale: () => number
   openAppPermissions: () => void
-  updateStatus: () => string
-  checkForUpdate: () => void
-  installUpdate: () => void
   getMusicVolume?: () => number
   openSourcePage: (
     url: string,

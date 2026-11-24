@@ -98,7 +98,6 @@ public final class MainActivity extends Activity {
     private ImageSave imageSave;
     private NativeRecorder recorder;
     private final CallAudioCapture callCapture = new CallAudioCapture();
-    private AppUpdater updater;
     private boolean backPreviewEnabled;
     /** 主文档加载失败仅自动重试一次，避免资源缺失时无限重载 */
     private boolean mainFrameRetried;
@@ -150,12 +149,6 @@ public final class MainActivity extends Activity {
         }
         WebView.setWebContentsDebuggingEnabled(
             (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
-        updater = new AppUpdater(this, status -> {
-            if (webView != null) {
-                webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('android-update', {detail: "
-                    + status + "}))", null);
-            }
-        });
         // 顺序约束：先创建 WebView，再应用系统栏配色。
         // setBars 会调用 webView.setBackgroundColor，若在视图创建之前执行将触发空指针，启动即退出。
         installWebView();
@@ -179,7 +172,7 @@ public final class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setTextZoom(100);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        // 界面资源全部来自 APK 内的 assets，不存在需缓存的远端资源。
+        // 界面资源全部来自应用包内的 assets，不存在需缓存的远端资源。
         // 关闭 HTTP 缓存，覆盖安装后不会再读取上一版本的 index 与主包。
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         // 升级后旧 WebView 缓存可能仍指向上一版本的 index 与主包哈希，表现为白屏。
@@ -365,7 +358,7 @@ public final class MainActivity extends Activity {
                     + "img-src 'self' https: data: blob:; font-src 'self' data:; "
                     + "media-src 'self' blob:; connect-src 'self' https://api.deepseek.com; "
                     + "frame-src 'none'; base-uri 'none'; form-action 'none';",
-                    // 本地资源禁止缓存：APK 升级后路径不变而文件名变化，使用缓存文件将导致白屏
+                    // 本地资源禁止缓存：应用升级后路径不变而文件名变化，使用缓存文件将导致白屏
                     "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0",
                     "Pragma", "no-cache",
                     "Expires", "0");
@@ -574,9 +567,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int code, int result, Intent data) {
         super.onActivityResult(code, result, data);
-        if (code == AppUpdater.INSTALL_SOURCE_SETTINGS) {
-            updater.permissionResult();
-        } else if (code == EXPORT_HISTORY) {
+        if (code == EXPORT_HISTORY) {
             Uri uri = result == RESULT_OK && data != null ? data.getData() : null;
             reportExport(uri == null ? "cancelled" : historyExport.open(uri) ? "ready" : "error");
         } else if (code == FILE_CHOOSER && fileCallback != null) {
@@ -615,19 +606,12 @@ public final class MainActivity extends Activity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        updater.resume();
-    }
-
-    @Override
     protected void onPause() {
         // 退到后台前让页面检查一次自动备份窗口，冻结后不会再有机会写盘
         if (webView != null) {
             webView.evaluateJavascript(
                 "window.__replicaLifecyclePause && window.__replicaLifecyclePause()", null);
         }
-        updater.pause();
         super.onPause();
     }
 
@@ -648,7 +632,6 @@ public final class MainActivity extends Activity {
             accessibility.removeAccessibilityStateChangeListener(accessibilityState);
         }
         photoExecutor.shutdownNow();
-        updater.close();
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         recorder.finish(false);
         callCapture.stop();
@@ -738,15 +721,6 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 Uri.fromParts("package", getPackageName(), null))));
         }
-
-        @JavascriptInterface
-        public String updateStatus() { return updater.status(); }
-
-        @JavascriptInterface
-        public void checkForUpdate() { runOnUiThread(() -> updater.check()); }
-
-        @JavascriptInterface
-        public void installUpdate() { runOnUiThread(() -> updater.update()); }
 
         @JavascriptInterface
         public void openSourcePage(String url, boolean dark, String closeLabel, String browserLabel,
