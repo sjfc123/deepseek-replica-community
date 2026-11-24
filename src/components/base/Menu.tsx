@@ -56,7 +56,7 @@ export const Menu = ({
           align: 'start',
           alignOffset: -5,
           offset: sidebarMenu ? 5.6 : 4,
-          // 会话菜单在网页端也可能有 9 项；上限留足，具体高度仍会按视口剩余空间收口
+          // 窄屏下会话菜单也可能有 9 项；上限留足，具体高度按视口剩余空间调整
           maxHeight: sidebarMenu ? 420 : 286,
         }
   )
