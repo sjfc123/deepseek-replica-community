@@ -1,5 +1,6 @@
-/* 冷启动问候语下方的峰谷提示：跟随主题主色，不抢输入框视觉 */
+/* 冷启动问候语下方的峰谷提示：高峰红、空闲绿，只做轻量底色，不抢输入框视觉 */
 .hint {
+  --phase-color: var(--dsw-alias-brand-primary);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -7,11 +8,19 @@
   max-width: min(100%, 420px);
   margin-top: 2px;
   padding: 7px 11px 8px;
-  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--phase-color) 26%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 7%, transparent);
+  background: color-mix(in srgb, var(--phase-color) 8%, transparent);
   text-align: center;
   user-select: none;
+
+  &[data-phase='peak'] {
+    --phase-color: #e5484d;
+  }
+
+  &[data-phase='offpeak'] {
+    --phase-color: #18a058;
+  }
 }
 
 .phaseLine {
@@ -30,15 +39,15 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--dsw-alias-brand-primary);
+  background: var(--phase-color);
 }
 
 [data-phase='offpeak'] .dot {
-  opacity: 0.55;
+  opacity: 0.9;
 }
 
 .phase {
-  color: var(--dsw-alias-brand-primary);
+  color: var(--phase-color);
 }
 
 .now {
@@ -57,6 +66,14 @@
 
 .range {
   color: var(--dsw-alias-label-tertiary);
+}
+
+body[data-ds-dark-theme] .hint[data-phase='peak'] {
+  --phase-color: #ff7b7f;
+}
+
+body[data-ds-dark-theme] .hint[data-phase='offpeak'] {
+  --phase-color: #5ee0a0;
 }
 
 @media (max-width: 370px) {

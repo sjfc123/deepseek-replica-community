@@ -155,8 +155,10 @@
 
 .itemActions {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 7px 12px;
   margin-top: 6px;
 
   button {
@@ -176,6 +178,21 @@
 }
 
 .toggle[data-pinned='true'] {
+  background: rgb(255 176 32 / 18%);
+  color: #9a6200;
+}
+
+.itemActions .toggle {
+  min-height: 24px;
+  margin-left: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgb(127 127 127 / 12%);
+  color: inherit;
+  font-size: 11px;
+}
+
+.itemActions .toggle[data-pinned='true'] {
   background: rgb(255 176 32 / 18%);
   color: #9a6200;
 }
@@ -426,7 +443,8 @@
 }
 
 body[data-ds-dark-theme] .card {
-  background: #23262c;
+  --memory-surface: #23262c;
+  background: var(--memory-surface);
   color: #e9ecf2;
 }
 
@@ -530,17 +548,29 @@ body[data-ds-dark-theme] .injectLine {
   background: #e5484d;
 }
 
-/* 0.8.66 分类记忆面板：更接近 DeepSeek 的分段标签、搜索与卡片层级 */
+/* 0.8.71 分类记忆面板：面板整体可滚动，标题与补卡区吸顶/吸底 */
 .card {
-  width: min(100%, 640px);
-  max-height: min(90vh, 820px);
+  --memory-surface: var(--settings-card, var(--ds-bg-elevated, #fff));
+  width: min(100%, 720px);
+  max-height: min(92vh, 860px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  background: var(--memory-surface);
   border-radius: 20px;
   border: 1px solid rgb(127 127 127 / 12%);
 }
 
 .head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  flex-shrink: 0;
   padding: 18px 20px 12px;
-  border-bottom: 0;
+  border-bottom: 1px solid rgb(127 127 127 / 12%);
+  background: var(--memory-surface);
 
   h2 {
     font-size: 19px;
@@ -708,7 +738,10 @@ body[data-ds-dark-theme] .injectLine {
 }
 
 .list {
+  flex: 0 0 auto;
+  min-height: 0;
   padding: 0 20px 10px;
+  overflow: visible;
 }
 
 .item {
@@ -725,8 +758,24 @@ body[data-ds-dark-theme] .injectLine {
 }
 
 .itemHead {
-  gap: 6px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 7px;
+}
+
+.tagRow {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.itemHead .time {
+  flex: none;
+  padding-top: 2px;
 }
 
 .poolTag {
@@ -773,7 +822,14 @@ body[data-ds-dark-theme] .injectLine {
 }
 
 .footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  flex-shrink: 0;
   padding: 10px 20px 14px;
+  border-top: 1px solid rgb(127 127 127 / 12%);
+  background: var(--memory-surface);
+  box-shadow: 0 -10px 20px rgb(0 0 0 / 8%);
 }
 
 .addBox {
@@ -781,7 +837,7 @@ body[data-ds-dark-theme] .injectLine {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 
-  .addPoolRow,
+  .addLead,
   .addKindRow {
     grid-column: 1 / -1;
   }
@@ -803,7 +859,27 @@ body[data-ds-dark-theme] .injectLine {
   }
 }
 
-.addPoolRow,
+.addLead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+  font-size: 11.5px;
+
+  span {
+    font-weight: 600;
+  }
+
+  small {
+    overflow: hidden;
+    color: var(--dsw-alias-label-caption, #8c9097);
+    font-size: 10.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .addKindRow {
   display: flex;
   flex-wrap: wrap;
@@ -944,14 +1020,19 @@ body[data-ds-dark-theme] .confirm section {
 }
 
 @media (max-width: 460px) {
+  .overlay {
+    padding: 8px 6px;
+  }
+
   .card {
     width: 100%;
     max-height: 94vh;
-    border-radius: 18px;
+    max-height: calc(100dvh - 12px);
+    border-radius: 16px;
   }
 
   .head {
-    padding: 14px 16px 8px;
+    padding: 14px 14px 10px;
 
     h2 {
       font-size: 17px;
@@ -960,7 +1041,7 @@ body[data-ds-dark-theme] .confirm section {
 
   .poolTabs {
     gap: 6px;
-    padding: 2px 16px 8px;
+    padding: 2px 14px 10px;
   }
 
   .poolTabs > button {
@@ -996,12 +1077,12 @@ body[data-ds-dark-theme] .confirm section {
   .searchHint,
   .list {
     margin-left: 0;
-    padding-right: 16px;
-    padding-left: 16px;
+    padding-right: 14px;
+    padding-left: 14px;
   }
 
   .usage {
-    margin: 0 16px 8px;
+    margin: 0 14px 8px;
     padding: 9px 11px;
   }
 
@@ -1033,7 +1114,7 @@ body[data-ds-dark-theme] .confirm section {
   }
 
   .footer {
-    padding: 8px 16px 10px;
+    padding: 10px 14px 12px;
   }
 
   .addBox {
@@ -1042,6 +1123,14 @@ body[data-ds-dark-theme] .confirm section {
 
   .addBox .primary {
     padding: 9px 12px;
+  }
+
+  .addLead {
+    font-size: 11px;
+  }
+
+  .addLead small {
+    font-size: 10px;
   }
 
   .footerHint {

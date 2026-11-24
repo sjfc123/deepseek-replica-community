@@ -87,14 +87,22 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const roleplayActive =
     roleplayEnabled && Boolean(findActiveCharacterCard(characterCards, activeCharacterId))
   const [draft, setDraft] = useState('')
-  const [draftPool, setDraftPool] = useState<MemoryPool>('character')
-  const normalDraftLocked = roleplayActive && draftPool === 'normal'
   const [draftKind, setDraftKind] = useState<NormalMemoryKind | 'auto'>('auto')
   const [query, setQuery] = useState('')
   const [pool, setPool] = useState<MemoryPool>('character')
+  const normalDraftLocked = roleplayActive && pool === 'normal'
   const [normalKind, setNormalKind] = useState<NormalMemoryKind | 'all'>('all')
   const [filter, setFilter] = useState<Filter>('all')
   const [shown, setShown] = useState(PAGE_SIZE)
+  /** 顶部 Tab 就是手动补卡的写入目标；切换分类时清掉未提交草稿，避免写到另一分类 */
+  const switchPool = (next: MemoryPool) => {
+    setPool(next)
+    setFilter('all')
+    setShown(PAGE_SIZE)
+    setDraft('')
+    setDraftKind('auto')
+  }
+
   /** 编辑框按内容自动撑高：卡片正文越长，textarea 越高，避免文字被固定三行挡住 */
   const autoGrow = (el: HTMLTextAreaElement | null) => {
     if (!el) {
@@ -270,17 +278,17 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
 
   const submit = () => {
     const text = draft.trim()
-    if (!text || (roleplayActive && draftPool === 'normal')) {
+    if (!text || (roleplayActive && pool === 'normal')) {
       return
     }
     const category =
-      draftPool === 'normal'
+      pool === 'normal'
         ? draftKind === 'auto'
           ? detectNormalMemoryKind(text)
           : draftKind
         : undefined
     addManualMemory(session.id, text, {
-      pool: draftPool,
+      pool,
       category,
     })
     setDraft('')
@@ -322,12 +330,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             role="tab"
             aria-selected={pool === 'character'}
             data-active={pool === 'character'}
-            onClick={() => {
-              setPool('character')
-              setFilter('all')
-              setShown(PAGE_SIZE)
-              setDraftPool('character')
-            }}
+            onClick={() => switchPool('character')}
           >
             <span className={styles.poolIcon}>✦</span>
             <span>
@@ -341,12 +344,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             role="tab"
             aria-selected={pool === 'normal'}
             data-active={pool === 'normal'}
-            onClick={() => {
-              setPool('normal')
-              setFilter('all')
-              setShown(PAGE_SIZE)
-              setDraftPool('normal')
-            }}
+            onClick={() => switchPool('normal')}
           >
             <span className={styles.poolIcon}>⌘</span>
             <span>
@@ -449,7 +447,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             className={styles.search}
             type="search"
             value={query}
-            placeholder="搜索全部记忆：称呼、地点、代码、报错关键词"
+            placeholder="搜索记忆：称呼、地点、代码、报错关键词"
             aria-label="搜索记忆"
             onChange={(event) => {
               setQuery(event.target.value)
@@ -488,35 +486,18 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                   data-pool={getMemoryPool(card)}
                 >
                   <div className={styles.itemHead}>
-                    <span className={styles.poolTag} data-pool={getMemoryPool(card)}>
-                      {cardPoolLabel(card)}
-                      {card.language ? ` · ${card.language}` : ''}
-                    </span>
-                    <span className={styles.tag} data-source={card.source}>
-                      {sourceLabel(card)}
-                      {card.pinned ? ' · 置顶' : ''}
-                      {card.superseded ? ' · 已归档' : ''}
-                    </span>
+                    <div className={styles.tagRow}>
+                      <span className={styles.poolTag} data-pool={getMemoryPool(card)}>
+                        {cardPoolLabel(card)}
+                        {card.language ? ` · ${card.language}` : ''}
+                      </span>
+                      <span className={styles.tag} data-source={card.source}>
+                        {sourceLabel(card)}
+                        {card.pinned ? ' · 置顶' : ''}
+                        {card.superseded ? ' · 已归档' : ''}
+                      </span>
+                    </div>
                     <span className={styles.time}>{formatTime(card.createdAt)}</span>
-                    <button
-                      className={styles.toggle}
-                      type="button"
-                      aria-pressed={card.enabled}
-                      onClick={() =>
-                        setMemoryEnabled(session.id, messageId, card.id, !card.enabled)
-                      }
-                    >
-                      {card.enabled ? '已启用' : '已关闭'}
-                    </button>
-                    <button
-                      className={styles.toggle}
-                      data-pinned={card.pinned ? 'true' : undefined}
-                      type="button"
-                      aria-pressed={Boolean(card.pinned)}
-                      onClick={() => setMemoryPinned(session.id, messageId, card.id, !card.pinned)}
-                    >
-                      {card.pinned ? '已置顶' : '置顶'}
-                    </button>
                   </div>
                   {editing?.cardId === card.id ? (
                     <div className={styles.editBox}>
@@ -555,6 +536,25 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                   )}
                   <div className={styles.itemActions}>
                     <button
+                      className={styles.toggle}
+                      type="button"
+                      aria-pressed={card.enabled}
+                      onClick={() =>
+                        setMemoryEnabled(session.id, messageId, card.id, !card.enabled)
+                      }
+                    >
+                      {card.enabled ? '已启用' : '已关闭'}
+                    </button>
+                    <button
+                      className={styles.toggle}
+                      data-pinned={card.pinned ? 'true' : undefined}
+                      type="button"
+                      aria-pressed={Boolean(card.pinned)}
+                      onClick={() => setMemoryPinned(session.id, messageId, card.id, !card.pinned)}
+                    >
+                      {card.pinned ? '已置顶' : '置顶'}
+                    </button>
+                    <button
                       type="button"
                       onClick={() => setEditing({ messageId, cardId: card.id, text: card.text })}
                     >
@@ -585,24 +585,11 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
 
         <footer className={styles.footer}>
           <div className={styles.addBox}>
-            <div className={styles.addPoolRow}>
-              <button
-                type="button"
-                data-active={draftPool === 'character'}
-                onClick={() => setDraftPool('character')}
-              >
-                角色记忆
-              </button>
-              <button
-                type="button"
-                data-active={draftPool === 'normal'}
-                disabled={roleplayActive}
-                onClick={() => setDraftPool('normal')}
-              >
-                普通记忆
-              </button>
+            <div className={styles.addLead}>
+              <span>手动记一条</span>
+              <small>写入{pool === 'normal' ? '普通记忆' : '角色记忆'}</small>
             </div>
-            {draftPool === 'normal' ? (
+            {pool === 'normal' ? (
               <div className={styles.addKindRow}>
                 <button
                   type="button"
@@ -631,7 +618,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               placeholder={
                 normalDraftLocked
                   ? '角色扮演开启中，普通记忆暂停写入；先关闭角色扮演再补开发代码。'
-                  : draftPool === 'normal'
+                  : pool === 'normal'
                     ? '记一条开发/问答参考，例如：报错原因、命令、接口字段；代码块会自动归入代码。'
                     : '手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。'
               }
