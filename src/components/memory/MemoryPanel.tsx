@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
 import { getVisibleMessages } from '../../services/chat/branches.js'
+import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
 import {
   activeMemoryCards,
   activeMemoryChars,
   collectVisibleMemories,
+  detectCodeBlock,
   detectNormalMemoryKind,
+  filterCharacterMemoryForInjection,
   getMemoryPool,
   getNormalMemoryKind,
   NORMAL_MEMORY_KINDS,
@@ -80,8 +83,12 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const normalMemoryChars = useSettings((state) => state.normalMemoryChars)
   const roleplayEnabled = useSettings((state) => state.roleplayEnabled)
   const activeCharacterId = useSettings((state) => state.activeCharacterId)
+  const characterCards = useSettings((state) => state.characterCards)
+  const roleplayActive =
+    roleplayEnabled && Boolean(findActiveCharacterCard(characterCards, activeCharacterId))
   const [draft, setDraft] = useState('')
   const [draftPool, setDraftPool] = useState<MemoryPool>('character')
+  const normalDraftLocked = roleplayActive && draftPool === 'normal'
   const [draftKind, setDraftKind] = useState<NormalMemoryKind | 'auto'>('auto')
   const [query, setQuery] = useState('')
   const [pool, setPool] = useState<MemoryPool>('character')
@@ -164,16 +171,29 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     }
     return counts
   }, [entries])
+  const hasRoleplayCodeCard = useMemo(
+    () =>
+      entries.some(
+        ({ card }) =>
+          getMemoryPool(card) === 'character' &&
+          card.enabled &&
+          !card.superseded &&
+          detectCodeBlock(card.text)
+      ),
+    [entries]
+  )
   const lastQuestion = useMemo(() => {
     const lastUser = messages.filter((message) => message.role === 'user').at(-1)
     return lastUser?.content ?? ''
   }, [messages])
-  const normalInjectionAllowed =
-    normalMemoryEnabled && !(roleplayEnabled && Boolean(activeCharacterId))
+  const normalInjectionAllowed = normalMemoryEnabled && !roleplayActive
   const injection = useMemo(
     () =>
       pool === 'character'
-        ? selectMemoryCardsForInjection(session, messages, memoryLimit, lastQuestion)
+        ? filterCharacterMemoryForInjection(
+            selectMemoryCardsForInjection(session, messages, memoryLimit, lastQuestion),
+            roleplayActive
+          )
         : normalInjectionAllowed
           ? selectNormalMemoryCardsForInjection(
               session,
@@ -250,7 +270,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
 
   const submit = () => {
     const text = draft.trim()
-    if (!text) {
+    if (!text || (roleplayActive && draftPool === 'normal')) {
       return
     }
     const category =
@@ -331,7 +351,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             <span className={styles.poolIcon}>⌘</span>
             <span>
               <strong>普通记忆</strong>
-              <small>开发 · 问答 · 代码</small>
+              <small>{roleplayActive ? '角色扮演中暂停写入' : '开发 · 问答 · 代码'}</small>
             </span>
             <em>{normalCount}</em>
           </button>
@@ -381,7 +401,11 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             {pool === 'normal' && !normalInjectionAllowed
               ? '角色扮演开启时普通记忆不会注入，避免代码与开发日志污染人设。'
               : lastQuestion
-                ? `这一轮会带上 ${injectionPreview.count} 张 · ${injectionPreview.chars.toLocaleString('zh-CN')} / ${budget.toLocaleString('zh-CN')} 字`
+                ? `这一轮会带上 ${injectionPreview.count} 张 · ${injectionPreview.chars.toLocaleString('zh-CN')} / ${budget.toLocaleString('zh-CN')} 字${
+                    pool === 'character' && !roleplayActive && hasRoleplayCodeCard
+                      ? '；已排除带代码块的角色卡'
+                      : ''
+                  }`
                 : '发一条消息后，这里会写清楚这轮带上了哪些'}
             {injectionPreview.total > injectionPreview.count
               ? `（对上 ${injectionPreview.total} 张，字数只够带前 ${injectionPreview.count} 张）`
@@ -572,6 +596,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               <button
                 type="button"
                 data-active={draftPool === 'normal'}
+                disabled={roleplayActive}
                 onClick={() => setDraftPool('normal')}
               >
                 普通记忆
@@ -602,19 +627,24 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               value={draft}
               rows={2}
               maxLength={4000}
+              disabled={normalDraftLocked}
               placeholder={
-                draftPool === 'normal'
-                  ? '记一条开发/问答参考，例如：报错原因、命令、接口字段；代码块会自动归入代码。'
-                  : '手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。'
+                normalDraftLocked
+                  ? '角色扮演开启中，普通记忆暂停写入；先关闭角色扮演再补开发代码。'
+                  : draftPool === 'normal'
+                    ? '记一条开发/问答参考，例如：报错原因、命令、接口字段；代码块会自动归入代码。'
+                    : '手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。'
               }
               onChange={(event) => setDraft(event.target.value)}
             />
-            <button className={styles.primary} type="button" onClick={submit}>
+            <button className={styles.primary} type="button" disabled={normalDraftLocked} onClick={submit}>
               添加
             </button>
           </div>
           <p className={styles.footerHint}>
-            保存历史对话请长按消息 → 选择这条对话 / 全选本对话 → 保存为记忆，并在确认弹窗里选分类。
+            {roleplayActive
+              ? '角色扮演开启时，长按保存的代码与整轮内容只进角色记忆；普通记忆暂停手动补卡，关闭角色扮演后恢复。'
+              : '保存历史对话请长按消息 → 选择这条对话 / 全选本对话 → 保存为记忆，并在确认弹窗里选分类。'}
           </p>
           {poolEntries.length > 0 ? (
             <button

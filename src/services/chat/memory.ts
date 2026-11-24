@@ -467,6 +467,15 @@ export const selectMemoryCardsForInjection = (
 }
 
 /**
+ * 角色记忆进普通对话时的过滤：角色扮演关闭后，带三连反引号代码块的角色卡不再注入，
+ * 避免角色剧情里顺手写出的命令、代码和开发日志污染普通对话；剧情与关系卡保持原样。
+ */
+export const filterCharacterMemoryForInjection = <T extends { card: MemoryCard }>(
+  entries: T[],
+  roleplayActive: boolean
+): T[] => (roleplayActive ? entries : entries.filter(({ card }) => !detectCodeBlock(card.text)))
+
+/**
  * 普通记忆注入：不做时间线、好感或关系召回，只按关键词命中取卡片。
  * 手动卡与置顶卡优先；其余按与当前问题的词块重合度排序，没有关键词时取最近几张。
  */

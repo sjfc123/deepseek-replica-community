@@ -53,6 +53,13 @@ export type SceneState = {
 
 export type SceneField = Exclude<keyof SceneState, 'updatedAt'>
 
+/** 当前真正生效的角色卡：开关开着但卡已删除时视为未开启角色扮演 */
+export const findActiveCharacterCard = (
+  cards: CharacterCard[],
+  activeId: string | null
+): CharacterCard | undefined =>
+  activeId ? cards.find((card) => card.id === activeId) : undefined
+
 export const CHARACTER_CARD_MAX = 50
 export const CHARACTER_TAG_MAX = 6
 export const CHARACTER_TAG_LENGTH = 12

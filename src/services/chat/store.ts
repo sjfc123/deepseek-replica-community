@@ -29,6 +29,7 @@ import {
   parseSceneUpdate,
   selectWorldbookEntries,
   WORLDBOOK_INJECT_MAX,
+  findActiveCharacterCard,
 } from './roleplay.js'
 import {
   activeMemoryCards,
@@ -40,6 +41,7 @@ import {
   createMemoryCard,
   detectCodeBlock,
   detectCodeLanguage,
+  filterCharacterMemoryForInjection,
   formatMemoryBlock,
   formatNormalMemoryBlock,
   getMemoryPool,
@@ -1663,11 +1665,26 @@ const recordTurnMemory = (
 }
 
 /**
+ * 角色扮演开启且角色卡真实存在时，记忆写入锁在角色池：
+ * 代码、开发日志和整轮剧情都不允许意外落进普通记忆。
+ */
+const roleplayMemoryLocked = () => {
+  const settings = useSettings.getState()
+  return settings.roleplayEnabled && Boolean(
+    findActiveCharacterCard(settings.characterCards, settings.activeCharacterId)
+  )
+}
+
+/**
  * 普通代码记忆自动入库：回复里出现三连反引号代码块时自动存一张普通-代码卡。
  * 只在非角色扮演场景生效；同一条回复只记一次，用户仍可在保存弹窗里手动选择其它分类。
  */
 const recordNormalCodeMemory = (sessionId: string, targetMessageId: string, answer: string) => {
-  if (!useSettings.getState().normalMemoryEnabled || !detectCodeBlock(answer)) {
+  if (
+    roleplayMemoryLocked() ||
+    !useSettings.getState().normalMemoryEnabled ||
+    !detectCodeBlock(answer)
+  ) {
     return
   }
   const session = getSession(sessionId)
@@ -1716,7 +1733,11 @@ export const addManualMemory = (
   if (!last || !text.trim()) {
     return
   }
-  const pool = target.pool === 'normal' ? 'normal' : 'character'
+  const pool: MemoryPool = roleplayMemoryLocked()
+    ? 'character'
+    : target.pool === 'normal'
+      ? 'normal'
+      : 'character'
   const category = pool === 'normal' ? target.category ?? 'dialogue' : undefined
   const language =
     pool === 'normal' && category === 'code' ? detectCodeLanguage(text) : undefined
@@ -1756,7 +1777,7 @@ export const saveMessagesAsMemory = (
   target: MemorySaveTarget = { pool: 'character' }
 ): SaveConversationMemoryResult => {
   const empty: SaveConversationMemoryResult = { created: 0, skipped: 0, active: 0, chars: 0 }
-  const pool: MemoryPool = target.pool
+  const pool: MemoryPool = roleplayMemoryLocked() ? 'character' : target.pool
   const session = getSession(sessionId)
   if (!session) {
     return empty
@@ -2307,21 +2328,25 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 角色设定必须随每次请求下发：手写文本原样使用，`{{user}}` 只在发请求时换成账号名字，
   // 打开出戏压制时再在后面追加演出规则；本地保存的提示词不会被改写。
   const sessionForMemory = getSession(sessionId)
-  const memoryCards =
+  const visibleForRoleplay = sessionForMemory ? getVisibleMessages(sessionForMemory) : []
+  const activeCard = findActiveCharacterCard(characterCards, activeCharacterId)
+  // 关闭角色扮演时仍保留启用卡的人设；世界书、场景与演出规则随模式暂停
+  const roleplayActive = roleplayEnabled && Boolean(activeCard)
+  // 角色记忆里的代码块只属于角色剧情，关闭扮演后不把这类卡带进普通对话；
+  // 剧情、关系与时间线卡片仍可按原规则注入，保持人设连续性。
+  const selectedMemoryEntries =
     memoryMode === 'off' || !sessionForMemory
       ? []
       : selectMemoryCardsForInjection(
           sessionForMemory,
-          getVisibleMessages(sessionForMemory),
+          visibleForRoleplay,
           memoryLimit,
           request.question.content
-        ).map((entry) => entry.card)
-  const visibleForRoleplay = sessionForMemory ? getVisibleMessages(sessionForMemory) : []
-  const activeCard = activeCharacterId
-    ? characterCards.find((card) => card.id === activeCharacterId)
-    : undefined
-  // 关闭角色扮演时仍保留启用卡的人设；世界书、场景与演出规则随模式暂停
-  const roleplayActive = roleplayEnabled && Boolean(activeCard)
+        )
+  const memoryCards = filterCharacterMemoryForInjection(
+    selectedMemoryEntries,
+    roleplayActive
+  ).map((entry) => entry.card)
   // 普通记忆只用于开发、排错与问答；角色扮演开启时不注入，避免代码和开发日志污染人设
   const normalCards =
     normalMemoryEnabled && sessionForMemory && !roleplayActive

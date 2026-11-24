@@ -21,6 +21,7 @@ import {
   type MemoryPool,
   type NormalMemoryKind,
 } from '../../services/chat/memory.js'
+import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
 import type { Session } from '../../services/chat/types.js'
 import { sessionActualUsage } from '../../services/chat/tokenUsage.js'
 import {
@@ -84,6 +85,11 @@ export const MessageList = ({
   const desktopFooterRef = useRef<HTMLDivElement>(null)
   const jumpSlotRef = useRef<HTMLDivElement>(null)
   const autoFollow = useSettings((state) => state.autoFollow)
+  const roleplayEnabled = useSettings((state) => state.roleplayEnabled)
+  const activeCharacterId = useSettings((state) => state.activeCharacterId)
+  const characterCards = useSettings((state) => state.characterCards)
+  const roleplayActive =
+    roleplayEnabled && Boolean(findActiveCharacterCard(characterCards, activeCharacterId))
   const tokenLimit = useSettings((state) => state.tokenLimit)
   const [tokenWarning, setTokenWarning] = useState<{ limit: number; used: number } | null>(null)
   const [chipHidden, setChipHidden] = useState(() => tokenUsageChipDismissed())
@@ -764,15 +770,17 @@ export const MessageList = ({
           : message.content
       )
     )
-    setMemoryPool(hasCode ? 'normal' : 'character')
+    // 角色扮演中，代码只属于角色剧情，不能因为出现三连反引号就预选普通记忆
+    setMemoryPool(roleplayActive ? 'character' : hasCode ? 'normal' : 'character')
     setMemoryKind('auto')
     setMemoryConfirm(true)
   }
   const confirmSaveMemory = () => {
+    const savePool: MemoryPool = roleplayActive ? 'character' : memoryPool
     const result = saveMessagesAsMemory(
       session.id,
       Array.from(memorySelect.ids),
-      memoryPool === 'normal'
+      savePool === 'normal'
         ? { pool: 'normal', category: memoryKind }
         : { pool: 'character' }
     )
@@ -972,10 +980,11 @@ export const MessageList = ({
                     role="radio"
                     aria-checked={memoryPool === 'normal'}
                     data-active={memoryPool === 'normal'}
+                    disabled={roleplayActive}
                     onClick={() => setMemoryPool('normal')}
                   >
                     普通记忆
-                    <small>开发 · 问答 · 代码</small>
+                    <small>{roleplayActive ? '角色扮演中暂停写入' : '开发 · 问答 · 代码'}</small>
                   </button>
                 </div>
                 {memoryPool === 'normal' ? (
@@ -1004,9 +1013,11 @@ export const MessageList = ({
                   </div>
                 ) : null}
                 <p className={styles.memoryConfirmText}>
-                  {memoryPool === 'normal'
-                    ? '自动识别会把三连反引号代码块归入「代码」，用户消息归入「用户原话」，AI 回复归入「AI 原话」；也可以手动指定。'
-                    : '同一轮已有整段角色卡会跳过；超出分类配额时归档最早的自动卡，不会保存失败。这里只处理记忆保存，不含分享。'}
+                  {roleplayActive
+                    ? '角色扮演开启时，角色写的代码和整轮内容只写入角色记忆，普通记忆暂停保存；需要存开发代码时先关闭角色扮演。'
+                    : memoryPool === 'normal'
+                      ? '自动识别会把三连反引号代码块归入「代码」，用户消息归入「用户原话」，AI 回复归入「AI 原话」；也可以手动指定。'
+                      : '同一轮已有整段角色卡会跳过；超出分类配额时归档最早的自动卡，不会保存失败。这里只处理记忆保存，不含分享。'}
                 </p>
                 <div className={styles.memoryConfirmActions}>
                   <button

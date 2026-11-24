@@ -311,6 +311,11 @@
     font-weight: 600;
   }
 
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   small {
     display: block;
     margin-top: 3px;
