@@ -183,6 +183,8 @@ type Settings = {
   tokenLimit: number
   /** 回复完成后是否显示输入/输出/缓存命中明细 */
   showUsage: boolean
+  /** 用量明细显示在回复下方；默认 false，显示在回复上方 */
+  usageBelow: boolean
   /** 长期记忆：关闭 / 每轮整段记录 / 每轮记录后模型提炼合并 */
   memoryMode: MemoryMode
   /** 长期记忆保留上限（自动卡片），10–9999；超出后最早的自动卡片归档 */
@@ -273,6 +275,7 @@ const KEYS = {
   avatarShape: 'replica:avatar-shape',
   tokenLimit: 'replica:token-limit',
   showUsage: 'replica:show-usage',
+  usageBelow: 'replica:usage-below',
   tokenChipClosed: 'replica:token-chip-closed',
   memoryMode: 'replica:memory-mode',
   memoryLimit: 'replica:memory-limit',
@@ -625,6 +628,7 @@ export const useSettings = create<Settings>(() => ({
   avatarShape: read(KEYS.avatarShape) === 'rounded' ? 'rounded' : 'circle',
   tokenLimit: initialTokenLimit(),
   showUsage: read(KEYS.showUsage) === '0' ? false : true,
+  usageBelow: read(KEYS.usageBelow) === 'true',
   memoryMode: readMemoryMode(),
   memoryLimit: readMemoryLimit(),
   memoryChars: readMemoryChars(),
@@ -1249,6 +1253,11 @@ export const setWorldbookInject = (worldbookInject: boolean) => {
 export const setShowUsage = (showUsage: boolean) => {
   write(KEYS.showUsage, showUsage ? '1' : '0')
   useSettings.setState({ showUsage })
+}
+
+export const setUsageBelow = (usageBelow: boolean) => {
+  write(KEYS.usageBelow, String(usageBelow))
+  useSettings.setState({ usageBelow })
 }
 
 export const setAvatarShape = (avatarShape: 'circle' | 'rounded') => {

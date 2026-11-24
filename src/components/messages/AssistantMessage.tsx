@@ -87,6 +87,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   const customEndpoint = useSettings((state) => Boolean(state.chatConfig.endpoint))
   const avatarInChat = useSettings((state) => state.avatarInChat)
   const showUsage = useSettings((state) => state.showUsage)
+  const usageBelow = useSettings((state) => state.usageBelow)
   const characterAvatar = useSettings((state) => state.characterAvatar)
   // 启用的角色卡带头像时优先展示，未设置时回落到账号里配置的角色头像
   const cardAvatar = useSettings((state) =>
@@ -166,6 +167,22 @@ export const AssistantMessage = memo(function AssistantMessage({
   const waiting =
     streaming && view.steps.length === 0 && !view.answer && (android || !message.thinking)
   const summaryEntry = `${message.id}-summary`
+  const usageLine =
+    showUsage && message.status === 'done' && message.usage ? (
+      <div className={styles.usageLine} data-position={usageBelow ? 'below' : 'above'}>
+        <span>
+          输入{' '}
+          {formatTokenCount(
+            message.usage.input_tokens +
+              message.usage.cache_creation_input_tokens +
+              message.usage.cache_read_input_tokens
+          )}
+        </span>
+        <span>输出 {formatTokenCount(message.usage.output_tokens)}</span>
+        <span>缓存命中 {formatTokenCount(message.usage.cache_read_input_tokens)}</span>
+        <span>未命中 {formatTokenCount(message.usage.input_tokens)}</span>
+      </div>
+    ) : null
   return (
     <div
       className={clsx(styles.message, searchHighlightNonce !== null && styles.searchHighlighted)}
@@ -181,6 +198,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           align="start"
         />
       ) : null}
+      {usageBelow ? null : usageLine}
       {refused || editing ? null : (
         <ReplyArea
           message={message}
@@ -189,21 +207,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           hasResponse={!!responseText}
         />
       )}
-      {showUsage && message.status === 'done' && message.usage ? (
-        <div className={styles.usageLine}>
-          <span>
-            输入{' '}
-            {formatTokenCount(
-              message.usage.input_tokens +
-                message.usage.cache_creation_input_tokens +
-                message.usage.cache_read_input_tokens
-            )}
-          </span>
-          <span>输出 {formatTokenCount(message.usage.output_tokens)}</span>
-          <span>缓存命中 {formatTokenCount(message.usage.cache_read_input_tokens)}</span>
-          <span>未命中 {formatTokenCount(message.usage.input_tokens)}</span>
-        </div>
-      ) : null}
+      {usageBelow ? usageLine : null}
       {confirmDelete
         ? createPortal(
             <div

@@ -58,6 +58,7 @@ import {
   setAutoFollow,
   setTokenLimit,
   setShowUsage,
+  setUsageBelow,
   setAccentColor,
   setBubbleRadius,
   setMessageSpacing,
@@ -646,6 +647,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     avatarShape,
     tokenLimit,
     showUsage,
+    usageBelow,
     autoFollow,
     memoryMode,
     memoryLimit,
@@ -1867,6 +1869,24 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   />
                 }
               />
+              <Row
+                label={tr('用量明细显示在回复下方', 'Token details below reply')}
+                value={usageBelow ? tr('下方', 'Below') : tr('上方', 'Above')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('用量明细显示在回复下方', 'Token details below reply')}
+                    checked={usageBelow}
+                    toggle={() => setUsageBelow(!usageBelow)}
+                  />
+                }
+              />
+              <p className={styles.caption}>
+                {tr(
+                  '默认显示在回复上方；打开后移到回复下方。记忆标记始终在消息末尾，不会被用量明细遮住。输入、输出、缓存命中和未命中显示完整数字并带千分位，达到 100 万后才缩写成 1M / 1.1M。',
+                  'Default is above the reply; turn this on to move it below. Memory chips remain at the end of the message and are not covered. Input, output, cache hit and miss use full numbers with separators, switching to 1M / 1.1M only at one million.'
+                )}
+              </p>
               <p className={styles.caption}>
                 {tr(
                   '限额是本地提醒阈值：接口实际累计消耗达到该值时提示一次，并显示顶栏胶囊。胶囊与统计面板只读取接口返回的 usage，不做本地分词估算；未返回 usage 的请求不计入，也不显示胶囊。该值不改变服务端计费上限。',

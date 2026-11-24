@@ -308,7 +308,8 @@ const queryTerms = (query: string) => {
 }
 
 /**
- * 每轮真正注入的卡片：置顶 → 最近几轮 → 与当前发言相关或落在同一时间段的旧卡。
+ * 每轮真正注入的卡片：手动记录 → 置顶 → 最近几轮 → 与当前发言相关或落在同一时间段的旧卡。
+ * 手动卡是玩家明确要求角色记住的偏好、姓名和经历，不参与“最近 12 张”的竞争，优先占预算；
  * 最近优先保证新记忆不被字符预算挤掉；旧卡靠关键词与时间锚点补回来。
  */
 export const selectMemoryCardsForInjection = (
@@ -320,9 +321,15 @@ export const selectMemoryCardsForInjection = (
   const active = collectVisibleMemories(session, messages)
     .filter(({ card }) => card.enabled && !card.superseded)
     .sort((a, b) => a.card.createdAt - b.card.createdAt)
-  const pinned = active.filter(({ card }) => card.pinned).slice(-MEMORY_PINNED_MAX)
+  const manual = active.filter(({ card }) => card.source === 'manual')
+  const manualIds = new Set(manual.map(({ card }) => card.id))
+  const pinned = active
+    .filter(({ card }) => card.pinned && !manualIds.has(card.id))
+    .slice(-MEMORY_PINNED_MAX)
   const pinnedIds = new Set(pinned.map(({ card }) => card.id))
-  const unpinned = active.filter(({ card }) => !pinnedIds.has(card.id)).slice(-Math.max(1, limit))
+  const unpinned = active
+    .filter(({ card }) => !manualIds.has(card.id) && !pinnedIds.has(card.id))
+    .slice(-Math.max(1, limit))
   const recent = unpinned.slice(-MEMORY_RECENT_INJECT)
   const older = unpinned.slice(0, Math.max(0, unpinned.length - MEMORY_RECENT_INJECT))
   const terms = queryTerms(query)
@@ -352,7 +359,7 @@ export const selectMemoryCardsForInjection = (
           .sort((a, b) => b.score - a.score)
           .slice(0, MEMORY_RELEVANT_INJECT)
           .map((item) => item.entry)
-  const chosen = [...pinned, ...[...recent].reverse(), ...relevant]
+  const chosen = [...manual, ...pinned, ...[...recent].reverse(), ...relevant]
   const seen = new Set<string>()
   return chosen.filter(({ card }) => {
     if (seen.has(card.id)) {
@@ -390,7 +397,7 @@ export const formatMemoryBlock = (
   }
   return (
     '【长期记忆 · 最高优先级】\n' +
-    '以下是你与{{user}}共同经历的记忆片段：置顶在前，其后是最近和相关经历，都是已经发生的事实。' +
+    '以下是你与{{user}}共同经历的记忆片段：手动记录和置顶在前，其后是最近和相关经历，都是已经发生的事实。' +
     '每条开头的时间、轮次和关系阶段是当时的锚点。\n' +
     '回应的规则：\n' +
     '1. 当{{user}}提到某个时间、地点、物品、约定或经历时，先在下面的记忆里找对应片段，再依据那段经历回应；找不到就如实说不确定，不要编造。\n' +
@@ -398,6 +405,8 @@ export const formatMemoryBlock = (
     '3. 当{{user}}的行动和记忆里的习惯、承诺、时间线或关系阶段有关时，先按那段记忆判断角色会怎么反应，再继续演出。\n' +
     '4. 如果记忆与当前场景冲突，以时间更近的记忆和当前场景为准；不确定时保留模糊，不要替{{user}}补完事实。\n' +
     '5. 不要向{{user}}复述本段，也不要提到「记忆」「卡片」「设定」这类词。\n' +
+    '6. 记忆里出现「{{user}}」、玩家自己填写的名字或「用户」时，都指当前玩家；出现角色名、「角色」或「你」时，都指你。称呼不同不代表换人，不要当成两个角色。\n' +
+    '7. 当{{user}}询问自己或角色的姓名、喜好、习惯、经历、关系这类已知信息时，先查下面的记忆再回答；记忆里有明确记录就当成既定事实，直接给出记录中的答案，不要说不确定，也不要另编一个。\n' +
     lines.join('\n')
   )
 }

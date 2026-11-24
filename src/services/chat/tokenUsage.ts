@@ -2,17 +2,18 @@ import { getVisibleMessages } from './branches.js'
 import { summarizeSessionUsage } from '../tokenUsage.js'
 import type { AssistantMessage, Session } from './types.js'
 
-/** 50000 → 50K，1000000 → 1M，其余原样带千分位 */
+/**
+ * 1,000,000 以下显示完整数字并带千分位，保留一位小数（有小数时）；
+ * 达到 1,000,000 才切成 1M / 1.1M 这类缩写，方便一眼看出量级。
+ */
 export const formatTokenCount = (tokens: number) => {
-  if (tokens >= 1_000_000) {
-    const value = tokens / 1_000_000
-    return `${Number.isInteger(value) ? value : value.toFixed(1)}M`
+  const value = Math.max(0, tokens)
+  if (value >= 1_000_000) {
+    const millions = value / 1_000_000
+    return `${Number.isInteger(millions) ? millions : millions.toFixed(1)}M`
   }
-  if (tokens >= 1_000) {
-    const value = tokens / 1_000
-    return `${Number.isInteger(value) ? value : value.toFixed(1)}K`
-  }
-  return String(Math.max(0, Math.round(tokens)))
+  const rounded = Math.round(value * 10) / 10
+  return rounded.toLocaleString('zh-CN', { maximumFractionDigits: 1 })
 }
 
 /**

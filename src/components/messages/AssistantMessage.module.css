@@ -291,13 +291,25 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 7%);
 }
 
-:global([data-chat-layout='wechat']) .message .selectableContent :global(.ds-markdown-paragraph:first-child),
-:global([data-chat-layout='blue']) .message .selectableContent :global(.ds-markdown-paragraph:first-child) {
+:global([data-chat-layout='wechat'])
+  .message
+  .selectableContent
+  :global(.ds-markdown-paragraph:first-child),
+:global([data-chat-layout='blue'])
+  .message
+  .selectableContent
+  :global(.ds-markdown-paragraph:first-child) {
   margin-top: 0;
 }
 
-:global([data-chat-layout='wechat']) .message .selectableContent :global(.ds-markdown-paragraph:last-child),
-:global([data-chat-layout='blue']) .message .selectableContent :global(.ds-markdown-paragraph:last-child) {
+:global([data-chat-layout='wechat'])
+  .message
+  .selectableContent
+  :global(.ds-markdown-paragraph:last-child),
+:global([data-chat-layout='blue'])
+  .message
+  .selectableContent
+  :global(.ds-markdown-paragraph:last-child) {
   margin-bottom: 0;
 }
 
@@ -476,6 +488,14 @@
   span {
     white-space: nowrap;
   }
+}
+
+.usageLine[data-position='above'] {
+  margin: 0 0 5px;
+}
+
+.usageLine[data-position='below'] {
+  margin: 2px 0 6px;
 }
 
 @keyframes message-rise {

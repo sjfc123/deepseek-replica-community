@@ -11,7 +11,6 @@ import {
   addManualMemory,
   clearMemories,
   deleteMemoryCard,
-  saveConversationAsMemory,
   setMemoryEnabled,
   setMemoryPinned,
   updateMemoryText,
@@ -67,16 +66,13 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   }
 
   const [confirming, setConfirming] = useState<
-    | { kind: 'one'; messageId: string; cardId: string }
-    | { kind: 'all' }
-    | { kind: 'bulk'; count: number }
-    | null
+    { kind: 'one'; messageId: string; cardId: string } | { kind: 'all' } | null
   >(null)
-  const [editing, setEditing] = useState<{ messageId: string; cardId: string; text: string } | null>(
-    null
-  )
-  const [bulkSelected, setBulkSelected] = useState(0)
-  const [bulkStatus, setBulkStatus] = useState('')
+  const [editing, setEditing] = useState<{
+    messageId: string
+    cardId: string
+    text: string
+  } | null>(null)
   const messages = useMemo(() => getVisibleMessages(session), [session])
   const entries = useMemo(() => {
     const all = collectVisibleMemories(session, messages)
@@ -286,7 +282,9 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                       className={styles.toggle}
                       type="button"
                       aria-pressed={card.enabled}
-                      onClick={() => setMemoryEnabled(session.id, messageId, card.id, !card.enabled)}
+                      onClick={() =>
+                        setMemoryEnabled(session.id, messageId, card.id, !card.enabled)
+                      }
                     >
                       {card.enabled ? '已启用' : '已关闭'}
                     </button>
@@ -295,9 +293,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                       data-pinned={card.pinned ? 'true' : undefined}
                       type="button"
                       aria-pressed={Boolean(card.pinned)}
-                      onClick={() =>
-                        setMemoryPinned(session.id, messageId, card.id, !card.pinned)
-                      }
+                      onClick={() => setMemoryPinned(session.id, messageId, card.id, !card.pinned)}
                     >
                       {card.pinned ? '已置顶' : '置顶'}
                     </button>
@@ -365,63 +361,25 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
         </div>
 
         <footer className={styles.footer}>
-          <div className={styles.bulkBar}>
-            <div className={styles.bulkCopy}>
-              <strong>整段保存</strong>
-              <span>
-                {bulkSelected > 0
-                  ? `已全选 ${bulkSelected} 条消息，按轮存成完整记忆卡`
-                  : `当前分支 ${messages.length} 条消息，可一键全选后保存`}
-              </span>
-            </div>
-            <div className={styles.bulkActions}>
-              {bulkSelected > 0 ? (
-                <>
-                  <button
-                    className={styles.primary}
-                    type="button"
-                    onClick={() => setConfirming({ kind: 'bulk', count: bulkSelected })}
-                  >
-                    保存为记忆
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBulkSelected(0)
-                      setBulkStatus('')
-                    }}
-                  >
-                    取消全选
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  disabled={messages.length === 0}
-                  onClick={() => {
-                    setBulkSelected(messages.length)
-                    setBulkStatus('')
-                  }}
-                >
-                  全选本对话
-                </button>
-              )}
-            </div>
-          </div>
-          {bulkStatus ? <p className={styles.bulkStatus}>{bulkStatus}</p> : null}
           <div className={styles.addBox}>
             <textarea
               value={draft}
               rows={2}
               maxLength={400}
-              placeholder="手动记一条，例如：用户住在大方县，习惯晚上聊天。"
+              placeholder="手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。"
               onChange={(event) => setDraft(event.target.value)}
             />
-            <button className={styles.primary} type="button" onClick={submit} disabled={!draft.trim()}>
+            <button
+              className={styles.primary}
+              type="button"
+              onClick={submit}
+              disabled={!draft.trim()}
+            >
               添加
             </button>
           </div>
           <div className={styles.footMeta}>
+            <span>整段对话保存已移到消息长按菜单：选择这条对话或全选本对话。</span>
             <span>
               记忆总字数上限 {memoryChars.toLocaleString('zh-CN')} 字，超出自动归档，不删除
             </span>
@@ -441,18 +399,12 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
         <div className={styles.confirmBackdrop} role="dialog" aria-modal="true">
           <div className={styles.confirmCard}>
             <div className={styles.confirmTitle}>
-              {confirming.kind === 'one'
-                ? '删除这条记忆？'
-                : confirming.kind === 'all'
-                  ? '清空本会话记忆？'
-                  : '将本对话保存为记忆？'}
+              {confirming.kind === 'one' ? '删除这条记忆？' : '清空本会话记忆？'}
             </div>
             <div className={styles.confirmText}>
               {confirming.kind === 'one'
                 ? '删除后不会再进入下一轮上下文，也无法恢复。'
-                : confirming.kind === 'all'
-                  ? `共 ${entries.length} 条记忆，清空后不可恢复，也不会再进入下一轮上下文。`
-                  : `已全选 ${confirming.count} 条消息。保存会按轮生成完整卡片；已有整段卡片的轮次跳过；超过卡片或字数上限的最早自动卡自动归档，内容不删除，也不会保存失败。`}
+                : `共 ${entries.length} 条记忆，清空后不可恢复，也不会再进入下一轮上下文。`}
             </div>
             <div className={styles.confirmActions}>
               <button
@@ -464,35 +416,17 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               </button>
               <button
                 type="button"
-                className={
-                  confirming.kind === 'bulk' ? styles.confirmPrimary : styles.confirmDanger
-                }
+                className={styles.confirmDanger}
                 onClick={() => {
                   if (confirming.kind === 'one') {
                     deleteMemoryCard(session.id, confirming.messageId, confirming.cardId)
-                    setConfirming(null)
-                    return
-                  }
-                  if (confirming.kind === 'all') {
+                  } else {
                     clearMemories(session.id)
-                    setConfirming(null)
-                    return
                   }
-                  const result = saveConversationAsMemory(session.id)
-                  setBulkSelected(0)
-                  setBulkStatus(
-                    result.created > 0
-                      ? `已保存 ${result.created} 轮完整记忆${result.skipped > 0 ? `，跳过 ${result.skipped} 轮已有整段卡` : ''}；现在生效 ${result.active} 张 / ${result.chars.toLocaleString('zh-CN')} 字。`
-                      : `没有新增卡片：${result.skipped} 轮已经有整段记忆，可在「全部」里查看。`
-                  )
                   setConfirming(null)
                 }}
               >
-                {confirming.kind === 'one'
-                  ? '删除'
-                  : confirming.kind === 'all'
-                    ? '清空'
-                    : '保存'}
+                {confirming.kind === 'one' ? '删除' : '清空'}
               </button>
             </div>
           </div>
