@@ -46,6 +46,7 @@ import {
 import { ANNOUNCEMENT_VERSION } from '../../app/announcement.js'
 import { readMigrationReport } from '../../services/dataMigration.js'
 import { getUnreadableRecordCount } from '../../services/chat/db.js'
+import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
 import { selectSession, useChatStore } from '../../services/chat/store.js'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 import { TokenUsagePanel } from './TokenUsagePanel.js'
@@ -677,6 +678,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     sceneAutoUpdate,
   } = useSettings()
   const tr = (chinese: string, english: string) => (locale === 'zh-CN' ? chinese : english)
+  // 角色卡启用期间，名字输入框显示卡名；手写名字另存，关闭角色卡后自动恢复
+  const activeCharacterCard = roleplayEnabled
+    ? findActiveCharacterCard(characterCards, activeCharacterId)
+    : undefined
+  const characterNameField = activeCharacterCard?.name ?? characterName
   const accountName = accountProfile.username || tr('未设置名称', 'No name')
   const compactChars = (value: number) =>
     value >= 1_000_000
@@ -1749,18 +1755,19 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 <span className={styles.inlineLabel}>{tr('角色名字', 'Name')}</span>
                 <input
                   className={styles.inlineInput}
-                  value={characterName}
+                  value={characterNameField}
                   placeholder={tr('留空则显示 AI', 'Blank shows AI')}
                   aria-label={tr('角色名字', 'Character name')}
                   maxLength={20}
+                  readOnly={Boolean(activeCharacterCard)}
                   onChange={(event) => setCharacterName(event.target.value)}
                 />
               </div>
             </Group>
             <p className={styles.pageIntro}>
               {tr(
-                '系统提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：身份（是谁、与{{user}}什么关系）、表达（称呼、语气、动作密度）、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n你是{{char}}，28 岁，夜班便利店店员。\n你对{{user}}克制但关心，称呼「你」。\n用对话和动作推进，不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
-                'The system prompt is sent every turn and overrides other behavioural hints. Write it in three layers: identity (who the character is and the relationship with {{user}}), delivery (address, tone, action density), constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nYou are {{char}}, 28, night-shift clerk.\nYou are restrained but caring toward {{user}}, and call them 「你」.\nAdvance through dialogue and action; do not restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
+                '角色名字在启用角色卡期间显示为卡名，关闭后恢复这里保存的手写名字。系统提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：身份（是谁、与{{user}}什么关系）、表达（称呼、语气、动作密度）、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n你是{{char}}，28 岁，夜班便利店店员。\n你对{{user}}克制但关心，称呼「你」。\n用对话和动作推进，不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
+                'While a character card is active, the name field shows the card name; when roleplay is off it returns to the handwritten name saved here. The system prompt is sent every turn and overrides other behavioural hints. Write it in three layers: identity (who the character is and the relationship with {{user}}), delivery (address, tone, action density), constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nYou are {{char}}, 28, night-shift clerk.\nYou are restrained but caring toward {{user}}, and call them 「你」.\nAdvance through dialogue and action; do not restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
               )}
             </p>
             <Group>
