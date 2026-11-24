@@ -1440,7 +1440,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   activeCharacterId
                     ? roleplayEnabled
                       ? tr(`启用 · 书 ${worldbook.length} 条`, `On · ${worldbook.length} entries`)
-                      : tr('人设保留 · 书暂停', 'Persona only · lorebook paused')
+                      : tr('已关闭 · 卡暂停', 'Off · card paused')
                     : tr(`卡 ${characterCards.length} · 书 ${worldbook.length}`, `${characterCards.length} cards · ${worldbook.length} entries`)
                 }
                 onClick={() => openPage('roleplay')}

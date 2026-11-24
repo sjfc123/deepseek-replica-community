@@ -2315,6 +2315,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     normalMemoryChars,
     characterCards,
     activeCharacterId,
+    characterName,
     roleplayEnabled,
     worldbook,
     worldbookInject,
@@ -2330,10 +2331,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const sessionForMemory = getSession(sessionId)
   const visibleForRoleplay = sessionForMemory ? getVisibleMessages(sessionForMemory) : []
   const activeCard = findActiveCharacterCard(characterCards, activeCharacterId)
-  // 关闭角色扮演时仍保留启用卡的人设；世界书、场景与演出规则随模式暂停
+  // 关闭角色扮演后完全不使用启用卡：身份、关系、说话方式、世界书、场景与角色记忆都不注入
   const roleplayActive = roleplayEnabled && Boolean(activeCard)
-  // 角色记忆里的代码块只属于角色剧情，关闭扮演后不把这类卡带进普通对话；
-  // 剧情、关系与时间线卡片仍可按原规则注入，保持人设连续性。
   const selectedMemoryEntries =
     memoryMode === 'off' || !sessionForMemory
       ? []
@@ -2343,10 +2342,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           memoryLimit,
           request.question.content
         )
-  const memoryCards = filterCharacterMemoryForInjection(
-    selectedMemoryEntries,
-    roleplayActive
-  ).map((entry) => entry.card)
+  // 角色记忆属于角色剧情；关闭扮演后整段停用，普通对话只保留普通记忆与手写提示词
+  const memoryCards = roleplayActive
+    ? filterCharacterMemoryForInjection(selectedMemoryEntries, true).map((entry) => entry.card)
+    : []
   // 普通记忆只用于开发、排错与问答；角色扮演开启时不注入，避免代码和开发日志污染人设
   const normalCards =
     normalMemoryEnabled && sessionForMemory && !roleplayActive
@@ -2386,7 +2385,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // system 只放跨轮稳定的内容。缓存按完整前缀命中，system 里哪怕只变一张记忆卡，
   // 后面的全部历史都会失效；记忆、场景和按关键词挑出的世界书因此统一挪到本轮末尾。
   const baseSystem = [
-    activeCard ? formatCharacterCard(activeCard, userName, visibleForRoleplay.length < 2) : '',
+    roleplayActive && activeCard
+      ? formatCharacterCard(activeCard, userName, visibleForRoleplay.length < 2)
+      : '',
     composeSystemPrompt({
       savedPrompt: systemPrompt,
       custom,
@@ -2397,9 +2398,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     .filter(Boolean)
     .join('\n\n')
   // 统一替换占位符：手写提示词、角色卡字段、世界书与记忆都走这一处
+  const promptCharName = roleplayActive ? activeCard?.name : characterName
   const baseSystemResolved = applyPlaceholders(baseSystem, {
     userName,
-    charName: activeCard?.name,
+    charName: promptCharName,
   })
   const dynamicContext = [
     formatNormalMemoryBlock(normalCards, normalCards.length, normalMemoryChars),
@@ -2413,7 +2415,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const turnContext = dynamicContext
     ? [
         '（以下是这一轮附带的背景资料，不是对方新说的话，也不属于对话正文；回答仍按最后一条发言继续。）',
-        applyPlaceholders(dynamicContext, { userName, charName: activeCard?.name }),
+        applyPlaceholders(dynamicContext, { userName, charName: promptCharName }),
       ].join('\n')
     : ''
   const settleLocal = (

@@ -18,6 +18,7 @@ import {
 } from '../base/icons.js'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 import { describeReply } from '../../services/chat/describe.js'
+import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
 import { canContinueReply } from '../../services/chat/reply.js'
 import {
   continueReply,
@@ -89,11 +90,16 @@ export const AssistantMessage = memo(function AssistantMessage({
   const avatarInChat = useSettings((state) => state.avatarInChat)
   const showUsage = useSettings((state) => state.showUsage)
   const usageBelow = useSettings((state) => state.usageBelow)
+  const roleplayEnabled = useSettings((state) => state.roleplayEnabled)
+  const characterCards = useSettings((state) => state.characterCards)
+  const activeCharacterId = useSettings((state) => state.activeCharacterId)
+  // 只有角色扮演开启时才采用卡名与卡头像；关闭后回落到手写角色设定
+  const activeCard = roleplayEnabled
+    ? findActiveCharacterCard(characterCards, activeCharacterId)
+    : undefined
+  const cardAvatars = useSettings((state) => state.cardAvatars)
   const characterAvatar = useSettings((state) => state.characterAvatar)
-  // 启用的角色卡带头像时优先展示，未设置时回落到账号里配置的角色头像
-  const cardAvatar = useSettings((state) =>
-    state.activeCharacterId ? (state.cardAvatars[state.activeCharacterId] ?? null) : null
-  )
+  const cardAvatar = activeCard ? (cardAvatars[activeCard.id] ?? null) : null
   const characterName = useSettings((state) => state.characterName)
   const format = useSettings((state) => state.chatConfig.format)
   const thoughtAside = useSettings((state) => state.thoughtAside)
@@ -200,7 +206,7 @@ export const AssistantMessage = memo(function AssistantMessage({
       {avatarInChat ? (
         <MessageAvatar
           src={cardAvatar || characterAvatar}
-          name={characterName || (customEndpoint ? 'AI' : 'DeepSeek')}
+          name={activeCard?.name || characterName || (customEndpoint ? 'AI' : 'DeepSeek')}
           align="start"
         />
       ) : null}

@@ -204,7 +204,7 @@ type Settings = {
   /** 角色卡：多角色切换；启用中的卡会注入姓名、身份、关系、风格等字段 */
   characterCards: CharacterCard[]
   activeCharacterId: string | null
-  /** 角色扮演模式：关闭后保留启用卡的人设，只暂停世界书、场景与演出规则 */
+  /** 角色扮演模式：开启时注入当前启用卡；关闭后完全不注入卡，只保留手写角色设定与系统提示词 */
   roleplayEnabled: boolean
   /** 角色卡头像：按卡片 id 单独存一份 data URL，与卡片正文分开，删除卡片时随之清理 */
   cardAvatars: Record<string, string>
@@ -458,6 +458,27 @@ const initialActiveCharacterId = (): string | null => {
   return saved && initialCharacterCards().some((card) => card.id === saved) ? saved : null
 }
 
+/**
+ * 角色名字属于「手写角色设定」，不能被角色卡永久覆盖。
+ * 旧版本启卡时把卡名写进了这个键；如果读到的值与当前启用卡同名，视为历史残留并清空，
+ * 让关闭角色卡后回到手写设定，而不是继续沿用卡名。
+ */
+const initialCharacterName = (): string => {
+  const saved = read(KEYS.characterName)?.trim() ?? ''
+  if (!saved) {
+    return ''
+  }
+  const activeId = initialActiveCharacterId()
+  const active = activeId
+    ? initialCharacterCards().find((card) => card.id === activeId)
+    : undefined
+  if (active && active.name.trim() === saved) {
+    write(KEYS.characterName, null)
+    return ''
+  }
+  return saved
+}
+
 /** 旧版本没有独立开关：只要存在启用卡，默认仍按角色扮演开启，升级后行为不变 */
 const initialRoleplayEnabled = (activeId: string | null): boolean => {
   const saved = read(KEYS.roleplayEnabled)
@@ -627,7 +648,7 @@ export const useSettings = create<Settings>(() => ({
   refusalMessage: read(KEYS.refusalMessage) ?? '',
   autoBackup: read(KEYS.autoBackup) !== 'false',
   autoBackupMinutes: readAutoBackupMinutes(),
-  characterName: read(KEYS.characterName) ?? '',
+  characterName: initialCharacterName(),
   characterAvatar: initialCharacterAvatar(),
   avatarInChat: read(KEYS.avatarInChat) !== 'false',
   thoughtAside: read(KEYS.thoughtAside) !== 'false',
@@ -908,7 +929,7 @@ export const matchRefusalKeyword = (text: string): string | null => {
 const persistCharacterCards = (cards: CharacterCard[]) =>
   write(KEYS.characterCards, cards.length > 0 ? JSON.stringify(cards) : null)
 
-/** 保存或更新一张角色卡；正在使用的卡改名会同步到聊天里的角色名 */
+/** 保存或更新一张角色卡；卡名只用于卡本身，不改写手写角色设定的名字 */
 export const saveCharacterCard = (card: CharacterCard) => {
   const cards = useSettings.getState().characterCards
   const next = cards.some((item) => item.id === card.id)
@@ -918,9 +939,6 @@ export const saveCharacterCard = (card: CharacterCard) => {
     return false
   }
   useSettings.setState({ characterCards: next })
-  if (useSettings.getState().activeCharacterId === card.id && card.name) {
-    setCharacterName(card.name)
-  }
   return true
 }
 
@@ -944,7 +962,7 @@ export const setCardAvatar = (cardId: string, avatar: string | null) => {
   return true
 }
 
-/** 启用角色卡：切换角色名；卡里的字段在发请求时注入，不覆盖手写提示词 */
+/** 启用角色卡：卡名由运行时按「当前启用卡」解析，不覆盖手写角色设定的名字 */
 export const activateCharacterCard = (id: string | null) => {
   const card = id
     ? useSettings.getState().characterCards.find((item) => item.id === id)
@@ -955,12 +973,9 @@ export const activateCharacterCard = (id: string | null) => {
     activeCharacterId: card?.id ?? null,
     roleplayEnabled: Boolean(card),
   })
-  if (card?.name) {
-    setCharacterName(card.name)
-  }
 }
 
-/** 只切换角色扮演模式：关闭时保留启用卡，人设继续进入请求 */
+/** 只切换角色扮演模式：关闭后不再注入角色卡，回到手写角色设定与系统提示词 */
 export const setRoleplayEnabled = (roleplayEnabled: boolean) => {
   write(KEYS.roleplayEnabled, roleplayEnabled ? '1' : '0')
   useSettings.setState({ roleplayEnabled })
@@ -991,7 +1006,8 @@ export const deleteCharacterCard = (id: string) => {
     const removed = [...new Set([...readBuiltinRemoved(), id])]
     write(KEYS.builtinCardsRemoved, JSON.stringify(removed))
   }
-  const active = useSettings.getState().activeCharacterId === id ? null : useSettings.getState().activeCharacterId
+  const wasActive = useSettings.getState().activeCharacterId === id
+  const active = wasActive ? null : useSettings.getState().activeCharacterId
   write(KEYS.activeCharacterId, active)
   if (active === null) {
     write(KEYS.roleplayEnabled, '0')

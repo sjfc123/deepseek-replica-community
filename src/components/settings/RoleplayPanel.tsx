@@ -296,7 +296,7 @@ export function RoleplayPanel() {
     })
   }
 
-  /** 关闭角色扮演：保留启用卡的人设，只暂停世界书、场景与演出规则 */
+  /** 关闭角色扮演：卡暂停，不再向请求注入卡设定，回到手写提示词与手写角色名 */
   const closeRoleplay = (card: CharacterCard) => {
     setRoleplayEnabled(false)
     showToast({ key: 'roleplayClosed', params: { name: card.name } })
@@ -846,14 +846,14 @@ export function RoleplayPanel() {
               {roleplayOn
                 ? `角色扮演已开启 · ${activeCard?.name}`
                 : activeCard
-                  ? `角色扮演已关闭 · ${activeCard.name} 的人设保留`
+                  ? `角色扮演已关闭 · ${activeCard.name} 的卡已暂停`
                   : '角色扮演已关闭'}
             </strong>
             <p>
               {roleplayOn
                 ? '每次请求会注入该卡设定与手写提示词，两者叠加生效。'
                 : activeCard
-                  ? '角色卡人设与手写提示词仍会发送；世界书、场景和演出规则暂停，旧对话照常保留。'
+                  ? '只发送手写提示词与手写角色名；卡的身份、关系、说话方式、世界书、场景和角色记忆都不进入请求。'
                   : '当前仅发送手写提示词，不注入角色设定；启用任一张卡即可恢复角色扮演。'}
             </p>
           </div>
@@ -948,7 +948,7 @@ export function RoleplayPanel() {
                         <div className={styles.cardTitle}>
                           <strong>{card.name}</strong>
                           {selected ? (
-                            <span className={styles.activeTag}>{active ? '已启用' : '人设保留'}</span>
+                            <span className={styles.activeTag}>{active ? '已启用' : '未启用'}</span>
                           ) : null}
                           {card.builtin ? <span className={styles.builtinTag}>内置</span> : null}
                         </div>
@@ -1051,7 +1051,7 @@ export function RoleplayPanel() {
         </div>
         <div className={styles.sectionFootRow}>
           <p className={styles.sectionFoot}>
-            最多保存 {CHARACTER_CARD_MAX} 张，同一时间仅保留一张启用卡。关闭角色扮演后人设仍生效，世界书、场景与演出规则暂停；手写提示词始终保留。
+            最多保存 {CHARACTER_CARD_MAX} 张，同一时间仅保留一张启用卡。关闭角色扮演后卡设定完全暂停，只发送手写提示词与手写角色名；世界书、场景与角色记忆也不注入。
           </p>
           <button type="button" className={styles.ghostButton} onClick={restoreBuiltinCards}>
             恢复内置角色卡（{BUILTIN_CHARACTER_CARD_TOTAL}）

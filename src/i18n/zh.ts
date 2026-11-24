@@ -413,7 +413,7 @@ export const zh = {
   roleplayBuiltinPresent: '内置角色卡都在，没有需要补的',
   roleplayAvatarUpdated: '头像已更新',
   roleplayAvatarFailed: '头像没能处理：{reason}',
-  roleplayClosed: '已关闭「{name}」角色扮演，人设保留；世界书、场景与演出规则暂停。',
+  roleplayClosed: '已关闭「{name}」角色扮演，角色卡暂停；当前按手写提示词与手写角色名对话。',
   roleplayCardCopied: '已复制为「{name}」，可以单独改设定',
   roleplayCardLimit: '角色卡最多 {max} 张，先删掉一张再复制',
   roleplaySceneCleared: '场景已清空',

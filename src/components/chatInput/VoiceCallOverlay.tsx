@@ -33,17 +33,14 @@ export const VoiceCallOverlay = () => {
   const cardAvatars = useSettings((state) => state.cardAvatars)
   const centerRef = useRef<HTMLDivElement | null>(null)
 
-  // 角色卡只在角色扮演开启时参与通话身份：关闭后不再把卡名/卡头像带进语音页。
-  // 关闭后仍优先使用提示词侧配置的角色名字；如果这个值只是上次角色卡留下的同名文本，则回退为通用标题。
+  // 角色卡只在角色扮演开启时参与通话身份：关闭后回到手写角色设定的名字与头像。
+  // 手写名字即使和某张卡同名也照常显示，不再用「卡名等于通用标题」的启发式误伤。
   const activeCard = roleplayEnabled
     ? findActiveCharacterCard(characterCards, activeCharacterId)
     : undefined
   const cardName = activeCard?.name?.trim() ?? ''
   const fallbackName = characterName.trim()
-  const fallbackIsCardName =
-    Boolean(fallbackName) &&
-    characterCards.some((card) => card.name.trim() === fallbackName)
-  const displayName = cardName || (fallbackIsCardName ? '' : fallbackName)
+  const displayName = cardName || fallbackName
   const displayAvatar = activeCard
     ? (cardAvatars[activeCard.id] ?? characterAvatar)
     : characterAvatar
