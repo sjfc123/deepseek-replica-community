@@ -2389,7 +2389,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 后面的全部历史都会失效；记忆、场景和按关键词挑出的世界书因此统一挪到本轮末尾。
   // 卡内开场白也固定在 system：不按消息条数删，是否重复由卡内“只用一次”的文案约束。
   // 有当前人物卡时以卡为准；没有卡且档案开关开启时，才用手写基础档案，避免两套身份在同一段 system 里打架。
-  // 档案关闭后只保留表达提示词与固定演出规则，不再读取档案里的身份、经历和关系。
+  // 档案关闭后不再读取档案里的身份、经历和关系；非空档案名会走下面的轻量身份行。
   const profileSystem = shouldInjectCharacterProfile({
     profileEnabled,
     hasActiveCard: Boolean(activeCard),
@@ -2413,14 +2413,17 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const identityBlock = activeCard
     ? formatCharacterCard(activeCard, userName)
     : profileSystem || identitySystem
+  // 三种身份来源互斥：一张卡、完整档案或轻量身份行，不会同时拼进 system。
+  // 只有角色上下文才把默认助手提示替换成中性角色基底，并追加演出/格式规则。
+  const roleplayContext = Boolean(activeCard || profileSystem || identitySystem)
   const baseSystem = [
     identityBlock,
     composeSystemPrompt({
       savedPrompt: systemPrompt,
       custom,
-      suppressMetaTalk:
-        suppressMetaTalk && (roleplayActive || Boolean(profileSystem || identitySystem)),
+      suppressMetaTalk,
       userName,
+      roleplayContext,
     }),
   ]
     .filter(Boolean)

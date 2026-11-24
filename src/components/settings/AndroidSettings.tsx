@@ -2025,8 +2025,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.pageIntro}>
               {tr(
-                '系统提示词与上面的基础档案是两层：档案写「这个人是谁、经历过什么」，提示词写「怎么说话、怎么行动、哪些事不能做」。提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：称呼与语气、动作与对白密度、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n称呼{{user}}为「你」，句子偏短，紧张时更沉默。\n用对话和动作推进，每轮只写一个动作落点。\n不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
-                'The system prompt is a second layer above the base profile: the profile says who this person is and what shaped them; the prompt says how they speak, act and what they never do. The prompt is sent every turn and overrides other behavioural hints. Write it in three layers: address and tone, action and dialogue density, constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nCall {{user}} 「你」, keep sentences short, go quieter when nervous.\nAdvance through dialogue and one concrete action per turn.\nNever restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
+                '默认提示词是普通 DeepSeek AI 助手，不预置角色、人设或角色扮演规则；新装应用或恢复默认后，直接当普通助手使用。要角色扮演，启用一张角色卡或填写基础档案，也可以自行改写这段提示词。提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：称呼与语气、动作与对白密度、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n称呼{{user}}为「你」，句子偏短，紧张时更沉默。\n用对话和动作推进，每轮只写一个动作落点。\n不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
+                'The default prompt is a plain DeepSeek AI assistant with no persona, role or role-play rules. A fresh install or reset behaves as a normal assistant. To role-play, enable one character card, fill the base profile, or rewrite this prompt. The prompt is sent every turn and overrides other behavioural hints. Write it in three layers: address and tone, action and dialogue density, constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nCall {{user}} 「你」, keep sentences short, go quieter when nervous.\nAdvance through dialogue and one concrete action per turn.\nNever restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
               )}
             </p>
             <Group label={tr('system 身份名', 'System identity name')}>
@@ -2078,8 +2078,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <p className={styles.caption}>
                 {tr(
-                  '开启后，仅在请求的 system 末尾追加一段演出规则：不提及规则、不复述设定、不分析用户意图、不使用 AI 视角评述。提示词原文保持不变，历史对话继续使用时同样生效。',
-                  'When on, a short performance rule is appended to the request system: no rule talk, no setting restatement, no intent analysis, no AI-side commentary. The prompt text stays unchanged and existing chats also apply.'
+                  '仅在启用角色卡或基础档案时生效：在请求的 system 末尾追加一段演出规则，不提及规则、不复述设定、不分析用户意图、不使用 AI 视角评述。提示词原文保持不变；普通助手对话不追加。',
+                  'Only applies when a character card or base profile is active: a short performance rule is appended to the request system, with no rule talk, setting restatement, intent analysis or AI-side commentary. The prompt text stays unchanged; plain assistant chats do not append it.'
                 )}
               </p>
             </Group>

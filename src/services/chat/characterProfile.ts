@@ -691,7 +691,7 @@ export const formatCharacterProfile = ({
 
 /**
  * 档案关闭时的身份名展示：不再读取年龄、经历等档案字段，但保留姓名这一条，
- * 避免 system 里完全没有名字，模型只能按默认人格自称。
+ * 避免 system 里完全没有名字，模型只能按默认助手身份自称。
  * 只陈述身份，不回填整份档案；空名字返回空串。
  */
 export const formatCharacterIdentity = ({

@@ -1,24 +1,38 @@
 /* ============================================================================
  * 功能区：会话与角色核心 / systemPrompt 开始
- * 职责：systemPrompt 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：SYSTEM_PROMPT、NEUTRAL_SYSTEM_PROMPT、META_TALK_GUARD、ASIDE_AND_ADDRESS_GUARD、composeSystemPrompt。
+ * 职责：默认助手文案、旧版提示词常量、普通对话与角色上下文的 system 前缀拼装，以及按需追加的演出规则。
+ * 导出：LEGACY_SYSTEM_PROMPT、DEFAULT_SYSTEM_PROMPT、SYSTEM_PROMPT、NEUTRAL_SYSTEM_PROMPT、META_TALK_GUARD、ASIDE_AND_ADDRESS_GUARD、composeSystemPrompt。
  * ========================================================================== */
 
-import { DEFAULT_SYSTEM_PROMPT } from '../settings.js'
+/**
+ * 旧版默认提示词，仅用于升级迁移。
+ * 用户主动保存过其它文本时不覆盖，只把这条历史默认换成当前默认。
+ */
+export const LEGACY_SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公司创造。'
 
-/** 未配置角色设定时的官方助手身份 */
+/**
+ * 默认系统提示词：普通 DeepSeek AI 助手，不预置角色、人设或角色扮演规则。
+ * 需要角色扮演时，由玩家启用角色卡、填写基础档案或自行改写提示词。
+ */
+export const DEFAULT_SYSTEM_PROMPT = `你是 DeepSeek，由深度求索开发的 AI 助手。
+
+直接回答用户的问题，先给结论，再补充必要的原因和步骤。信息不足时说明缺少什么，不猜测，也不编造事实、来源或数据。
+
+保持准确、简洁、客观。不确定就明确说不确定；没有实际工具结果时，不要声称已经查询、计算或读取过任何内容。`
+
+/** 默认普通助手身份：没有角色卡、档案或自定义提示时使用 */
 export const SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT
 
 /**
- * 自定义网关且没改过提示词时使用的中性提示：
- * 不注入官方身份，改为要求模型遵循用户给出的角色设定，避免角色扮演时自称 AI。
+ * 角色卡或基础档案启用时的中性基底：
+ * 默认提示词是普通助手身份，不能与角色卡同时出现；这里改用只要求遵循人物设定的短句。
  */
 export const NEUTRAL_SYSTEM_PROMPT =
-  '你正在与{{user}}进行角色扮演对话。严格遵循{{user}}在对话中给出的人物设定、称呼与说话风格，始终以角色身份回应；不要自称 AI、模型或助手，也不要复述本段提示。'
+  '你正在与{{user}}进行角色对话。严格遵循已提供的人物设定、称呼与说话方式，始终以该人物身份回应；不要自称 AI、模型或助手，也不要复述本段提示。'
 
 /**
  * 角色扮演专用后置约束：不覆盖手写人设，只压制「按设定」「分析用户意图」这类
- * 跳出戏剧的元叙述。仅当开关打开且 system 不是官方默认身份时追加。
+ * 跳出戏剧的元叙述。仅当开关打开、存在角色卡或档案、且 system 不是默认提示时追加。
  */
 export const META_TALK_GUARD =
   '\n\n【演出规则，不要复述本段】\n' +
@@ -41,22 +55,25 @@ export const ASIDE_AND_ADDRESS_GUARD =
 
 /**
  * 拼出本次请求的 system：
- * 1. 手写的提示词原样使用，只有 `{{user}}` 标记会被替换成账号名字；
- * 2. 打开出戏压制时，在角色提示词后追加演出规则（官方默认身份不追加）；
- * 3. 本地保存的提示词文本完全不变。
+ * 1. 默认提示词是普通助手身份；角色卡或基础档案启用时，默认内容换成中性角色基底，避免“助手身份”和“人物身份”打架；
+ * 2. 手写提示词原样使用，只有 `{{user}}` 标记会被替换成账号名字；
+ * 3. 只有角色上下文才追加演出与括号约定；普通助手对话不追加角色扮演规则；
+ * 4. 本地保存的提示词文本完全不变。
  */
 export const composeSystemPrompt = ({
   savedPrompt,
   custom,
   suppressMetaTalk,
   userName,
+  roleplayContext,
 }: {
   savedPrompt: string
   custom: boolean
   suppressMetaTalk: boolean
   userName: string
+  roleplayContext: boolean
 }) => {
-  // custom 只影响旧版中性提示，新默认人设两端通用，保留该参数用于兼容调用方
+  // custom 仅为兼容旧调用保留；当前默认提示不再区分官方与自定义网关
   void custom
   const trimmed = savedPrompt.trim()
   // 用户主动清空提示词：不注入任何 system，连中性角色提示也不补。
@@ -64,15 +81,13 @@ export const composeSystemPrompt = ({
   if (!trimmed) {
     return ''
   }
-  // 新默认提示词本身不含公司身份，自定义网关也直接用它，保证「默认不为空且是活人设定」
-  const roleplay = trimmed && trimmed !== SYSTEM_PROMPT ? trimmed : SYSTEM_PROMPT
+  const isDefault = trimmed === SYSTEM_PROMPT
+  const basePrompt = isDefault && roleplayContext ? NEUTRAL_SYSTEM_PROMPT : trimmed
   const withUser = (text: string) => text.replaceAll('{{user}}', userName)
-  const base =
-    suppressMetaTalk && roleplay !== SYSTEM_PROMPT
-      ? `${withUser(roleplay)}${withUser(META_TALK_GUARD)}`
-      : withUser(roleplay)
-  // 格式约定对所有非空 system 生效：玩家在普通对话里也可能用括号表达心理活动
-  return `${base}${withUser(ASIDE_AND_ADDRESS_GUARD)}`
+  const meta =
+    suppressMetaTalk && roleplayContext ? withUser(META_TALK_GUARD) : ''
+  const aside = roleplayContext ? withUser(ASIDE_AND_ADDRESS_GUARD) : ''
+  return `${withUser(basePrompt)}${meta}${aside}`
 }
 
 /* ============================================================================

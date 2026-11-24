@@ -1,6 +1,6 @@
 /* ============================================================================
  * 功能区：设置页 / TokenUsagePanel 开始
- * 职责：TokenUsagePanel 组件，负责该组件的渲染、状态与交互出口。
+ * 职责：按会话汇总输入/输出 token、缓存命中与请求体积；缓存未命中时说明前缀变化和重试边界。
  * 导出：TokenUsagePanel。
  * ========================================================================== */
 
@@ -253,6 +253,12 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
                         {t(
                           `覆盖 ${report.replies} 条带用量的回复、${report.requests} 次接口请求；重新生成和分支都计入。`,
                           `${report.requests} requests across ${report.replies} replies; regenerations and branches are included.`
+                        )}
+                      </p>
+                      <p>
+                        {t(
+                          '缓存命中与未命中由上游按完整请求前缀判断，偶尔首轮、网关抖动或缓存字段缺失都会显示未命中，不等于系统提示词丢失。若同一会话连续异常，可重新生成或重发同一句话一次，观察命中是否恢复。',
+                          'Cache hits and misses are decided upstream from the full request prefix. A cold first turn, gateway jitter or missing cache fields can all show a miss; this does not mean the system prompt is lost. If it keeps happening in the same chat, regenerate or resend the same message once and see whether it recovers.'
                         )}
                       </p>
                       {report.legacyReplies > 0 ? (

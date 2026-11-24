@@ -1,6 +1,6 @@
 /* ============================================================================
  * 功能区：会话与角色核心 / roleplay 开始
- * 职责：角色扮演数据层：角色卡、世界书、场景、内置卡种子与 system 装配。
+ * 职责：角色扮演数据层：角色卡、世界书、场景、内置卡种子、单卡解析与 system 人物层格式化。
  * ========================================================================== */
 
 /**
@@ -278,6 +278,16 @@ export const findActiveCharacterCard = (
   cards: CharacterCard[],
   activeId: string | null
 ): CharacterCard | undefined => (activeId ? cards.find((card) => card.id === activeId) : undefined)
+
+/**
+ * 角色扮演开关的唯一生效条件：请求开启，并且当前启用 id 能找到一张有效卡。
+ * 全局只保存一个 activeId，这里再校验一次，避免旧数据或异常状态让多张卡同时进入 system。
+ */
+export const canEnableRoleplay = (
+  cards: CharacterCard[],
+  activeId: string | null,
+  requested: boolean
+): boolean => Boolean(requested && findActiveCharacterCard(cards, activeId))
 
 /** 会话当前分支里第一条助手消息的正文，用于识别早期未写角色 id 的开场白 */
 const firstAssistantText = (session: Session): string => {
