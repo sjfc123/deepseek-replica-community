@@ -1,11 +1,7 @@
 import { create } from 'zustand'
 import { android } from '../app/android.js'
 import { DEFAULT_CHAT_CONFIG, readChatConfig, type ChatConfig } from './api/chatConfig.js'
-import {
-  NORMAL_MEMORY_MAX_CARDS,
-  NORMAL_MEMORY_MAX_CHARS,
-  type MemoryMode,
-} from './chat/memory.js'
+import { NORMAL_MEMORY_MAX_CARDS, NORMAL_MEMORY_MAX_CHARS, type MemoryMode } from './chat/memory.js'
 import {
   BUILTIN_ID_PREFIX,
   CHARACTER_CARD_MAX,
@@ -45,10 +41,7 @@ export const AUTO_BACKUP_MINUTES_MIN = 5
 export const AUTO_BACKUP_MINUTES_MAX = 10080
 
 const clampBackupMinutes = (minutes: number) =>
-  Math.min(
-    AUTO_BACKUP_MINUTES_MAX,
-    Math.max(AUTO_BACKUP_MINUTES_MIN, Math.round(minutes))
-  )
+  Math.min(AUTO_BACKUP_MINUTES_MAX, Math.max(AUTO_BACKUP_MINUTES_MIN, Math.round(minutes)))
 
 /** 读取间隔（分钟）：新键优先；旧版小时键按 60 倍迁移一次；非法值回落默认 */
 function readAutoBackupMinutes(): number {
@@ -64,7 +57,6 @@ function readAutoBackupMinutes(): number {
   }
   return AUTO_BACKUP_MINUTES_DEFAULT
 }
-
 
 export type Locale = 'zh-CN' | 'en-US'
 export type LocalePreference = Locale | 'system'
@@ -169,7 +161,7 @@ type Settings = {
   /** 自动备份间隔（小时），1–168；默认 2 小时 */
   /** 自动备份间隔（分钟），5–10080 */
   autoBackupMinutes: number
-  /** 角色扮演的角色名，聊天里配在角色头像旁；空串表示不显示 */
+  /** 手写角色档案名：档案关闭后仍保留并用于 system 身份行；角色卡启用时不会被卡名覆盖 */
   characterName: string
   /** 角色基础档案：只描述人物本身，与提示词、世界书、场景分开保存 */
   characterProfile: CharacterProfile
@@ -430,9 +422,7 @@ const readJson = (key: string): unknown => {
 
 const readBuiltinRemoved = (): string[] => {
   const raw = readJson(KEYS.builtinCardsRemoved)
-  return Array.isArray(raw)
-    ? raw.filter((item): item is string => typeof item === 'string')
-    : []
+  return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : []
 }
 
 /**
@@ -440,10 +430,7 @@ const readBuiltinRemoved = (): string[] => {
  * 墓碑仅由用户删除动作写入：数据体检清空后仍会补回，用户主动删除则不再出现。
  */
 const initialCharacterCards = (): CharacterCard[] => {
-  const stored = normalizeCharacterCards(readJson(KEYS.characterCards)).slice(
-    0,
-    CHARACTER_CARD_MAX
-  )
+  const stored = normalizeCharacterCards(readJson(KEYS.characterCards)).slice(0, CHARACTER_CARD_MAX)
   const seeded = ensureBuiltinCharacterCards(stored, readBuiltinRemoved())
   if (seeded !== stored) {
     write(KEYS.characterCards, JSON.stringify(seeded))
@@ -477,25 +464,10 @@ const initialActiveCharacterId = (): string | null => {
 }
 
 /**
- * 角色名字属于「手写角色基础档案」，不能被角色卡永久覆盖。
- * 旧版本启卡时把卡名写进了这个键；如果读到的值与当前启用卡同名，视为历史残留并清空，
- * 让关闭角色卡后回到手写档案，而不是继续沿用卡名。
+ * 角色名字属于「手写角色基础档案」，与当前角色卡完全分开。
+ * 启用、关闭或编辑角色卡都不会写入这里；这里只保存用户亲手填写的档案名。
  */
-const initialCharacterName = (): string => {
-  const saved = read(KEYS.characterName)?.trim() ?? ''
-  if (!saved) {
-    return ''
-  }
-  const activeId = initialActiveCharacterId()
-  const active = activeId
-    ? initialCharacterCards().find((card) => card.id === activeId)
-    : undefined
-  if (active && active.name.trim() === saved) {
-    write(KEYS.characterName, null)
-    return ''
-  }
-  return saved
-}
+const initialCharacterName = (): string => read(KEYS.characterName)?.trim() ?? ''
 
 /** 旧版本没有独立开关：只要存在启用卡，默认仍按角色扮演开启，升级后行为不变 */
 const initialRoleplayEnabled = (activeId: string | null): boolean => {
@@ -612,7 +584,12 @@ const initialLocation = (): UserLocation | null => {
 /** 未保存过时跟随系统 */
 const initialAccentColor = (): AccentColor => {
   const saved = read(KEYS.accentColor)
-  return saved === 'blue' || saved === 'teal' || saved === 'violet' || saved === 'amber' || saved === 'rose' || saved === 'green'
+  return saved === 'blue' ||
+    saved === 'teal' ||
+    saved === 'violet' ||
+    saved === 'amber' ||
+    saved === 'rose' ||
+    saved === 'green'
     ? saved
     : 'blue'
 }
@@ -951,9 +928,8 @@ export const matchRefusalKeyword = (text: string): string | null => {
   }
   const haystack = refusalCaseSensitive ? text : text.toLowerCase()
   return (
-    words.find((word) =>
-      haystack.includes(refusalCaseSensitive ? word : word.toLowerCase())
-    ) ?? null
+    words.find((word) => haystack.includes(refusalCaseSensitive ? word : word.toLowerCase())) ??
+    null
   )
 }
 
@@ -995,9 +971,7 @@ export const setCardAvatar = (cardId: string, avatar: string | null) => {
 
 /** 启用角色卡：卡名由运行时按「当前启用卡」解析，不覆盖手写基础档案的名字 */
 export const activateCharacterCard = (id: string | null) => {
-  const card = id
-    ? useSettings.getState().characterCards.find((item) => item.id === id)
-    : undefined
+  const card = id ? useSettings.getState().characterCards.find((item) => item.id === id) : undefined
   write(KEYS.activeCharacterId, card ? card.id : null)
   write(KEYS.roleplayEnabled, card ? '1' : '0')
   useSettings.setState({
@@ -1017,7 +991,8 @@ export const restoreBuiltinCharacterCards = () => {
   const cards = useSettings.getState().characterCards
   const next = ensureBuiltinCharacterCards(cards)
   const added = next.length - cards.length
-  if (added === 0) {
+  const changed = JSON.stringify(next) !== JSON.stringify(cards)
+  if (!changed) {
     return 0
   }
   if (!write(KEYS.characterCards, JSON.stringify(next))) {
@@ -1231,7 +1206,7 @@ export const setCharacterName = (characterName: string) => {
 
 /** 基础档案开关：关闭后文本保留但不注入，界面只读；重新开启才恢复编辑与注入 */
 export const setCharacterProfileEnabled = (profileEnabled: boolean) => {
-  write(KEYS.profileEnabled, String(profileEnabled))
+  write(KEYS.profileEnabled, profileEnabled ? '1' : '0')
   useSettings.setState({ profileEnabled })
 }
 
@@ -1332,10 +1307,7 @@ function readNormalMemoryLimit(): number {
 }
 
 export const setNormalMemoryLimit = (normalMemoryLimit: number) => {
-  const next = Math.min(
-    MEMORY_LIMIT_MAX,
-    Math.max(MEMORY_LIMIT_MIN, Math.round(normalMemoryLimit))
-  )
+  const next = Math.min(MEMORY_LIMIT_MAX, Math.max(MEMORY_LIMIT_MIN, Math.round(normalMemoryLimit)))
   write(KEYS.normalMemoryLimit, String(next))
   useSettings.setState({ normalMemoryLimit: next })
 }
@@ -1349,10 +1321,7 @@ function readNormalMemoryChars(): number {
 }
 
 export const setNormalMemoryChars = (normalMemoryChars: number) => {
-  const next = Math.min(
-    MEMORY_CHARS_MAX,
-    Math.max(MEMORY_CHARS_MIN, Math.round(normalMemoryChars))
-  )
+  const next = Math.min(MEMORY_CHARS_MAX, Math.max(MEMORY_CHARS_MIN, Math.round(normalMemoryChars)))
   write(KEYS.normalMemoryChars, String(next))
   useSettings.setState({ normalMemoryChars: next })
 }

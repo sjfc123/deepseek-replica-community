@@ -1,14 +1,14 @@
-# 源码留存说明 · 0.8.85
+# 源码留存说明 · 0.8.86
 
 这份说明跟着源码包一起放，不是发布公告。它只回答四个问题：这是哪个版本、包里有什么、缺了什么、后来的人怎么把它跑起来。
 
 ## 版本
 
-- 版本号：0.8.85
-- 开发阶段的 versionCode：131
+- 版本号：0.8.86
+- 开发阶段的 versionCode：132
 - 覆盖版包名：`io.github.lijiahua1024.dsreplica`
 - 并存版包名：`io.github.lijiahua1024.dsreplica.rp`
-- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.85`
+- 前端版本标记：`dist/index.html` 里的 `application-version=0.8.86`
 
 ## 包里有什么
 
@@ -27,7 +27,19 @@
 
 这些不是遗漏，是故意不放进源码包。APK 和签名文件由构建者自己生成、自己保管；具体边界写在 README 的“编译、签名与分发”一节，NOTICE 里也有说明。别人转发的 APK 不代表这个仓库，也无法证明没有被改过。
 
-## 0.8.85 本版改动
+## 0.8.86 本版改动
+
+- `settings.ts` 的 `initialCharacterName()` 不再把与当前启用卡同名的档案名当成历史残留清空；`characterName` 只由用户手动修改，角色卡启用、切换、关闭和保存都不写这个键。
+- `AndroidSettings.tsx` 的档案页名字框改为始终显示 `characterName`，角色卡启用时不再用卡名替换；当前卡名单独用只读行展示。档案关闭时名字框只读，但文本仍保留。
+- `characterProfile.ts` 新增 `formatCharacterIdentity()`：档案关闭或为空时只输出 `【角色身份】`、姓名与不承认模型/助手的一条规则，不回填年龄、身体、经历等字段。新增 `resolveSystemCharacterName()`，统一「卡名 → 档案名 → AI」的解析顺序。
+- `store.ts` 的人物层改为「当前卡 → 完整档案 → 轻量身份行」三选一；档案关闭不再导致 system 完全没有姓名。`promptCharName` 与占位符替换同步使用统一解析。
+- 系统提示词页新增「system 身份名」区块，显示本次生效名字与来源：当前卡、基础档案、档案名（档案已关闭）或 AI 兜底。
+- `setCharacterProfileEnabled()` 的存储值由 `String(boolean)`（`true`/`false`）改为 `1`/`0`，与 `initialProfileEnabled()` 的读取口径一致；此前关闭档案后刷新页面会重新变回开启，现已修复。
+- 六张内置角色卡补齐 `appearance`、`background`、`scenario`、`goal`、`secret`、`speechExamples`、`systemDirective`；基础档案不预填。`BUILTIN_CARD_TIME` 更新为 2026-11-24，`ensureBuiltinCharacterCards()` 会刷新仍停留在 2026-11-23 旧种子且未被用户保存过的内置卡，用户编辑过的卡按 `updatedAt` 保留。
+- `scripts/test-roleplay.mjs` 增加六卡字段完整度、旧种子刷新与用户编辑保留、身份行、system 名字解析断言。
+- 公告、README、本说明与 `SYSTEM-PROMPT-PIPELINE.md` 同步到 0.8.86；公告共 18 条：新增 4、优化 4、修复 5、说明 5。
+
+## 0.8.85 历史改动
 
 - `android/.../AutoBackup.java` 改为两阶段写入：先写应用缓存中的 `.part` 文件，关闭后核对 `expectedSize` 与临时文件长度，再用 `ZipFile` 打开中央目录确认 ZIP 完整。校验通过后才复制到 `MediaStore Downloads`，复制字节数与临时文件不一致时删除 pending 条目，下载目录不会出现半截文件。
 - `AutoBackup.begin()` 增加预期字节数参数，`MainActivity` 的 `beginAutoBackup(String, long)` 同步；`append()` 在超过预期大小时立即失败，`finish()` 校验失败会清理临时文件并返回 false。

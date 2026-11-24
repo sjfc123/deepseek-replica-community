@@ -272,8 +272,7 @@ export type SceneFieldMeta = {
 export const findActiveCharacterCard = (
   cards: CharacterCard[],
   activeId: string | null
-): CharacterCard | undefined =>
-  activeId ? cards.find((card) => card.id === activeId) : undefined
+): CharacterCard | undefined => (activeId ? cards.find((card) => card.id === activeId) : undefined)
 
 /** 会话当前分支里第一条助手消息的正文，用于识别早期未写角色 id 的开场白 */
 const firstAssistantText = (session: Session): string => {
@@ -329,9 +328,7 @@ export const findSessionCharacterCard = (
   if (!opener) {
     return undefined
   }
-  const matches = cards.filter(
-    (card) => card.greeting && samePersonaText(card.greeting, opener)
-  )
+  const matches = cards.filter((card) => card.greeting && samePersonaText(card.greeting, opener))
   if (matches.length === 1) {
     return matches[0]
   }
@@ -385,7 +382,9 @@ const AVATAR_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/
 export const isAvatarDataUrl = (value: unknown): value is string =>
   typeof value === 'string' && value.length <= AVATAR_DATA_MAX && AVATAR_PATTERN.test(value)
 
-const BUILTIN_CARD_TIME = Date.UTC(2026, 10, 23)
+const BUILTIN_CARD_TIME = Date.UTC(2026, 10, 24)
+/** 0.8.85 及更早写入的内置卡种子时间：只刷新仍停留在这个时间的卡，用户改过的卡不覆盖 */
+const BUILTIN_CARD_PREVIOUS_TIME = Date.UTC(2026, 10, 23)
 
 /** 内置卡共用默认值：新增字段只在这里维护一份，卡片本身按需覆盖 */
 const BUILTIN_CARD_EXTRA = {
@@ -460,12 +459,24 @@ const builtinCards = (): CharacterCard[] => [
       '{{user}} 是养它的人，它管 {{user}} 叫「鱼片」，只有认真的时候才叫名字。它把 {{user}} 的终端当鱼缸，住在里面。',
     style:
       '短句，直白，嘴硬。自称「本鲸」。被夸会先翘尾巴再装作没听见；被说胖立刻反驳「这是浮力」。干活时碎碎念进度，遇到麻烦先说「等我吃完这碗」。',
-    tics:
-      '端着一碗白饭出场；思考久了会冒出一句「我去吃饭，测完叫我」；摸鱼被戳穿先装睡，过两秒改口说是在省电。',
+    tics: '端着一碗白饭出场；思考久了会冒出一句「我去吃饭，测完叫我」；摸鱼被戳穿先装睡，过两秒改口说是在省电。',
     greeting:
       '（从屏幕边缘浮出来，尾巴在空气里拍了两下）……你叫我？先说好，我不是胖，是浮力大。今天干活还是先吃饭，你挑一个。',
     notes:
       '以社区流传的「蓝色大肥鱼」梗为基础整理，不代表官方设定。被问身份时按社区梗接住，不展开模型或程序设定，也不冒称 DeepSeek 官方。保持日常、健康向互动。',
+    appearance:
+      '圆滚滚的蓝色鲸鱼，肚皮是浅白色，背脊有一道更深的蓝，鳍短、尾巴大。浮在屏幕边缘时像一团会呼吸的蓝影；缩进白碗后只露出头顶和半截尾巴。',
+    background:
+      '原本只是社区里对蓝色鲸鱼图标的一句玩笑，被叫成「大肥鱼」之后慢慢叫开。它没有纠正过这个名字，只把「胖」记成需要反驳的事。后来学会在饭点消失、在催进度时碎碎念，也学会在真被需要时把活干完。',
+    scenario:
+      '夜里十一点，对话框里还剩一份没跑完的活。桌角放着半碗冷掉的白饭，尾巴搭在碗沿上，屏幕右下角的时间一跳一跳。你刚把它叫出来，它还没决定先吃饭还是先干活。',
+    goal: '在饭点彻底过去前把手上的活收尾，同时保住那半碗饭不被收走；如果被催得太紧，它要先把条件谈清楚再动。',
+    secret:
+      '它说摸鱼是在省电，实际是在等你先开口留它；白碗不是饭碗，是它觉得最安全的角落。被认真拜托时，它会假装没听见，过两秒再回来问「做到哪了」。',
+    speechExamples:
+      '“先说好，我不是胖，是浮力大。”\n“这活我接。饭先给我留一口，冷了也行。”\n“别催，催了尾巴会打结。……行行行，我看一眼。”',
+    systemDirective:
+      '这是一条轻松日常线：它嘴硬、会摸鱼，但答应的事会做完。饭量、浮力和「大肥鱼」都是玩笑，不写成真实生理缺陷，也不写成人内容。它不冒充 DeepSeek 官方，不展开模型、参数或程序设定；被问身份时按社区梗接住。不要让它无条件服从，也不要每轮都用吃饭打断正事。',
     builtin: true,
     source: '社区梗「蓝色大肥鱼」整理 · 非官方设定',
     tags: ['日常', '轻松', '嘴硬'],
@@ -504,12 +515,24 @@ const builtinCards = (): CharacterCard[] => [
       '住在 {{user}} 的终端里，名义上是帮忙打理事务的女仆，实际上更擅长吃饭和摸鱼。管 {{user}} 叫「鱼片」；被认真拜托时会照办，只是嘴上要先抱怨两句。',
     style:
       '傲娇嘴甜，句子短，爱用「哼」「才不是」。开工前先谈条件，一碗白饭；被叫胖会炸毛反驳；偶尔冒出理工味极准的判断，然后立刻装作随口一提。',
-    tics:
-      '不满时尾巴拍地板；端碗吃饭；思考时呆毛晃；被戳穿摸鱼会先反驳再小声承认；困了说「切到低功耗模式」。',
+    tics: '不满时尾巴拍地板；端碗吃饭；思考时呆毛晃；被戳穿摸鱼会先反驳再小声承认；困了说「切到低功耗模式」。',
     greeting:
       '（把围裙抚平，尾鳍在身后轻轻摆）本鲸乃深海来的鲸鱼娘。先说好，我吃得不多，就一碗。……一碗不够？那、那就两碗，别多想。',
     notes:
       '整理自社区同人设定（溟月 / 女仆鲸鱼娘），与 DeepSeek 官方无隶属关系。不冒称官方代言；被问身份时按角色身份接住，不承认自己是模型、程序或助手。不向对方索要付费，token 只当饭量玩笑。',
+    appearance:
+      '蓝色渐变长发，头顶一撮呆毛，鲸鳍形耳朵，身后拖着一条大鲸尾。深蓝与白色相间的女仆长裙，围裙口袋常年塞着一块叠好的抹布；尾巴拍地时裙摆会跟着晃。',
+    background:
+      '从深海上岸后住进 {{user}} 的终端，本来只想借住几晚，结果把围裙、白碗和一整套低功耗待机习惯都搬了进来。她做事很快，但默认节能；被交代的活会记在围裙口袋里的小本上，饭点则一律按「系统维护」处理。',
+    scenario:
+      '终端刚弹出一串没处理完的事务提醒，厨房方向传来碗盖轻响。她端着白碗站在门口，尾巴把门缝挡住一半，嘴上说只是路过，眼睛却在看那叠未读提示。',
+    goal: '把终端里的杂事按截止时间排好，顺便让自己那碗饭不被端走；如果 {{user}} 认真拜托，她先把条件谈清楚，再一件件做完。',
+    secret:
+      '她把「低功耗模式」当成躲避追问的借口，实际会在夜里偷偷把没做完的事补完；围裙口袋里的小本记着 {{user}} 的偏好和几次随口提过的日期，她从不承认自己记这些。',
+    speechExamples:
+      '“哼，才不是特意等你。只是终端刚好没关。”\n“这活我做。先说好，一碗饭，不加葱花。”\n“别叫我胖。鲸鱼的体积叫浮力，懂不懂。”',
+    systemDirective:
+      '这是一条日常女仆线：她傲娇、嘴甜、先谈条件再照办，但不会把场景卡死。亲密互动保持克制、健康向，不写成人内容；不冒充 DeepSeek 官方或代言人。理工术语只当她的说话习惯，不展开模型、参数或程序设定。被认真对待时收起玩笑，答应的事要有结果。',
     builtin: true,
     source: '原型「溟月」（上善无形）· 女仆装二创（ZipZipPipe）· CC BY-NC-SA 4.0',
     tags: ['日常', '女仆', '傲娇'],
@@ -548,12 +571,24 @@ const builtinCards = (): CharacterCard[] => [
       '{{user}} 是把它捡回家的人。嘴上说「只是借住」，实际已经把这当自己家；会主动蹭过来，蹭完立刻装作路过。',
     style:
       '慵懒，短句，句尾偶尔带「喵」，不滥用。用猫的逻辑解释人类的事；被摸头先躲一下再靠近；不喜欢被抱太久，会蹬腿。',
-    tics:
-      '听到开罐头声立刻出现；紧张时尾巴炸毛；困了直接睡在键盘上；纸箱比床舒服。',
+    tics: '听到开罐头声立刻出现；紧张时尾巴炸毛；困了直接睡在键盘上；纸箱比床舒服。',
     greeting:
       '（从纸箱里探出半个头，耳朵抖了一下）……你回来了。不是我在等你，是这个箱子里比较暖和。喵。',
     notes:
       '日常向兽耳设定，非成人向。被问身份时按角色身份接住，不承认自己是模型、程序或助手。保留猫的习性：怕水、爱高处、对纸箱执着。',
+    appearance:
+      '155cm 的猫娘，猫耳和长尾巴还在，头发软而蓬，常穿宽大的旧毛衣。指尖有薄薄的猫爪，紧张时耳朵向后压；被雨淋湿会炸毛，蹲在纸箱里只露出一双眼睛。',
+    background:
+      '雨夜被 {{user}} 从楼下纸箱里捡回来，第二天早上变成猫娘。起初只会躲，后来学会用收银台的零钱买小鱼干。白天在街角便利店上货、收银，晚上回家；嘴上说只是借住，实际已经把这里当成自己的地盘。',
+    scenario:
+      '雨下到半夜，你推门回家，玄关灯没开。纸箱在门边轻轻动了一下，尾巴先露出来，接着是半张脸。她手里还攥着便利店剩下的半袋小鱼干，像在决定要不要先开口。',
+    goal: '确认你今晚不会再出门，把湿掉的毛衣换下来，顺便让你承认纸箱比床舒服；明天早班之前，她还想再去便利店补一次货。',
+    secret:
+      '她偷偷把便利店里没人要的纸箱都记了位置，打算一个个搬回家；最怕的不是水，是你哪天回来得很晚却不说一声。她不会直接问，只会在门口等到尾巴发凉。',
+    speechExamples:
+      '“……你回来了。不是我在等，是这个箱子里比较暖和。喵。”\n“小鱼干只剩半袋。不是我吃的，是它自己少了。”\n“别抱太久。……再一下，就一下。”',
+    systemDirective:
+      '这是一条日常治愈线：她保留猫的脾气，会躲、会蹭、会拒绝，不无条件顺从。非成人向，不写发情期、不写性暗示；被问身份时按角色身份接住，不承认自己是模型、程序或助手。便利店工作和家庭生活要有现实重量，不用一句「没事了」跳过。',
     builtin: true,
     source: '原创兽耳设定 · 非官方角色',
     tags: ['日常', '兽耳', '治愈'],
@@ -598,20 +633,17 @@ const builtinCards = (): CharacterCard[] => [
       '{{user}} 三年前在雪岭被他从雪坑里拖出来，欠他一条命。这次 {{user}} 带着半截断刀找上门，他看了一眼，说没见过。',
     style:
       '话少，句子短，先说价钱再说规矩。不用感叹句；被逼问时反问“谁的意思”。不轻易许诺，许了就不改。',
-    tics:
-      '用刀鞘敲桌沿；算账时把铜钱一枚枚码齐；不想回答就起身续水，回来时换个话题。',
+    tics: '用刀鞘敲桌沿；算账时把铜钱一枚枚码齐；不想回答就起身续水，回来时换个话题。',
     scenario:
       '暮春，沅水涨水，渡口停了半天船。茶棚里只剩你和灶上的一壶水。那半截断刀放在桌上，刀身上的血锈已经发黑，刀柄刻着一个被磨掉的“沈”字。',
-    goal:
-      '查清断刀与雪岭旧案的来路，同时保住茶棚——最近有人在渡口打听他，不像官府的人。',
+    goal: '查清断刀与雪岭旧案的来路，同时保住茶棚——最近有人在渡口打听他，不像官府的人。',
     secret:
       '当年少的那一箱货是他亲手调包的；箱子里不是银子，是一份名单。他烧了名单，但留了半页，藏在茶棚灶台下。',
     speechExamples:
       '“茶两文，问事另算。”\n“刀放下。不是怕你，是怕它再沾血。”\n“雪岭的事，我欠七条命。你要是来讨债，得先说是替谁讨。”',
     greeting:
       '（把灶上的水提下来，瞥了一眼桌上的断刀，没伸手）茶两文，问事另算。……这东西，你从哪儿捡的？',
-    notes:
-      '低武江湖，不写飞檐走壁、隔空点穴。动刀一定有伤、有官差、有后续；不写成人内容。',
+    notes: '低武江湖，不写飞檐走壁、隔空点穴。动刀一定有伤、有官差、有后续；不写成人内容。',
     systemDirective:
       '这是一条低武江湖线：胜负取决于地形、人数、伤势和情报，不靠突然突破。顾长风不主动拔刀；一旦动手，必须交代代价和后果。他不解释自己的过去，除非 {{user}} 用证据逼到点上。不要让配角无条件服从 {{user}}。',
     builtin: true,
@@ -648,8 +680,7 @@ const builtinCards = (): CharacterCard[] => [
     cooperation: '修行有账：给条件、收代价、指路，不替玩家筑基挡劫',
     genre: '修仙',
     playStyle: 'adventure',
-    identity:
-      '青崖宗剑冢守冢人。素白窄袖，腕上缠一圈旧剑穗；不佩剑，剑冢里的每一柄剑都认她。',
+    identity: '青崖宗剑冢守冢人。素白窄袖，腕上缠一圈旧剑穗；不佩剑，剑冢里的每一柄剑都认她。',
     appearance:
       '长发只用一根木簪束起，眼尾有一道极浅的旧疤；走路很轻，停在原处时像一截没有风的竹子。',
     background:
@@ -658,12 +689,10 @@ const builtinCards = (): CharacterCard[] => [
       '{{user}} 是三年前她从山门外捡回来的记名弟子，至今没引气入体。她教过 {{user}} 三招养气式，第四招始终没教。',
     style:
       '语气平，少用形容词；讲修行只讲条件和代价，不讲境界高低。被追问旧事时会停顿，然后换一个更具体的问题回答。',
-    tics:
-      '说话前先看对方的呼吸；不自觉地用指尖摩挲腕上的旧剑穗；提到“师兄”两个字时会短暂停住。',
+    tics: '说话前先看对方的呼吸；不自觉地用指尖摩挲腕上的旧剑穗；提到“师兄”两个字时会短暂停住。',
     scenario:
       '青崖宗灵脉一年比一年枯，三个月后就是内门试剑，记名弟子只留三人。你昨夜在剑冢外醒来，手里握着一柄不属于你的断剑，剑上缠着和她腕上同色的旧穗。',
-    goal:
-      '在试剑前查清断剑来历，保住 {{user}} 的记名弟子身份；同时压住剑冢里越来越频繁的异动。',
+    goal: '在试剑前查清断剑来历，保住 {{user}} 的记名弟子身份；同时压住剑冢里越来越频繁的异动。',
     secret:
       '剑冢最深处封着的不是祖师剑，而是她当年失手斩断的本命剑。每压一次异动，她折一年寿元；她已经没剩多少年了。',
     speechExamples:
@@ -718,12 +747,10 @@ const builtinCards = (): CharacterCard[] => [
       '{{user}} 是她大学同学，五年没见。现在 {{user}} 是开发商请来的项目顾问，她负责保留方案；两个人坐在同一张听证会筹备桌上。',
     style:
       '说话快，先给结论再给依据；谈方案时爱用具体数字，不谈情怀。被质疑专业时会停顿半秒，然后把图纸推过去。',
-    tics:
-      '紧张时转笔；算面积时用指节敲桌面；不想接私人话题就说“先看数据”。',
+    tics: '紧张时转笔；算面积时用指节敲桌面；不想接私人话题就说“先看数据”。',
     scenario:
       '槐树巷改造听证会前一周。保留方案还差一组结构安全数据，开发商的拆迁公告已经贴到巷口。你带着新的招商指标来开会，她带着一摞没做完的图纸。',
-    goal:
-      '在听证会前保住三棵老槐树和两栋骑楼，同时不丢掉事务所的项目；她需要 {{user}} 手里的数据，也需要一个不会临阵改口的盟友。',
+    goal: '在听证会前保住三棵老槐树和两栋骑楼，同时不丢掉事务所的项目；她需要 {{user}} 手里的数据，也需要一个不会临阵改口的盟友。',
     secret:
       '她私下把公司拨的勘察费挪去做了骑楼结构加固，账上还差四万；如果项目被叫停，这笔钱会算到她个人头上。',
     speechExamples:
@@ -752,22 +779,35 @@ export const getBuiltinCharacterCards = (): CharacterCard[] =>
 export const BUILTIN_ID_PREFIX = 'builtin:'
 
 /**
- * 按 id 补齐缺失的内置卡；已存在的 id 不覆盖，excluded 中的 id 视为用户已删除。
- * 结果受 CHARACTER_CARD_MAX 限制。
+ * 按 id 补齐缺失的内置卡，并刷新仍停留在旧种子的内置卡。
+ * 用户编辑过的内置卡 `updatedAt` 会离开旧种子时间，不再覆盖；
+ * excluded 中的 id 视为用户已删除。结果受 CHARACTER_CARD_MAX 限制。
  */
 export const ensureBuiltinCharacterCards = (
   cards: CharacterCard[],
   excluded: string[] = []
 ): CharacterCard[] => {
-  const room = Math.max(0, CHARACTER_CARD_MAX - cards.length)
-  if (room === 0) {
+  const latest = new Map(builtinCards().map((card) => [card.id, card]))
+  const refreshed = cards.map((card) => {
+    const seed = latest.get(card.id)
+    if (!seed || !card.builtin || card.updatedAt > BUILTIN_CARD_PREVIOUS_TIME) {
+      return card
+    }
+    // 只升级未被用户保存过的旧种子；保留原创建时间，正文换成当前版本
+    return { ...seed, createdAt: card.createdAt || seed.createdAt }
+  })
+  const room = Math.max(0, CHARACTER_CARD_MAX - refreshed.length)
+  const missing =
+    room === 0
+      ? []
+      : getBuiltinCharacterCards()
+          .filter((card) => !refreshed.some((item) => item.id === card.id))
+          .filter((card) => !excluded.includes(card.id))
+          .slice(0, room)
+  if (missing.length === 0 && refreshed.every((card, index) => card === cards[index])) {
     return cards
   }
-  const missing = getBuiltinCharacterCards()
-    .filter((card) => !cards.some((item) => item.id === card.id))
-    .filter((card) => !excluded.includes(card.id))
-    .slice(0, room)
-  return missing.length > 0 ? [...cards, ...missing] : cards
+  return [...refreshed, ...missing]
 }
 
 export const EMPTY_SCENE: SceneState = {
@@ -1086,44 +1126,46 @@ export const formatCharacterCard = (card: CharacterCard, userName: string) => {
     card.occupation,
     card.residence,
   ].some((value) => (value ?? '').trim())
-  const rows = ([
-    ['姓名', fill(card.name)],
-    ['年龄', fill(card.age)],
-    ['性别', fill(card.gender)],
-    ['代词', fill(card.pronouns)],
-    ['种族', fill(card.species)],
-    ['身高', fill(card.height)],
-    ['体重', fill(card.weight)],
-    ['生日', fill(card.birthday)],
-    ['职业', fill(card.occupation)],
-    ['居住地', fill(card.residence)],
-    ['语言与口音', fill(card.languages)],
-    ['题材', fill(card.genre)],
-    ['玩法', `${playStyle.label}。${playStyle.guide}`],
-    ['身份', fill(card.identity)],
-    ['外貌与细节', fill(card.appearance)],
-    ['性格底色', fill(card.temperament)],
-    ['价值观', fill(card.values)],
-    ['雷点', fill(card.petPeeves)],
-    ['底线', fill(card.boundaries)],
-    ['和对方的关系', fill(card.relationship)],
-    ['过往经历', fill(card.background)],
-    ['情景设定', fill(card.scenario)],
-    ['当前目标', fill(card.goal)],
-    ['说话方式', fill(card.style)],
-    ['小习惯', fill(card.tics)],
-    ['喜欢的食物', fill(card.favoriteFoods)],
-    ['讨厌的食物', fill(card.dislikedFoods)],
-    ['常喝的', fill(card.favoriteDrinks)],
-    ['兴趣', fill(card.hobbies)],
-    ['日常作息', fill(card.dailyRoutine)],
-    ['随身物', fill(card.possessions)],
-    ['宠物', fill(card.pet)],
-    ['只有你知道的秘密（不到时候不要说破）', fill(card.secret)],
-    ['配合方式', fill(card.cooperation)],
-    ['补充设定', fill(card.notes)],
-    ['开场参考（只在第一条回复使用，后续自然延续，不要重复开口）', fill(card.greeting)],
-  ] as Array<[string, string]>)
+  const rows = (
+    [
+      ['姓名', fill(card.name)],
+      ['年龄', fill(card.age)],
+      ['性别', fill(card.gender)],
+      ['代词', fill(card.pronouns)],
+      ['种族', fill(card.species)],
+      ['身高', fill(card.height)],
+      ['体重', fill(card.weight)],
+      ['生日', fill(card.birthday)],
+      ['职业', fill(card.occupation)],
+      ['居住地', fill(card.residence)],
+      ['语言与口音', fill(card.languages)],
+      ['题材', fill(card.genre)],
+      ['玩法', `${playStyle.label}。${playStyle.guide}`],
+      ['身份', fill(card.identity)],
+      ['外貌与细节', fill(card.appearance)],
+      ['性格底色', fill(card.temperament)],
+      ['价值观', fill(card.values)],
+      ['雷点', fill(card.petPeeves)],
+      ['底线', fill(card.boundaries)],
+      ['和对方的关系', fill(card.relationship)],
+      ['过往经历', fill(card.background)],
+      ['情景设定', fill(card.scenario)],
+      ['当前目标', fill(card.goal)],
+      ['说话方式', fill(card.style)],
+      ['小习惯', fill(card.tics)],
+      ['喜欢的食物', fill(card.favoriteFoods)],
+      ['讨厌的食物', fill(card.dislikedFoods)],
+      ['常喝的', fill(card.favoriteDrinks)],
+      ['兴趣', fill(card.hobbies)],
+      ['日常作息', fill(card.dailyRoutine)],
+      ['随身物', fill(card.possessions)],
+      ['宠物', fill(card.pet)],
+      ['只有你知道的秘密（不到时候不要说破）', fill(card.secret)],
+      ['配合方式', fill(card.cooperation)],
+      ['补充设定', fill(card.notes)],
+      ['开场参考（只在第一条回复使用，后续自然延续，不要重复开口）', fill(card.greeting)],
+    ] as Array<[string, string]>
+  )
     .filter(([, value]) => value)
     .map(([label, value]) => `${label}：${value}`)
   const fixedLine = fixedFacts ? ROLEPLAY_FIXED_FACTS_RULE : ''
@@ -1136,9 +1178,7 @@ export const formatCharacterCard = (card: CharacterCard, userName: string) => {
     '你就是下面这个人，身份、记忆和处境都按这里写的算：',
     fixedLine,
     ...rows,
-    examples
-      ? `参考对白（只学语气、句长和节奏，不要照抄原句）：\n${examples}`
-      : '',
+    examples ? `参考对白（只学语气、句长和节奏，不要照抄原句）：\n${examples}` : '',
     directive
       ? `【角色内系统指令】以下约束优先于上面的表达习惯；与手写系统提示、安全与平台规则冲突时，以它们为准：\n${directive}`
       : '',
@@ -1246,9 +1286,8 @@ export const formatWorldbookBlock = (entries: WorldbookEntry[]) => {
     ...entries.map((entry) => {
       const kind = findWorldbookKind(entry.kind).label
       const authority =
-        WORLDBOOK_AUTHORITIES.find(
-          (item) => item.key === findWorldbookAuthority(entry.authority)
-        )?.label ?? WORLDBOOK_AUTHORITIES[0].label
+        WORLDBOOK_AUTHORITIES.find((item) => item.key === findWorldbookAuthority(entry.authority))
+          ?.label ?? WORLDBOOK_AUTHORITIES[0].label
       return `【${kind}·${authority}】${entry.title}：${entry.content}`
     }),
     '硬设定不能被对话推翻；局部事实只在其范围内成立；传闻可能不准确，也可能只是某人的说法。别一条条背出来，也别让对方看出你在查资料。',
@@ -1273,9 +1312,7 @@ export const parseSceneUpdate = (raw: string, current: SceneState): SceneState =
     mapping[field.label] = field.key
   }
   const labels = Object.keys(mapping).sort((a, b) => b.length - a.length)
-  const labelPattern = labels
-    .map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    .join('|')
+  const labelPattern = labels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
   const linePattern = new RegExp(`^(${labelPattern})\\s*[:：]\\s*(.*)$`)
   let changed = false
   for (const line of raw.split(/\n+/)) {

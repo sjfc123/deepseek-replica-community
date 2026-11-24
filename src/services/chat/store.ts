@@ -21,7 +21,12 @@ import {
 import { MANY_IMAGES_COUNT, MANY_IMAGES_MAX_EDGE, MAX_IMAGE_EDGE } from '../imageUpload.js'
 import { parseCustomHeaders } from '../api/headers.js'
 import { composeSystemPrompt } from './systemPrompt.js'
-import { formatCharacterProfile, shouldInjectCharacterProfile } from './characterProfile.js'
+import {
+  formatCharacterIdentity,
+  formatCharacterProfile,
+  resolveSystemCharacterName,
+  shouldInjectCharacterProfile,
+} from './characterProfile.js'
 import { applyPlaceholders } from './placeholders.js'
 import {
   formatCharacterCard,
@@ -103,12 +108,7 @@ import {
   type DraftFilePayload,
 } from './drafts.js'
 import { createLatestReminder } from './latestReminder.js'
-import {
-  applyEvent,
-  getContextRounds,
-  settleReply,
-  toRequestMessages,
-} from './reply.js'
+import { applyEvent, getContextRounds, settleReply, toRequestMessages } from './reply.js'
 import {
   toSessionSummary,
   type AssistantMessage,
@@ -1478,12 +1478,7 @@ const enforceMemoryLimit = (sessionId: string, pool: MemoryPool = 'character') =
   if (!session) {
     return
   }
-  const overflow = overflowMemoryCards(
-    session,
-    getVisibleMessages(session),
-    limit,
-    pool
-  )
+  const overflow = overflowMemoryCards(session, getVisibleMessages(session), limit, pool)
   if (overflow.length === 0) {
     return
   }
@@ -1512,12 +1507,7 @@ const enforceMemoryChars = (sessionId: string, pool: MemoryPool = 'character') =
   if (!session) {
     return
   }
-  const overflow = overflowMemoryCardsByChars(
-    session,
-    getVisibleMessages(session),
-    limit,
-    pool
-  )
+  const overflow = overflowMemoryCardsByChars(session, getVisibleMessages(session), limit, pool)
   if (overflow.length === 0) {
     return
   }
@@ -1544,9 +1534,7 @@ ${SCENE_FIELDS.map((field) => `${field.label}：...`).join('\n')}`
 
 /** 把当前场景按字段摊平，空值写“未记录”，供自动更新请求使用 */
 const sceneUpdateSnapshot = (scene: SceneState) =>
-  SCENE_FIELDS.map(
-    (field) => `${field.label}：${scene[field.key].trim() || '未记录'}`
-  ).join('\n')
+  SCENE_FIELDS.map((field) => `${field.label}：${scene[field.key].trim() || '未记录'}`).join('\n')
 
 /** 自动场景更新：多发一次很小的请求；失败就保持原场景，不影响聊天 */
 const updateSceneFromTurn = async (question: string, answer: string) => {
@@ -1683,10 +1671,7 @@ const recordNormalCodeMemory = (sessionId: string, targetMessageId: string, answ
     return
   }
   const exists = (target.memories ?? []).some(
-    (card) =>
-      getMemoryPool(card) === 'normal' &&
-      card.category === 'code' &&
-      !card.superseded
+    (card) => getMemoryPool(card) === 'normal' && card.category === 'code' && !card.superseded
   )
   if (exists) {
     return
@@ -1725,9 +1710,8 @@ export const addManualMemory = (
     : target.pool === 'normal'
       ? 'normal'
       : 'character'
-  const category = pool === 'normal' ? target.category ?? 'dialogue' : undefined
-  const language =
-    pool === 'normal' && category === 'code' ? detectCodeLanguage(text) : undefined
+  const category = pool === 'normal' ? (target.category ?? 'dialogue') : undefined
+  const language = pool === 'normal' && category === 'code' ? detectCodeLanguage(text) : undefined
   if (
     attachMemories(sessionId, last.id, [
       createMemoryCard(text, 'manual', undefined, { pool, category, language }),
@@ -1788,7 +1772,7 @@ export const saveMessagesAsMemory = (
     pool === 'normal'
       ? buildNormalMemoryCards(
           picked,
-          target.pool === 'normal' ? target.category ?? 'auto' : 'auto'
+          target.pool === 'normal' ? (target.category ?? 'auto') : 'auto'
         )
       : buildConversationMemoryCards(
           picked,
@@ -1936,9 +1920,7 @@ export const clearMemories = (sessionId: string, pool?: MemoryPool) => {
         visibleIds.has(message.id) && message.memories
           ? {
               ...message,
-              memories: pool
-                ? message.memories.filter((card) => getMemoryPool(card) !== pool)
-                : [],
+              memories: pool ? message.memories.filter((card) => getMemoryPool(card) !== pool) : [],
             }
           : message
       ),
@@ -2387,32 +2369,44 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 卡内开场白也固定在 system：不按消息条数删，是否重复由卡内“只用一次”的文案约束。
   // 有当前人物卡时以卡为准；没有卡且档案开关开启时，才用手写基础档案，避免两套身份在同一段 system 里打架。
   // 档案关闭后只保留表达提示词与固定演出规则，不再读取档案里的身份、经历和关系。
-  const profileSystem =
-    shouldInjectCharacterProfile({
-      profileEnabled,
-      hasActiveCard: Boolean(activeCard),
-      profile: characterProfile,
-    })
-      ? formatCharacterProfile({
-          profile: characterProfile,
+  const profileSystem = shouldInjectCharacterProfile({
+    profileEnabled,
+    hasActiveCard: Boolean(activeCard),
+    profile: characterProfile,
+  })
+    ? formatCharacterProfile({
+        profile: characterProfile,
+        name: characterName,
+        userName,
+      })
+    : ''
+  // 档案关闭或为空时不读取整份档案，但仍保留姓名这一条身份展示；
+  // 有角色卡时卡内已有姓名，不再重复补。
+  const identitySystem =
+    !activeCard && !profileSystem
+      ? formatCharacterIdentity({
           name: characterName,
           userName,
         })
       : ''
+  const identityBlock = activeCard
+    ? formatCharacterCard(activeCard, userName)
+    : profileSystem || identitySystem
   const baseSystem = [
-    activeCard ? formatCharacterCard(activeCard, userName) : profileSystem,
+    identityBlock,
     composeSystemPrompt({
       savedPrompt: systemPrompt,
       custom,
-      suppressMetaTalk: suppressMetaTalk && (roleplayActive || Boolean(profileSystem)),
+      suppressMetaTalk:
+        suppressMetaTalk && (roleplayActive || Boolean(profileSystem || identitySystem)),
       userName,
     }),
   ]
     .filter(Boolean)
     .join('\n\n')
   // 统一替换占位符：手写提示词、角色卡字段、世界书与记忆都走这一处
-  // 没有可用的手写名或卡名时用 AI 兜底，避免 {{char}} 原样漏进 system 或背景资料
-  const promptCharName = (roleplayActive ? activeCard?.name : characterName)?.trim() || 'AI'
+  // 当前卡名优先，其次手写档案名；两者都空时用 AI 兜底，避免 {{char}} 原样漏进 system。
+  const promptCharName = resolveSystemCharacterName(activeCard?.name, characterName)
   const baseSystemResolved = applyPlaceholders(baseSystem, {
     userName,
     charName: promptCharName,

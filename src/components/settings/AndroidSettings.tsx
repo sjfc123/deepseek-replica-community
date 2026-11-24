@@ -52,6 +52,7 @@ import {
   CHARACTER_PROFILE_FIELDS,
   CHARACTER_PROFILE_GROUPS,
   characterProfileFieldCount,
+  resolveSystemCharacterName,
 } from '../../services/chat/characterProfile.js'
 import { selectSession, useChatStore } from '../../services/chat/store.js'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
@@ -299,7 +300,6 @@ const VoiceIcon = () => (
     <path d="M12.6 4.5c2 2.5 2 6.5 0 9" />
   </svg>
 )
-
 
 /** 页尾的「恢复本页默认」：居中的弱化按钮，避免和可跳转的设置项混淆 */
 const ResetRow = ({ label, onClick }: { label: string; onClick: () => void }) => (
@@ -585,10 +585,7 @@ export const formatBackupInterval = (minutes: number, tr: BackupText) => {
 const BACKUP_PRESETS = [10, 30, 60, 120, 240, 480, 720, 1440]
 
 /** 备份失败按失败位置给不同说明：建文件、写入、收尾各自的原因不同 */
-const describeBackupFailure = (
-  result: AutoBackupResult,
-  tr: BackupText
-) => {
+const describeBackupFailure = (result: AutoBackupResult, tr: BackupText) => {
   const tail = result.detail ? tr(`（${result.detail}）`, ` (${result.detail})`) : ''
   switch (result.failure) {
     case 'bridge':
@@ -597,9 +594,15 @@ const describeBackupFailure = (
         'This build cannot back up to Downloads; use Export history instead'
       )
     case 'begin':
-      return tr(`系统没能创建备份文件，请确认「下载」目录可用${tail}`, `The system could not create the file${tail}`)
+      return tr(
+        `系统没能创建备份文件，请确认「下载」目录可用${tail}`,
+        `The system could not create the file${tail}`
+      )
     case 'write':
-      return tr(`备份写入中断，检查剩余存储空间${tail}`, `Writing was interrupted; check free space${tail}`)
+      return tr(
+        `备份写入中断，检查剩余存储空间${tail}`,
+        `Writing was interrupted; check free space${tail}`
+      )
     case 'verify':
       return tr(
         `备份文件未通过完整性校验，临时文件已删除，可重新备份${tail}`,
@@ -697,11 +700,18 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     sceneAutoUpdate,
   } = useSettings()
   const tr = (chinese: string, english: string) => (locale === 'zh-CN' ? chinese : english)
-  // 角色卡启用期间，名字输入框显示卡名；手写名字另存，关闭后仅新会话恢复
+  // 角色卡启用时，卡名只用于卡本身与当前会话；档案名始终显示手写值，不被卡名替换
   const activeCharacterCard = roleplayEnabled
     ? findActiveCharacterCard(characterCards, activeCharacterId)
     : undefined
-  const characterNameField = activeCharacterCard?.name ?? characterName
+  const systemCharacterName = resolveSystemCharacterName(activeCharacterCard?.name, characterName)
+  const systemNameSource = activeCharacterCard
+    ? tr('当前角色卡（不写入档案）', 'Active card (does not write the profile)')
+    : characterName.trim()
+      ? profileEnabled
+        ? tr('基础档案', 'Base profile')
+        : tr('档案名（档案已关闭，仍保留身份行）', 'Profile name (profile off, identity line kept)')
+      : tr('默认 AI', 'Default AI')
   const profileFields = characterProfileFieldCount(characterProfile)
   const profileTotal = CHARACTER_PROFILE_FIELDS.length
   const profileGroups = CHARACTER_PROFILE_GROUPS.map((group) => ({
@@ -886,19 +896,64 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const logout = tr('退出登录', 'Sign out')
   const clear = tr('删除所有历史对话', 'Delete all conversations')
   const themes: { id: ThemePreference; label: string; description: string }[] = [
-    { id: 'system', label: tr('系统', 'System'), description: tr('跟随系统深浅设置，系统切换时同步变化。', 'Follows the system light/dark setting.') },
-    { id: 'light', label: tr('浅色', 'Light'), description: tr('固定使用浅色界面，不随系统切换。', 'Always uses the light interface.') },
-    { id: 'dark', label: tr('深色', 'Dark'), description: tr('固定使用深色界面，降低暗光环境亮度。', 'Always uses the dark interface.') },
+    {
+      id: 'system',
+      label: tr('系统', 'System'),
+      description: tr(
+        '跟随系统深浅设置，系统切换时同步变化。',
+        'Follows the system light/dark setting.'
+      ),
+    },
+    {
+      id: 'light',
+      label: tr('浅色', 'Light'),
+      description: tr('固定使用浅色界面，不随系统切换。', 'Always uses the light interface.'),
+    },
+    {
+      id: 'dark',
+      label: tr('深色', 'Dark'),
+      description: tr('固定使用深色界面，降低暗光环境亮度。', 'Always uses the dark interface.'),
+    },
   ]
   const layouts: { id: ChatLayout; label: string; description: string }[] = [
-    { id: 'card', label: tr('原版卡片', 'Cards'), description: tr('原版卡片结构，信息密度较高。', 'Original card layout with higher density.') },
-    { id: 'wechat', label: tr('气泡 · 微信配色', 'Bubble · green'), description: tr('绿色气泡，接近常见即时通讯样式。', 'Green bubbles in a familiar messenger style.') },
-    { id: 'blue', label: tr('气泡 · 蓝白配色', 'Bubble · blue'), description: tr('蓝白气泡，中性配色，适合浅色与深色主题。', 'Blue-and-white bubbles for both themes.') },
+    {
+      id: 'card',
+      label: tr('原版卡片', 'Cards'),
+      description: tr('原版卡片结构，信息密度较高。', 'Original card layout with higher density.'),
+    },
+    {
+      id: 'wechat',
+      label: tr('气泡 · 微信配色', 'Bubble · green'),
+      description: tr(
+        '绿色气泡，接近常见即时通讯样式。',
+        'Green bubbles in a familiar messenger style.'
+      ),
+    },
+    {
+      id: 'blue',
+      label: tr('气泡 · 蓝白配色', 'Bubble · blue'),
+      description: tr(
+        '蓝白气泡，中性配色，适合浅色与深色主题。',
+        'Blue-and-white bubbles for both themes.'
+      ),
+    },
   ]
   const languages: { id: LocalePreference; label: string; description: string }[] = [
-    { id: 'system', label: tr('系统', 'System'), description: tr('跟随系统语言，在中文与英文界面间自动切换。', 'Follows the system language.') },
-    { id: 'zh-CN', label: '中文 (简体中文)', description: tr('界面固定为简体中文。', 'Interface fixed to Simplified Chinese.') },
-    { id: 'en-US', label: 'English', description: tr('界面固定为英文。', 'Interface fixed to English.') },
+    {
+      id: 'system',
+      label: tr('系统', 'System'),
+      description: tr('跟随系统语言，在中文与英文界面间自动切换。', 'Follows the system language.'),
+    },
+    {
+      id: 'zh-CN',
+      label: '中文 (简体中文)',
+      description: tr('界面固定为简体中文。', 'Interface fixed to Simplified Chinese.'),
+    },
+    {
+      id: 'en-US',
+      label: 'English',
+      description: tr('界面固定为英文。', 'Interface fixed to English.'),
+    },
   ]
   const tones: { id: TtsVoice; label: string; description: string }[] = [
     {
@@ -1154,9 +1209,15 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             : code === 'version'
               ? tr('存档版本与当前版本不一致', 'Archive version does not match this build')
               : code === 'empty'
-                ? tr('存档里没有基础档案、角色卡或世界书', 'The archive has no profile, cards or worldbook entries')
+                ? tr(
+                    '存档里没有基础档案、角色卡或世界书',
+                    'The archive has no profile, cards or worldbook entries'
+                  )
                 : code === 'write'
-                  ? tr('写入失败，可能是本机存储空间不足', 'Write failed; local storage may be full')
+                  ? tr(
+                      '写入失败，可能是本机存储空间不足',
+                      'Write failed; local storage may be full'
+                    )
                   : error instanceof Error
                     ? error.message
                     : String(error)
@@ -1289,17 +1350,37 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   }, [chatConfig.imageModel, chatConfig.imageSize])
 
   const searchIndex: Array<{ label: string; keys: string; run: () => void }> = [
-    { label: labels.character, keys: '角色档案 角色设定 基础档案 人设 档案开关 年龄 性别 代词 种族 生日 职业 居住地 语言 身高 体重 外貌 食物 饮品 兴趣 作息 随身物 宠物 性格 价值观 雷点 底线 配合 经历 关系 处境 目标 弱点 说话 秘密 补充设定 system prompt 提示词 独白 动作', run: () => openPage('character') },
-    { label: labels.roleplay, keys: '角色卡 世界书 场景 扮演 rp card worldbook', run: () => openPage('roleplay') },
-    { label: labels.memory, keys: '长期记忆 记忆卡片 注入 归档 memory', run: () => openPage('memory') },
-    { label: labels.sampling, keys: '采样 温度 temperature top p 最大输出 token', run: () => openPage('sampling') },
+    {
+      label: labels.character,
+      keys: '角色档案 角色设定 基础档案 人设 档案开关 年龄 性别 代词 种族 生日 职业 居住地 语言 身高 体重 外貌 食物 饮品 兴趣 作息 随身物 宠物 性格 价值观 雷点 底线 配合 经历 关系 处境 目标 弱点 说话 秘密 补充设定 system prompt 提示词 独白 动作',
+      run: () => openPage('character'),
+    },
+    {
+      label: labels.roleplay,
+      keys: '角色卡 世界书 场景 扮演 rp card worldbook',
+      run: () => openPage('roleplay'),
+    },
+    {
+      label: labels.memory,
+      keys: '长期记忆 记忆卡片 注入 归档 memory',
+      run: () => openPage('memory'),
+    },
+    {
+      label: labels.sampling,
+      keys: '采样 温度 temperature top p 最大输出 token',
+      run: () => openPage('sampling'),
+    },
     { label: labels.context, keys: '上下文 压缩 预算 context', run: () => openPage('context') },
     {
       label: labels.cost,
       keys: '省钱 省 token 费用 消耗 关闭 推理 搜索 世界书 记忆 压缩 标题',
       run: () => openPage('cost'),
     },
-    { label: labels.request, keys: '接口 请求 endpoint 请求头 安全审核', run: () => openPage('request') },
+    {
+      label: labels.request,
+      keys: '接口 请求 endpoint 请求头 安全审核',
+      run: () => openPage('request'),
+    },
     {
       label: tr('生成配图', 'Illustration'),
       keys: '生图 绘图 配图 插画 图片模型 图片尺寸 image model size',
@@ -1317,7 +1398,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     },
     { label: labels.refusal, keys: '关键词 拒答 refusal', run: () => openPage('refusal') },
     { label: language, keys: '语言 中文 english locale', run: () => setPopup('locale') },
-    { label: appearance, keys: '外观 深色 浅色 主题 dark light theme', run: () => setPopup('theme') },
+    {
+      label: appearance,
+      keys: '外观 深色 浅色 主题 dark light theme',
+      run: () => setPopup('theme'),
+    },
     {
       label: tr('主题色', 'Accent color'),
       keys: '主题色 强调色 配色 accent color',
@@ -1333,7 +1418,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       keys: '间距 紧凑 宽松 spacing gap',
       run: () => setPopup('messageSpacing'),
     },
-    { label: tr('聊天布局', 'Chat layout'), keys: '布局 卡片 气泡 layout', run: () => setPopup('layout') },
+    {
+      label: tr('聊天布局', 'Chat layout'),
+      keys: '布局 卡片 气泡 layout',
+      run: () => setPopup('layout'),
+    },
     {
       label: tr('流式跟随', 'Follow while streaming'),
       keys: '流式 跟随 自动滚动 follow stream',
@@ -1349,7 +1438,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       keys: '个性化 折叠 思考 personalization thinking',
       run: () => openPage('personalization'),
     },
-    { label: labels.account, keys: '账号 账户 账户名 用户名 登录 account', run: () => openPage('account') },
+    {
+      label: labels.account,
+      keys: '账号 账户 账户名 用户名 登录 account',
+      run: () => openPage('account'),
+    },
     {
       label: labels.data,
       keys: '数据 备份 导出 导入 记忆归档 会话包 诊断 backup data',
@@ -1365,7 +1458,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       keys: '诊断 日志 排查 diagnose log',
       run: () => openPage('data'),
     },
-    { label: labels.agreements, keys: '协议 隐私 权限 第三方 agreements', run: () => openPage('agreements') },
+    {
+      label: labels.agreements,
+      keys: '协议 隐私 权限 第三方 agreements',
+      run: () => openPage('agreements'),
+    },
   ]
   const rootMatches = rootQuery.trim()
     ? searchIndex.filter((item) =>
@@ -1397,13 +1494,19 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 aria-label={tr('搜索设置', 'Search settings')}
               />
               {rootQuery.trim() ? (
-                <button type="button" onClick={() => setRootQuery('')} aria-label={tr('清除搜索', 'Clear')}>
+                <button
+                  type="button"
+                  onClick={() => setRootQuery('')}
+                  aria-label={tr('清除搜索', 'Clear')}
+                >
                   清除
                 </button>
               ) : null}
             </div>
             {rootQuery.trim() ? (
-              <Group label={tr(`搜索结果 · ${rootMatches.length} 项`, `Results · ${rootMatches.length}`)}>
+              <Group
+                label={tr(`搜索结果 · ${rootMatches.length} 项`, `Results · ${rootMatches.length}`)}
+              >
                 {rootMatches.map((item) => (
                   <Row
                     key={item.label + item.keys}
@@ -1452,7 +1555,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <Row
                 label={labels.cost}
-                value={tr(`${costItems.length} 项 · 已关 ${costClosed}`, `${costItems.length} items · ${costClosed} off`)}
+                value={tr(
+                  `${costItems.length} 项 · 已关 ${costClosed}`,
+                  `${costItems.length} items · ${costClosed} off`
+                )}
                 onClick={() => openPage('cost')}
               />
             </Group>
@@ -1472,7 +1578,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     ? roleplayEnabled
                       ? tr(`启用 · 书 ${worldbook.length} 条`, `On · ${worldbook.length} entries`)
                       : tr('已关闭 · 卡暂停', 'Off · card paused')
-                    : tr(`卡 ${characterCards.length} · 书 ${worldbook.length}`, `${characterCards.length} cards · ${worldbook.length} entries`)
+                    : tr(
+                        `卡 ${characterCards.length} · 书 ${worldbook.length}`,
+                        `${characterCards.length} cards · ${worldbook.length} entries`
+                      )
                 }
                 onClick={() => openPage('roleplay')}
               />
@@ -1481,7 +1590,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 value={
                   memoryMode === 'off'
                     ? tr('已关闭 · 不记录', 'Off · not recording')
-                    : tr(`${memoryModeLabel} · 上限 ${compactChars(memoryChars)} 字`, `${memoryModeLabel} · ${compactChars(memoryChars)} chars`)
+                    : tr(
+                        `${memoryModeLabel} · 上限 ${compactChars(memoryChars)} 字`,
+                        `${memoryModeLabel} · ${compactChars(memoryChars)} chars`
+                      )
                 }
                 onClick={() => openPage('memory')}
               />
@@ -1722,9 +1834,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 href="https://api-docs.deepseek.com/zh-cn/"
               />
             </Group>
-            <p className={styles.legal}>
-              {t('appName')}
-            </p>
+            <p className={styles.legal}>{t('appName')}</p>
           </>
         ) : null}
         {screen === 'advanced' ? (
@@ -1736,8 +1846,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           <>
             <p className={styles.pageIntro}>
               {tr(
-                '这里放角色的基础档案，只回答「这个人是谁、身体怎样、怎么生活、哪些线不能碰」，不承担表达提示词、世界观、场景或玩法规则。档案与头像、显示、提示词、角色卡分开保存。\n档案开关默认开启。开启时，没有当前人物卡，这份档案进入每轮 system；有当前人物卡，以卡为准，档案不叠加。关闭后，档案文本仍保存在本机，但不会读取、不会进入 system，只走下面的表达提示词，上面所有档案字段变灰只读；重新开启后才能修改。这样两套身份不会在同一段 system 里互相打架。\n填写顺序：基本档案 → 身体与生活 → 性格与边界 → 剧情与表达。年龄、性别、代词、种族、身高、体重、生日、职业、居住地、语言尽量填全；这几项缺一项，角色就容易在对话里被临时改性别、改年龄或改成人不人鬼不鬼的样子。原创、OC、二创、游戏、动漫、小说角色都按这个顺序写。',
-                'This page holds the character base profile: who this person is, what body they live in, how they live and which lines they never cross. It carries no delivery prompt, lore, scene or play-style rules, and is stored separately from avatar, display, prompt and cards.\nThe profile switch is on by default. When on and no card is active, this profile enters every system turn; an active card wins and the profile is not stacked. When off, the text stays on device but is never read or injected: only the delivery prompt below is used, and every profile field turns grey and read-only until the switch is turned back on. This keeps two identities from fighting inside one system block.\nOrder: basic facts → body & daily life → character & limits → story & voice. Fill age, gender, pronouns, species, height, weight, birthday, occupation, residence and language whenever possible; a missing one lets the character drift in gender, age or species mid-scene. Use the same order for OCs, fan characters, game, anime and novel characters.'
+                '这里放角色的基础档案，只回答「这个人是谁、身体怎样、怎么生活、哪些线不能碰」，不承担表达提示词、世界观、场景或玩法规则。档案与头像、显示、提示词、角色卡分开保存；角色名字也单独保存，角色卡启用时不会用卡名覆盖这里。\n档案开关默认开启。开启时，没有当前人物卡，这份档案进入每轮 system；有当前人物卡，以卡为准，档案不叠加。关闭后，档案字段仍保存在本机，但不会读取、不会进入 system，上面所有档案字段变灰只读；只有角色名字会保留为一条身份行，避免 system 完全失去姓名。重新开启后才能修改档案字段。这样两套身份不会在同一段 system 里互相打架。\n填写顺序：基本档案 → 身体与生活 → 性格与边界 → 剧情与表达。年龄、性别、代词、种族、身高、体重、生日、职业、居住地、语言尽量填全；这几项缺一项，角色就容易在对话里被临时改性别、改年龄或改成人不人鬼不鬼的样子。原创、OC、二创、游戏、动漫、小说角色都按这个顺序写。',
+                'This page holds the character base profile: who this person is, what body they live in, how they live and which lines they never cross. It carries no delivery prompt, lore, scene or play-style rules, and is stored separately from avatar, display, prompt and cards. The character name is also stored separately: enabling a card never overwrites it.\nThe profile switch is on by default. When on and no card is active, this profile enters every system turn; an active card wins and the profile is not stacked. When off, the profile fields stay on device but are never read or injected, and every field turns grey and read-only. Only the character name remains as a compact identity line so the system still knows who it is. Turn the switch back on to edit the profile fields. This keeps two identities from fighting inside one system block.\nOrder: basic facts → body & daily life → character & limits → story & voice. Fill age, gender, pronouns, species, height, weight, birthday, occupation, residence and language whenever possible; a missing one lets the character drift in gender, age or species mid-scene. Use the same order for OCs, fan characters, game, anime and novel characters.'
               )}
             </p>
             {profileGroups.map((group, index) => (
@@ -1767,24 +1877,49 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                       <input
                         className={styles.inlineInput}
                         data-disabled={!profileEnabled ? '' : undefined}
-                        value={characterNameField}
+                        value={characterName}
                         placeholder={tr('留空则显示 AI', 'Blank shows AI')}
                         aria-label={tr('角色名字', 'Character name')}
                         maxLength={20}
-                        readOnly={!profileEnabled || Boolean(activeCharacterCard)}
-                        onChange={(event) => setCharacterName(event.target.value)}
+                        readOnly={!profileEnabled}
+                        onChange={(event) => profileEnabled && setCharacterName(event.target.value)}
                       />
                     </div>
+                    {activeCharacterCard ? (
+                      <Row
+                        label={tr('当前角色卡', 'Active card')}
+                        value={activeCharacterCard.name}
+                        arrow={false}
+                      />
+                    ) : null}
                     <p className={styles.profileNotice} data-off={!profileEnabled ? '' : undefined}>
                       {profileEnabled
-                        ? tr(
-                            '档案已开启：没有当前人物卡时，这份档案每轮进入 system；有当前人物卡时以卡为准。空字段不会注入。',
-                            'Profile is on: with no active card it enters every system turn; an active card wins. Empty fields are skipped.'
-                          )
-                        : tr(
-                            '档案已关闭：文本仍保存在本机，但不会读取、不会进入 system，当前只走下面的表达提示词。重新开启后才能修改。',
-                            'Profile is off: the text stays on device but is never read or injected. Only the delivery prompt below is used. Turn the switch back on to edit.'
-                          )}
+                        ? activeCharacterCard
+                          ? tr(
+                              '档案已开启：当前角色卡「' +
+                                activeCharacterCard.name +
+                                '」优先进入 system，卡名不会写入上面这行档案名；这里显示与保存的始终是手写名字。',
+                              'Profile is on: the active card “' +
+                                activeCharacterCard.name +
+                                '” wins in system, and its name is never written into the profile name above. This field always shows the hand-written name.'
+                            )
+                          : tr(
+                              '档案已开启：没有当前人物卡时，这份档案每轮进入 system；有当前人物卡时以卡为准。空字段不会注入，档案名独立保存。',
+                              'Profile is on: with no active card it enters every system turn; an active card wins. Empty fields are skipped, and the profile name is stored independently.'
+                            )
+                        : activeCharacterCard
+                          ? tr(
+                              '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system；当前角色卡「' +
+                                activeCharacterCard.name +
+                                '」的卡名不会改写这行档案名。',
+                              'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line. The active card “' +
+                                activeCharacterCard.name +
+                                '” never rewrites that profile name.'
+                            )
+                          : tr(
+                              '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system，避免模型完全失去姓名；重新开启后才能修改。',
+                              'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line so the model keeps a name. Turn the switch back on to edit.'
+                            )}
                     </p>
                   </>
                 ) : null}
@@ -1869,9 +2004,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <Row
                 label={tr('头像形状', 'Avatar shape')}
-                value={
-                  avatarShape === 'rounded' ? tr('圆角方形', 'Rounded') : tr('圆形', 'Circle')
-                }
+                value={avatarShape === 'rounded' ? tr('圆角方形', 'Rounded') : tr('圆形', 'Circle')}
                 onClick={() => setPopup('avatarShape')}
               />
             </Group>
@@ -1881,16 +2014,27 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 'The system prompt is a second layer above the base profile: the profile says who this person is and what shaped them; the prompt says how they speak, act and what they never do. The prompt is sent every turn and overrides other behavioural hints. Write it in three layers: address and tone, action and dialogue density, constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nCall {{user}} 「你」, keep sentences short, go quieter when nervous.\nAdvance through dialogue and one concrete action per turn.\nNever restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
               )}
             </p>
+            <Group label={tr('system 身份名', 'System identity name')}>
+              <Row
+                label={tr('本次生效的名字', 'Name used this turn')}
+                value={systemCharacterName}
+                arrow={false}
+              />
+              <Row label={tr('名字来源', 'Name source')} value={systemNameSource} arrow={false} />
+            </Group>
+            <p className={styles.profileNotice}>
+              {tr(
+                '角色卡名只属于那张卡和当前会话，不会写入基础档案的名字。基础档案关闭后，档案字段全部停止读取，但档案名会保留为一条身份行，system 不会完全失去姓名；名字为空时才回退为 AI。',
+                'A card name belongs to that card and the current session; it is never written into the base profile name. When the profile is off, all profile fields stop being read, but the profile name remains as one compact identity line so the system never loses the name completely. Only a blank name falls back to AI.'
+              )}
+            </p>
             <Group label={tr('表达提示词', 'Delivery prompt')}>
               <div className={styles.promptField}>
                 <textarea
                   className={styles.promptInput}
                   rows={10}
                   value={systemPrompt}
-                  placeholder={tr(
-                    '留空则不发送系统提示词',
-                    'Leave empty to send no system prompt'
-                  )}
+                  placeholder={tr('留空则不发送系统提示词', 'Leave empty to send no system prompt')}
                   aria-label={tr('表达提示词', 'Delivery prompt')}
                   onChange={(event) => setSystemPrompt(event.target.value)}
                 />
@@ -2011,11 +2155,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             >
               {settingBusy
                 ? tr('正在处理…', 'Working…')
-                : settingStatus?.text ??
+                : (settingStatus?.text ??
                   tr(
                     '基础档案、角色卡、头像、世界书与场景打包成一个 JSON；导入按 id 合并，同名的卡不会重复新增，超出上限的部分会跳过。设定存档不含对话与记忆。',
                     'Base profile, cards, avatars, worldbook and scene are packed into one JSON file. Import merges by id, never duplicates a card, and skips what exceeds the limits. Settings archives contain no chats or memories.'
-                  )}
+                  ))}
             </p>
           </>
         ) : null}
@@ -2520,8 +2664,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 )}
               </p>
             </div>
-            <div className={styles.memoryModeGrid} role="radiogroup" aria-label={tr('记忆模式', 'Memory mode')}>
-             
+            <div
+              className={styles.memoryModeGrid}
+              role="radiogroup"
+              aria-label={tr('记忆模式', 'Memory mode')}
+            >
               <button
                 className={styles.memoryModeCard}
                 type="button"
@@ -2532,7 +2679,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               >
                 <span className={styles.memoryModeName}>{tr('关闭', 'Off')}</span>
                 <span className={styles.memoryModeDesc}>
-                  {tr('停止记录新卡片；已有卡片保留但不注入。适用于短会话或排查记忆干扰。', 'Stops new cards. Existing cards stay but are not injected. Use it for short chats or to rule out memory interference.')}
+                  {tr(
+                    '停止记录新卡片；已有卡片保留但不注入。适用于短会话或排查记忆干扰。',
+                    'Stops new cards. Existing cards stay but are not injected. Use it for short chats or to rule out memory interference.'
+                  )}
                 </span>
               </button>
               <button
@@ -2549,7 +2699,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   <i>{tr('推荐 · 长期记录', 'Recommended')}</i>
                 </span>
                 <span className={styles.memoryModeDesc}>
-                  {tr('每轮一张完整回合卡，保留原文、时间与轮次，不额外调用接口；上限设为 9999 可长期记录。适用于固定角色的长线角色扮演。', 'One full-turn card per exchange with original text, time and turn number; no extra request. A 9999 limit keeps recording long term. Best for long-running character play.')}
+                  {tr(
+                    '每轮一张完整回合卡，保留原文、时间与轮次，不额外调用接口；上限设为 9999 可长期记录。适用于固定角色的长线角色扮演。',
+                    'One full-turn card per exchange with original text, time and turn number; no extra request. A 9999 limit keeps recording long term. Best for long-running character play.'
+                  )}
                 </span>
               </button>
               <button
@@ -2562,7 +2715,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               >
                 <span className={styles.memoryModeName}>{tr('自动提炼', 'Auto refine')}</span>
                 <span className={styles.memoryModeDesc}>
-                  {tr('每轮先写入整轮卡片，再发送一次合并请求重写旧卡；可减少卡片数量并降低上下文占用，但每轮会增加 Token。适用于卡片重复较多、接近上限的场景。', 'Writes the turn card, then makes one small merge request. Fewer, cleaner cards at the cost of extra tokens per turn. Use it when duplicates pile up near the limit.')}
+                  {tr(
+                    '每轮先写入整轮卡片，再发送一次合并请求重写旧卡；可减少卡片数量并降低上下文占用，但每轮会增加 Token。适用于卡片重复较多、接近上限的场景。',
+                    'Writes the turn card, then makes one small merge request. Fewer, cleaner cards at the cost of extra tokens per turn. Use it when duplicates pile up near the limit.'
+                  )}
                 </span>
               </button>
             </div>
@@ -2577,7 +2733,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                       '整轮记录不额外调用接口，每轮写入一张。上限 9999 表示近似不限；达到上限后才归档最早卡片。',
                       'Per-turn recording adds no request and writes one card per turn. A 9999 limit is effectively unlimited; archiving starts only at the ceiling.'
                     )
-                  : tr('当前关闭：不记新卡片，已有卡片也不进入对话。', 'Off: no new cards, and existing cards are not injected.')}
+                  : tr(
+                      '当前关闭：不记新卡片，已有卡片也不进入对话。',
+                      'Off: no new cards, and existing cards are not injected.'
+                    )}
             </p>
             <Group label={tr('卡片上限', 'Card limit')}>
               <div className={styles.memoryLimitRow}>
@@ -2585,7 +2744,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 <span className={styles.memoryLimitValue}>{memoryLimit}</span>
                 <span className={styles.memoryLimitUnit}>{tr('张', 'cards')}</span>
               </div>
-              <div className={styles.memoryLimitPresets} role="radiogroup" aria-label={tr('卡片上限预设', 'Card limit presets')}>
+              <div
+                className={styles.memoryLimitPresets}
+                role="radiogroup"
+                aria-label={tr('卡片上限预设', 'Card limit presets')}
+              >
                 {[60, 200, 1000, MEMORY_LIMIT_MAX].map((preset) => (
                   <button
                     key={preset}
@@ -2594,7 +2757,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     aria-checked={memoryLimit === preset}
                     onClick={() => setMemoryLimit(preset)}
                   >
-                    {preset === MEMORY_LIMIT_MAX ? tr('9999 · 近似不限', '9999 · near unlimited') : preset}
+                    {preset === MEMORY_LIMIT_MAX
+                      ? tr('9999 · 近似不限', '9999 · near unlimited')
+                      : preset}
                   </button>
                 ))}
               </div>
@@ -2622,7 +2787,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     }
                   }}
                 />
-                <span>{tr(`可填 ${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`, `${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`)}</span>
+                <span>
+                  {tr(
+                    `可填 ${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`,
+                    `${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`
+                  )}
+                </span>
               </div>
             </Group>
             <p className={styles.caption}>
@@ -2633,11 +2803,19 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </p>
             <Group label={tr('字符预算', 'Character budget')}>
               <div className={styles.memoryLimitRow}>
-                <span className={styles.memoryLimitLabel}>{tr('记忆字数上限', 'Memory char ceiling')}</span>
-                <span className={styles.memoryLimitValue}>{memoryChars.toLocaleString('zh-CN')}</span>
+                <span className={styles.memoryLimitLabel}>
+                  {tr('记忆字数上限', 'Memory char ceiling')}
+                </span>
+                <span className={styles.memoryLimitValue}>
+                  {memoryChars.toLocaleString('zh-CN')}
+                </span>
                 <span className={styles.memoryLimitUnit}>{tr('字', 'chars')}</span>
               </div>
-              <div className={styles.memoryLimitPresets} role="radiogroup" aria-label={tr('字符预算预设', 'Character budget presets')}>
+              <div
+                className={styles.memoryLimitPresets}
+                role="radiogroup"
+                aria-label={tr('字符预算预设', 'Character budget presets')}
+              >
                 {[10_000, 50_000, 100_000, MEMORY_CHARS_DEFAULT, MEMORY_CHARS_MAX].map((preset) => (
                   <button
                     key={preset}
@@ -2676,7 +2854,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     }
                   }}
                 />
-                <span>{tr(`可填 ${MEMORY_CHARS_MIN.toLocaleString('zh-CN')}–${MEMORY_CHARS_MAX.toLocaleString('zh-CN')}`, `${MEMORY_CHARS_MIN}–${MEMORY_CHARS_MAX}`)}</span>
+                <span>
+                  {tr(
+                    `可填 ${MEMORY_CHARS_MIN.toLocaleString('zh-CN')}–${MEMORY_CHARS_MAX.toLocaleString('zh-CN')}`,
+                    `${MEMORY_CHARS_MIN}–${MEMORY_CHARS_MAX}`
+                  )}
+                </span>
               </div>
             </Group>
             <p className={styles.caption}>
@@ -2699,11 +2882,17 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 }
               />
               <div className={styles.memoryLimitRow}>
-                <span className={styles.memoryLimitLabel}>{tr('普通记忆卡片上限', 'Normal card limit')}</span>
+                <span className={styles.memoryLimitLabel}>
+                  {tr('普通记忆卡片上限', 'Normal card limit')}
+                </span>
                 <span className={styles.memoryLimitValue}>{normalMemoryLimit}</span>
                 <span className={styles.memoryLimitUnit}>{tr('张', 'cards')}</span>
               </div>
-              <div className={styles.memoryLimitPresets} role="radiogroup" aria-label={tr('普通记忆卡片预设', 'Normal card presets')}>
+              <div
+                className={styles.memoryLimitPresets}
+                role="radiogroup"
+                aria-label={tr('普通记忆卡片预设', 'Normal card presets')}
+              >
                 {[100, 300, 1000, MEMORY_LIMIT_MAX].map((preset) => (
                   <button
                     key={preset}
@@ -2712,7 +2901,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     aria-checked={normalMemoryLimit === preset}
                     onClick={() => setNormalMemoryLimit(preset)}
                   >
-                    {preset === MEMORY_LIMIT_MAX ? tr('9999 · 近似不限', '9999 · near unlimited') : preset}
+                    {preset === MEMORY_LIMIT_MAX
+                      ? tr('9999 · 近似不限', '9999 · near unlimited')
+                      : preset}
                   </button>
                 ))}
               </div>
@@ -2735,14 +2926,27 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     }
                   }}
                 />
-                <span>{tr(`可填 ${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`, `${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`)}</span>
+                <span>
+                  {tr(
+                    `可填 ${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`,
+                    `${MEMORY_LIMIT_MIN}–${MEMORY_LIMIT_MAX}`
+                  )}
+                </span>
               </div>
               <div className={styles.memoryLimitRow}>
-                <span className={styles.memoryLimitLabel}>{tr('普通记忆字数上限', 'Normal char ceiling')}</span>
-                <span className={styles.memoryLimitValue}>{normalMemoryChars.toLocaleString('zh-CN')}</span>
+                <span className={styles.memoryLimitLabel}>
+                  {tr('普通记忆字数上限', 'Normal char ceiling')}
+                </span>
+                <span className={styles.memoryLimitValue}>
+                  {normalMemoryChars.toLocaleString('zh-CN')}
+                </span>
                 <span className={styles.memoryLimitUnit}>{tr('字', 'chars')}</span>
               </div>
-              <div className={styles.memoryLimitPresets} role="radiogroup" aria-label={tr('普通记忆字数预设', 'Normal char presets')}>
+              <div
+                className={styles.memoryLimitPresets}
+                role="radiogroup"
+                aria-label={tr('普通记忆字数预设', 'Normal char presets')}
+              >
                 {[50_000, 200_000, 500_000, MEMORY_CHARS_MAX].map((preset) => (
                   <button
                     key={preset}
@@ -2774,7 +2978,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     }
                   }}
                 />
-                <span>{tr(`可填 ${MEMORY_CHARS_MIN.toLocaleString('zh-CN')}–${MEMORY_CHARS_MAX.toLocaleString('zh-CN')}`, `${MEMORY_CHARS_MIN}–${MEMORY_CHARS_MAX}`)}</span>
+                <span>
+                  {tr(
+                    `可填 ${MEMORY_CHARS_MIN.toLocaleString('zh-CN')}–${MEMORY_CHARS_MAX.toLocaleString('zh-CN')}`,
+                    `${MEMORY_CHARS_MIN}–${MEMORY_CHARS_MAX}`
+                  )}
+                </span>
               </div>
             </Group>
             <p className={styles.caption}>
@@ -2820,7 +3029,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <Row
                 label={tr('一次最多带', 'Per message')}
-                value={tr(`${memoryChars.toLocaleString('zh-CN')} 字`, `${memoryChars.toLocaleString('en-US')} chars`)}
+                value={tr(
+                  `${memoryChars.toLocaleString('zh-CN')} 字`,
+                  `${memoryChars.toLocaleString('en-US')} chars`
+                )}
                 arrow={false}
               />
             </Group>
@@ -2872,13 +3084,19 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   className={`${styles.promptInput} ${styles.promptInputCompact}`}
                   rows={4}
                   value={refusalKeywords}
-                  placeholder={tr('每行一个关键词，或用逗号分隔', 'One keyword per line or comma-separated')}
+                  placeholder={tr(
+                    '每行一个关键词，或用逗号分隔',
+                    'One keyword per line or comma-separated'
+                  )}
                   aria-label={tr('拒答关键词', 'Refusal keywords')}
                   onChange={(event) => setRefusalKeywords(event.target.value)}
                 />
                 <div className={styles.promptMeta}>
                   <span>
-                    {tr('仅检查当前用户输入文本，命中任意关键词即触发；英文大小写由上方开关控制。', 'Only your own input is checked; any hit triggers. English casing follows the switch above.')}
+                    {tr(
+                      '仅检查当前用户输入文本，命中任意关键词即触发；英文大小写由上方开关控制。',
+                      'Only your own input is checked; any hit triggers. English casing follows the switch above.'
+                    )}
                   </span>
                 </div>
               </div>
@@ -2889,13 +3107,19 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   className={`${styles.promptInput} ${styles.promptInputCompact}`}
                   rows={3}
                   value={refusalMessage}
-                  placeholder={tr('留空使用内置拒答话术', 'Leave blank for the built-in refusal text')}
+                  placeholder={tr(
+                    '留空使用内置拒答话术',
+                    'Leave blank for the built-in refusal text'
+                  )}
                   aria-label={tr('拒答话术', 'Refusal message')}
                   onChange={(event) => setRefusalMessage(event.target.value)}
                 />
                 <div className={styles.promptMeta}>
                   <span>
-                    {tr('服务端 refusal 与本地关键词拒答共用这段文案；留空时使用内置文本。', 'Shared by server refusals and local keyword hits; blank falls back to the built-in text.')}
+                    {tr(
+                      '服务端 refusal 与本地关键词拒答共用这段文案；留空时使用内置文本。',
+                      'Shared by server refusals and local keyword hits; blank falls back to the built-in text.'
+                    )}
                   </span>
                 </div>
               </div>
@@ -2963,7 +3187,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   backupStatus
                     ? `${formatBackupTime(backupStatus.date)} · ${formatBackupSize(backupStatus.size)}`
                     : sessions > 0
-                      ? tr(`本机 ${sessions} 个对话 · 尚未自动备份`, `${sessions} chats · not backed up`)
+                      ? tr(
+                          `本机 ${sessions} 个对话 · 尚未自动备份`,
+                          `${sessions} chats · not backed up`
+                        )
                       : tr('暂无备份', 'None yet')
                 }
                 disabled={busy || backingUp}
@@ -2981,7 +3208,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                           )
                         )
                       } else if (result.outcome === 'empty') {
-                        showToast(tr('本机无对话数据，未生成备份', 'No chats on this device, nothing to back up'))
+                        showToast(
+                          tr(
+                            '本机无对话数据，未生成备份',
+                            'No chats on this device, nothing to back up'
+                          )
+                        )
                       } else {
                         showToast(describeBackupFailure(result, tr))
                       }
@@ -3035,10 +3267,17 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     parts.push(tr(`${fixed} 项旧设置已修正`, `${fixed} old settings adjusted`))
                   }
                   if (moved > 0) {
-                    parts.push(tr(`${moved} 项无法解析的数据已隔离保存`, `${moved} unreadable values parked`))
+                    parts.push(
+                      tr(`${moved} 项无法解析的数据已隔离保存`, `${moved} unreadable values parked`)
+                    )
                   }
                   if (unreadable > 0) {
-                    parts.push(tr(`${unreadable} 条旧对话无法读取，已跳过`, `${unreadable} old chats skipped`))
+                    parts.push(
+                      tr(
+                        `${unreadable} 条旧对话无法读取，已跳过`,
+                        `${unreadable} old chats skipped`
+                      )
+                    )
                   }
                   if (parts.length === 0) {
                     return tr(
@@ -3208,17 +3447,21 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   }
                   setMemoryStatus({ type: 'info', text: tr('正在读取记忆…', 'Reading memories…') })
                   setMemoryBusy(true)
-                  void importMemory(selected, (done, total) => {
-                    if (total > 0) {
-                      setMemoryStatus({
-                        type: 'info',
-                        text: tr(
-                          `正在导入记忆：${done}/${total} 个对话`,
-                          `Importing memories: ${done}/${total} chats`
-                        ),
-                      })
-                    }
-                  }, memoryImportMode)
+                  void importMemory(
+                    selected,
+                    (done, total) => {
+                      if (total > 0) {
+                        setMemoryStatus({
+                          type: 'info',
+                          text: tr(
+                            `正在导入记忆：${done}/${total} 个对话`,
+                            `Importing memories: ${done}/${total} chats`
+                          ),
+                        })
+                      }
+                    },
+                    memoryImportMode
+                  )
                     .then((result) => {
                       const skipped = result.skippedCards + result.skippedSessions
                       setMemoryStatus({
@@ -3246,15 +3489,17 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     .catch((error: unknown) => {
                       setMemoryStatus({
                         type: 'error',
-                        text:
-                          error instanceof Error ? error.message : String(error),
+                        text: error instanceof Error ? error.message : String(error),
                       })
                     })
                     .finally(() => setMemoryBusy(false))
                 }}
               />
             </Group>
-            <section className={styles.memoryNotice} aria-label={tr('记忆归档注意事项', 'Memory archive notes')}>
+            <section
+              className={styles.memoryNotice}
+              aria-label={tr('记忆归档注意事项', 'Memory archive notes')}
+            >
               <strong>{tr('记忆归档注意事项', 'Before you archive memory')}</strong>
               <ul>
                 <li>
@@ -3351,23 +3596,26 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 'Text size affects interface text only, never what is sent to the model. Drag the slider for a live preview; Follow system uses the OS scale, and turning it off fixes a size.\nExample: the OS is already enlarged but still small → turn off Follow system and fix 18px; more lines on a small screen → fix 14px.\nBoundary: large sizes wrap long setting labels; bubble padding and message spacing stay unchanged.'
               )}
             </p>
-          <div
-            className={styles.preview}
-            style={{
-              fontSize: `${16 * (fontSize === null ? (android?.systemFontScale() ?? 1) : 1 + (fontSize - 2) * 0.1)}px`,
-            }}
-          >
-            <span>{tr('预览文字大小', 'Preview text size')}</span>
-            <p>
-              {tr('拖动下方滑块调整字号，预览区即时更新。', 'Drag the slider below; the preview updates immediately.')}
-            </p>
-            <p>
-              {tr(
-                '示例文本用于观察字号与行距变化，不参与请求。',
-                'You can share questions or suggestions with DeepSeek.'
-              )}
-            </p>
-          </div>
+            <div
+              className={styles.preview}
+              style={{
+                fontSize: `${16 * (fontSize === null ? (android?.systemFontScale() ?? 1) : 1 + (fontSize - 2) * 0.1)}px`,
+              }}
+            >
+              <span>{tr('预览文字大小', 'Preview text size')}</span>
+              <p>
+                {tr(
+                  '拖动下方滑块调整字号，预览区即时更新。',
+                  'Drag the slider below; the preview updates immediately.'
+                )}
+              </p>
+              <p>
+                {tr(
+                  '示例文本用于观察字号与行距变化，不参与请求。',
+                  'You can share questions or suggestions with DeepSeek.'
+                )}
+              </p>
+            </div>
           </>
         ) : null}
         {screen === 'personalization' ? (
@@ -3452,31 +3700,36 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 'This page lists the agreements and permission notes used by the app. Tapping an item opens the corresponding page in the system browser; the list follows app versions, and permission items match what the installer requested.\nExample: verify data use in the privacy policy, or review the third-party SDK list.\nBoundary: the pages are maintained by their providers; the app keeps no local copy.'
               )}
             </p>
-          <Group>
-            <Row
-              label={tr('用户协议', 'Terms of Use')}
-              onClick={() => openAndroidPage(`${localizedPoliciesUrl}/deepseek-terms-of-use.html`)}
-            />
-            <Row
-              label={tr('隐私政策', 'Privacy Policy')}
-              onClick={() =>
-                openAndroidPage(`${localizedPoliciesUrl}/deepseek-privacy-policy.html`)
-              }
-            />
-            <Row
-              label={tr('第三方信息共享清单', 'SDK Sharing List')}
-              onClick={() =>
-                openAndroidPage(`${chinesePoliciesUrl}/third-party-info-sharing-list.html`)
-              }
-            />
-            <Row
-              label={tr('个人信息收集清单', 'Collected Personal Information')}
-              onClick={() =>
-                openAndroidPage(`${chinesePoliciesUrl}/collected-personal-information.html`)
-              }
-            />
-            <Row label={tr('应用权限', 'App Permissions')} onClick={() => android?.openAppPermissions()} />
-          </Group>
+            <Group>
+              <Row
+                label={tr('用户协议', 'Terms of Use')}
+                onClick={() =>
+                  openAndroidPage(`${localizedPoliciesUrl}/deepseek-terms-of-use.html`)
+                }
+              />
+              <Row
+                label={tr('隐私政策', 'Privacy Policy')}
+                onClick={() =>
+                  openAndroidPage(`${localizedPoliciesUrl}/deepseek-privacy-policy.html`)
+                }
+              />
+              <Row
+                label={tr('第三方信息共享清单', 'SDK Sharing List')}
+                onClick={() =>
+                  openAndroidPage(`${chinesePoliciesUrl}/third-party-info-sharing-list.html`)
+                }
+              />
+              <Row
+                label={tr('个人信息收集清单', 'Collected Personal Information')}
+                onClick={() =>
+                  openAndroidPage(`${chinesePoliciesUrl}/collected-personal-information.html`)
+                }
+              />
+              <Row
+                label={tr('应用权限', 'App Permissions')}
+                onClick={() => android?.openAppPermissions()}
+              />
+            </Group>
           </>
         ) : null}
       </div>
@@ -3651,12 +3904,18 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 'Choose the top-level pool first. For normal memory you can also pick dialogue, code, user or AI; imports keep the category.'
               )}
             </p>
-            <div className={styles.options} role="radiogroup" aria-label={tr('导出分类', 'Export pool')}>
-              {([
-                ['all', tr('全部记忆', 'All memories')],
-                ['normal', tr('仅普通记忆', 'Normal only')],
-                ['character', tr('仅角色记忆', 'Character only')],
-              ] as const).map(([key, label]) => (
+            <div
+              className={styles.options}
+              role="radiogroup"
+              aria-label={tr('导出分类', 'Export pool')}
+            >
+              {(
+                [
+                  ['all', tr('全部记忆', 'All memories')],
+                  ['normal', tr('仅普通记忆', 'Normal only')],
+                  ['character', tr('仅角色记忆', 'Character only')],
+                ] as const
+              ).map(([key, label]) => (
                 <button
                   key={key}
                   type="button"
@@ -3669,7 +3928,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               ))}
             </div>
             {memoryExportPool === 'normal' ? (
-              <div className={styles.memoryLimitPresets} role="group" aria-label={tr('普通记忆子分类', 'Normal categories')}>
+              <div
+                className={styles.memoryLimitPresets}
+                role="group"
+                aria-label={tr('普通记忆子分类', 'Normal categories')}
+              >
                 {NORMAL_MEMORY_KINDS.map((kind) => {
                   const active = memoryExportKinds.includes(kind)
                   return (
@@ -3696,11 +3959,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </div>
             ) : null}
             <div className={styles.tokenRow}>
-              <button
-                className={styles.confirm}
-                type="button"
-                onClick={() => back()}
-              >
+              <button className={styles.confirm} type="button" onClick={() => back()}>
                 {tr('取消', 'Cancel')}
               </button>
               <button
@@ -3763,18 +4022,18 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 className={styles.tokenInput}
                 type="number"
                 min={backupUnit === 'hour' ? 1 : AUTO_BACKUP_MINUTES_MIN}
-                max={
-                  backupUnit === 'hour'
-                    ? AUTO_BACKUP_MINUTES_MAX / 60
-                    : AUTO_BACKUP_MINUTES_MAX
-                }
+                max={backupUnit === 'hour' ? AUTO_BACKUP_MINUTES_MAX / 60 : AUTO_BACKUP_MINUTES_MAX}
                 inputMode="numeric"
                 value={backupDraft}
                 placeholder={tr('自定义间隔', 'Custom interval')}
                 aria-label={tr('自定义备份间隔', 'Custom backup interval')}
                 onChange={(event) => setBackupDraft(event.target.value)}
               />
-              <div className={styles.backupUnit} role="radiogroup" aria-label={tr('间隔单位', 'Interval unit')}>
+              <div
+                className={styles.backupUnit}
+                role="radiogroup"
+                aria-label={tr('间隔单位', 'Interval unit')}
+              >
                 {(['minute', 'hour'] as const).map((unit) => (
                   <button
                     key={unit}
@@ -3829,26 +4088,70 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         <Choice
           title={tr('主题色', 'Accent color')}
           value={accentColor}
-          hint={tr('主题色应用于按钮、选中态、链接与进度条；选择后可在面板中即时预览。', 'Buttons, selected states and links use this color; tap an option to preview it.')}
+          hint={tr(
+            '主题色应用于按钮、选中态、链接与进度条；选择后可在面板中即时预览。',
+            'Buttons, selected states and links use this color; tap an option to preview it.'
+          )}
           fields={[
-            { id: 'blue', label: tr('经典蓝', 'Blue'), description: tr('默认强调色，对比稳定，适合长时间阅读。', 'Default accent with stable contrast.') },
-            { id: 'teal', label: tr('青', 'Teal'), description: tr('偏冷的青绿色，适合深色主题。', 'Cool teal, suited to dark themes.') },
-            { id: 'violet', label: tr('藤紫', 'Violet'), description: tr('低饱和藤紫，强调层次更明显。', 'Muted violet with clear emphasis.') },
-            { id: 'amber', label: tr('琥珀', 'Amber'), description: tr('暖色强调，适合浅色主题。', 'Warm accent for light themes.') },
-            { id: 'rose', label: tr('玫红', 'Rose'), description: tr('偏红的柔和强调色，辨识度较高。', 'Soft red accent with strong visibility.') },
-            { id: 'green', label: tr('墨绿', 'Green'), description: tr('低饱和墨绿，与深色主题对比柔和。', 'Muted green with soft contrast.') },
+            {
+              id: 'blue',
+              label: tr('经典蓝', 'Blue'),
+              description: tr(
+                '默认强调色，对比稳定，适合长时间阅读。',
+                'Default accent with stable contrast.'
+              ),
+            },
+            {
+              id: 'teal',
+              label: tr('青', 'Teal'),
+              description: tr('偏冷的青绿色，适合深色主题。', 'Cool teal, suited to dark themes.'),
+            },
+            {
+              id: 'violet',
+              label: tr('藤紫', 'Violet'),
+              description: tr('低饱和藤紫，强调层次更明显。', 'Muted violet with clear emphasis.'),
+            },
+            {
+              id: 'amber',
+              label: tr('琥珀', 'Amber'),
+              description: tr('暖色强调，适合浅色主题。', 'Warm accent for light themes.'),
+            },
+            {
+              id: 'rose',
+              label: tr('玫红', 'Rose'),
+              description: tr(
+                '偏红的柔和强调色，辨识度较高。',
+                'Soft red accent with strong visibility.'
+              ),
+            },
+            {
+              id: 'green',
+              label: tr('墨绿', 'Green'),
+              description: tr(
+                '低饱和墨绿，与深色主题对比柔和。',
+                'Muted green with soft contrast.'
+              ),
+            },
           ]}
           confirmLabel={tr('确认', 'Confirm')}
           onSelect={(value) =>
             setAccentColor(
-              value === 'teal' || value === 'violet' || value === 'amber' || value === 'rose' || value === 'green'
+              value === 'teal' ||
+                value === 'violet' ||
+                value === 'amber' ||
+                value === 'rose' ||
+                value === 'green'
                 ? value
                 : 'blue'
             )
           }
           confirm={(value) => {
             setAccentColor(
-              value === 'teal' || value === 'violet' || value === 'amber' || value === 'rose' || value === 'green'
+              value === 'teal' ||
+                value === 'violet' ||
+                value === 'amber' ||
+                value === 'rose' ||
+                value === 'green'
                 ? value
                 : 'blue'
             )
@@ -3861,11 +4164,29 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         <Choice
           title={tr('气泡圆角', 'Bubble corners')}
           value={bubbleRadius}
-          hint={tr('调整聊天气泡四角弧度；选择后立即应用到对话区。', 'Changes the corner radius of chat bubbles; applied immediately.')}
+          hint={tr(
+            '调整聊天气泡四角弧度；选择后立即应用到对话区。',
+            'Changes the corner radius of chat bubbles; applied immediately.'
+          )}
           fields={[
-            { id: 'compact', label: tr('紧凑', 'Compact'), description: tr('圆角最小，界面更紧凑。', 'Smallest radius for a tighter layout.') },
-            { id: 'standard', label: tr('标准', 'Standard'), description: tr('默认圆角，兼顾辨识与空间。', 'Default radius balancing shape and space.') },
-            { id: 'round', label: tr('大圆角', 'Round'), description: tr('圆角最大，气泡轮廓更柔和。', 'Largest radius for softer bubbles.') },
+            {
+              id: 'compact',
+              label: tr('紧凑', 'Compact'),
+              description: tr('圆角最小，界面更紧凑。', 'Smallest radius for a tighter layout.'),
+            },
+            {
+              id: 'standard',
+              label: tr('标准', 'Standard'),
+              description: tr(
+                '默认圆角，兼顾辨识与空间。',
+                'Default radius balancing shape and space.'
+              ),
+            },
+            {
+              id: 'round',
+              label: tr('大圆角', 'Round'),
+              description: tr('圆角最大，气泡轮廓更柔和。', 'Largest radius for softer bubbles.'),
+            },
           ]}
           confirmLabel={tr('确认', 'Confirm')}
           onSelect={(value) =>
@@ -3882,11 +4203,32 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         <Choice
           title={tr('消息间距', 'Message spacing')}
           value={messageSpacing}
-          hint={tr('紧凑模式同时收紧单条消息下方留白；宽松模式增大相邻消息间距。', 'Compact also tightens the gap under each message; loose spreads neighbouring messages apart.')}
+          hint={tr(
+            '紧凑模式同时收紧单条消息下方留白；宽松模式增大相邻消息间距。',
+            'Compact also tightens the gap under each message; loose spreads neighbouring messages apart.'
+          )}
           fields={[
-            { id: 'compact', label: tr('紧凑', 'Compact'), description: tr('消息间距最小，单屏可显示更多内容。', 'Tightest spacing for more content per screen.') },
-            { id: 'normal', label: tr('标准', 'Standard'), description: tr('默认间距，兼顾阅读与信息密度。', 'Default spacing.') },
-            { id: 'loose', label: tr('宽松', 'Loose'), description: tr('消息间距更大，分段更清晰。', 'Wider spacing for clearer separation.') },
+            {
+              id: 'compact',
+              label: tr('紧凑', 'Compact'),
+              description: tr(
+                '消息间距最小，单屏可显示更多内容。',
+                'Tightest spacing for more content per screen.'
+              ),
+            },
+            {
+              id: 'normal',
+              label: tr('标准', 'Standard'),
+              description: tr('默认间距，兼顾阅读与信息密度。', 'Default spacing.'),
+            },
+            {
+              id: 'loose',
+              label: tr('宽松', 'Loose'),
+              description: tr(
+                '消息间距更大，分段更清晰。',
+                'Wider spacing for clearer separation.'
+              ),
+            },
           ]}
           confirmLabel={tr('确认', 'Confirm')}
           onSelect={(value) =>
@@ -3904,8 +4246,19 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           title={tr('头像形状', 'Avatar shape')}
           value={avatarShape}
           fields={[
-            { id: 'circle', label: tr('圆形', 'Circle'), description: tr('正圆裁切，适合人物头像。', 'Circular crop for portraits.') },
-            { id: 'rounded', label: tr('圆角方形', 'Rounded'), description: tr('圆角方形，保留更多画面边缘。', 'Rounded square preserving more of the frame.') },
+            {
+              id: 'circle',
+              label: tr('圆形', 'Circle'),
+              description: tr('正圆裁切，适合人物头像。', 'Circular crop for portraits.'),
+            },
+            {
+              id: 'rounded',
+              label: tr('圆角方形', 'Rounded'),
+              description: tr(
+                '圆角方形，保留更多画面边缘。',
+                'Rounded square preserving more of the frame.'
+              ),
+            },
           ]}
           confirmLabel={tr('确认', 'Confirm')}
           confirm={(value) => {
@@ -3920,10 +4273,29 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           title={tr('角色头像大小', 'Character avatar size')}
           value={String(characterAvatarSize)}
           fields={[
-            { id: '20', label: tr('小 20', 'Small 20'), description: tr('占用 20px，适合信息密集的列表。', '20px, suited to dense lists.') },
-            { id: '24', label: tr('标准 24', 'Default 24'), description: tr('占用 24px，默认尺寸。', '24px, the default size.') },
-            { id: '30', label: tr('大 30', 'Large 30'), description: tr('占用 30px，头像更突出。', '30px for stronger emphasis.') },
-            { id: '36', label: tr('特大 36', 'Extra 36'), description: tr('占用 36px，适合单人或短对话。', '36px for short or single-character chats.') },
+            {
+              id: '20',
+              label: tr('小 20', 'Small 20'),
+              description: tr('占用 20px，适合信息密集的列表。', '20px, suited to dense lists.'),
+            },
+            {
+              id: '24',
+              label: tr('标准 24', 'Default 24'),
+              description: tr('占用 24px，默认尺寸。', '24px, the default size.'),
+            },
+            {
+              id: '30',
+              label: tr('大 30', 'Large 30'),
+              description: tr('占用 30px，头像更突出。', '30px for stronger emphasis.'),
+            },
+            {
+              id: '36',
+              label: tr('特大 36', 'Extra 36'),
+              description: tr(
+                '占用 36px，适合单人或短对话。',
+                '36px for short or single-character chats.'
+              ),
+            },
           ]}
           confirmLabel={tr('确认', 'Confirm')}
           confirm={(value) => {
@@ -3938,10 +4310,29 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           title={tr('我的头像大小', 'My avatar size')}
           value={String(userAvatarSize)}
           fields={[
-            { id: '20', label: tr('小 20', 'Small 20'), description: tr('占用 20px，适合信息密集的列表。', '20px, suited to dense lists.') },
-            { id: '24', label: tr('标准 24', 'Default 24'), description: tr('占用 24px，默认尺寸。', '24px, the default size.') },
-            { id: '30', label: tr('大 30', 'Large 30'), description: tr('占用 30px，头像更突出。', '30px for stronger emphasis.') },
-            { id: '36', label: tr('特大 36', 'Extra 36'), description: tr('占用 36px，适合单人或短对话。', '36px for short or single-character chats.') },
+            {
+              id: '20',
+              label: tr('小 20', 'Small 20'),
+              description: tr('占用 20px，适合信息密集的列表。', '20px, suited to dense lists.'),
+            },
+            {
+              id: '24',
+              label: tr('标准 24', 'Default 24'),
+              description: tr('占用 24px，默认尺寸。', '24px, the default size.'),
+            },
+            {
+              id: '30',
+              label: tr('大 30', 'Large 30'),
+              description: tr('占用 30px，头像更突出。', '30px for stronger emphasis.'),
+            },
+            {
+              id: '36',
+              label: tr('特大 36', 'Extra 36'),
+              description: tr(
+                '占用 36px，适合单人或短对话。',
+                '36px for short or single-character chats.'
+              ),
+            },
           ]}
           confirmLabel={tr('确认', 'Confirm')}
           confirm={(value) => {
@@ -3955,7 +4346,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         <Choice
           title={tr('聊天布局', 'Chat layout')}
           value={chatLayout}
-          hint={tr('气泡配色仅作用于对话区，不改变侧栏与设置页面。', 'Bubble colors only affect the chat area, not the sidebar or settings.')}
+          hint={tr(
+            '气泡配色仅作用于对话区，不改变侧栏与设置页面。',
+            'Bubble colors only affect the chat area, not the sidebar or settings.'
+          )}
           fields={layouts}
           confirmLabel={tr('确认', 'Confirm')}
           onSelect={setChatLayout}
@@ -4047,7 +4441,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               role="radiogroup"
               aria-label={t('historyImportConfirmTitle')}
             >
-              {([
+              {[
                 {
                   id: 'merge' as const,
                   title: t('historyImportModeMerge'),
@@ -4058,7 +4452,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   title: t('historyImportModeReplace'),
                   description: t('historyImportModeReplaceDescription'),
                 },
-              ]).map((mode) => (
+              ].map((mode) => (
                 <button
                   key={mode.id}
                   type="button"
@@ -4139,7 +4533,6 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         return (
           <section
             key={screen}
-
             className={styles.page}
             data-settings-page={screen}
             role="region"

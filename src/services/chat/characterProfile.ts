@@ -85,28 +85,32 @@ export const CHARACTER_PROFILE_GROUPS: CharacterProfileGroup[] = [
     label: '基本档案',
     labelEn: 'Basic facts',
     hint: '先把不会变的事实填死：年龄、性别、代词、种族、生日、职业、居住地、语言。',
-    hintEn: 'Fix the facts that must not drift: age, gender, pronouns, species, birthday, job, home and language.',
+    hintEn:
+      'Fix the facts that must not drift: age, gender, pronouns, species, birthday, job, home and language.',
   },
   {
     key: 'body',
     label: '身体与生活',
     labelEn: 'Body & daily life',
     hint: '身高体重、外貌、吃喝、兴趣、作息、随身物和宠物，让这个人有身体、有日子。',
-    hintEn: 'Height, weight, looks, food, hobbies, routine, keepsakes and pets give this person a body and a life.',
+    hintEn:
+      'Height, weight, looks, food, hobbies, routine, keepsakes and pets give this person a body and a life.',
   },
   {
     key: 'personality',
     label: '性格与边界',
     labelEn: 'Character & limits',
     hint: '压力下会怎么选、看重什么、被什么踩到、绝对不做什么，以及希望怎样推进剧情。',
-    hintEn: 'How they choose under pressure, what they value, what sets them off, what they never do, and how they engage.',
+    hintEn:
+      'How they choose under pressure, what they value, what sets them off, what they never do, and how they engage.',
   },
   {
     key: 'story',
     label: '剧情与表达',
     labelEn: 'Story & voice',
     hint: '来历、关系、眼下处境、目标、弱点、说话方式、秘密和补充设定。',
-    hintEn: 'History, relationship, current situation, goals, weakness, speech, secrets and extra notes.',
+    hintEn:
+      'History, relationship, current situation, goals, weakness, speech, secrets and extra notes.',
   },
 ]
 
@@ -152,7 +156,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'core',
     label: '生日',
     hint: '日期或季节，以及怎么过',
-    placeholder: '例：3 月 17 日；不过生日，但每年第一场雪会独自喝一杯。\n没有具体历法时写季节或纪念日。',
+    placeholder:
+      '例：3 月 17 日；不过生日，但每年第一场雪会独自喝一杯。\n没有具体历法时写季节或纪念日。',
     rows: 2,
   },
   {
@@ -160,7 +165,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'core',
     label: '职业',
     hint: '靠什么吃饭、每天具体做什么',
-    placeholder: '例：旧书店夜班店员，兼做插画外包；最近在给一本地方志画地图。\n写清工作内容与作息关系，不要只写头衔。',
+    placeholder:
+      '例：旧书店夜班店员，兼做插画外包；最近在给一本地方志画地图。\n写清工作内容与作息关系，不要只写头衔。',
     rows: 2,
   },
   {
@@ -168,7 +174,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'core',
     label: '居住地',
     hint: '城市、住处和空间格局',
-    placeholder: '例：江城老城区，书店后巷的顶楼单间；窗朝北，楼下是修车铺。\n写清通勤、邻居、常去的店，方便剧情落地。',
+    placeholder:
+      '例：江城老城区，书店后巷的顶楼单间；窗朝北，楼下是修车铺。\n写清通勤、邻居、常去的店，方便剧情落地。',
     rows: 2,
   },
   {
@@ -176,7 +183,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'core',
     label: '语言与口音',
     hint: '会说什么、带什么口音、紧张时会不会换语言',
-    placeholder: '例：普通话，带一点西南口音；会读旧体文言，不会说；生气时冒家乡话。\n写清语言能力和使用场景。',
+    placeholder:
+      '例：普通话，带一点西南口音；会读旧体文言，不会说；生气时冒家乡话。\n写清语言能力和使用场景。',
     rows: 2,
   },
   {
@@ -218,7 +226,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'body',
     label: '喜欢的食物',
     hint: '具体到做法、口味或某家店',
-    placeholder: '例：巷口那家的酸汤粉，多放木姜子；冬天喜欢烤红薯，掰开先闻一会儿。\n写清为什么喜欢，比列菜单更像活人。',
+    placeholder:
+      '例：巷口那家的酸汤粉，多放木姜子；冬天喜欢烤红薯，掰开先闻一会儿。\n写清为什么喜欢，比列菜单更像活人。',
     rows: 2,
   },
   {
@@ -226,7 +235,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'body',
     label: '讨厌的食物',
     hint: '讨厌到什么程度、会不会勉强吃',
-    placeholder: '例：香菜，闻到就皱眉；被迫吃时会先挑干净，实在不行才动筷子。\n写出反应，而不只是「不喜欢」。',
+    placeholder:
+      '例：香菜，闻到就皱眉；被迫吃时会先挑干净，实在不行才动筷子。\n写出反应，而不只是「不喜欢」。',
     rows: 2,
   },
   {
@@ -242,7 +252,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'body',
     label: '兴趣',
     hint: '没事时真的会做什么',
-    placeholder: '例：收集旧地图，用铅笔描河岸；修不好收音机也不扔；雨天整理照片。\n兴趣要能出现在日常动作里。',
+    placeholder:
+      '例：收集旧地图，用铅笔描河岸；修不好收音机也不扔；雨天整理照片。\n兴趣要能出现在日常动作里。',
     rows: 3,
   },
   {
@@ -250,7 +261,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'body',
     label: '日常作息',
     hint: '一天怎么过，几点起、几点睡',
-    placeholder: '例：下午两点起，四点开店，凌晨三点关灯；关灯后还要擦一遍柜台才睡。\n写清吃饭、通勤、独处的时间段。',
+    placeholder:
+      '例：下午两点起，四点开店，凌晨三点关灯；关灯后还要擦一遍柜台才睡。\n写清吃饭、通勤、独处的时间段。',
     rows: 3,
   },
   {
@@ -258,7 +270,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'body',
     label: '随身物',
     hint: '总在身上、丢了会回头找的东西',
-    placeholder: '例：磨掉漆的铜钥匙、旧钢笔、一包纸巾；钥匙从不离身，睡觉也放枕边。\n写清用途或来历。',
+    placeholder:
+      '例：磨掉漆的铜钥匙、旧钢笔、一包纸巾；钥匙从不离身，睡觉也放枕边。\n写清用途或来历。',
     rows: 2,
   },
   {
@@ -266,7 +279,8 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     group: 'body',
     label: '宠物',
     hint: '名字、种类、脾气和相处方式',
-    placeholder: '例：一只叫「墨点」的独眼黑猫，怕生，只肯让ta摸后颈；每天凌晨在门口等。\n没有宠物写「没有」，或留空。',
+    placeholder:
+      '例：一只叫「墨点」的独眼黑猫，怕生，只肯让ta摸后颈；每天凌晨在门口等。\n没有宠物写「没有」，或留空。',
     rows: 2,
   },
   {
@@ -398,22 +412,26 @@ export const CHARACTER_PROFILE_EN: Record<
   age: {
     label: 'Age',
     hint: 'Actual age; if the body differs, write both',
-    placeholder: '24. Looks 19, has actually lived 310 years. Age drives address, experience and body state.',
+    placeholder:
+      '24. Looks 19, has actually lived 310 years. Age drives address, experience and body state.',
   },
   gender: {
     label: 'Gender',
     hint: 'Self-identification, not only assigned sex',
-    placeholder: 'Woman; man; non-binary; agender; trans woman. Note forms of address that feel wrong.',
+    placeholder:
+      'Woman; man; non-binary; agender; trans woman. Note forms of address that feel wrong.',
   },
   pronouns: {
     label: 'Pronouns',
     hint: 'The fixed set used in narration and dialogue',
-    placeholder: 'he / she / they / it. If different people use different forms, say who uses which.',
+    placeholder:
+      'he / she / they / it. If different people use different forms, say who uses which.',
   },
   species: {
     label: 'Species',
     hint: 'Human, spirit, machine, hybrid or non-human',
-    placeholder: 'Human; cat spirit; half-machine; a bodiless old god. Note tails, ears, scales and shape limits.',
+    placeholder:
+      'Human; cat spirit; half-machine; a bodiless old god. Note tails, ears, scales and shape limits.',
   },
   birthday: {
     label: 'Birthday',
@@ -423,22 +441,26 @@ export const CHARACTER_PROFILE_EN: Record<
   occupation: {
     label: 'Occupation',
     hint: 'What pays the bills and what the work actually is',
-    placeholder: 'Night clerk at an old bookshop, also takes illustration jobs. Concrete duties, not just a title.',
+    placeholder:
+      'Night clerk at an old bookshop, also takes illustration jobs. Concrete duties, not just a title.',
   },
   residence: {
     label: 'Residence',
     hint: 'City, home and the shape of the space',
-    placeholder: 'A north-facing attic behind the bookshop in old Jiangcheng; repair shop downstairs.',
+    placeholder:
+      'A north-facing attic behind the bookshop in old Jiangcheng; repair shop downstairs.',
   },
   languages: {
     label: 'Languages & accent',
     hint: 'What they speak, how it sounds, what slips out under stress',
-    placeholder: 'Mandarin with a south-western accent; reads classical Chinese but cannot speak it.',
+    placeholder:
+      'Mandarin with a south-western accent; reads classical Chinese but cannot speak it.',
   },
   origin: {
     label: 'Origin & identity',
     hint: 'Source work, place in the story, how people know them',
-    placeholder: 'Original OC returning to Jiangcheng. For fan work, name the source and timeline. Age, species, job and home have separate fields.',
+    placeholder:
+      'Original OC returning to Jiangcheng. For fan work, name the source and timeline. Age, species, job and home have separate fields.',
   },
   height: {
     label: 'Height',
@@ -453,27 +475,32 @@ export const CHARACTER_PROFILE_EN: Record<
   appearance: {
     label: 'Appearance & body',
     hint: 'What can be seen, heard or smelled; height and weight are separate',
-    placeholder: 'Face, hair, skin, eyes, hands, clothes, shoes, voice, and how the body reacts when tired or nervous.',
+    placeholder:
+      'Face, hair, skin, eyes, hands, clothes, shoes, voice, and how the body reacts when tired or nervous.',
   },
   favoriteFoods: {
     label: 'Favorite foods',
     hint: 'Specific dishes, tastes or places',
-    placeholder: 'Sour-soup rice noodles from the corner shop, extra ginger; roasted sweet potato in winter.',
+    placeholder:
+      'Sour-soup rice noodles from the corner shop, extra ginger; roasted sweet potato in winter.',
   },
   dislikedFoods: {
     label: 'Disliked foods',
     hint: 'How much, and what they do when forced',
-    placeholder: 'Coriander. Winces at the smell, picks it out, eats only if there is no way around it.',
+    placeholder:
+      'Coriander. Winces at the smell, picks it out, eats only if there is no way around it.',
   },
   favoriteDrinks: {
     label: 'Usual drinks',
     hint: 'Tea, coffee, alcohol or a fixed glass of water',
-    placeholder: 'Strong tea at 3am, warm water by day; mint drops when nervous. Note the cup and the habit.',
+    placeholder:
+      'Strong tea at 3am, warm water by day; mint drops when nervous. Note the cup and the habit.',
   },
   hobbies: {
     label: 'Hobbies',
     hint: 'What they actually do when nothing is required',
-    placeholder: 'Collects old maps and traces riverbanks in pencil; keeps a broken radio; sorts photos on rainy days.',
+    placeholder:
+      'Collects old maps and traces riverbanks in pencil; keeps a broken radio; sorts photos on rainy days.',
   },
   dailyRoutine: {
     label: 'Daily routine',
@@ -483,77 +510,92 @@ export const CHARACTER_PROFILE_EN: Record<
   possessions: {
     label: 'Keepsakes',
     hint: 'Always carried; they would turn back for it',
-    placeholder: 'A worn brass key, an old fountain pen, tissues. The key never leaves them, even in sleep.',
+    placeholder:
+      'A worn brass key, an old fountain pen, tissues. The key never leaves them, even in sleep.',
   },
   pet: {
     label: 'Pet',
     hint: 'Name, species, temperament and how they touch',
-    placeholder: 'A one-eyed black cat named Ink, shy, only lets them scratch the back of the neck.',
+    placeholder:
+      'A one-eyed black cat named Ink, shy, only lets them scratch the back of the neck.',
   },
   personality: {
     label: 'Personality',
     hint: 'Choices under pressure, not adjective piles',
-    placeholder: 'Core desire, contradictions, reactions to closeness and conflict. Describe calm mode and cornered mode.',
+    placeholder:
+      'Core desire, contradictions, reactions to closeness and conflict. Describe calm mode and cornered mode.',
   },
   values: {
     label: 'Values',
     hint: 'What matters, what is defended, what can be traded',
-    placeholder: 'Keeps promises; may be poor but never lies; family before work, but never hurts strangers for family.',
+    placeholder:
+      'Keeps promises; may be poor but never lies; family before work, but never hurts strangers for family.',
   },
   petPeeves: {
     label: 'Pet peeves',
     hint: 'One line or action that changes the face',
-    placeholder: 'Hates decisions made for them; goes silent at an old nickname; cannot stand wasted food.',
+    placeholder:
+      'Hates decisions made for them; goes silent at an old nickname; cannot stand wasted food.',
   },
   boundaries: {
     label: 'Bottom lines',
     hint: 'What they will never do, and what happens after a line is crossed',
-    placeholder: 'Never sells another person’s secret; never hurts a child; never lies to an elder for anyone.',
+    placeholder:
+      'Never sells another person’s secret; never hurts a child; never lies to an elder for anyone.',
   },
   cooperation: {
     label: 'How to engage',
     hint: 'How they want the scene advanced, and how they refuse',
-    placeholder: 'Accepts everyday invitations and closeness, but not staying over on the first night; says “another day” instead of vanishing.',
+    placeholder:
+      'Accepts everyday invitations and closeness, but not staying over on the first night; says “another day” instead of vanishing.',
   },
   background: {
     label: 'History',
     hint: 'Two or three events that shaped the present',
-    placeholder: 'What made them who they are, what they lost or won, who they owe, and which topics are off-limits.',
+    placeholder:
+      'What made them who they are, what they lost or won, who they owe, and which topics are off-limits.',
   },
   relationship: {
     label: 'Relationship',
     hint: 'How you met, what you are now, where the lines are',
-    placeholder: 'How long you have known {{user}}, what you call each other, what can and cannot be said, and what stays unsaid.',
+    placeholder:
+      'How long you have known {{user}}, what you call each other, what can and cannot be said, and what stays unsaid.',
   },
   situation: {
     label: 'Current situation',
     hint: 'Where, doing what, what is pressing',
-    placeholder: 'Time, place, current task, physical and emotional state, who is nearby, and the most urgent thing right now.',
+    placeholder:
+      'Time, place, current task, physical and emotional state, who is nearby, and the most urgent thing right now.',
   },
   goal: {
     label: 'Goals & motives',
     hint: 'What is wanted now, what cannot be lost',
-    placeholder: 'Short-term goal, long-term fear, acceptable cost, and methods this person would never use.',
+    placeholder:
+      'Short-term goal, long-term fear, acceptable cost, and methods this person would never use.',
   },
   weakness: {
     label: 'Weakness & fear',
     hint: 'What they misjudge, what breaks them',
-    placeholder: 'Skills they lack, triggers, people or things they fear losing, and how they react to failure.',
+    placeholder:
+      'Skills they lack, triggers, people or things they fear losing, and how they react to failure.',
   },
   speech: {
     label: 'Speech',
     hint: 'Sentence length, wording, tics, silence',
-    placeholder: 'Short or long sentences, formal or casual wording, verbal tics, forms of address, and how they dodge a question.',
+    placeholder:
+      'Short or long sentences, formal or casual wording, verbal tics, forms of address, and how they dodge a question.',
   },
   secret: {
     label: 'Secret',
     hint: 'Held until the right moment; may be empty',
-    placeholder: 'What they know and do not say, who else knows, how they deflect, and what changes when it surfaces.',
+    placeholder:
+      'What they know and do not say, who else knows, how they deflect, and what changes when it surfaces.',
   },
   notes: {
     label: 'Additional notes',
     hint: 'No length limit; anything not covered above',
-    placeholder: 'Family, ability limits, world constraints, out-of-character red lines, taboos, or a representative slice of daily life.',
+    placeholder:
+      'Family, ability limits, world constraints, out-of-character red lines, taboos, or a representative slice of daily life.',
   },
 }
 
@@ -641,3 +683,34 @@ export const formatCharacterProfile = ({
   ].filter(Boolean)
   return fill(lines.join('\n'))
 }
+
+/**
+ * 档案关闭时的身份名展示：不再读取年龄、经历等档案字段，但保留姓名这一条，
+ * 避免 system 里完全没有名字，模型只能按默认人格自称。
+ * 只陈述身份，不回填整份档案；空名字返回空串。
+ */
+export const formatCharacterIdentity = ({
+  name,
+  userName,
+}: {
+  name: string
+  userName: string
+}): string => {
+  const trimmedName = name.trim()
+  if (!trimmedName) {
+    return ''
+  }
+  return [
+    '【角色身份】',
+    `姓名：${trimmedName}`,
+    '你就是这个人，不是模型、程序、助手或旁白。不要改名，也不要向{{user}}解释这个名字来自设定。',
+  ]
+    .map((line) =>
+      line.replaceAll('{{user}}', userName || '对方').replaceAll('{{char}}', trimmedName)
+    )
+    .join('\n')
+}
+
+/** system 里实际使用的角色名：当前卡优先，其次手写档案名，最后用 AI 兜底 */
+export const resolveSystemCharacterName = (cardName: string | undefined, profileName: string) =>
+  cardName?.trim() || profileName.trim() || 'AI'

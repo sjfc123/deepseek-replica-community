@@ -1,18 +1,20 @@
 /**
  * 角色扮演层回归：
- * 1. 内置卡数量与三张新预设；
+ * 1. 内置卡数量、六张卡的基础配置完整度与旧种子刷新；
  * 2. 补充设定不限字数；
  * 3. 情景、系统指令与对白示例进入 system 且跨轮稳定；
  * 4. 会话绑定优先于全局开关，旧会话可按开场白识别；
  * 5. 世界书避触词与整段历史扫描；
  * 6. 场景新增字段可解析；
- * 7. 基础档案归一化、计数与 system 装配。
+ * 7. 基础档案归一化、计数与 system 装配；
+ * 8. 档案关闭后的身份名行与 system 名字解析。
  */
 import assert from 'node:assert/strict'
 
 const {
   BUILTIN_CHARACTER_CARD_TOTAL,
   getBuiltinCharacterCards,
+  ensureBuiltinCharacterCards,
   normalizeCharacterCards,
   normalizeWorldbook,
   formatCharacterCard,
@@ -35,6 +37,8 @@ const {
   characterProfileFieldCount,
   characterProfileHasContent,
   formatCharacterProfile,
+  formatCharacterIdentity,
+  resolveSystemCharacterName,
   CHARACTER_PROFILE_FIELDS,
   shouldInjectCharacterProfile,
   PROFILE_FIXED_FACTS_RULE,
@@ -45,12 +49,88 @@ const {
 const builtins = getBuiltinCharacterCards()
 assert.equal(builtins.length, BUILTIN_CHARACTER_CARD_TOTAL, '内置卡总数必须和常量一致')
 assert.equal(builtins.length, 6)
-for (const id of ['builtin:jianghu', 'builtin:xianxia', 'builtin:urban']) {
-  assert.ok(builtins.some((card) => card.id === id), `缺少内置卡 ${id}`)
+for (const id of [
+  'builtin:dafeiyu',
+  'builtin:whale-girl',
+  'builtin:catgirl',
+  'builtin:jianghu',
+  'builtin:xianxia',
+  'builtin:urban',
+]) {
+  assert.ok(
+    builtins.some((card) => card.id === id),
+    `缺少内置卡 ${id}`
+  )
 }
 const newCards = builtins.filter((card) => ['江湖', '修仙', '都市'].includes(card.genre))
 assert.equal(newCards.length, 3, '三张新卡必须带题材')
 assert.ok(newCards.every((card) => card.greeting && card.scenario && card.systemDirective))
+
+// 0.8.86：六张内置卡除基础档案外，角色卡本身的字段必须全部有值
+const cardRequiredFields = [
+  'name',
+  'age',
+  'gender',
+  'pronouns',
+  'species',
+  'height',
+  'weight',
+  'birthday',
+  'occupation',
+  'residence',
+  'languages',
+  'favoriteFoods',
+  'dislikedFoods',
+  'favoriteDrinks',
+  'hobbies',
+  'dailyRoutine',
+  'possessions',
+  'pet',
+  'temperament',
+  'values',
+  'petPeeves',
+  'boundaries',
+  'cooperation',
+  'identity',
+  'relationship',
+  'style',
+  'tics',
+  'greeting',
+  'notes',
+  'genre',
+  'scenario',
+  'systemDirective',
+  'appearance',
+  'background',
+  'goal',
+  'secret',
+  'speechExamples',
+]
+for (const card of builtins) {
+  for (const field of cardRequiredFields) {
+    assert.ok(String(card[field] ?? '').trim(), `${card.name} 的内置卡字段 ${field} 不能为空`)
+  }
+  assert.ok(card.tags.length > 0, `${card.name} 必须带标签`)
+  const cardSystem = formatCharacterCard(card, '阿遥')
+  for (const label of ['姓名：', '情景设定：', '参考对白', '【角色内系统指令】']) {
+    assert.ok(cardSystem.includes(label), `${card.name} 的 system 应包含 ${label}`)
+  }
+  assert.doesNotMatch(cardSystem, /\{\{user\}\}|\{\{char\}\}/, `${card.name} 不应残留占位符`)
+}
+
+// 旧种子可刷新，用户保存过的内置卡不被覆盖
+const oldSeed = {
+  ...builtins.find((card) => card.id === 'builtin:dafeiyu'),
+  appearance: '',
+  updatedAt: Date.UTC(2026, 10, 23),
+}
+const refreshed = ensureBuiltinCharacterCards([oldSeed]).find(
+  (card) => card.id === 'builtin:dafeiyu'
+)
+assert.ok(refreshed.appearance.includes('蓝色'), '旧内置卡种子应补全外观')
+const editedSeed = { ...oldSeed, appearance: '我自己改的外观', updatedAt: Date.now() }
+const kept = ensureBuiltinCharacterCards([editedSeed]).find((card) => card.id === 'builtin:dafeiyu')
+assert.equal(kept.appearance, '我自己改的外观', '用户保存过的内置卡不应被种子覆盖')
 
 const longNotes = '长'.repeat(20_000)
 const [card] = normalizeCharacterCards([
@@ -147,11 +227,7 @@ for (const [key, value] of Object.entries({
 })) {
   assert.equal(fullCard[key], value, `角色卡字段 ${key} 必须保留`)
 }
-assert.equal(
-  normalizeCharacterCards([{ name: '旧卡' }])[0].age,
-  '',
-  '旧卡缺少新字段时必须补空串'
-)
+assert.equal(normalizeCharacterCards([{ name: '旧卡' }])[0].age, '', '旧卡缺少新字段时必须补空串')
 const fullPrompt = formatCharacterCard(fullCard, '用户')
 assert.ok(fullPrompt.indexOf('年龄：') < fullPrompt.indexOf('性别：'), '固定参数必须按顺序靠前')
 assert.match(fullPrompt, /是固定事实；除非剧情明确经过时间或身体变化/)
@@ -167,12 +243,20 @@ const session = {
   createdAt: 1,
   updatedAt: 1,
   messages: [
-    { id: 'm1', role: 'assistant', createdAt: 1, blocks: [{ type: 'text', text: '（抬眼）你来了。' }] },
+    {
+      id: 'm1',
+      role: 'assistant',
+      createdAt: 1,
+      blocks: [{ type: 'text', text: '（抬眼）你来了。' }],
+    },
   ],
   rootMessageId: 'm1',
 }
 assert.equal(findSessionCharacterCard([cardWithAll], session)?.id, cardWithAll.id)
-assert.equal(findSessionCharacterCard([cardWithAll], { ...session, characterId: cardWithAll.id })?.id, cardWithAll.id)
+assert.equal(
+  findSessionCharacterCard([cardWithAll], { ...session, characterId: cardWithAll.id })?.id,
+  cardWithAll.id
+)
 assert.equal(
   resolveTurnCharacterCard([cardWithAll], session, null, false)?.id,
   cardWithAll.id,
@@ -218,10 +302,7 @@ assert.equal(
   WORLDBOOK_AUTHORITY_DEFAULT,
   '旧条目没有可信度时必须落到默认硬设定'
 )
-assert.match(
-  formatWorldbookBlock([normalizedEntry]),
-  /【地点·硬设定】渡口：旧码头已经停用。/
-)
+assert.match(formatWorldbookBlock([normalizedEntry]), /【地点·硬设定】渡口：旧码头已经停用。/)
 assert.match(formatWorldbookBlock([normalizedEntry]), /传闻可能不准确/)
 
 const dedupeSource = [
@@ -334,7 +415,14 @@ const fixedProfileSystem = formatCharacterProfile({
   name: '林晚',
   userName: '阿遥',
 })
-for (const label of ['年龄：24 岁', '性别：女性', '代词：她', '种族：人类', '身高：172cm', '体重：58kg']) {
+for (const label of [
+  '年龄：24 岁',
+  '性别：女性',
+  '代词：她',
+  '种族：人类',
+  '身高：172cm',
+  '体重：58kg',
+]) {
   assert.ok(fixedProfileSystem.includes(label), `基础档案应包含固定参数：${label}`)
 }
 assert.ok(
@@ -342,7 +430,9 @@ assert.ok(
   '固定参数必须排在剧情字段之前'
 )
 assert.ok(
-  fixedProfileSystem.includes('年龄、性别、代词、种族、身高、体重、生日、职业、居住地和语言是固定事实'),
+  fixedProfileSystem.includes(
+    '年龄、性别、代词、种族、身高、体重、生日、职业、居住地和语言是固定事实'
+  ),
   '基础档案有固定字段时必须声明固定事实'
 )
 assert.ok(
@@ -365,17 +455,29 @@ assert.equal(
 )
 assert.equal(CHARACTER_PROFILE_FIELDS.length, 32, '基础档案应保持 32 个字段')
 assert.equal(
-  shouldInjectCharacterProfile({ profileEnabled: true, hasActiveCard: false, profile: fixedProfile }),
+  shouldInjectCharacterProfile({
+    profileEnabled: true,
+    hasActiveCard: false,
+    profile: fixedProfile,
+  }),
   true,
   '开关开启、没有卡且有内容时必须注入档案'
 )
 assert.equal(
-  shouldInjectCharacterProfile({ profileEnabled: false, hasActiveCard: false, profile: fixedProfile }),
+  shouldInjectCharacterProfile({
+    profileEnabled: false,
+    hasActiveCard: false,
+    profile: fixedProfile,
+  }),
   false,
   '档案开关关闭时必须完全停止读取档案'
 )
 assert.equal(
-  shouldInjectCharacterProfile({ profileEnabled: true, hasActiveCard: true, profile: fixedProfile }),
+  shouldInjectCharacterProfile({
+    profileEnabled: true,
+    hasActiveCard: true,
+    profile: fixedProfile,
+  }),
   false,
   '有当前人物卡时不得叠加档案'
 )
@@ -388,7 +490,11 @@ assert.equal(
   false,
   '空档案不得产生 system'
 )
-assert.equal(PROFILE_FIXED_FACTS_RULE, ROLEPLAY_FIXED_FACTS_RULE, '档案与卡片的固定事实规则必须一致')
+assert.equal(
+  PROFILE_FIXED_FACTS_RULE,
+  ROLEPLAY_FIXED_FACTS_RULE,
+  '档案与卡片的固定事实规则必须一致'
+)
 assert.equal(PROFILE_COOPERATION_RULE, ROLEPLAY_COOPERATION_RULE, '档案与卡片的配合规则必须一致')
 assert.equal(PROFILE_IDENTITY_RULE, ROLEPLAY_IDENTITY_RULE, '档案与卡片的身份规则必须一致')
 assert.deepEqual(
@@ -396,5 +502,20 @@ assert.deepEqual(
   ['core', 'body', 'personality', 'story'],
   '基础档案必须按四组顺序组织'
 )
+
+// 0.8.86：档案关闭时仍保留姓名；身份行不伪装成完整档案
+const identitySystem = formatCharacterIdentity({ name: '林晚', userName: '阿遥' })
+assert.ok(identitySystem.includes('【角色身份】'), '关闭档案后必须保留身份标题')
+assert.ok(identitySystem.includes('姓名：林晚'), '关闭档案后必须保留档案名')
+assert.ok(identitySystem.includes('不是模型、程序、助手或旁白'), '身份行必须保留不承认模型的规则')
+assert.doesNotMatch(
+  identitySystem,
+  /夜班店员|28 岁|\{\{user\}\}|\{\{char\}\}/,
+  '身份行不得回填档案字段或占位符'
+)
+assert.equal(formatCharacterIdentity({ name: '', userName: '阿遥' }), '', '空名字不得产生空身份行')
+assert.equal(resolveSystemCharacterName('卡名', '档案名'), '卡名', 'system 名字优先使用当前卡名')
+assert.equal(resolveSystemCharacterName('', '档案名'), '档案名', '没有卡时使用档案名')
+assert.equal(resolveSystemCharacterName('  ', '  '), 'AI', '卡名与档案名都为空时回退 AI')
 
 console.log('roleplay regression: ok')
