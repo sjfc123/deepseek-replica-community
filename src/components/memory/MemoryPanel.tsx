@@ -65,14 +65,6 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'archived', label: '已归档' },
 ]
 
-const normalKinds: Array<{ key: NormalMemoryKind | 'all'; label: string }> = [
-  { key: 'all', label: '全部' },
-  ...NORMAL_MEMORY_KINDS.map((key) => ({
-    key,
-    label: normalMemoryLabel(key),
-  })),
-]
-
 /** 长期记忆面板：普通/角色双分类，普通记忆再分对话、代码、用户、AI */
 export const MemoryPanel = ({ session }: { session: Session }) => {
   const memoryMode = useSettings((state) => state.memoryMode)
@@ -91,7 +83,6 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const [query, setQuery] = useState('')
   const [pool, setPool] = useState<MemoryPool>('character')
   const normalDraftLocked = roleplayActive && pool === 'normal'
-  const [normalKind, setNormalKind] = useState<NormalMemoryKind | 'all'>('all')
   const [filter, setFilter] = useState<Filter>('all')
   const [shown, setShown] = useState(PAGE_SIZE)
   /** 顶部 Tab 就是手动补卡的写入目标；切换分类时清掉未提交草稿，避免写到另一分类 */
@@ -165,20 +156,6 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     () => poolEntries.filter(({ card }) => card.pinned && !card.superseded).length,
     [poolEntries]
   )
-  const normalKindCounts = useMemo(() => {
-    const counts: Record<NormalMemoryKind, number> = {
-      dialogue: 0,
-      code: 0,
-      user: 0,
-      ai: 0,
-    }
-    for (const { card } of entries) {
-      if (getMemoryPool(card) === 'normal') {
-        counts[getNormalMemoryKind(card)] += 1
-      }
-    }
-    return counts
-  }, [entries])
   const hasRoleplayCodeCard = useMemo(
     () =>
       entries.some(
@@ -244,16 +221,9 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     const needle = query.trim().toLowerCase()
     const searching = needle.length > 0
     return entries.filter(({ card }) => {
-      // 有关键词时跨分类搜索；没有关键词时按当前 Tab 与普通子分类筛选
+      // 有关键词时跨分类搜索；没有关键词时只按当前顶层分类筛选
       if (!searching) {
         if (getMemoryPool(card) !== pool) {
-          return false
-        }
-        if (
-          pool === 'normal' &&
-          normalKind !== 'all' &&
-          getNormalMemoryKind(card) !== normalKind
-        ) {
           return false
         }
       }
@@ -270,7 +240,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
       }
       return needle ? card.text.toLowerCase().includes(needle) : true
     })
-  }, [entries, filter, query, pool, normalKind])
+  }, [entries, filter, query, pool])
 
   const countRatio = Math.min(1, autoCount / Math.max(1, cardLimit))
   const charRatio = Math.min(1, activeChars / Math.max(1, budget))
@@ -354,29 +324,6 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             <em>{normalCount}</em>
           </button>
         </div>
-
-        {pool === 'normal' ? (
-          <div className={styles.kindTabs} role="tablist" aria-label="普通记忆子分类">
-            {normalKinds.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                role="tab"
-                aria-selected={normalKind === item.key}
-                data-active={normalKind === item.key}
-                onClick={() => {
-                  setNormalKind(item.key)
-                  setShown(PAGE_SIZE)
-                }}
-              >
-                {item.label}
-                {item.key !== 'all' ? (
-                  <span>{normalKindCounts[item.key]}</span>
-                ) : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
 
         <div className={styles.usage} data-mode={memoryMode} data-pool={pool}>
           <div className={styles.usageTop}>
@@ -623,9 +570,16 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               }
               onChange={(event) => setDraft(event.target.value)}
             />
-            <button className={styles.primary} type="button" disabled={normalDraftLocked} onClick={submit}>
-              添加
-            </button>
+            <div className={styles.addActions}>
+              <button
+                className={styles.primary}
+                type="button"
+                disabled={normalDraftLocked}
+                onClick={submit}
+              >
+                添加
+              </button>
+            </div>
           </div>
           <p className={styles.footerHint}>
             {roleplayActive
