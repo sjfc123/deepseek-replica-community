@@ -493,7 +493,6 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                       </span>
                       <span className={styles.tag} data-source={card.source}>
                         {sourceLabel(card)}
-                        {card.pinned ? ' · 置顶' : ''}
                         {card.superseded ? ' · 已归档' : ''}
                       </span>
                     </div>
