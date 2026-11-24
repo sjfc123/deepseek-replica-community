@@ -12,6 +12,7 @@ import {
   IconRefreshOutline16,
   IconSelectAllOutline16,
   IconSelectTextOutline16,
+  IconSendOutline16,
   IconTrashOutline16,
   IconWarningOutline16,
 } from '../base/icons.js'
@@ -410,6 +411,23 @@ export const AssistantMessage = memo(function AssistantMessage({
                     })
                   },
                 },
+                ...(isLast &&
+                !customEndpoint &&
+                format === 'messages' &&
+                canContinueReply(message)
+                  ? [
+                      {
+                        key: 'continue',
+                        label: t('continueGenerating'),
+                        icon: <IconSendOutline16 />,
+                        onSelect: () => {
+                          stopSelecting()
+                          stopReadAloud()
+                          continueReply(sessionId, message.id)
+                        },
+                      },
+                    ]
+                  : []),
                 {
                   key: 'regenerate',
                   label: t('regenerate'),
@@ -611,32 +629,36 @@ export const AssistantMessage = memo(function AssistantMessage({
             {responseText && !refused && (!customEndpoint || canReadAloud) ? (
               <ReadAloudButton messageId={message.id} text={responseText} />
             ) : null}
-            <IconButton
-              className={styles.regenerate}
-              icon={<IconRefreshOutline16 />}
-              tooltip={t('regenerate')}
-              tooltipPlacement="bottom"
-              disabled={busy || refused}
-              onClick={() => {
-                stopReadAloud()
-                regenerateReply(sessionId, message.id)
-              }}
-            />
+            <div className={styles.rightActions}>
+              {isLast &&
+              !customEndpoint &&
+              format === 'messages' &&
+              canContinueReply(message) ? (
+                <button
+                  className={styles.continueInline}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    stopReadAloud()
+                    continueReply(sessionId, message.id)
+                  }}
+                >
+                  {t('continueGenerating')}
+                </button>
+              ) : null}
+              <IconButton
+                className={styles.regenerate}
+                icon={<IconRefreshOutline16 />}
+                tooltip={t('regenerate')}
+                tooltipPlacement="bottom"
+                disabled={busy || refused}
+                onClick={() => {
+                  stopReadAloud()
+                  regenerateReply(sessionId, message.id)
+                }}
+              />
+            </div>
           </div>
-          {isLast && !customEndpoint && format === 'messages' && canContinueReply(message) ? (
-            <Button
-              variant="outlined"
-              size="s"
-              className={styles.continueButton}
-              disabled={busy}
-              onClick={() => {
-                stopReadAloud()
-                continueReply(sessionId, message.id)
-              }}
-            >
-              {t('continueGenerating')}
-            </Button>
-          ) : null}
         </div>
       )}
     </div>

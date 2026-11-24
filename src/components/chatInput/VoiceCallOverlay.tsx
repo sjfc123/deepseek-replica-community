@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAndroidBackInterception } from '../../app/useAndroidBackInterception.js'
+import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
 import { useSettings } from '../../services/settings.js'
 import {
   endVoiceCall,
@@ -26,7 +27,26 @@ export const VoiceCallOverlay = () => {
   const assistantText = useVoiceCall((state) => state.assistantText)
   const characterName = useSettings((state) => state.characterName)
   const characterAvatar = useSettings((state) => state.characterAvatar)
+  const roleplayEnabled = useSettings((state) => state.roleplayEnabled)
+  const activeCharacterId = useSettings((state) => state.activeCharacterId)
+  const characterCards = useSettings((state) => state.characterCards)
+  const cardAvatars = useSettings((state) => state.cardAvatars)
   const centerRef = useRef<HTMLDivElement | null>(null)
+
+  // 角色卡只在角色扮演开启时参与通话身份：关闭后不再把卡名/卡头像带进语音页。
+  // 关闭后仍优先使用提示词侧配置的角色名字；如果这个值只是上次角色卡留下的同名文本，则回退为通用标题。
+  const activeCard = roleplayEnabled
+    ? findActiveCharacterCard(characterCards, activeCharacterId)
+    : undefined
+  const cardName = activeCard?.name?.trim() ?? ''
+  const fallbackName = characterName.trim()
+  const fallbackIsCardName =
+    Boolean(fallbackName) &&
+    characterCards.some((card) => card.name.trim() === fallbackName)
+  const displayName = cardName || (fallbackIsCardName ? '' : fallbackName)
+  const displayAvatar = activeCard
+    ? (cardAvatars[activeCard.id] ?? characterAvatar)
+    : characterAvatar
 
   useAndroidBackInterception(active)
 
@@ -97,7 +117,7 @@ export const VoiceCallOverlay = () => {
         <div className={styles.titleGroup}>
           <span className={clsx(styles.liveDot, muted && styles.liveDotMuted)} />
           <span className={styles.title}>
-            {characterName ? `与${characterName}通话` : '语音通话'}
+            {displayName ? `与${displayName}通话` : '语音通话'}
           </span>
         </div>
         <div className={styles.headerRight}>
@@ -145,8 +165,8 @@ export const VoiceCallOverlay = () => {
             )}
           >
             <span className={styles.orbInnerIcon}>
-              {characterAvatar ? (
-                <img className={styles.orbAvatar} src={characterAvatar} alt="" aria-hidden="true" />
+              {displayAvatar ? (
+                <img className={styles.orbAvatar} src={displayAvatar} alt="" aria-hidden="true" />
               ) : (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path
