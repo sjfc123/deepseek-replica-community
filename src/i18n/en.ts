@@ -361,6 +361,8 @@ export const en = {
   chatInputPlaceholderChat: 'Enter a message',
   deactivatedThinkTooltip: 'Think before responding to solve reasoning problems',
   thinkingSwitch: 'DeepThink',
+  cacheHitRateShort: 'Hit rate',
+  cacheModeSwitchRebuild: 'Mode switch · cache rebuilt',
   thinkLongPressOn: 'Hold to adjust reasoning effort',
   effortKicker: 'REASONING',
   effortTitle: 'Reasoning effort',

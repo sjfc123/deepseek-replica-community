@@ -76,6 +76,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   versions,
   onSelectVersion,
   onStartMemorySelect,
+  modeSwitch = false,
 }: {
   sessionId: string
   message: AssistantMessageType
@@ -87,6 +88,8 @@ export const AssistantMessage = memo(function AssistantMessage({
   onSelectVersion: SelectMessageVersion
   /** 长按菜单进入记忆选择：one=本轮，all=当前分支全部 */
   onStartMemorySelect?: (scope: 'one' | 'all') => void
+  /** 本条回复是否紧跟在思考/非思考模式切换之后 */
+  modeSwitch?: boolean
 }) {
   const t = useTranslate()
   const customEndpoint = useSettings((state) => Boolean(state.chatConfig.endpoint))
@@ -177,6 +180,13 @@ export const AssistantMessage = memo(function AssistantMessage({
   const waiting =
     streaming && view.steps.length === 0 && !view.answer && (android || !message.thinking)
   const summaryEntry = `${message.id}-summary`
+  const usage = message.usage
+  const cacheRead = usage ? Math.max(0, usage.cache_read_input_tokens || 0) : 0
+  const cacheMiss = usage
+    ? Math.max(0, usage.input_tokens || 0) + Math.max(0, usage.cache_creation_input_tokens || 0)
+    : 0
+  const cacheTotal = cacheRead + cacheMiss
+  const cacheHitRate = cacheTotal > 0 ? (cacheRead / cacheTotal) * 100 : 0
   const usageLine =
     showUsage && message.status === 'done' && message.usage ? (
       <div className={styles.usageLine} data-position={usageBelow ? 'below' : 'above'}>
@@ -194,6 +204,12 @@ export const AssistantMessage = memo(function AssistantMessage({
           未命中{' '}
           {formatTokenCount(message.usage.input_tokens + message.usage.cache_creation_input_tokens)}
         </span>
+        <span>
+          {t('cacheHitRateShort')} {cacheHitRate.toFixed(1)}%
+        </span>
+        {modeSwitch ? (
+          <span className={styles.cacheModeSwitch}>{t('cacheModeSwitchRebuild')}</span>
+        ) : null}
       </div>
     ) : null
   return (

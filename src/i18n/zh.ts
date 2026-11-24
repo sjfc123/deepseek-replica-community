@@ -344,6 +344,8 @@ export const zh = {
   chatInputPlaceholderChat: '请输入消息',
   deactivatedThinkTooltip: '先思考后回答，解决推理问题',
   thinkingSwitch: '深度思考',
+  cacheHitRateShort: '命中率',
+  cacheModeSwitchRebuild: '模式切换 · 首轮缓存重建',
   thinkLongPressOn: '长按调整推理强度',
   effortKicker: '推理',
   effortTitle: '思考强度',

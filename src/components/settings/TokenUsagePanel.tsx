@@ -261,6 +261,12 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
                           'Cache hits and misses are decided upstream from the full request prefix. A cold first turn, gateway jitter or missing cache fields can all show a miss; this does not mean the system prompt is lost. If it keeps happening in the same chat, regenerate or resend the same message once and see whether it recovers.'
                         )}
                       </p>
+                      <p>
+                        {t(
+                          '深度思考开启与关闭在上游使用不同缓存池：切换后的首条回复通常会重建缓存，随后同模式连续请求恢复命中。频繁来回切换会让每一轮都接近首轮，单条回复的未命中不代表回答质量下降。',
+                          'Thinking and non-thinking requests use separate upstream cache pools: the first reply after switching usually rebuilds the cache, while consecutive requests in the same mode recover hits. Frequent switching makes nearly every turn a cold turn; a single miss does not mean answer quality dropped.'
+                        )}
+                      </p>
                       {report.legacyReplies > 0 ? (
                         <p className={styles.legacy}>
                           {t(

@@ -498,6 +498,11 @@
   }
 }
 
+.usageLine .cacheModeSwitch {
+  color: var(--dsw-alias-brand-text);
+  opacity: 0.82;
+}
+
 .usageLine[data-position='above'] {
   margin: 0 0 5px;
 }
