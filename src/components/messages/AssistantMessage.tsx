@@ -180,7 +180,12 @@ export const AssistantMessage = memo(function AssistantMessage({
         </span>
         <span>输出 {formatTokenCount(message.usage.output_tokens)}</span>
         <span>缓存命中 {formatTokenCount(message.usage.cache_read_input_tokens)}</span>
-        <span>未命中 {formatTokenCount(message.usage.input_tokens)}</span>
+        <span>
+          未命中{' '}
+          {formatTokenCount(
+            message.usage.input_tokens + message.usage.cache_creation_input_tokens
+          )}
+        </span>
       </div>
     ) : null
   return (

@@ -73,6 +73,7 @@ import {
   estimateBranchScale,
   estimatePrefixTokens,
   estimateQuestionTokens,
+  estimateTextTokens,
   prepareHistoryContext,
   resolveMaxOutputTokens,
   saveContextCheckpoint,
@@ -2357,17 +2358,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 插入位置分两段：默认贴人物设定之前当背景，标了 tail 的接在提示词之后，离当前发言最近
   const worldBefore = worldEntries.filter((entry) => entry.position !== 'tail')
   const worldAfter = worldEntries.filter((entry) => entry.position === 'tail')
+  // system 只放跨轮稳定的内容。缓存按完整前缀命中，system 里哪怕只变一张记忆卡，
+  // 后面的全部历史都会失效；记忆、场景和按关键词挑出的世界书因此统一挪到本轮末尾。
   const baseSystem = [
-    formatNormalMemoryBlock(normalCards, normalCards.length, normalMemoryChars).replaceAll(
-      '{{user}}',
-      userName
-    ),
-    formatMemoryBlock(memoryCards, memoryCards.length, memoryChars).replaceAll(
-      '{{user}}',
-      userName
-    ),
-    roleplayActive ? formatSceneBlock(scene).replaceAll('{{user}}', userName) : '',
-    formatWorldbookBlock(worldBefore).replaceAll('{{user}}', userName),
     activeCard ? formatCharacterCard(activeCard, userName, visibleForRoleplay.length < 2) : '',
     composeSystemPrompt({
       savedPrompt: systemPrompt,
@@ -2375,7 +2368,6 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       suppressMetaTalk: suppressMetaTalk && roleplayActive,
       userName,
     }),
-    formatWorldbookBlock(worldAfter).replaceAll('{{user}}', userName),
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -2384,6 +2376,21 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     userName,
     charName: activeCard?.name,
   })
+  const dynamicContext = [
+    formatNormalMemoryBlock(normalCards, normalCards.length, normalMemoryChars),
+    formatMemoryBlock(memoryCards, memoryCards.length, memoryChars),
+    roleplayActive ? formatSceneBlock(scene) : '',
+    formatWorldbookBlock(worldBefore),
+    formatWorldbookBlock(worldAfter),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+  const turnContext = dynamicContext
+    ? [
+        '（以下是这一轮附带的背景资料，不是对方新说的话，也不属于对话正文；回答仍按最后一条发言继续。）',
+        applyPlaceholders(dynamicContext, { userName, charName: activeCard?.name }),
+      ].join('\n')
+    : ''
   const settleLocal = (
     target: AssistantMessage,
     status: Parameters<typeof settleReply>[1],
@@ -2442,6 +2449,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   )
   const scaleEstimate = (tokens: number) =>
     tokenScale === 1 ? tokens : Math.ceil(tokens * tokenScale)
+  // system 固定参与前缀缓存，本轮背景只影响尾部；两者都占输入窗口，预算里必须算进去。
+  const fixedInputTokens =
+    scaleEstimate(estimateTextTokens(baseSystemResolved)) +
+    scaleEstimate(estimateTextTokens(turnContext))
   const budget = contextBudget(minOutputReserve, window)
   let historyBudget = Math.max(
     0,
@@ -2449,6 +2460,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       scaleEstimate(
         estimateQuestionTokens(request.question) + estimatePrefixTokens(request.prefix)
       ) -
+      fixedInputTokens -
       PROMPT_OVERHEAD_TOKENS
   )
   let historyRetries = 0
@@ -2526,6 +2538,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
                   estimateQuestionTokens(reducedInput.question) +
                     estimatePrefixTokens(reducedInput.prefix)
                 ) -
+                fixedInputTokens -
                 PROMPT_OVERHEAD_TOKENS
             )
           )
@@ -2551,7 +2564,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           activePrefix,
           initial.thinking ?? false,
           latestReminder,
-          inlineFiles
+          inlineFiles,
+          turnContext
         )
         includeContextSummary(messages, context.summary)
         estimatedInput =
@@ -2559,6 +2573,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           scaleEstimate(
             estimateQuestionTokens(activeQuestion) + estimatePrefixTokens(activePrefix)
           ) +
+          fixedInputTokens +
           PROMPT_OVERHEAD_TOKENS
         requestMaxOutput = resolveMaxOutputTokens(
           maxOutputTokens,

@@ -215,7 +215,7 @@ const isUsableReply = (message: Message): message is AssistantMessage =>
 const toUserParam = (
   { content, files }: UserMessage,
   blocks: UserBlockParam[] = toFileBlocks(files)
-): MessageParam => {
+): Extract<MessageParam, { role: 'user' }> => {
   return blocks.length === 0
     ? { role: 'user', content }
     : {
@@ -309,6 +309,35 @@ export const getContextRounds = (history: Message[]): [UserMessage, AssistantMes
 }
 
 /**
+ * 本轮背景资料只接在当前提问后面，不进入历史消息原文。
+ * 这样上一轮已经发送过的 system 与历史仍然逐字不变，下一轮能继续命中前缀缓存。
+ */
+const attachTurnContext = (
+  message: Extract<MessageParam, { role: 'user' }>,
+  context?: string
+): Extract<MessageParam, { role: 'user' }> => {
+  if (!context) {
+    return message
+  }
+  if (typeof message.content === 'string') {
+    return {
+      ...message,
+      content: message.content ? `${message.content}\n\n${context}` : context,
+    }
+  }
+  const content = [...message.content]
+  for (let index = content.length - 1; index >= 0; index -= 1) {
+    const block = content[index]
+    if (block.type === 'text') {
+      content[index] = { ...block, text: `${block.text}\n\n${context}` }
+      return { ...message, content }
+    }
+  }
+  content.push({ type: 'text', text: context })
+  return { ...message, content }
+}
+
+/**
  * 把会话转成请求的 messages：只保留「提问 + 有回答的回复」成对的轮次，最后接上本轮提问。
  * 失败或没有回答的轮次不进上下文。续写时末尾再带上本轮 assistant。
  */
@@ -318,7 +347,8 @@ export const toRequestMessages = (
   prefix?: AssistantMessage,
   thinking = prefix?.thinking ?? false,
   latestReminder?: string,
-  inlineFiles?: ReadonlyMap<string, UserBlockParam[]>
+  inlineFiles?: ReadonlyMap<string, UserBlockParam[]>,
+  turnContext?: string
 ): MessageParam[] => {
   const messages: MessageParam[] = []
   let previousReminder: string | undefined
@@ -340,7 +370,10 @@ export const toRequestMessages = (
   }
   appendReminder(latestReminder)
   messages.push(
-    toUserParam(question, inlineFiles ? (inlineFiles.get(question.id) ?? []) : undefined)
+    attachTurnContext(
+      toUserParam(question, inlineFiles ? (inlineFiles.get(question.id) ?? []) : undefined),
+      turnContext
+    )
   )
   if (prefix?.prefix) {
     const assistant = toAssistantParam(prefix, true, thinking)
