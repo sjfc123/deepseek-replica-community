@@ -187,7 +187,7 @@ type Settings = {
   memoryMode: MemoryMode
   /** 长期记忆保留上限（自动卡片），10–9999；超出后最早的自动卡片归档 */
   memoryLimit: number
-  /** 长期记忆每次注入的字符预算，默认 1,000,000；只限制拼进 system 的正文 */
+  /** 长期记忆总字数上限，同时也是单次注入的字符预算；超出后最早的自动卡片归档 */
   memoryChars: number
   /** 角色卡：多角色切换；启用中的卡会注入姓名、身份、关系、风格等字段 */
   characterCards: CharacterCard[]

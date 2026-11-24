@@ -2250,8 +2250,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </div>
               <p>
                 {tr(
-                  '长期记忆将每轮对话压缩为一张卡片，关联对应消息，并在后续请求开头注入。卡片跟随分支：切换回答版本仅显示该分支的记忆，从旧消息分叉会继承分叉点之前的卡片。\n操作顺序：先选择模式，再设置卡片上限与字符预算；重要卡片手动置顶，过时卡片可关闭注入并保留文本。\n示例：用户说「我住大方县，晚上才有空」，下一轮起卡片包含该信息，角色不会再将时间安排在上午。\n边界：记忆保存在本机，随对话导入导出；关闭注入仅停止携带，不删除内容。',
-                  'Long-term memory compresses each finished turn into a card attached to that exchange and injects cards at the start of later requests. Cards follow branches: switching reply versions shows only that branch, while forking from an older message inherits everything before that point.\nUsage: choose a mode, then set the card limit and character budget; pin what matters, and switch off stale cards without deleting their text.\nExample: 「我住大方县，晚上才有空」 becomes a card, so the character stops scheduling mornings.\nBoundary: memories live on device and travel with chat export; switching a card off only stops injection.'
+                  '长期记忆把每轮对话写成一张带时间锚点的卡片，保留完整回合，并关联对应消息，在后续请求开头注入。卡片跟随分支：切换回答版本仅显示该分支的记忆，从旧消息分叉会继承分叉点之前的卡片。\n操作顺序：先选择模式，再设置卡片上限与字数上限；重要卡片手动置顶，过时卡片可关闭注入并保留文本。\n示例：用户说「上周三我们一起吃了火锅」，下一轮提到「上周三」时，对应的完整记忆会被召回，角色可以接着聊那天的细节。\n边界：记忆保存在本机，随对话导入导出；超过卡片或字数上限时，最早自动卡片归档，不删除内容。',
+                  'Long-term memory writes each turn into a timestamped card with the full exchange, attaches it to that message, and injects it at the start of later requests. Cards follow branches: switching reply versions shows only that branch, while forking from an older message inherits everything before that point.\nUsage: choose a mode, then set the card and character limits; pin what matters, and switch off stale cards without deleting their text.\nExample: 「上周三我们一起吃了火锅」 becomes a full card, so a later mention of 「上周三」 recalls that day and the character can continue with the details.\nBoundary: memories live on device and travel with chat export; when cards or characters exceed the ceiling, the oldest automatic cards are archived, never deleted.'
                 )}
               </p>
             </div>
@@ -2284,7 +2284,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   <i>{tr('推荐 · 长期记录', 'Recommended')}</i>
                 </span>
                 <span className={styles.memoryModeDesc}>
-                  {tr('每轮一张，不额外调用接口；上限设为 9999 可长期记录。适用于固定角色的长线角色扮演。', 'One card per turn with no extra request; a 9999 limit keeps recording long term. Best for long-running character play.')}
+                  {tr('每轮一张完整回合卡，保留原文、时间与轮次，不额外调用接口；上限设为 9999 可长期记录。适用于固定角色的长线角色扮演。', 'One full-turn card per exchange with original text, time and turn number; no extra request. A 9999 limit keeps recording long term. Best for long-running character play.')}
                 </span>
               </button>
               <button
@@ -2368,7 +2368,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </p>
             <Group label={tr('字符预算', 'Character budget')}>
               <div className={styles.memoryLimitRow}>
-                <span className={styles.memoryLimitLabel}>{tr('每次最多带', 'Per request')}</span>
+                <span className={styles.memoryLimitLabel}>{tr('记忆字数上限', 'Memory char ceiling')}</span>
                 <span className={styles.memoryLimitValue}>{memoryChars.toLocaleString('zh-CN')}</span>
                 <span className={styles.memoryLimitUnit}>{tr('字', 'chars')}</span>
               </div>
@@ -2416,8 +2416,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption}>
               {tr(
-                `${memoryChars.toLocaleString('zh-CN')} 字是单次请求可拼入的字符上限，不代表每轮都会带满。实际注入量还受卡片条数、模型上下文窗口和当前发言长度约束。默认 1M 用于容纳长线记忆；当卡片总量过大、出现上下文挤占或请求接近窗口上限时，应回调到 50,000–200,000 字。预算只影响注入，不删除已保存卡片。`,
-                `${memoryChars.toLocaleString('en-US')} chars is the per-request ceiling, not the amount sent every turn. Card count, model context and the current reply also constrain it. The 1M default accommodates long-running memory; if cards grow too large, context is squeezed or requests approach the window, lower it to 50,000–200,000. The budget only limits injection and never deletes saved cards.`
+                `${memoryChars.toLocaleString('zh-CN')} 字既是单次请求可拼入的字符上限，也是本会话记忆的总字数上限；不代表每轮都会带满。超过总字数后，最早的自动卡片会归档：文本保留、面板可查，只是不再注入，也不会让保存失败。实际注入量还受卡片条数、模型上下文窗口和当前发言长度约束。卡片总量过大、出现上下文挤占或请求接近窗口上限时，应回调到 50,000–200,000 字。`,
+                `${memoryChars.toLocaleString('en-US')} chars is both the per-request ceiling and the total memory character limit for this session; it is not the amount sent every turn. Past the total, the oldest automatic cards are archived: text stays visible, injection stops, and saving never fails. Card count, model context and the current reply also constrain injection. If cards grow too large, lower it to 50,000–200,000.`
               )}
             </p>
             <Group label={tr('使用方式', 'Usage')}>

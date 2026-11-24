@@ -235,6 +235,64 @@
   border-top: 1px solid rgb(127 127 127 / 12%);
 }
 
+.bulkBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 18%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 6%, transparent);
+}
+
+.bulkCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  span {
+    color: var(--dsw-alias-label-caption, #8c9097);
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+}
+
+.bulkActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+
+  button {
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 9px;
+    background: rgb(127 127 127 / 12%);
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+}
+
+.bulkStatus {
+  margin: 6px 0 0;
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
 .addBox {
   display: flex;
   align-items: flex-end;
@@ -289,7 +347,7 @@
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 6%, transparent);
 
   &[data-mode='off'] {
     border-color: rgb(255 176 32 / 22%);
@@ -523,4 +581,9 @@ body[data-ds-dark-theme] .injectLine {
 .confirmDanger {
   color: #fff;
   background: #e5484d;
+}
+
+.confirmPrimary {
+  color: #fff;
+  background: var(--dsw-alias-brand-primary, #4d6bfe);
 }

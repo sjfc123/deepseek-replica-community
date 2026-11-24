@@ -32,11 +32,14 @@ import {
 } from './roleplay.js'
 import {
   activeMemoryCards,
+  activeMemoryChars,
+  buildConversationMemoryCards,
   buildRefinePrompt,
   buildTurnMemoryText,
   createMemoryCard,
   formatMemoryBlock,
   overflowMemoryCards,
+  overflowMemoryCardsByChars,
   parseRefinedCards,
   replyPlainText,
   selectMemoryCardsForInjection,
@@ -1347,8 +1350,49 @@ const attachMemories = (sessionId: string, messageId: string, cards: MemoryCard[
   return attached
 }
 
+/** 批量挂载：整段保存时一次写入，避免每轮都写一次 IndexedDB */
+const attachMemoriesBatch = (
+  sessionId: string,
+  drafts: Array<{ messageId: string; card: MemoryCard }>
+) => {
+  if (drafts.length === 0) {
+    return false
+  }
+  const byMessage = new Map<string, MemoryCard[]>()
+  for (const draft of drafts) {
+    const list = byMessage.get(draft.messageId)
+    if (list) {
+      list.push(draft.card)
+    } else {
+      byMessage.set(draft.messageId, [draft.card])
+    }
+  }
+  let attached = false
+  updateSession(sessionId, (session) => ({
+    ...session,
+    messages: session.messages.map((message) => {
+      const cards = byMessage.get(message.id)
+      if (!cards) {
+        return message
+      }
+      attached = true
+      // 同一轮旧的自动截断卡、提炼汇总卡让位给完整卡；手动卡与置顶卡保留
+      const archived = (message.memories ?? []).map((card) =>
+        (card.source === 'auto' || card.source === 'refine') && !card.pinned && !card.superseded
+          ? { ...card, superseded: true }
+          : card
+      )
+      return { ...message, memories: [...archived, ...cards] }
+    }),
+  }))
+  if (attached) {
+    persist(sessionId)
+  }
+  return attached
+}
+
 /** 通知界面：这一轮/这条记忆已经真正写进去了 */
-const notifyMemoryAdded = (sessionId: string, kind: 'turn' | 'refine' | 'manual') => {
+const notifyMemoryAdded = (sessionId: string, kind: 'turn' | 'refine' | 'manual' | 'bulk') => {
   const session = getSession(sessionId)
   if (!session) {
     return
@@ -1376,8 +1420,13 @@ const refineMemories = async (
     return
   }
   const visibleIds = new Set(getVisibleMessages(session).map((message) => message.id))
-  const cards = activeMemoryCards(session, getVisibleMessages(session))
-    .filter((entry) => entry.card.source !== 'manual' && !entry.card.pinned)
+  const cards = activeMemoryCards(session, getVisibleMessages(session), 60)
+    .filter(
+      (entry) =>
+        entry.card.source !== 'manual' &&
+        entry.card.source !== 'bulk' &&
+        !entry.card.pinned
+    )
     .map((entry) => entry.card)
     .slice(-30)
   let text = ''
@@ -1422,10 +1471,9 @@ const refineMemories = async (
       if (!visibleIds.has(message.id)) {
         return message
       }
-      // 手写卡片由用户自己维护，不参与提炼替换
-      // 手动与置顶卡片由用户维护，提炼时不改写、不归档
+      // 手写卡片、整段保存的完整卡和置顶卡由用户自己维护，不参与提炼替换
       const archived = (message.memories ?? []).map((card) =>
-        card.superseded || card.source === 'manual' || card.pinned
+        card.superseded || card.source === 'manual' || card.source === 'bulk' || card.pinned
           ? card
           : { ...card, superseded: true }
       )
@@ -1448,6 +1496,34 @@ const enforceMemoryLimit = (sessionId: string) => {
     return
   }
   const overflow = overflowMemoryCards(session, getVisibleMessages(session), memoryLimit)
+  if (overflow.length === 0) {
+    return
+  }
+  const ids = new Set(overflow.map((entry) => entry.card.id))
+  updateSession(sessionId, (current) => ({
+    ...current,
+    messages: current.messages.map((message) =>
+      message.memories?.some((card) => ids.has(card.id))
+        ? {
+            ...message,
+            memories: message.memories.map((card) =>
+              ids.has(card.id) ? { ...card, superseded: true } : card
+            ),
+          }
+        : message
+    ),
+  }))
+  persist(sessionId)
+}
+
+/** 超出字数上限时把最早的自动卡片标为归档；手动/置顶卡片保留 */
+const enforceMemoryChars = (sessionId: string) => {
+  const { memoryChars } = useSettings.getState()
+  const session = getSession(sessionId)
+  if (!session) {
+    return
+  }
+  const overflow = overflowMemoryCardsByChars(session, getVisibleMessages(session), memoryChars)
   if (overflow.length === 0) {
     return
   }
@@ -1536,27 +1612,37 @@ const recordTurnMemory = (
   if (mode === 'off') {
     return
   }
-  const text = buildTurnMemoryText(question, answer)
-  if (!text) {
-    return
-  }
   const session = getSession(sessionId)
   if (!session) {
     return
   }
+  const visible = getVisibleMessages(session)
   let target = targetMessageId
   if (!session.messages.some((message) => message.id === target)) {
     // 回复消息可能在生成期间被切走/淘汰，退回到当前分支最后一条，避免这一轮静默丢失
-    const last = getVisibleMessages(session).at(-1)
+    const last = visible.at(-1)
     if (!last) {
       return
     }
     target = last.id
   }
-  if (!attachMemories(sessionId, target, [createMemoryCard(text, 'auto')])) {
+  const targetMessage = visible.find((message) => message.id === target)
+  const at = targetMessage?.createdAt ?? Date.now()
+  const turnIndex = visible.filter((message) => message.role === 'assistant').length
+  const relationship = useSettings.getState().scene.relationship.trim()
+  const text = buildTurnMemoryText(question, answer, {
+    at,
+    turnIndex: turnIndex > 0 ? turnIndex : undefined,
+    relationship: relationship || undefined,
+  })
+  if (!text) {
+    return
+  }
+  if (!attachMemories(sessionId, target, [createMemoryCard(text, 'auto', at)])) {
     return
   }
   enforceMemoryLimit(sessionId)
+  enforceMemoryChars(sessionId)
   if (mode === 'refine') {
     void refineMemories(sessionId, target, question, answer)
   } else {
@@ -1575,7 +1661,61 @@ export const addManualMemory = (sessionId: string, text: string) => {
     return
   }
   if (attachMemories(sessionId, last.id, [createMemoryCard(text, 'manual')])) {
+    enforceMemoryChars(sessionId)
     notifyMemoryAdded(sessionId, 'manual')
+  }
+}
+
+export type SaveConversationMemoryResult = {
+  /** 本次写入的完整回合卡片数 */
+  created: number
+  /** 已经存在整段卡片的轮次，跳过不重复写 */
+  skipped: number
+  /** 写完后仍在生效的卡片数 */
+  active: number
+  /** 写完后仍在生效的总字数 */
+  chars: number
+}
+
+/**
+ * 把当前分支的全部对话按轮保存为完整记忆卡。
+ * 先全部写入，再按卡片上限和字数上限归档最早自动卡；超出不会丢内容，也不会让保存失败。
+ */
+export const saveConversationAsMemory = (sessionId: string): SaveConversationMemoryResult => {
+  const empty: SaveConversationMemoryResult = { created: 0, skipped: 0, active: 0, chars: 0 }
+  const session = getSession(sessionId)
+  if (!session) {
+    return empty
+  }
+  const messages = getVisibleMessages(session)
+  const drafts = buildConversationMemoryCards(messages)
+  const alreadyBulk = new Set(
+    session.messages
+      .filter((message) => (message.memories ?? []).some((card) => card.source === 'bulk'))
+      .map((message) => message.id)
+  )
+  const fresh = drafts.filter((draft) => !alreadyBulk.has(draft.messageId))
+  const skipped = drafts.length - fresh.length
+  if (fresh.length === 0) {
+    return {
+      ...empty,
+      skipped,
+      active: activeMemoryCards(session, messages).length,
+      chars: activeMemoryChars(session, messages),
+    }
+  }
+  if (!attachMemoriesBatch(sessionId, fresh)) {
+    return { ...empty, skipped }
+  }
+  enforceMemoryLimit(sessionId)
+  enforceMemoryChars(sessionId)
+  notifyMemoryAdded(sessionId, 'bulk')
+  const next = getSession(sessionId)
+  return {
+    created: fresh.length,
+    skipped,
+    active: next ? activeMemoryCards(next, getVisibleMessages(next)).length : 0,
+    chars: next ? activeMemoryChars(next, getVisibleMessages(next)) : 0,
   }
 }
 
@@ -1623,6 +1763,7 @@ export const updateMemoryText = (
     ),
   }))
   persist(sessionId)
+  enforceMemoryChars(sessionId)
 }
 
 export const setMemoryEnabled = (sessionId: string, messageId: string, cardId: string, enabled: boolean) => {
@@ -1640,6 +1781,7 @@ export const setMemoryEnabled = (sessionId: string, messageId: string, cardId: s
     ),
   }))
   persist(sessionId)
+  enforceMemoryChars(sessionId)
 }
 
 export const deleteMemoryCard = (sessionId: string, messageId: string, cardId: string) => {
@@ -2081,7 +2223,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const worldBefore = worldEntries.filter((entry) => entry.position !== 'tail')
   const worldAfter = worldEntries.filter((entry) => entry.position === 'tail')
   const baseSystem = [
-    formatMemoryBlock(memoryCards, memoryLimit, memoryChars).replaceAll('{{user}}', userName),
+    formatMemoryBlock(memoryCards, memoryCards.length, memoryChars).replaceAll('{{user}}', userName),
     roleplayActive ? formatSceneBlock(scene).replaceAll('{{user}}', userName) : '',
     formatWorldbookBlock(worldBefore).replaceAll('{{user}}', userName),
     activeCard

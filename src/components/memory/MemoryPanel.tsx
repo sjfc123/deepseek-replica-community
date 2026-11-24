@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { getVisibleMessages } from '../../services/chat/branches.js'
 import {
   activeMemoryCards,
+  activeMemoryChars,
   collectVisibleMemories,
   selectMemoryCardsForInjection,
   type MemoryCard,
@@ -10,6 +11,7 @@ import {
   addManualMemory,
   clearMemories,
   deleteMemoryCard,
+  saveConversationAsMemory,
   setMemoryEnabled,
   setMemoryPinned,
   updateMemoryText,
@@ -30,6 +32,9 @@ const formatTime = (value: number) => {
 const sourceLabel = (card: MemoryCard) => {
   if (card.source === 'manual') {
     return '手动'
+  }
+  if (card.source === 'bulk') {
+    return '整段'
   }
   return card.source === 'refine' ? '提炼' : '自动'
 }
@@ -62,22 +67,30 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   }
 
   const [confirming, setConfirming] = useState<
-    { kind: 'one'; messageId: string; cardId: string } | { kind: 'all' } | null
+    | { kind: 'one'; messageId: string; cardId: string }
+    | { kind: 'all' }
+    | { kind: 'bulk'; count: number }
+    | null
   >(null)
   const [editing, setEditing] = useState<{ messageId: string; cardId: string; text: string } | null>(
     null
   )
+  const [bulkSelected, setBulkSelected] = useState(0)
+  const [bulkStatus, setBulkStatus] = useState('')
   const messages = useMemo(() => getVisibleMessages(session), [session])
   const entries = useMemo(() => {
     const all = collectVisibleMemories(session, messages)
     return all.slice().sort((a, b) => b.card.createdAt - a.card.createdAt)
   }, [session, messages])
   const activeCount = useMemo(
-    () => activeMemoryCards(session, messages, memoryLimit).length,
-    [session, messages, memoryLimit]
+    () => activeMemoryCards(session, messages).length,
+    [session, messages]
   )
+  const activeChars = useMemo(() => activeMemoryChars(session, messages), [session, messages])
   const autoCount = useMemo(
-    () => entries.filter(({ card }) => card.source !== 'manual' && !card.superseded).length,
+    () =>
+      entries.filter(({ card }) => card.source !== 'manual' && !card.pinned && !card.superseded)
+        .length,
     [entries]
   )
   const archivedCount = useMemo(
@@ -106,6 +119,10 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     for (const { card } of injection) {
       const size = `- ${card.text.replace(/\n/g, ' / ')}`.length + 1
       if (chars + size > memoryChars) {
+        if (count === 0) {
+          chars = memoryChars
+          count = 1
+        }
         break
       }
       chars += size
@@ -132,7 +149,9 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     })
   }, [entries, filter, query])
 
-  const limitRatio = Math.min(1, autoCount / Math.max(1, memoryLimit))
+  const countRatio = Math.min(1, autoCount / Math.max(1, memoryLimit))
+  const charRatio = Math.min(1, activeChars / Math.max(1, memoryChars))
+  const limitRatio = Math.max(countRatio, charRatio)
 
   const submit = () => {
     const text = draft.trim()
@@ -179,7 +198,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                   : '整轮记录'}
             </span>
             <span className={styles.limitText}>
-              自动卡片 {autoCount} / {memoryLimit}
+              自动/整段 {autoCount} / {memoryLimit}
             </span>
           </div>
           <div className={styles.injectLine}>
@@ -190,13 +209,17 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               ? `（对上 ${injectionPreview.total} 张，字数只够带前 ${injectionPreview.count} 张）`
               : ''}
           </div>
+          <div className={styles.injectLine}>
+            已存 {activeChars.toLocaleString('zh-CN')} / {memoryChars.toLocaleString('zh-CN')} 字
+            {activeChars >= memoryChars ? ' · 已到上限，新卡会把最早的自动卡归档' : ''}
+          </div>
           <div className={styles.meter} aria-hidden="true">
             <i style={{ width: `${Math.max(limitRatio * 100, autoCount > 0 ? 2 : 0)}%` }} />
           </div>
           <p>
             {memoryMode === 'off'
               ? '现在不带任何记忆，记下来的内容还在本机。到「设置 → 长期记忆」打开就能恢复。'
-              : `超过 ${memoryLimit} 张以后，最早的自动卡片会归档：内容不删，这里照样能看，只是不再带进对话。`}
+              : `超过 ${memoryLimit} 张或 ${memoryChars.toLocaleString('zh-CN')} 字以后，最早的自动卡片会归档：内容不删，这里照样能看，只是不再带进对话。`}
           </p>
         </div>
 
@@ -239,7 +262,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                 {query.trim()
                   ? '换个关键词，或切到「全部」再看。'
                   : filter === 'archived'
-                    ? '归档来自超出上限的旧卡片；调高上限后，之后的轮次会继续新增。'
+                    ? '归档来自超出卡片或字数上限的自动卡；文本还在，只是不再注入。调高上限只影响之后的卡片，已归档的旧卡不会自动恢复。'
                     : '开启自动记忆后，每完成一轮对话就会留一张；也可以在下面手写一条。'}
               </p>
             </div>
@@ -342,6 +365,50 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
         </div>
 
         <footer className={styles.footer}>
+          <div className={styles.bulkBar}>
+            <div className={styles.bulkCopy}>
+              <strong>整段保存</strong>
+              <span>
+                {bulkSelected > 0
+                  ? `已全选 ${bulkSelected} 条消息，按轮存成完整记忆卡`
+                  : `当前分支 ${messages.length} 条消息，可一键全选后保存`}
+              </span>
+            </div>
+            <div className={styles.bulkActions}>
+              {bulkSelected > 0 ? (
+                <>
+                  <button
+                    className={styles.primary}
+                    type="button"
+                    onClick={() => setConfirming({ kind: 'bulk', count: bulkSelected })}
+                  >
+                    保存为记忆
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkSelected(0)
+                      setBulkStatus('')
+                    }}
+                  >
+                    取消全选
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  disabled={messages.length === 0}
+                  onClick={() => {
+                    setBulkSelected(messages.length)
+                    setBulkStatus('')
+                  }}
+                >
+                  全选本对话
+                </button>
+              )}
+            </div>
+          </div>
+          {bulkStatus ? <p className={styles.bulkStatus}>{bulkStatus}</p> : null}
           <div className={styles.addBox}>
             <textarea
               value={draft}
@@ -356,7 +423,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
           </div>
           <div className={styles.footMeta}>
             <span>
-              一次最多带 {memoryChars.toLocaleString('zh-CN')} 字，带不下的留在本机
+              记忆总字数上限 {memoryChars.toLocaleString('zh-CN')} 字，超出自动归档，不删除
             </span>
             {entries.length > 0 ? (
               <button
@@ -374,12 +441,18 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
         <div className={styles.confirmBackdrop} role="dialog" aria-modal="true">
           <div className={styles.confirmCard}>
             <div className={styles.confirmTitle}>
-              {confirming.kind === 'one' ? '删除这条记忆？' : '清空本会话记忆？'}
+              {confirming.kind === 'one'
+                ? '删除这条记忆？'
+                : confirming.kind === 'all'
+                  ? '清空本会话记忆？'
+                  : '将本对话保存为记忆？'}
             </div>
             <div className={styles.confirmText}>
               {confirming.kind === 'one'
                 ? '删除后不会再进入下一轮上下文，也无法恢复。'
-                : `共 ${entries.length} 条记忆，清空后不可恢复，也不会再进入下一轮上下文。`}
+                : confirming.kind === 'all'
+                  ? `共 ${entries.length} 条记忆，清空后不可恢复，也不会再进入下一轮上下文。`
+                  : `已全选 ${confirming.count} 条消息。保存会按轮生成完整卡片；已有整段卡片的轮次跳过；超过卡片或字数上限的最早自动卡自动归档，内容不删除，也不会保存失败。`}
             </div>
             <div className={styles.confirmActions}>
               <button
@@ -391,17 +464,35 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               </button>
               <button
                 type="button"
-                className={styles.confirmDanger}
+                className={
+                  confirming.kind === 'bulk' ? styles.confirmPrimary : styles.confirmDanger
+                }
                 onClick={() => {
                   if (confirming.kind === 'one') {
                     deleteMemoryCard(session.id, confirming.messageId, confirming.cardId)
-                  } else {
-                    clearMemories(session.id)
+                    setConfirming(null)
+                    return
                   }
+                  if (confirming.kind === 'all') {
+                    clearMemories(session.id)
+                    setConfirming(null)
+                    return
+                  }
+                  const result = saveConversationAsMemory(session.id)
+                  setBulkSelected(0)
+                  setBulkStatus(
+                    result.created > 0
+                      ? `已保存 ${result.created} 轮完整记忆${result.skipped > 0 ? `，跳过 ${result.skipped} 轮已有整段卡` : ''}；现在生效 ${result.active} 张 / ${result.chars.toLocaleString('zh-CN')} 字。`
+                      : `没有新增卡片：${result.skipped} 轮已经有整段记忆，可在「全部」里查看。`
+                  )
                   setConfirming(null)
                 }}
               >
-                {confirming.kind === 'one' ? '删除' : '清空'}
+                {confirming.kind === 'one'
+                  ? '删除'
+                  : confirming.kind === 'all'
+                    ? '清空'
+                    : '保存'}
               </button>
             </div>
           </div>
