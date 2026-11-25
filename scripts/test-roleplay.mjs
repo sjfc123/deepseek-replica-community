@@ -16,6 +16,7 @@ const {
   getBuiltinCharacterCards,
   ensureBuiltinCharacterCards,
   normalizeCharacterCards,
+  normalizeCharacterStory,
   normalizeWorldbook,
   formatCharacterCard,
   formatWorldbookBlock,
@@ -48,7 +49,7 @@ const {
 
 const builtins = getBuiltinCharacterCards()
 assert.equal(builtins.length, BUILTIN_CHARACTER_CARD_TOTAL, '内置卡总数必须和常量一致')
-assert.equal(builtins.length, 6)
+assert.equal(builtins.length, 7)
 for (const id of [
   'builtin:dafeiyu',
   'builtin:whale-girl',
@@ -56,6 +57,7 @@ for (const id of [
   'builtin:jianghu',
   'builtin:xianxia',
   'builtin:urban',
+  'builtin:midnight-sister',
 ]) {
   assert.ok(
     builtins.some((card) => card.id === id),
@@ -65,6 +67,40 @@ for (const id of [
 const newCards = builtins.filter((card) => ['江湖', '修仙', '都市'].includes(card.genre))
 assert.equal(newCards.length, 3, '三张新卡必须带题材')
 assert.ok(newCards.every((card) => card.greeting && card.scenario && card.systemDirective))
+
+const storyCard = builtins.find((card) => card.id === 'builtin:midnight-sister')
+assert.ok(storyCard?.story, '限时推理卡必须带 story 配置')
+assert.equal(storyCard.story.startMinute, 20 * 60, '开场应为 20:00')
+assert.equal(storyCard.story.normalUntilMinute, 22 * 60, '22:00 前是本人')
+assert.equal(storyCard.story.deadlineMinute, 24 * 60, '00:00 截止')
+assert.equal(storyCard.story.stepMinutes, 10, '每轮推进十分钟')
+assert.match(formatCharacterCard(storyCard, '阿遥'), /限时剧情：从 20:00 开始/)
+assert.equal(
+  normalizeCharacterStory({
+    intro: '说明',
+    startMinute: 1200,
+    normalUntilMinute: 1320,
+    deadlineMinute: 1440,
+    stepMinutes: 10,
+  })?.deadlineMinute,
+  1440,
+  '00:00 必须保留为 1440，而不是被夹到 23:59'
+)
+assert.equal(
+  normalizeCharacterStory({
+    intro: '坏数据',
+    startMinute: 1440,
+    normalUntilMinute: 1300,
+    deadlineMinute: 1200,
+  }),
+  undefined,
+  '时间顺序不成立时不得启用限时剧情'
+)
+assert.equal(
+  normalizeCharacterCards([{ name: '普通卡', story: { intro: '', startMinute: 1200 } }])[0].story,
+  undefined,
+  '缺少开场说明的 story 不应启用'
+)
 
 // 0.8.86：六张内置卡除基础档案外，角色卡本身的字段必须全部有值
 const cardRequiredFields = [

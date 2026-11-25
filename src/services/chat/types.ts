@@ -139,6 +139,12 @@ export type Session = {
   contextCheckpoints?: ContextCheckpoint[]
   /** 已进入本会话的角色卡；关闭全局角色扮演后仍按这张卡延续人物 */
   characterId?: string
+  /** 限时推理卡的虚拟时钟，单位分钟；普通会话不写 */
+  storyClockMinute?: number
+  /** active：可继续；bad_end / good_end：结局已定，输入与 regenerate 都锁死 */
+  storyState?: 'active' | 'bad_end' | 'good_end'
+  /** 本轮已推进到截止时间，等待模型给出最后一幕或前端兜底判定 */
+  storyFinalTurn?: boolean
 }
 
 /** 会话列表元数据；消息只在打开会话时加载。 */

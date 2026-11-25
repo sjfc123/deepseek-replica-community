@@ -11,6 +11,7 @@ import {
   newRoleplayId,
   normalizeKeywords,
   normalizeTags,
+  normalizeCharacterStory,
   WORLDBOOK_WEIGHT_DEFAULT,
   type CharacterCard,
   type WorldbookEntry,
@@ -234,6 +235,12 @@ const toCard = (source: unknown): CharacterCard | null => {
     playStyle: findPlayStyle(firstText(data.play_style, outer.play_style)).key,
     scenario: scenario.slice(0, 3000),
     systemDirective: systemDirective.slice(0, 3000),
+    story: normalizeCharacterStory(
+      record(record(data.extensions)?.story) ??
+        data.story ??
+        outer.story ??
+        record(outer.extensions)?.story
+    ),
     appearance: firstText(data.appearance, outer.appearance).slice(0, 1000),
     background: firstText(data.background, outer.background, data.backstory, outer.backstory).slice(
       0,

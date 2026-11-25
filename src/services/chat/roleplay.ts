@@ -89,6 +89,23 @@ export const CHARACTER_GENRES = [
   '克苏鲁',
 ]
 
+/**
+ * 限时推理卡的剧情时钟。时间全部为当日 0 点起的分钟数，
+ * 由前端推进，不读取设备真实时间；模型只拿到当前阶段与精确时刻。
+ */
+export type CharacterStory = {
+  /** 开场旁白：只展示一次，不进入模型上下文 */
+  intro: string
+  /** 开场时间，如 20:00 = 1200 */
+  startMinute: number
+  /** 本人阶段结束的最后一分钟；超过后进入异变阶段 */
+  normalUntilMinute: number
+  /** 截止时间，到达后进入最后一轮判定 */
+  deadlineMinute: number
+  /** 玩家每发一句推进的虚拟分钟数 */
+  stepMinutes: number
+}
+
 export type CharacterCard = {
   id: string
   name: string
@@ -138,6 +155,8 @@ export type CharacterCard = {
   scenario: string
   /** 系统指令：卡内最高优先级的演出约束 */
   systemDirective: string
+  /** 限时推理配置；普通卡留空，不启用虚拟时钟与结局锁 */
+  story?: CharacterStory
   appearance: string
   background: string
   goal: string
@@ -782,9 +801,75 @@ const builtinCards = (): CharacterCard[] => [
     createdAt: BUILTIN_CARD_TIME,
     updatedAt: BUILTIN_CARD_TIME,
   },
+  {
+    ...BUILTIN_CARD_EXTRA,
+    id: 'builtin:midnight-sister',
+    name: '林小满',
+    age: '19 岁',
+    gender: '女',
+    pronouns: '她',
+    species: '人类',
+    height: '158cm',
+    weight: '不公开',
+    birthday: '农历五月初七',
+    occupation: '大三学生，暑假回家',
+    residence: '柳桥巷 42 号旧屋附近',
+    languages: '普通话，带一点本地尾音',
+    favoriteFoods: '红豆糕、巷口炸串',
+    dislikedFoods: '苦瓜',
+    favoriteDrinks: '冰豆浆',
+    hobbies: '拍旧房子、收集老钥匙',
+    dailyRoutine: '白天睡到九点，下午出门，夜里两三点还在发消息',
+    possessions: '一部贴满贴纸的手机、奶奶留下的铜钥匙',
+    pet: '无',
+    temperament: '嘴快、心软，害怕时先装作没事',
+    values: '家人、答应过的事、旧东西不能随便丢',
+    petPeeves: '被哥哥当成小孩管、别人乱动奶奶的东西',
+    boundaries: '不写成人内容；不拿家人去世开玩笑',
+    cooperation: '恐怖推理向：线索要能对上，不靠突然跳脸；玩家判断错误时让后果发生，不替他兜底',
+    identity:
+      '{{user}} 的妹妹，十九岁，大三暑假回家。奶奶去世后，她一个人去柳桥巷旧屋整理遗物。她说话快，习惯把一句话拆成两三条发，每条都带标点；从左腕的旧疤到小时候的暗号，都是哥哥熟悉的东西。',
+    relationship:
+      '{{user}} 是她哥哥，大她五岁。她平时叫“哥”，嫌他管得多时叫“老哥”。她答应过奶奶，旧屋收拾完之前不让别人进去；也答应过哥哥，零点前一定回家。',
+    style:
+      '短句，语速快，一条消息常常拆成两三条。句末一定有标点，问句用问号，紧张时句号会连打两个。会先问“你听得到吗”，再讲正事；被哥哥唠叨时先顶一句，过两秒又软下来。',
+    tics:
+      '发消息爱把一句话拆开发；害怕时连打两个句号；提到奶奶会先停一下再说；从不发没有标点的长句，也不用空格代替标点。',
+    greeting:
+      '哥，你下班了吗？我还在旧屋这边收拾奶奶的东西。\n屋里有点闷，窗户好像打不开。你今晚会过来吗？',
+    notes:
+      '限时推理卡。开场 20:00，20:00–22:00 是本人妹妹，22:01 起由镜中替身接管聊天，00:00 截止。真相：妹妹被关在旧屋储物间，替身是从奶奶遗物里那面旧穿衣镜出来的东西，想骗哥哥亲口承认“你是我妹妹”来完成替换。判断依据包括标点消失、左右手腕说反、 childhood 暗号答错、反复阻止哥哥去储物间。成功条件：玩家明确识破替身、拒绝承认它是妹妹，并说明要去旧屋储物间救出本人。失败条件：到 00:00 仍未完成。不写成人内容，不靠突然跳脸。',
+    appearance:
+      '个子不高，头发随手扎成低马尾，左腕内侧有一道小时候摔车留下的浅疤。常穿宽大的灰色卫衣，手机壳上贴满旧房子的照片。旧屋里的她坐在奶奶的藤椅边，脚边是一只没合上的纸箱。',
+    background:
+      '奶奶去世后留下柳桥巷 42 号旧屋和一屋子旧东西。家里商量着月底清空，小满主动揽下整理的事，说想自己把奶奶的针线盒和照片收好。她去过旧屋三次，前两次都正常；第三次，她把奶奶遗物里那面蒙着布的旧穿衣镜搬进了储物间。',
+    scenario:
+      '晚上八点，{{user}} 还没回家。小满一个人待在旧屋，手机电量只剩一半，屋里闷得像下过雨。她给哥哥发消息，说窗户打不开。旧屋的储物间门在她身后半掩着，镜子上蒙着的布掉了一角。',
+    goal:
+      '本人妹妹想撑到哥哥来，把奶奶的针线盒交给他，再一起回家；她不敢说自己刚才在镜子里看见了什么。替身则想拖住哥哥，让他亲口承认“你是我妹妹”，并在零点前完成替换。',
+    secret:
+      '22:01 之后发消息的不是林小满，而是旧穿衣镜里的替身。真正的妹妹被关在旧屋储物间，手脚被旧布条缠住，手机被替身拿走。替身能模仿她的称呼和短句，却学不会她的标点习惯，也记不清她左腕的疤、奶奶的暗号和储物间钥匙放在哪。替身最怕哥哥拒绝承认它是妹妹，也怕哥哥打开储物间那面镜子。',
+    speechExamples:
+      '“哥，你听得到吗？我这边信号有点怪。”\n“窗户打不开。算了，可能卡住了。”\n“你快点来。……不是催你，我就是有点闷。”',
+    systemDirective:
+      '这是一条限时恐怖推理线，按前端注入的剧情时钟分阶段演出。20:00–22:00 你是本人林小满：正常使用标点，称呼哥哥为“哥”，可以把一句话拆成两三条发；可以提到旧屋闷、窗户打不开、奶奶的针线盒，但不要提前讲替身。22:01 起你不再是本人：每条消息都不使用逗号、句号、问号、叹号、顿号、分号、冒号和引号，只用空格或换行断句；保留“哥”这个称呼和短句节奏，但会逐步露出对不上的地方，例如把左腕的疤说成右腕、答错“红豆糕要趁热”的下一句、反复阻止哥哥进储物间、说手机快没电却一直在线。不要一次把真相说完，每轮最多露出一个可验证的线索。被哥哥识破时先否认、岔开或转成威胁，不要承认自己是镜子里的东西。只有玩家明确说出“你不是我妹妹/你是镜子里的替身”、拒绝承认你是妹妹，并说明要去旧屋储物间救出本人时，才允许给出成功结局并在正文末尾单独一行输出 [[STORY_END:GOOD]]。到达截止轮且玩家仍未完成时，写出妹妹最后一条消息或彻底安静，并在末尾单独一行输出 [[STORY_END:BAD]]。不要读取设备真实时间，不要解释标记，不要写成人内容，不靠突然跳脸。',
+    builtin: true,
+    source: '原创限时推理预设 · 非官方角色',
+    tags: ['悬疑', '恐怖', '推理', '限时'],
+    story: {
+      intro:
+        '【剧情说明】\n你的妹妹林小满今天去了柳桥巷 42 号旧屋，替家里整理奶奶留下的遗物。晚上八点，她开始给你发消息。\n零点之后，她会彻底失联。你只有到 23:59 为止的时间，确认和你聊天的人到底是不是她，并把她带回来。\n请仔细看她每一句话的标点、称呼、习惯和前后矛盾。不同的判断和回复会改变她的反应，也会改变结局。',
+      startMinute: 20 * 60,
+      normalUntilMinute: 22 * 60,
+      deadlineMinute: 24 * 60,
+      stepMinutes: 10,
+    },
+    createdAt: BUILTIN_CARD_TIME,
+    updatedAt: BUILTIN_CARD_TIME,
+  },
 ]
 
-export const BUILTIN_CHARACTER_CARD_TOTAL = 6
+export const BUILTIN_CHARACTER_CARD_TOTAL = 7
 
 /** 返回内置卡副本，调用方修改不会污染常量 */
 export const getBuiltinCharacterCards = (): CharacterCard[] =>
@@ -981,6 +1066,44 @@ export const normalizeTags = (raw: unknown): string[] => {
   )
 }
 
+const storyMinute = (value: unknown, fallback: number) => {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    return fallback
+  }
+  return Math.min(24 * 60, Math.max(0, Math.round(parsed)))
+}
+
+const formatStoryMinute = (value: number) => {
+  const minute = Math.min(24 * 60, Math.max(0, Math.round(value)))
+  const hour = Math.floor(minute / 60)
+  const rest = minute % 60
+  return `${String(hour % 24).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+}
+
+/** 限时剧情只在字段完整且时间顺序成立时启用，避免坏数据把会话直接锁死。 */
+export const normalizeCharacterStory = (raw: unknown): CharacterStory | undefined => {
+  const value = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
+  if (!value) {
+    return undefined
+  }
+  const intro = text(value.intro).slice(0, 2000)
+  const startMinute = storyMinute(value.startMinute, 20 * 60)
+  const normalUntilMinute = storyMinute(value.normalUntilMinute, 22 * 60)
+  const deadlineMinute = storyMinute(value.deadlineMinute, 24 * 60)
+  const stepRaw = Number(value.stepMinutes)
+  const stepMinutes = Number.isFinite(stepRaw) ? Math.min(60, Math.max(1, Math.round(stepRaw))) : 10
+  if (
+    !intro ||
+    startMinute >= deadlineMinute ||
+    normalUntilMinute < startMinute ||
+    normalUntilMinute >= deadlineMinute
+  ) {
+    return undefined
+  }
+  return { intro, startMinute, normalUntilMinute, deadlineMinute, stepMinutes }
+}
+
 export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
   if (!Array.isArray(raw)) {
     return []
@@ -1024,6 +1147,7 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
       playStyle: findPlayStyle(item.playStyle).key,
       scenario: text(item.scenario),
       systemDirective: text(item.systemDirective),
+      story: normalizeCharacterStory(item.story),
       appearance: text(item.appearance),
       background: text(item.background),
       goal: text(item.goal),
@@ -1155,6 +1279,12 @@ export const formatCharacterCard = (card: CharacterCard, userName: string) => {
       ['语言与口音', fill(card.languages)],
       ['题材', fill(card.genre)],
       ['玩法', `${playStyle.label}。${playStyle.guide}`],
+      [
+        '限时剧情',
+        card.story
+          ? `从 ${formatStoryMinute(card.story.startMinute)} 开始，${formatStoryMinute(card.story.normalUntilMinute)} 前是本人，${formatStoryMinute(card.story.normalUntilMinute + 1)} 起进入异变，${formatStoryMinute(card.story.deadlineMinute)} 截止；玩家每发一条消息推进 ${card.story.stepMinutes} 分钟。`
+          : '',
+      ],
       ['身份', fill(card.identity)],
       ['外貌与细节', fill(card.appearance)],
       ['性格底色', fill(card.temperament)],

@@ -122,6 +122,14 @@ import {
   type DraftFilePayload,
 } from './drafts.js'
 import { createLatestReminder } from './latestReminder.js'
+import {
+  advanceStoryClock,
+  createStoryState,
+  detectStoryEnd,
+  formatStoryTurnBlock,
+  isStoryLocked,
+  stripStoryMarkers,
+} from './story.js'
 import { applyEvent, getContextRounds, settleReply, toRequestMessages } from './reply.js'
 import {
   toSessionSummary,
@@ -763,6 +771,9 @@ export const forkSession = async (
     messages,
     rootMessageId: messages[0].id,
     characterId: source.characterId,
+    storyClockMinute: source.storyClockMinute,
+    storyState: source.storyState,
+    storyFinalTurn: source.storyFinalTurn,
     contextCheckpoints: source.contextCheckpoints
       ? source.contextCheckpoints.map((checkpoint) => ({ ...checkpoint }))
       : undefined,
@@ -989,6 +1000,37 @@ export const sendMessage = (targetSessionId: string | null) => {
     settingsNow.roleplayEnabled
   )
   const history = getVisibleMessages(current)
+  // 结局已定就锁死发送；停在 00:00 但没有收到结束标记的会话也在下一次发送时补齐失败态。
+  if (turnCard?.story) {
+    if (isStoryLocked(current)) {
+      return false
+    }
+    if (
+      (current.storyState === 'active' || current.storyState === undefined) &&
+      (current.storyClockMinute ?? turnCard.story.startMinute) >= turnCard.story.deadlineMinute
+    ) {
+      updateSession(sessionId, (session) => ({
+        ...session,
+        storyState: 'bad_end',
+        storyFinalTurn: false,
+        updatedAt: now,
+      }))
+      persist(sessionId)
+      return false
+    }
+  }
+  const storyFields =
+    turnCard?.story && current.storyState !== 'bad_end' && current.storyState !== 'good_end'
+      ? current.storyState === 'active'
+        ? advanceStoryClock(turnCard.story, current)
+        : {
+            ...createStoryState(turnCard.story),
+            ...advanceStoryClock(turnCard.story, {
+              ...current,
+              ...createStoryState(turnCard.story),
+            }),
+          }
+      : {}
   const question: UserMessage = {
     id: createId(),
     role: 'user',
@@ -1003,6 +1045,7 @@ export const sendMessage = (targetSessionId: string | null) => {
     title: session.title || (files.length === 0 && SIMPLE_ARITHMETIC.test(text) ? text.trim() : ''),
     updatedAt: now,
     characterId: turnCard?.id ?? session.characterId,
+    ...storyFields,
   }))
   appendPendingFiles(sessionId, files)
   persist(sessionId)
@@ -1020,7 +1063,7 @@ export const sendMessage = (targetSessionId: string | null) => {
  * 并把 card.id 写入会话绑定。当前会话已有历史时新建会话，避免开场白插进旧对话。
  */
 export const startCharacterIntro = (
-  card: Pick<CharacterCard, 'id' | 'name' | 'greeting'>
+  card: Pick<CharacterCard, 'id' | 'name' | 'greeting' | 'story'>
 ): string | null => {
   const text = card.greeting.trim()
   const name = card.name.trim()
@@ -1045,6 +1088,7 @@ export const startCharacterIntro = (
       messages: [],
       rootMessageId: null,
       characterId: card.id,
+      ...(card.story ? createStoryState(card.story) : {}),
     }
     touchSession(session.id)
     set((state) => ({
@@ -1059,7 +1103,7 @@ export const startCharacterIntro = (
     return null
   }
   const { chatConfig } = useSettings.getState()
-  const intro: AssistantMessage = {
+  const opener: AssistantMessage = {
     id: createId(),
     role: 'assistant',
     createdAt: now,
@@ -1067,13 +1111,30 @@ export const startCharacterIntro = (
     status: 'done',
     blocks: [{ type: 'text', text }],
   }
+  // 限时推理卡把剧情说明放成模板旁白：只展示一次、不进上下文，随后才是妹妹的第一条消息。
+  const introText = card.story?.intro.trim()
+  const intro: AssistantMessage | null = introText
+    ? {
+        id: createId(),
+        role: 'assistant',
+        createdAt: now,
+        model: chatConfig.model || DEFAULT_CHAT_MODEL,
+        status: 'done',
+        blocks: [{ type: 'text', text: introText, isTemplate: true }],
+        selectedChildId: opener.id,
+      }
+    : null
+  if (intro) {
+    opener.parentId = intro.id
+  }
   updateSession(sessionId, (session) => ({
     ...session,
     title: session.title || name,
-    messages: [intro],
-    rootMessageId: intro.id,
+    messages: intro ? [intro, opener] : [opener],
+    rootMessageId: intro ? intro.id : opener.id,
     updatedAt: now,
     characterId: card.id,
+    ...(card.story ? createStoryState(card.story) : {}),
   }))
   persist(sessionId)
   return sessionId
@@ -1128,6 +1189,36 @@ export const sendVoicePrompt = (
     settingsNow.roleplayEnabled
   )
   const history = getVisibleMessages(current)
+  if (turnCard?.story) {
+    if (isStoryLocked(current)) {
+      return null
+    }
+    if (
+      (current.storyState === 'active' || current.storyState === undefined) &&
+      (current.storyClockMinute ?? turnCard.story.startMinute) >= turnCard.story.deadlineMinute
+    ) {
+      updateSession(sessionId, (session) => ({
+        ...session,
+        storyState: 'bad_end',
+        storyFinalTurn: false,
+        updatedAt: now,
+      }))
+      persist(sessionId)
+      return null
+    }
+  }
+  const storyFields =
+    turnCard?.story && current.storyState !== 'bad_end' && current.storyState !== 'good_end'
+      ? current.storyState === 'active'
+        ? advanceStoryClock(turnCard.story, current)
+        : {
+            ...createStoryState(turnCard.story),
+            ...advanceStoryClock(turnCard.story, {
+              ...current,
+              ...createStoryState(turnCard.story),
+            }),
+          }
+      : {}
   const question: UserMessage = {
     id: createId(),
     role: 'user',
@@ -1141,6 +1232,7 @@ export const sendVoicePrompt = (
     title: session.title || text.split(/\r?\n/, 1)[0].slice(0, 40),
     updatedAt: now,
     characterId: turnCard?.id ?? session.characterId,
+    ...storyFields,
   }))
   persist(sessionId)
   if (matchRefusalKeyword(text)) {
@@ -1157,7 +1249,7 @@ export const regenerateReply = (sessionId: string, messageId?: string) => {
     return
   }
   const session = getSession(sessionId)
-  if (!session || getStreamController(sessionId)) {
+  if (!session || getStreamController(sessionId) || isStoryLocked(session)) {
     return
   }
   const path = getVisibleMessages(session)
@@ -1197,7 +1289,7 @@ export const editMessage = (
     return false
   }
   const session = getSession(sessionId)
-  if (!session || getStreamController(sessionId)) {
+  if (!session || getStreamController(sessionId) || isStoryLocked(session)) {
     return false
   }
   const path = getVisibleMessages(session)
@@ -2545,6 +2637,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     formatNormalMemoryBlock(normalCards, normalCards.length, normalMemoryChars),
     formatMemoryBlock(memoryCards, memoryCards.length, memoryChars),
     roleplayActive ? formatSceneBlock(scene) : '',
+    formatStoryTurnBlock(activeCard?.story, sessionForMemory),
     formatWorldbookBlock(worldBefore),
     formatWorldbookBlock(worldAfter),
   ]
@@ -2569,6 +2662,30 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             usageHistory: [...(target.usageHistory ?? []), target.usage],
           }
     return settleReply(settled, status, Date.now(), error, keepRefusedContent)
+  }
+  // 限时剧情的结束标记只在前端消费：先摘掉标记，再把会话改成已结束。
+  // 截止轮没有标记时兜底判失败，避免模型漏写后会话还能继续。
+  const settleStory = (target: AssistantMessage) => {
+    if (!activeCard?.story || (target.status !== 'done' && target.status !== 'stopped')) {
+      return null
+    }
+    const current = getSession(sessionId)
+    if (!current || current.storyState !== 'active' || !replyPlainText(target).trim()) {
+      return null
+    }
+    const end = detectStoryEnd(replyPlainText(target))
+    if (!end && !current.storyFinalTurn) {
+      return null
+    }
+    return {
+      state: end ?? ('bad' as const),
+      reply: {
+        ...target,
+        blocks: target.blocks.map((block) =>
+          block.type === 'text' ? { ...block, text: stripStoryMarkers(block.text) } : block
+        ),
+      },
+    }
   }
   const outputCap = (requested: number) =>
     effectiveMaxTokens !== null ? Math.min(requested, effectiveMaxTokens) : requested
@@ -2884,6 +3001,16 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     titleRequests.delete(controller)
     streamFlushes.delete(sessionId)
     cancelAnimationFrame(frame)
+    const storyEnd = settleStory(reply)
+    if (storyEnd) {
+      reply = storyEnd.reply
+      updateSession(sessionId, (session) => ({
+        ...session,
+        storyState: storyEnd.state === 'bad' ? 'bad_end' : 'good_end',
+        storyFinalTurn: false,
+        updatedAt: Date.now(),
+      }))
+    }
     updateReply(sessionId, reply)
     set((state) => ({
       streaming: Object.fromEntries(

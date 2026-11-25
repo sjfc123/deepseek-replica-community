@@ -13,7 +13,9 @@ import { useAndroidBackInterception } from '../../app/useAndroidBackInterception
 import {
   IconCloseOutline16,
   IconGlobeLanguageOutline14,
+  IconLightOutline16,
   IconPaperclipOutline16,
+  IconRefreshOutline16,
   IconSendOutline16,
   IconStopFill16,
   IconThinkOutline14,
@@ -22,6 +24,15 @@ import { setSearch, setThinking, setThinkingEffort, useSettings } from '../../se
 import { hasAside, splitAsides } from '../../services/chat/aside.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { editMessage, sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
+import { generateReplySuggestions } from '../../services/chat/suggestions.js'
+import {
+  formatStoryClock,
+  formatStoryRemaining,
+  isStoryLocked,
+} from '../../services/chat/story.js'
+import {
+  findSessionCharacterCard,
+} from '../../services/chat/roleplay.js'
 import {
   addDraftFiles,
   addEditFiles,
@@ -43,6 +54,8 @@ import { stopReadAloud } from '../../services/speech/readAloud.js'
 import { IconButton } from '../base/IconButton.js'
 import { AndroidCircle } from '../base/AndroidIcons.js'
 import { Tooltip } from '../base/Tooltip.js'
+import { Button } from '../base/Button.js'
+import { Modal } from '../base/Modal.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
 import { DragMask, useFileDrop } from './DragMask.js'
 import { SessionActionDialog } from '../sider/SessionActionDialog.js'
@@ -164,6 +177,25 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const [illustrationPrompt, setIllustrationPrompt] = useState('')
   const [illustrationUrl, setIllustrationUrl] = useState<string | null>(null)
   const [illustrationBusy, setIllustrationBusy] = useState(false)
+  const [suggestionOpen, setSuggestionOpen] = useState(false)
+  const [suggestionLoading, setSuggestionLoading] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const suggestionAbort = useRef<AbortController | null>(null)
+  const session = useChatStore((state) => (sessionId ? state.sessionCache[sessionId] : undefined))
+  const characterCards = useSettings((state) => state.characterCards)
+  const activeCard = findSessionCharacterCard(characterCards, session)
+  const story = activeCard?.story
+  const storyLocked = isStoryLocked(session)
+  const storyClock =
+    story && session?.storyClockMinute !== undefined
+      ? formatStoryClock(session.storyClockMinute)
+      : ''
+  const storyRemaining =
+    story && session?.storyClockMinute !== undefined
+      ? formatStoryRemaining(session.storyClockMinute, story.deadlineMinute)
+      : ''
+  const storyEnd = session?.storyState
+  const [storyNoticeClosed, setStoryNoticeClosed] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const mirrorRef = useRef<HTMLDivElement>(null)
@@ -209,6 +241,18 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       setEffortOpen(false)
     }
   }, [thinking])
+
+  useEffect(() => {
+    setStoryNoticeClosed(false)
+    setSuggestionOpen(false)
+    setSuggestions([])
+    suggestionAbort.current?.abort()
+    suggestionAbort.current = null
+    return () => {
+      suggestionAbort.current?.abort()
+      suggestionAbort.current = null
+    }
+  }, [sessionId, storyEnd])
 
   useEffect(() => {
     if (!effortOpen) {
@@ -430,7 +474,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   }, [focusComposer, sessionId])
 
   // 排队、上传中与上传失败的附件均保留在输入框，全部上传成功后方可发送
-  const canSend = !importingHistory && !streaming && voice.status === 'idle' && draftReady
+  const canSend = !importingHistory && !streaming && !storyLocked && voice.status === 'idle' && draftReady
   const showSend = !android || editingHere || streaming || draftReady || typing
 
   useAndroidBackInterception(showAttachments || editingHere)
@@ -477,7 +521,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   }, [typing])
 
   const send = () => {
-    if (useChatStore.getState().importingHistory || voice.status !== 'idle') {
+    if (useChatStore.getState().importingHistory || storyLocked || voice.status !== 'idle') {
       return
     }
     const currentEditing = useDrafts.getState().editing
@@ -515,11 +559,106 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     }
   }
 
+  const requestSuggestions = async () => {
+    if (!sessionId || suggestionLoading || storyLocked || !activeCard) {
+      return
+    }
+    if (!ensureApiKey()) {
+      return
+    }
+    suggestionAbort.current?.abort()
+    const controller = new AbortController()
+    suggestionAbort.current = controller
+    setSuggestionOpen(true)
+    setSuggestionLoading(true)
+    try {
+      const list = await generateReplySuggestions({
+        sessionId,
+        draft: text,
+        signal: controller.signal,
+      })
+      if (!controller.signal.aborted) {
+        setSuggestions(list)
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setSuggestionOpen(false)
+        showToast(t('replySuggestionsFailed'))
+      }
+    } finally {
+      if (suggestionAbort.current === controller) {
+        suggestionAbort.current = null
+        setSuggestionLoading(false)
+      }
+    }
+  }
+
+  const chooseSuggestion = (value: string) => {
+    setText(value)
+    setSuggestionOpen(false)
+    focusComposer()
+  }
+
   const photoSuggestions = !!android && !text.trim() && attachments.some((item) => item.isImage)
   const viewerBlob = preview ? (preview.file ?? preview.blob ?? undefined) : undefined
 
   return (
     <div className={styles.composer} data-photo-suggestions={photoSuggestions ? '' : undefined}>
+      {story && storyClock ? (
+        <div className={clsx(styles.storyBar, storyLocked && styles.storyBarLocked)}>
+          <span className={styles.storyDot} aria-hidden />
+          <span className={styles.storyClock}>{t('storyClockLabel', { time: storyClock })}</span>
+          <span className={styles.storyRemaining}>
+            {storyLocked ? t('storyLockedPlaceholder') : t('storyRemainingLabel', { time: storyRemaining })}
+          </span>
+        </div>
+      ) : null}
+      {suggestionOpen && activeCard && !storyLocked ? (
+        <div className={styles.suggestions} data-drawer-gesture-ignore="">
+          <div className={styles.suggestionHeader}>
+            <span className={styles.suggestionTitle}>
+              <IconLightOutline16 />
+              {t('replySuggestions')}
+            </span>
+            <span className={styles.suggestionActions}>
+              <button
+                type="button"
+                className={styles.suggestionRefresh}
+                disabled={suggestionLoading}
+                onClick={() => void requestSuggestions()}
+              >
+                <IconRefreshOutline16 />
+                {t('replySuggestionsRefresh')}
+              </button>
+              <IconButton
+                size="xs"
+                tone="primary"
+                icon={<IconCloseOutline16 />}
+                aria-label={t('close')}
+                onClick={() => setSuggestionOpen(false)}
+              />
+            </span>
+          </div>
+          {suggestionLoading ? (
+            <div className={styles.suggestionLoading}>{t('replySuggestionsLoading')}</div>
+          ) : (
+            <div className={styles.suggestionList}>
+              {suggestions.map((item, index) => (
+                <button
+                  key={`${index}-${item}`}
+                  type="button"
+                  className={styles.suggestionItem}
+                  onClick={() => chooseSuggestion(item)}
+                >
+                  <span className={styles.suggestionIndex}>{index + 1}</span>
+                  <span>{item}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className={styles.suggestionHint}>{t('replySuggestionsHint')}</div>
+        </div>
+      ) : null}
       <div
         data-drawer-gesture-ignore=""
         data-editing={editingHere ? 'true' : undefined}
@@ -596,7 +735,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             <button
               type="button"
               className={styles.holdButton}
-              disabled={importingHistory || streaming}
+              disabled={importingHistory || streaming || storyLocked}
               {...hold.direct}
               onPointerDown={(event) => {
                 if (voice.status === 'transcribing') {
@@ -617,16 +756,18 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                 recording && isMobile && styles.textareaHidden
               )}
               placeholder={t(
-                android
-                  ? editingHere || typing
-                    ? 'androidMessageHint'
-                    : 'androidHoldHint'
-                  : 'chatInputPlaceholderChat'
+                storyLocked
+                  ? 'storyLockedPlaceholder'
+                  : android
+                    ? editingHere || typing
+                      ? 'androidMessageHint'
+                      : 'androidHoldHint'
+                    : 'chatInputPlaceholderChat'
               )}
               rows={2}
               // 移动端不自动聚焦，避免一打开就弹出键盘
               autoFocus={!isMobile}
-              disabled={importingHistory}
+              disabled={importingHistory || storyLocked}
               value={text}
               onChange={(event) => setText(event.target.value)}
               onScroll={(event) => {
@@ -714,6 +855,20 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         <div className={styles.functionRow}>
           {/* 深度思考 / 智能搜索开关，tooltip 在按钮上方 */}
           <div ref={togglesRef} className={styles.toggles}>
+            {sessionId && activeCard && !editingHere && !storyLocked ? (
+              <Tooltip content={t('replySuggestionsTooltip')}>
+                <button
+                  type="button"
+                  className={styles.toggle}
+                  aria-label={t('replySuggestions')}
+                  disabled={suggestionLoading || streaming}
+                  onClick={() => void requestSuggestions()}
+                >
+                  <IconLightOutline16 />
+                  <span className={styles.toggleLabel}>{t('replySuggestions')}</span>
+                </button>
+              </Tooltip>
+            ) : null}
             {customEndpoint ? null : (
               <>
                 <Tooltip content={thinking ? t('thinkLongPressOn') : t('deactivatedThinkTooltip')}>
@@ -1093,6 +1248,32 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             document.body
           )
         : null}
+      {!storyNoticeClosed && storyEnd === 'bad_end' ? (
+        <Modal
+          title={t('storyFailedTitle')}
+          footer={
+            <Button size="m" onClick={() => setStoryNoticeClosed(true)}>
+              {t('storyEndClose')}
+            </Button>
+          }
+          onClose={() => setStoryNoticeClosed(true)}
+        >
+          <p>{t('storyFailedBody')}</p>
+        </Modal>
+      ) : null}
+      {!storyNoticeClosed && storyEnd === 'good_end' ? (
+        <Modal
+          title={t('storySuccessTitle')}
+          footer={
+            <Button size="m" onClick={() => setStoryNoticeClosed(true)}>
+              {t('storyEndClose')}
+            </Button>
+          }
+          onClose={() => setStoryNoticeClosed(true)}
+        >
+          <p>{t('storySuccessBody')}</p>
+        </Modal>
+      ) : null}
     </div>
   )
 }
