@@ -50,6 +50,19 @@ import { SessionItem } from './SessionItem.js'
 import styles from './Sider.module.css'
 
 const ROW_OVERSCAN = 10
+const COLLAPSED_SESSION_GROUPS_KEY = 'replica:collapsed-session-groups'
+
+/** 折叠状态只保存在本机；损坏或旧格式直接按全部展开处理。 */
+const readCollapsedSessionGroups = () => {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(COLLAPSED_SESSION_GROUPS_KEY) ?? '[]')
+    return new Set(
+      Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+    )
+  } catch {
+    return new Set<string>()
+  }
+}
 
 /** 创建分支的三步：命名 → 是否分组 → 选择分组；分支在命名确认后就已经落盘 */
 type ForkFlow = {
@@ -75,6 +88,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   const searchOpen = useMobileSider((state) => state.searchOpen)
   const showAndroidSearch = Boolean(androidDrawer && searchOpen)
   const [now, setNow] = useState(Date.now)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(readCollapsedSessionGroups)
   const [selecting, setSelecting] = useState(false)
   const [checked, setChecked] = useState<Set<string>>(() => new Set())
   const [pinning, setPinning] = useState<{ ids: Set<string>; unpin: boolean } | null>(null)
@@ -97,6 +111,28 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   const newFolderInput = useRef<HTMLInputElement>(null)
   const forkNameInput = useRef<HTMLInputElement>(null)
   const unpin = checked.size > 0 && [...checked].every((id) => pinnedIds.includes(id))
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLLAPSED_SESSION_GROUPS_KEY, JSON.stringify([...collapsedGroups]))
+    } catch {
+      // 隐私模式或存储已满时保持内存状态，不阻断会话列表。
+    }
+  }, [collapsedGroups])
+  const toggleGroup = useCallback((key: string) => {
+    setCollapsedGroups((previous) => {
+      const next = new Set(previous)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }, [])
   /** 分组与归档只影响这里，后面的虚拟列表按过滤结果算偏移 */
   const visibleSessions = useMemo(() => {
     const archived = new Set(archivedIds)
@@ -133,14 +169,18 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   const positionedGroups = useMemo(() => {
     let end = 0
     return groups.map((group, index) => {
+      const collapsed = collapsedGroups.has(group.key)
       // 与分组的 margin、padding、标题行高和会话行高相同，保留原生粘性标题。
       const top = androidDrawer
         ? end + (index ? 6.4 : 5.6889) + 22.4
         : end + (index ? 16 : 0) + 4 + (mobile ? 29 : 22)
-      end = top + group.sessions.length * rowHeight + (group.key === 'pinned' ? 29 : 0)
-      return { ...group, top }
+      end = top + (collapsed ? 0 : group.sessions.length * rowHeight)
+      if (group.key === 'pinned' && !collapsed) {
+        end += 29
+      }
+      return { ...group, top, collapsed }
     })
-  }, [androidDrawer, groups, mobile, rowHeight])
+  }, [androidDrawer, collapsedGroups, groups, mobile, rowHeight])
   useLayoutEffect(() => {
     const list = listRef.current
     if (!list) {
@@ -528,25 +568,50 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
         <div ref={listRef} className={styles.list}>
           {positionedGroups.map((group) => {
             const limit = group.sessions.length
-            const start = Math.min(
-              limit,
-              Math.max(0, Math.floor((viewport.top - group.top) / rowHeight) - ROW_OVERSCAN)
-            )
-            const end = Math.min(
-              limit,
-              Math.max(
-                start,
-                Math.ceil((viewport.top + viewport.height - group.top) / rowHeight) + ROW_OVERSCAN
-              )
-            )
+            const start = group.collapsed
+              ? 0
+              : Math.min(
+                  limit,
+                  Math.max(0, Math.floor((viewport.top - group.top) / rowHeight) - ROW_OVERSCAN)
+                )
+            const end = group.collapsed
+              ? 0
+              : Math.min(
+                  limit,
+                  Math.max(
+                    start,
+                    Math.ceil((viewport.top + viewport.height - group.top) / rowHeight) + ROW_OVERSCAN
+                  )
+                )
             return (
               <div
                 key={group.key}
                 className={clsx(styles.section, group.key === 'pinned' && styles.pinnedSection)}
               >
-                <div className={styles.sectionHeader}>{group.label}</div>
-                {start ? <div aria-hidden="true" style={{ height: start * rowHeight }} /> : null}
-                {group.sessions.slice(start, end).map((session) => (
+                <button
+                  type="button"
+                  className={styles.sectionHeader}
+                  aria-expanded={!group.collapsed}
+                  aria-label={t(
+                    group.collapsed ? 'sessionHistoryExpandGroup' : 'sessionHistoryCollapseGroup',
+                    { label: group.label }
+                  )}
+                  onClick={() => toggleGroup(group.key)}
+                >
+                  <span
+                    className={styles.sectionChevron}
+                    data-collapsed={group.collapsed || undefined}
+                    aria-hidden="true"
+                  />
+                  <span className={styles.sectionLabel}>{group.label}</span>
+                  <span className={styles.sectionCount} aria-hidden="true">
+                    {group.sessions.length}
+                  </span>
+                </button>
+                {group.collapsed ? null : start ? (
+                  <div aria-hidden="true" style={{ height: start * rowHeight }} />
+                ) : null}
+                {group.collapsed ? null : group.sessions.slice(start, end).map((session) => (
                   <SessionItem
                     key={session.id}
                     session={session}
@@ -581,7 +646,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
                     }
                   />
                 ))}
-                {end < limit ? (
+                {!group.collapsed && end < limit ? (
                   <div aria-hidden="true" style={{ height: (limit - end) * rowHeight }} />
                 ) : null}
               </div>

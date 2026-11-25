@@ -12,7 +12,7 @@ const DAY = 86_400_000
 
 const startOfDay = (time: number) => new Date(time).setHours(0, 0, 0, 0)
 
-/** 分组：今天 / 昨天 / 7 天内 / 30 天内 / 按月 */
+/** 分组：今天 / 昨天 / 前天 / 三天前 / 7 天前 / 15 天前 / 30 天前与近一个月 / 近三个月 / 近一年 / 按月 */
 export const groupSessions = (sessions: SessionSummary[], now: number, t = translate) => {
   const groups: { key: string; label: string; sessions: SessionSummary[] }[] = []
   for (const session of sessions) {
@@ -20,13 +20,23 @@ export const groupSessions = (sessions: SessionSummary[], now: number, t = trans
     const key =
       diff <= 0
         ? 'sessionHistoryTimelineLabelToday'
-        : diff <= 1
+        : diff === 1
           ? 'sessionHistoryTimelineLabelYesterday'
-          : diff < 7
-            ? 'sessionHistoryTimelineLabel7days'
-            : diff < 30
-              ? 'sessionHistoryTimelineLabel30days'
-              : null
+          : diff === 2
+            ? 'sessionHistoryTimelineLabelDayBefore'
+            : diff < 7
+              ? 'sessionHistoryTimelineLabel3days'
+              : diff < 15
+                ? 'sessionHistoryTimelineLabel7days'
+                : diff < 30
+                  ? 'sessionHistoryTimelineLabel15days'
+                  : diff < 90
+                    ? 'sessionHistoryTimelineLabel30days'
+                    : diff < 365
+                      ? 'sessionHistoryTimelineLabel3months'
+                      : diff < 730
+                        ? 'sessionHistoryTimelineLabel1year'
+                        : null
     const groupKey = key ?? monthKey(session.updatedAt) ?? ''
     const last = groups.at(-1)
     if (last?.key === groupKey) {
