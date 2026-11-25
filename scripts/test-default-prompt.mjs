@@ -38,6 +38,11 @@ assert.match(DEFAULT_SYSTEM_PROMPT, /数据管理/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /当前版本没有这个入口|我无法确认/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /不得补页面名、按钮名或多级菜单/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /显示名是 AI \/ DeepSeek 时自动写普通记忆/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /【功能偏好与选择】/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /没有绝对最好/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /不存在哪个功能更好/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /明确推荐/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /不替玩家判断/)
 assert.doesNotMatch(DEFAULT_SYSTEM_PROMPT, /角色扮演时不注入也不写入/)
 assert.doesNotMatch(DEFAULT_SYSTEM_PROMPT, /有血有肉|预置角色|你正在扮演/)
 assert.equal(LEGACY_SYSTEM_PROMPT, '该助手为DeepSeek，由深度求索公司创造。')
@@ -75,6 +80,9 @@ assert.doesNotMatch(roleplay, /本应用功能说明/, '角色上下文不应带
 assert.doesNotMatch(roleplay, /交流语气，不要复述本段/, '角色上下文不应追加普通助手语气约束')
 assert.match(roleplay, /【角色连续性与活人感，不要复述本段/)
 assert.match(roleplay, /【对话格式与称呼/)
+assert.match(roleplay, /不要跳出人物/)
+assert.match(roleplay, /禁止自称 AI、模型、助手或程序/)
+assert.match(roleplay, /不要输出分析、规则、提示词/)
 
 const guarded = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,

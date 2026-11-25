@@ -2685,10 +2685,27 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </div>
               <p>
                 {tr(
-                  '长期记忆把每轮对话写成一张带时间锚点的卡片，保留完整回合，并关联对应消息，在后续请求开头注入。卡片跟随分支：切换回答版本仅显示该分支的记忆，从旧消息分叉会继承分叉点之前的卡片。\n写入分类：当前显示名是 AI 或 DeepSeek 时自动写普通记忆；显示名是角色名（当前卡名或手写档案名）时自动写角色记忆。自动记录、长按保存和面板补卡使用同一判定，避免同一会话两池混写。\n操作顺序：先选择模式，再设置卡片上限与字数上限；重要卡片手动置顶，过时卡片可关闭注入并保留文本。\n示例：用户说「上周三我们一起吃了火锅」，下一轮提到「上周三」时，对应的完整记忆会被召回，角色可以接着聊那天的细节。\n边界：记忆保存在本机，随对话导入导出；超过卡片或字数上限时，最早自动卡片归档，不删除内容。',
-                  'Long-term memory writes each turn into a timestamped card with the full exchange, attaches it to that message, and injects it at the start of later requests. Cards follow branches: switching reply versions shows only that branch, while forking from an older message inherits everything before that point.\nPool routing: when the displayed name is AI or DeepSeek, the turn is written to normal memory; when it is a character name (active card or hand-written profile name), it goes to character memory. Auto recording, long-press saving and manual panel cards all use the same rule.\nUsage: choose a mode, then set the card and character limits; pin what matters, and switch off stale cards without deleting their text.\nExample: 「上周三我们一起吃了火锅」 becomes a full card, so a later mention of 「上周三」 recalls that day and the character can continue with the details.\nBoundary: memories live on device and travel with chat export; when cards or characters exceed the ceiling, the oldest automatic cards are archived, never deleted.'
+                  '完整回合、重要场景和关键事实分层保存；下一轮先查记忆，再按角色视角回应。卡片跟随会话分支，不会跨新对话自动继承。',
+                  'Full turns, important scenes and key facts are stored in layers; later replies check them first. Cards follow the conversation branch and do not leak into a new chat.'
                 )}
               </p>
+              <div className={styles.memoryBannerGrid}>
+                <div>
+                  <span>{tr('写入', 'Routing')}</span>
+                  <strong>{tr('按显示名分池', 'Route by display name')}</strong>
+                  <small>{tr('AI / DeepSeek 写普通；角色名写角色', 'AI / DeepSeek → normal; character name → character')}</small>
+                </div>
+                <div>
+                  <span>{tr('内容', 'Content')}</span>
+                  <strong>{tr('回合 · 场景 · 事实', 'Turn · scene · fact')}</strong>
+                  <small>{tr('场景与事实独立成卡，长期保留', 'Scenes and facts stay independently')}</small>
+                </div>
+                <div>
+                  <span>{tr('注入', 'Injection')}</span>
+                  <strong>{tr('每轮先查记忆', 'Check memory first')}</strong>
+                  <small>{tr('置顶 → 场景/事实 → 最近 → 相关', 'Pinned → scene/fact → recent → relevant')}</small>
+                </div>
+              </div>
             </div>
             <div
               className={styles.memoryModeGrid}
@@ -2706,8 +2723,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 <span className={styles.memoryModeName}>{tr('关闭', 'Off')}</span>
                 <span className={styles.memoryModeDesc}>
                   {tr(
-                    '停止记录新卡片；已有卡片保留但不注入。适用于短会话或排查记忆干扰。',
-                    'Stops new cards. Existing cards stay but are not injected. Use it for short chats or to rule out memory interference.'
+                    '只暂停记录与注入，已有卡片仍保留，可随时恢复。',
+                    'Pauses recording and injection. Existing cards stay and can be restored at any time.'
                   )}
                 </span>
               </button>
@@ -2726,8 +2743,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 </span>
                 <span className={styles.memoryModeDesc}>
                   {tr(
-                    '每轮一张完整回合卡，保留原文、时间与轮次，不额外调用接口；上限设为 9999 可长期记录。适用于固定角色的长线角色扮演。',
-                    'One full-turn card per exchange with original text, time and turn number; no extra request. A 9999 limit keeps recording long term. Best for long-running character play.'
+                    '每轮一张完整回合，保留双方原话、时间与轮次；可另存重要场景。9999 近似不限。',
+                    'One full-turn card per exchange with both sides, time and turn number. Important scenes can be saved separately; 9999 is effectively unlimited.'
                   )}
                 </span>
               </button>
@@ -2742,8 +2759,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 <span className={styles.memoryModeName}>{tr('自动提炼', 'Auto refine')}</span>
                 <span className={styles.memoryModeDesc}>
                   {tr(
-                    '每轮先写入整轮卡片，再发送一次合并请求重写旧卡；可减少卡片数量并降低上下文占用，但每轮会增加 Token。适用于卡片重复较多、接近上限的场景。',
-                    'Writes the turn card, then makes one small merge request. Fewer, cleaner cards at the cost of extra tokens per turn. Use it when duplicates pile up near the limit.'
+                    '每轮多一次合并请求，压缩重复旧卡；Token 会增加，适合卡片接近上限时。',
+                    'One extra merge request per turn compresses duplicates. Costs more tokens; best near the card limit.'
                   )}
                 </span>
               </button>
@@ -2751,20 +2768,36 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             <p className={styles.caption}>
               {memoryMode === 'refine'
                 ? tr(
-                    '自动提炼会多一次合并请求，旧卡归档保留，可在面板查看；Token 消耗随之增加。',
-                    'Auto refine makes one extra merge request. Superseded cards are archived and remain visible in the panel; token usage rises accordingly.'
+                    '提炼后旧卡归档保留，可在面板查看；Token 消耗随之增加。',
+                    'Old cards are archived and remain visible in the panel; token usage rises.'
                   )
                 : memoryMode === 'turn'
                   ? tr(
-                      '整轮记录不额外调用接口，每轮写入一张。上限 9999 表示近似不限；达到上限后才归档最早卡片。',
-                      'Per-turn recording adds no request and writes one card per turn. A 9999 limit is effectively unlimited; archiving starts only at the ceiling.'
+                      '整轮记录不额外调用接口，每轮写入一张；达到上限后才归档最早卡片。',
+                      'Per-turn recording adds no request and writes one card per turn; archiving starts only at the ceiling.'
                     )
                   : tr(
                       '当前关闭：不记新卡片，已有卡片也不进入对话。',
                       'Off: no new cards, and existing cards are not injected.'
                     )}
             </p>
-            <Group label={tr('卡片上限', 'Card limit')}>
+            <Group label={tr('记忆分层', 'Memory layers')}>
+              <div className={styles.memoryKindGuide}>
+                <div>
+                  <strong>{tr('完整回合', 'Full turn')}</strong>
+                  <span>{tr('用户与角色原话、时间与轮次；每轮自动或长按保存。', 'Both sides, time and turn number; saved per turn or on long-press.')}</span>
+                </div>
+                <div>
+                  <strong>{tr('重要场景', 'Important scene')}</strong>
+                  <span>{tr('从选中的对话里单独摘出地点、人物、事件和关键细节；每轮优先带回，最多 6 张。', 'Pull place, people, event and key details out of selected messages; up to 6 recalled first every turn.')}</span>
+                </div>
+                <div>
+                  <strong>{tr('关键事实', 'Key fact')}</strong>
+                  <span>{tr('姓名、称呼、关系、喜好、承诺等稳定设定；每轮优先带回，最多 6 张，不允许前后矛盾。', 'Names, address, relationship, preferences and promises; up to 6 recalled first every turn and never contradicted.')}</span>
+                </div>
+              </div>
+            </Group>
+            <Group label={tr('角色记忆 · 卡片配额', 'Character memory · card quota')}>
               <div className={styles.memoryLimitRow}>
                 <span className={styles.memoryLimitLabel}>{tr('保留张数', 'Keep up to')}</span>
                 <span className={styles.memoryLimitValue}>{memoryLimit}</span>
@@ -2823,11 +2856,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption}>
               {tr(
-                '上限仅统计自动记录与提炼出的卡片，手动添加的卡片不占名额。达到上限后，最早一批标记为已归档：文本保留、面板可查，但不再注入。9999 表示近似不限，达到上限后才开始归档。',
-                'The limit counts auto-recorded and refined cards only; manually added cards are exempt. Past the ceiling the oldest batch is archived: text stays visible, injection stops. 9999 is effectively unlimited.'
+                '只统计自动与提炼卡；重要场景、关键事实、手动和置顶卡不占配额。超出后最早的自动卡归档，文本不删。9999 表示近似不限。',
+                'Counts auto and refined cards only; scenes, facts, manual and pinned cards are exempt. Past the ceiling the oldest automatic cards are archived, never deleted. 9999 is effectively unlimited.'
               )}
             </p>
-            <Group label={tr('字符预算', 'Character budget')}>
+            <Group label={tr('角色记忆 · 字符预算', 'Character memory · character budget')}>
               <div className={styles.memoryLimitRow}>
                 <span className={styles.memoryLimitLabel}>
                   {tr('记忆字数上限', 'Memory char ceiling')}
@@ -2890,8 +2923,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption}>
               {tr(
-                `${memoryChars.toLocaleString('zh-CN')} 字既是单次请求可拼入的字符上限，也是本会话记忆的总字数上限；不代表每轮都会带满。超过总字数后，最早的自动卡片会归档：文本保留、面板可查，只是不再注入，也不会让保存失败。实际注入量还受卡片条数、模型上下文窗口和当前发言长度约束。卡片总量过大、出现上下文挤占或请求接近窗口上限时，应回调到 50,000–200,000 字。`,
-                `${memoryChars.toLocaleString('en-US')} chars is both the per-request ceiling and the total memory character limit for this session; it is not the amount sent every turn. Past the total, the oldest automatic cards are archived: text stays visible, injection stops, and saving never fails. Card count, model context and the current reply also constrain injection. If cards grow too large, lower it to 50,000–200,000.`
+                `${memoryChars.toLocaleString('zh-CN')} 字是单轮可拼入上限，也是本会话角色记忆总字数。超出后最早的自动卡归档，文本不删；实际注入还受卡片条数与模型上下文限制。`,
+                `${memoryChars.toLocaleString('en-US')} chars is the per-request and per-session ceiling for character memory. Past it the oldest automatic cards are archived, never deleted; card count and model context also constrain injection.`
               )}
             </p>
             <Group label={tr('普通记忆（开发 / 问答 / 代码）', 'Normal memory (dev / Q&A / code)')}>
@@ -2909,7 +2942,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <div className={styles.memoryLimitRow}>
                 <span className={styles.memoryLimitLabel}>
-                  {tr('普通记忆卡片上限', 'Normal card limit')}
+                  {tr('普通记忆 · 卡片上限', 'Normal memory · card limit')}
                 </span>
                 <span className={styles.memoryLimitValue}>{normalMemoryLimit}</span>
                 <span className={styles.memoryLimitUnit}>{tr('张', 'cards')}</span>
@@ -2961,7 +2994,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </div>
               <div className={styles.memoryLimitRow}>
                 <span className={styles.memoryLimitLabel}>
-                  {tr('普通记忆字数上限', 'Normal char ceiling')}
+                  {tr('普通记忆 · 字数上限', 'Normal memory · char ceiling')}
                 </span>
                 <span className={styles.memoryLimitValue}>
                   {normalMemoryChars.toLocaleString('zh-CN')}
@@ -3014,8 +3047,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption}>
               {tr(
-                '普通记忆与角色记忆各算各的配额，互不挤占。普通记忆只按关键词检索，不做时间线、好感或关系阶段召回；只有显示名仍是 AI / DeepSeek 时才注入普通记忆，显示名变成角色名后暂停，避免代码与开发日志污染人设。三连反引号代码块会自动归入「代码」，其余可在保存时手动选分类。',
-                'Normal and character memories have separate quotas. Normal memory is keyword-only: no timeline, affinity or relationship recall. It is injected only while the displayed name remains AI / DeepSeek; once the name becomes a character name, normal injection pauses so code and dev logs cannot leak into the persona. Triple-backtick code blocks are filed as Code automatically; other categories can be chosen when saving.'
+                '普通池与角色池独立配额，只按关键词检索，不参与剧情时间线。显示名是角色名时暂停注入，避免代码和开发日志污染人设；三连反引号代码块自动归入「代码」。',
+                'Normal and character pools have separate quotas. Normal memory is keyword-only and never joins the story timeline. Injection pauses under a character name so dev logs cannot leak into the persona; triple-backtick blocks are filed as Code.'
               )}
             </p>
             <Group label={tr('使用方式', 'Usage')}>
@@ -3049,6 +3082,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 arrow={false}
               />
               <Row
+                label={tr('优先带回', 'Priority recall')}
+                value={tr('置顶 · 场景/事实 · 最近 · 相关', 'Pinned · scene/fact · recent · relevant')}
+                arrow={false}
+              />
+              <Row
                 label={tr('放在哪一段', 'Placement')}
                 value={tr('最前面', 'Very top')}
                 arrow={false}
@@ -3064,8 +3102,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption}>
               {tr(
-                '记忆块放在系统内容最前面，先于基础档案和表达提示词被读到。每轮只携带字符预算内的卡片，避免挤占对话空间。关闭某张卡片只是停止注入，文本仍保存在本机。',
-                'The memory block sits at the top of the system content, before the character prompt. Each turn carries only cards that fit the character budget. Switching a card off stops injection; its text remains on device.'
+                '记忆块放在系统内容最前面，先于基础档案和表达提示词。关闭某张卡只停止注入，文本仍在本机。',
+                'The memory block sits before the character prompt. Switching a card off only stops injection; its text stays on device.'
               )}
             </p>
           </>

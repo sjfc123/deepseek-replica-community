@@ -349,6 +349,46 @@
   }
 }
 
+.memoryConfirmEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 12px;
+
+  label {
+    color: var(--dsw-alias-label-primary, #1f2329);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 96px;
+    max-height: 210px;
+    padding: 9px 10px;
+    resize: vertical;
+    border: 1px solid var(--ds-border-secondary, #e5e6eb);
+    border-radius: 10px;
+    outline: none;
+    background: var(--ds-bg-elevated, #fff);
+    color: var(--dsw-alias-label-primary, #1f2329);
+    font: inherit;
+    font-size: 12.5px;
+    line-height: 1.6;
+
+    &:focus {
+      border-color: color-mix(in srgb, var(--replica-accent, #4d6bfe) 55%, transparent);
+    }
+  }
+
+  small {
+    color: var(--ds-button-text-tertiary, #8c9097);
+    font-size: 10.5px;
+    line-height: 1.5;
+  }
+}
+
 .memoryConfirmActions {
   display: flex;
   gap: 10px;
@@ -371,6 +411,11 @@
   border-color: transparent;
   background: var(--replica-accent, #4d6bfe);
   color: #fff;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 }
 
 :global([data-ds-dark-theme]) .memoryBar {

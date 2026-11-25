@@ -20,8 +20,12 @@ import {
   saveMessagesAsMemory,
 } from '../../services/chat/store.js'
 import {
+  characterMemoryLabel,
+  CHARACTER_MEMORY_KINDS,
   NORMAL_MEMORY_KINDS,
   normalMemoryLabel,
+  replyPlainText,
+  type CharacterMemoryKind,
   type MemoryPool,
   type NormalMemoryKind,
 } from '../../services/chat/memory.js'
@@ -194,6 +198,8 @@ export const MessageList = ({
   const [memoryConfirm, setMemoryConfirm] = useState(false)
   const [memoryPool, setMemoryPool] = useState<MemoryPool>('character')
   const [memoryKind, setMemoryKind] = useState<NormalMemoryKind | 'auto'>('auto')
+  const [memoryCharacterKind, setMemoryCharacterKind] = useState<CharacterMemoryKind>('turn')
+  const [memoryDraft, setMemoryDraft] = useState('')
   useEffect(() => {
     setMemorySelect({ active: false, ids: new Set() })
     setMemoryConfirm(false)
@@ -753,6 +759,17 @@ export const MessageList = ({
 
   const lastIndex = messages.length - 1
   const memorySelectedCount = memorySelect.ids.size
+  const memorySelectedPreview = useMemo(
+    () =>
+      messages
+        .filter((message) => memorySelect.ids.has(message.id))
+        .map((message) =>
+          message.role === 'assistant' ? replyPlainText(message).trim() : message.content.trim()
+        )
+        .filter(Boolean)
+        .join('\n\n'),
+    [messages, memorySelect.ids]
+  )
   const memoryAllSelected = messages.length > 0 && memorySelectedCount === messages.length
   const toggleMemorySelected = (id: string) => {
     setMemorySelect((state) => {
@@ -804,29 +821,53 @@ export const MessageList = ({
     // 显示名仍是 AI / DeepSeek 时默认写普通池；角色名才默认写角色池。
     setMemoryPool(characterMemoryActive ? 'character' : 'normal')
     setMemoryKind('auto')
+    setMemoryCharacterKind('turn')
+    setMemoryDraft('')
     setMemoryConfirm(true)
+  }
+  const chooseMemoryCharacterKind = (kind: CharacterMemoryKind) => {
+    setMemoryCharacterKind(kind)
+    if (kind !== 'turn' && !memoryDraft.trim()) {
+      // 默认带入选中原文，玩家可在弹窗里删改成一句场景或事实；
+      // 不做模型猜测，避免把环境描写、动作和台词混成不存在的经历。
+      setMemoryDraft(memorySelectedPreview)
+    }
   }
   const confirmSaveMemory = () => {
     const savePool: MemoryPool = characterMemoryActive ? 'character' : memoryPool
-    const result = saveMessagesAsMemory(
-      session.id,
-      Array.from(memorySelect.ids),
-      savePool === 'normal' ? { pool: 'normal', category: memoryKind } : { pool: 'character' }
-    )
+    const importantKind =
+      savePool === 'character' && memoryCharacterKind !== 'turn' ? memoryCharacterKind : undefined
+    if (importantKind && !memoryDraft.trim()) {
+      showToast('先写清这段场景或事实，再保存')
+      return
+    }
+    const target =
+      savePool === 'normal'
+        ? { pool: 'normal' as const, category: memoryKind }
+        : importantKind
+          ? {
+              pool: 'character' as const,
+              kind: importantKind,
+              content: memoryDraft,
+            }
+          : { pool: 'character' as const }
+    const result = saveMessagesAsMemory(session.id, Array.from(memorySelect.ids), target)
+    const savedLabel =
+      savePool === 'character' ? characterMemoryLabel(memoryCharacterKind) : '记忆'
     setMemoryConfirm(false)
     setMemorySelect({ active: false, ids: new Set() })
     if (result.created === 0) {
       showToast(
         result.skipped > 0
-          ? `选中的内容已经有 ${result.skipped} 张整段记忆卡，没有重复保存`
+          ? `选中的内容已经有相同的${savedLabel}，没有重复保存`
           : '没有可保存的消息'
       )
       return
     }
     showToast(
       result.skipped > 0
-        ? `已保存 ${result.created} 张记忆卡，跳过 ${result.skipped} 张已有记录`
-        : `已保存 ${result.created} 张记忆卡，可在记忆面板查看`
+        ? `已保存 ${result.created} 张${savedLabel}，跳过 ${result.skipped} 张重复记录`
+        : `已保存 ${result.created} 张${savedLabel}，可在记忆面板查看`
     )
   }
   const uploadRetryId = getUploadRetryId(messages, streaming)
@@ -990,10 +1031,10 @@ export const MessageList = ({
                 aria-label="保存为记忆"
                 onClick={(event) => event.stopPropagation()}
               >
-                <strong className={styles.memoryConfirmTitle}>保存为记忆？</strong>
+                <strong className={styles.memoryConfirmTitle}>保存为记忆</strong>
                 <p className={styles.memoryConfirmText}>
                   已选 {memorySelectedCount}{' '}
-                  条消息。先选分类：角色记忆按轮保存剧情与时间线；普通记忆每条独立保存，更适合开发、问答和代码检索。
+                  条消息。角色记忆可存完整回合，也可以只把其中一段场景或事实拆出来独立记住；普通记忆每条独立保存，适合开发、问答与代码。
                 </p>
                 <div className={styles.memoryConfirmPools} role="radiogroup" aria-label="记忆分类">
                   <button
@@ -1004,7 +1045,7 @@ export const MessageList = ({
                     onClick={() => setMemoryPool('character')}
                   >
                     角色记忆
-                    <small>剧情 · 时间线 · 好感</small>
+                    <small>剧情 · 场景 · 事实</small>
                   </button>
                   <button
                     type="button"
@@ -1018,7 +1059,26 @@ export const MessageList = ({
                     <small>{characterMemoryActive ? '当前显示角色名，普通池暂停写入' : '开发 · 问答 · 代码'}</small>
                   </button>
                 </div>
-                {memoryPool === 'normal' ? (
+                {memoryPool === 'character' ? (
+                  <div
+                    className={styles.memoryConfirmKinds}
+                    role="radiogroup"
+                    aria-label="角色记忆类型"
+                  >
+                    {CHARACTER_MEMORY_KINDS.map((kind) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        role="radio"
+                        aria-checked={memoryCharacterKind === kind}
+                        data-active={memoryCharacterKind === kind}
+                        onClick={() => chooseMemoryCharacterKind(kind)}
+                      >
+                        {characterMemoryLabel(kind)}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
                   <div
                     className={styles.memoryConfirmKinds}
                     role="radiogroup"
@@ -1046,13 +1106,39 @@ export const MessageList = ({
                       </button>
                     ))}
                   </div>
+                )}
+                {memoryPool === 'character' && memoryCharacterKind !== 'turn' ? (
+                  <div className={styles.memoryConfirmEditor}>
+                    <label htmlFor="memory-confirm-draft">
+                      {memoryCharacterKind === 'scene'
+                        ? '场景摘录 · 可删改成地点、人物、事件和关键细节'
+                        : '关键事实 · 可删改成姓名、关系、喜好或承诺'}
+                    </label>
+                    <textarea
+                      id="memory-confirm-draft"
+                      rows={5}
+                      maxLength={8000}
+                      value={memoryDraft}
+                      onChange={(event) => setMemoryDraft(event.target.value)}
+                      placeholder={
+                        memoryCharacterKind === 'scene'
+                          ? '例如：雨夜，旧书店门口，她第一次把伞递给你。'
+                          : '例如：她答应每周三晚上留出时间陪你。'
+                      }
+                    />
+                    <small>已带入选中原文，只保留必须记住的部分；不会自动删除任何对话。</small>
+                  </div>
                 ) : null}
                 <p className={styles.memoryConfirmText}>
                   {characterMemoryActive
                     ? '当前显示名是角色名，代码和整轮内容只写入角色记忆，普通记忆暂停保存；要存普通开发记忆，先把角色名字恢复为 AI / DeepSeek，或清空表达提示词。'
                     : memoryPool === 'normal'
                       ? '自动识别会把三连反引号代码块归入「代码」，用户消息归入「用户原话」，AI 回复归入「AI 原话」；也可以手动指定。'
-                      : '同一轮已有整段角色卡会跳过；超出分类配额时归档最早的自动卡，不会保存失败。这里只处理记忆保存，不含分享。'}
+                      : memoryCharacterKind === 'scene'
+                        ? '重要场景独立成卡，每轮优先带回，不占自动配额；同一段文字重复保存会跳过。'
+                        : memoryCharacterKind === 'fact'
+                          ? '关键事实独立成卡，当作稳定设定长期保留；相同文字重复保存会跳过。'
+                          : '完整回合保留用户与角色原话；同一轮已有整段卡会跳过，不会重复保存。'}
                 </p>
                 <div className={styles.memoryConfirmActions}>
                   <button
@@ -1065,6 +1151,11 @@ export const MessageList = ({
                   <button
                     type="button"
                     className={styles.memoryConfirmPrimary}
+                    disabled={
+                      memoryPool === 'character' &&
+                      memoryCharacterKind !== 'turn' &&
+                      !memoryDraft.trim()
+                    }
                     onClick={confirmSaveMemory}
                   >
                     保存

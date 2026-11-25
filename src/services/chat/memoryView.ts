@@ -5,7 +5,7 @@
  *      sortMemoryEntries、getMemorySpeech、memoryTextForView、filterMemoryEntries。
  * ========================================================================== */
 
-import type { MemoryCard } from './memory.js'
+import { getCharacterMemoryKind, type MemoryCard } from './memory.js'
 
 export type MemoryListEntry = { card: MemoryCard; messageId: string }
 export type MemoryStatusFilter =
@@ -16,6 +16,8 @@ export type MemoryStatusFilter =
   | 'refine'
   | 'manual'
   | 'bulk'
+  | 'scene'
+  | 'fact'
   | 'archived'
 export type MemorySpeechFilter = 'all' | 'user' | 'character' | 'scene'
 export type MemoryTimeFilter = 'all' | 'today' | 'week' | 'older'
@@ -106,6 +108,9 @@ const statusMatches = (card: MemoryCard, status: MemoryStatusFilter) => {
   }
   if (status === 'archived') {
     return Boolean(card.superseded)
+  }
+  if (status === 'scene' || status === 'fact') {
+    return memoryPool(card) === 'character' && getCharacterMemoryKind(card) === status
   }
   return card.source === status
 }

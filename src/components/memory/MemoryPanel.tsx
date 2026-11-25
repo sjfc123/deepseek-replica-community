@@ -13,16 +13,21 @@ import {
 import {
   activeMemoryCards,
   activeMemoryChars,
+  characterMemoryLabel,
   collectVisibleMemories,
+  CHARACTER_MEMORY_KINDS,
   detectCodeBlock,
   detectNormalMemoryKind,
   filterCharacterMemoryForInjection,
+  getCharacterMemoryKind,
   getMemoryPool,
   getNormalMemoryKind,
+  isCoreMemory,
   NORMAL_MEMORY_KINDS,
   normalMemoryLabel,
   selectMemoryCardsForInjection,
   selectNormalMemoryCardsForInjection,
+  type CharacterMemoryKind,
   type MemoryCard,
   type MemoryPool,
   type NormalMemoryKind,
@@ -71,14 +76,17 @@ const sourceLabel = (card: MemoryCard) => {
     return '手动'
   }
   if (card.source === 'bulk') {
-    return getMemoryPool(card) === 'normal' ? '收录' : '整段'
+    if (getMemoryPool(card) === 'normal') {
+      return '收录'
+    }
+    return getCharacterMemoryKind(card) === 'turn' ? '整段' : '摘录'
   }
   return card.source === 'refine' ? '提炼' : '自动'
 }
 
 const cardPoolLabel = (card: MemoryCard) => {
   if (getMemoryPool(card) === 'character') {
-    return '角色'
+    return `角色 · ${characterMemoryLabel(getCharacterMemoryKind(card))}`
   }
   return `普通 · ${normalMemoryLabel(getNormalMemoryKind(card))}`
 }
@@ -90,7 +98,18 @@ const STATUS_FILTERS: Array<{ key: MemoryStatusFilter; label: string }> = [
   { key: 'auto', label: '自动' },
   { key: 'refine', label: '提炼' },
   { key: 'manual', label: '手动' },
-  { key: 'bulk', label: '整段' },
+  { key: 'bulk', label: '整段/摘录' },
+  { key: 'archived', label: '已归档' },
+]
+
+const CHARACTER_STATUS_FILTERS: Array<{ key: MemoryStatusFilter; label: string }> = [
+  { key: 'all', label: '全部' },
+  { key: 'pinned', label: '置顶' },
+  { key: 'active', label: '生效中' },
+  { key: 'scene', label: '重要场景' },
+  { key: 'fact', label: '关键事实' },
+  { key: 'manual', label: '手动' },
+  { key: 'bulk', label: '整段/摘录' },
   { key: 'archived', label: '已归档' },
 ]
 
@@ -147,6 +166,8 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     ) === 'character'
   const [draft, setDraft] = useState('')
   const [draftKind, setDraftKind] = useState<NormalMemoryKind | 'auto'>('auto')
+  const [draftCharacterKind, setDraftCharacterKind] =
+    useState<CharacterMemoryKind>('turn')
   const [query, setQuery] = useState('')
   const [pool, setPool] = useState<MemoryPool>(() =>
     characterMemoryActive ? 'character' : 'normal'
@@ -169,6 +190,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     setShown(PAGE_SIZE)
     setDraft('')
     setDraftKind('auto')
+    setDraftCharacterKind('turn')
   }
 
   /** 编辑框按内容自动撑高：卡片正文越长，textarea 越高，避免文字被固定三行挡住 */
@@ -221,20 +243,37 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     () => entries.filter(({ card }) => getMemoryPool(card) === 'normal').length,
     [entries]
   )
-  const activeCount = useMemo(
-    () => activeMemoryCards(session, messages, undefined, pool).length,
+  const activeCards = useMemo(
+    () => activeMemoryCards(session, messages, undefined, pool),
     [session, messages, pool]
   )
+  const activeCount = activeCards.length
   const activeChars = useMemo(
     () => activeMemoryChars(session, messages, pool),
     [session, messages, pool]
   )
   const autoCount = useMemo(
     () =>
-      poolEntries.filter(({ card }) => card.source !== 'manual' && !card.pinned && !card.superseded)
-        .length,
+      poolEntries.filter(
+        ({ card }) =>
+          card.source !== 'manual' && !card.pinned && !card.superseded && !isCoreMemory(card)
+      ).length,
     [poolEntries]
   )
+  const sceneCount = useMemo(
+    () => poolEntries.filter(({ card }) => getCharacterMemoryKind(card) === 'scene').length,
+    [poolEntries]
+  )
+  const factCount = useMemo(
+    () => poolEntries.filter(({ card }) => getCharacterMemoryKind(card) === 'fact').length,
+    [poolEntries]
+  )
+  const activeSceneCount = activeCards.filter(
+    ({ card }) => getCharacterMemoryKind(card) === 'scene'
+  ).length
+  const activeFactCount = activeCards.filter(
+    ({ card }) => getCharacterMemoryKind(card) === 'fact'
+  ).length
   const archivedCount = useMemo(
     () => poolEntries.filter(({ card }) => card.superseded).length,
     [poolEntries]
@@ -318,6 +357,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   )
 
   const narrowed = filter !== 'all' || speech !== 'all' || time !== 'all'
+  const statusFilters = pool === 'character' ? CHARACTER_STATUS_FILTERS : STATUS_FILTERS
   const clearActionLabel = narrowed ? '清空当前筛选' : `清空${memoryPoolLabel(pool)}`
   const clearTargets = filtered.map(({ card, messageId }) => ({ messageId, cardId: card.id }))
   const countRatio = Math.min(1, autoCount / Math.max(1, cardLimit))
@@ -338,6 +378,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     addManualMemory(session.id, text, {
       pool,
       category,
+      memoryKind: pool === 'character' ? draftCharacterKind : undefined,
     })
     setDraft('')
   }
@@ -345,23 +386,27 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const emptyForFilter =
     filter === 'archived'
       ? '尚无归档卡片'
-      : filter === 'manual'
-        ? '尚无手动卡片'
-        : filter === 'active'
-          ? '没有生效中的卡片'
-          : filter === 'pinned'
-            ? '没有置顶卡片'
-            : filter === 'auto'
-              ? '没有自动记录卡片'
-              : filter === 'refine'
-                ? '没有提炼卡片'
-                : filter === 'bulk'
-                  ? '没有整段保存的卡片'
-                  : narrowed
-                    ? '当前筛选没有卡片'
-                    : pool === 'normal'
-                      ? '普通记忆还没有卡片'
-                      : '角色记忆还没有卡片'
+      : filter === 'scene'
+        ? '尚无重要场景。长按选中对话后可单独摘成场景'
+        : filter === 'fact'
+          ? '尚无关键事实。可在下方手动记一条'
+          : filter === 'manual'
+            ? '尚无手动卡片'
+            : filter === 'active'
+              ? '没有生效中的卡片'
+              : filter === 'pinned'
+                ? '没有置顶卡片'
+                : filter === 'auto'
+                  ? '没有自动记录卡片'
+                  : filter === 'refine'
+                    ? '没有提炼卡片'
+                    : filter === 'bulk'
+                      ? '没有整段保存的卡片'
+                      : narrowed
+                        ? '当前筛选没有卡片'
+                        : pool === 'normal'
+                          ? '普通记忆还没有卡片'
+                          : '角色记忆还没有卡片'
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="长期记忆">
@@ -372,6 +417,9 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             <h2>长期记忆</h2>
             <p>
               角色 {characterCount} 张 · 普通 {normalCount} 张
+              {pool === 'character' && (sceneCount > 0 || factCount > 0)
+                ? ` · 场景 ${sceneCount} · 事实 ${factCount}`
+                : ''}
               {manualCount > 0 ? ` · 当前手动 ${manualCount}` : ''}
               {pinnedCount > 0 ? ` · 当前置顶 ${pinnedCount}` : ''}
               {archivedCount > 0 ? ` · 当前归档 ${archivedCount}` : ''}
@@ -393,7 +441,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             <span className={styles.poolIcon}>✦</span>
             <span>
               <strong>角色记忆</strong>
-              <small>剧情 · 时间线 · 好感</small>
+              <small>剧情 · 场景 · 事实</small>
             </span>
             <em>{characterCount}</em>
           </button>
@@ -427,26 +475,48 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                     : '整轮记录'}
             </span>
             <span className={styles.limitText}>
-              生效 {activeCount} · 配额 {autoCount} / {cardLimit}
+              生效 {activeCount} · 自动配额 {autoCount} / {cardLimit}
             </span>
           </div>
-          <div className={styles.injectLine}>
-            {pool === 'normal' && !normalInjectionAllowed
-              ? '当前显示名是角色名，普通记忆不会注入，避免开发问答污染人物；把角色名恢复为 AI / DeepSeek 后恢复。'
-              : lastQuestion
-                ? `这一轮会带上 ${injectionPreview.count} 张 · ${injectionPreview.chars.toLocaleString('zh-CN')} / ${budget.toLocaleString('zh-CN')} 字${
-                    pool === 'character' && !characterMemoryActive && hasRoleplayCodeCard
-                      ? '；已排除带代码块的角色卡'
-                      : ''
-                  }`
-                : '发一条消息后，这里会写清楚这轮带上了哪些'}
-            {injectionPreview.total > injectionPreview.count
-              ? `（对上 ${injectionPreview.total} 张，字数只够带前 ${injectionPreview.count} 张）`
-              : ''}
-          </div>
-          <div className={styles.injectLine}>
-            已存 {activeChars.toLocaleString('zh-CN')} / {budget.toLocaleString('zh-CN')} 字
-            {activeChars >= budget ? ' · 已到上限，新卡会把最早的自动卡归档' : ''}
+          <div className={styles.diagnosis}>
+            <div>
+              <b>本轮注入</b>
+              <span>
+                {pool === 'normal' && !normalInjectionAllowed
+                  ? '已暂停：角色名下不注入普通池'
+                  : lastQuestion
+                    ? `${injectionPreview.count} 张 · ${injectionPreview.chars.toLocaleString('zh-CN')} 字`
+                    : '发一条消息后显示'}
+              </span>
+              <small>
+                {pool === 'normal' && !normalInjectionAllowed
+                  ? '把显示名恢复为 AI / DeepSeek 后恢复'
+                  : injectionPreview.total > injectionPreview.count
+                    ? `共对上 ${injectionPreview.total} 张，预算只够前 ${injectionPreview.count} 张`
+                    : pool === 'character' && !characterMemoryActive && hasRoleplayCodeCard
+                      ? '已排除带代码块的角色卡'
+                      : `预算 ${budget.toLocaleString('zh-CN')} 字`}
+              </small>
+            </div>
+            <div>
+              <b>容量占用</b>
+              <span>
+                {activeChars.toLocaleString('zh-CN')} / {budget.toLocaleString('zh-CN')} 字
+              </span>
+              <small>
+                自动配额 {autoCount} / {cardLimit} 张
+                {activeChars >= budget ? ' · 已到上限，新的自动卡会归档' : ''}
+              </small>
+            </div>
+            {pool === 'character' ? (
+              <div>
+                <b>核心记忆</b>
+                <span>
+                  生效场景 {activeSceneCount} · 生效事实 {activeFactCount}
+                </span>
+                <small>每轮各最多带回 6 张；不占自动配额，不参与淘汰</small>
+              </div>
+            ) : null}
           </div>
           <div className={styles.meter} aria-hidden="true">
             <i style={{ width: `${Math.max(limitRatio * 100, autoCount > 0 ? 2 : 0)}%` }} />
@@ -464,7 +534,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>状态</span>
             <div className={styles.filters} role="tablist" aria-label="记忆状态筛选">
-              {STATUS_FILTERS.map((item) => (
+              {statusFilters.map((item) => (
                 <button
                   key={item.key}
                   type="button"
@@ -721,7 +791,22 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
           </button>
           {adding ? (
             <div className={styles.addBox}>
-              {pool === 'normal' ? (
+              {pool === 'character' ? (
+                <div className={styles.addKindRow} role="radiogroup" aria-label="角色记忆类型">
+                  {CHARACTER_MEMORY_KINDS.map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      role="radio"
+                      aria-checked={draftCharacterKind === kind}
+                      data-active={draftCharacterKind === kind}
+                      onClick={() => setDraftCharacterKind(kind)}
+                    >
+                      {characterMemoryLabel(kind)}
+                    </button>
+                  ))}
+                </div>
+              ) : pool === 'normal' ? (
                 <div className={styles.addKindRow}>
                   <button
                     type="button"
@@ -752,7 +837,11 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                     ? '当前显示名是角色名，普通记忆暂停写入；把角色名恢复为 AI / DeepSeek 或清空表达提示词后再补开发代码。'
                     : pool === 'normal'
                       ? '记一条开发/问答参考，例如：报错原因、命令、接口字段；代码块会自动归入代码。'
-                      : '手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。'
+                      : draftCharacterKind === 'scene'
+                        ? '描述一个必须记住的场景：在哪里、和谁、发生了什么、当时的气氛或关键细节。'
+                        : draftCharacterKind === 'fact'
+                          ? '记一条稳定事实：姓名、称呼、关系、喜好、承诺或不能忘的约定。'
+                          : '记一段完整回合，例如：用户/今天去了哪，角色/怎么回应；也可以直接贴原文。'
                 }
                 onChange={(event) => setDraft(event.target.value)}
               />

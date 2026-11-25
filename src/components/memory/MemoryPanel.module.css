@@ -397,6 +397,46 @@
   line-height: 1.55;
 }
 
+.diagnosis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.diagnosis > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 9px;
+  border: 1px solid rgb(127 127 127 / 10%);
+  border-radius: 9px;
+  background: rgb(127 127 127 / 6%);
+
+  b {
+    color: var(--dsw-alias-label-secondary, #4b4f56);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  span {
+    overflow: hidden;
+    color: var(--dsw-alias-label-primary, #1f2329);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    color: var(--dsw-alias-label-caption, #8c9097);
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+}
+
 .meter {
   height: 4px;
   margin-top: 7px;

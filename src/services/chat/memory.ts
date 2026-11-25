@@ -15,6 +15,30 @@ export type MemoryPool = 'character' | 'normal'
 /** 普通记忆子分类：对话 / 代码 / 用户原话 / AI 原话 */
 export type NormalMemoryKind = 'dialogue' | 'code' | 'user' | 'ai'
 
+/** 角色记忆类型：完整回合 / 重要场景 / 关键事实；旧卡没有该字段时按回合处理 */
+export type CharacterMemoryKind = 'turn' | 'scene' | 'fact'
+
+export const CHARACTER_MEMORY_KINDS: CharacterMemoryKind[] = ['turn', 'scene', 'fact']
+
+export const characterMemoryLabel = (kind: CharacterMemoryKind) => {
+  if (kind === 'scene') {
+    return '重要场景'
+  }
+  if (kind === 'fact') {
+    return '关键事实'
+  }
+  return '整轮回合'
+}
+
+/** 缺省与旧卡都按整轮回合；重要场景与关键事实属于玩家明确标记的核心记忆 */
+export const getCharacterMemoryKind = (card: MemoryCard): CharacterMemoryKind =>
+  card.pool === 'normal' ? 'turn' : (card.memoryKind ?? 'turn')
+
+/** 核心记忆不参与自动配额淘汰：重要场景与关键事实由玩家主动挑出，文本必须长期保留 */
+export const isCoreMemory = (card: MemoryCard) =>
+  getMemoryPool(card) === 'character' &&
+  (getCharacterMemoryKind(card) === 'scene' || getCharacterMemoryKind(card) === 'fact')
+
 export const NORMAL_MEMORY_KINDS: NormalMemoryKind[] = ['dialogue', 'code', 'user', 'ai']
 
 export const normalMemoryLabel = (kind: NormalMemoryKind) => {
@@ -78,6 +102,8 @@ export type MemoryCard = {
   pool?: MemoryPool
   /** 普通记忆子分类；角色记忆不使用 */
   category?: NormalMemoryKind
+  /** 角色记忆类型；缺省视为完整回合，普通记忆不写该字段 */
+  memoryKind?: CharacterMemoryKind
   /** 代码块语言标记，便于搜索；只对普通-代码卡片有意义 */
   language?: string
   /** 已归档：被提炼结果取代，或超出卡片/字数上限；不再注入，仍在面板可见，文本不删除 */
@@ -100,6 +126,9 @@ export const NORMAL_MEMORY_MAX_CHARS = 200_000
 export const MEMORY_PINNED_MAX = 8
 export const MEMORY_RECENT_INJECT = 12
 export const MEMORY_RELEVANT_INJECT = 12
+/** 重要场景与关键事实每轮固定带回的条数；它们不需要等关键词命中 */
+export const MEMORY_SCENE_INJECT = 6
+export const MEMORY_FACT_INJECT = 6
 
 /** 时间锚点：把本地时间写成模型和人都能读的短格式 */
 export const formatMemoryStamp = (value: number) => {
@@ -285,6 +314,47 @@ export const buildTurnMemoryText = (
     .join('\n')
 }
 
+/**
+ * 重要场景 / 关键事实卡：从选中的对话里拆出一段独立记忆。
+ * 保存时可在弹窗里继续删改，不强行截断；卡片仍挂到最后一轮消息上以跟随分支。
+ * 场景卡不做“用户/角色”逐行解析，而是以场景叙述为主体，避免和完整回合卡重复。
+ */
+export const buildImportantMemoryCards = (
+  messages: Message[],
+  kind: Exclude<CharacterMemoryKind, 'turn'>,
+  content?: string
+): ConversationMemoryDraft[] => {
+  const picked = messages.filter((message) => {
+    const body = message.role === 'assistant' ? replyPlainText(message) : message.content
+    return Boolean(body.trim())
+  })
+  if (picked.length === 0) {
+    return []
+  }
+  const last = picked[picked.length - 1]
+  const fallback = picked
+    .map((message) => {
+      const body = message.role === 'assistant' ? replyPlainText(message) : message.content
+      return body.trim()
+    })
+    .filter(Boolean)
+    .join('\n')
+  const body = (content ?? fallback).trim()
+  if (!body) {
+    return []
+  }
+  const head = `【${formatMemoryStamp(last.createdAt)}】`
+  return [
+    {
+      messageId: last.id,
+      card: createMemoryCard(`${head}\n${body}`, 'bulk', last.createdAt, {
+        pool: 'character',
+        memoryKind: kind,
+      }),
+    },
+  ]
+}
+
 /** 当前可见路径上的所有卡片（含被取代、被关闭的，供面板展示） */
 export const collectVisibleMemories = (_session: Session, messages: Message[]) =>
   messages.flatMap((message) =>
@@ -322,6 +392,7 @@ export const overflowMemoryCards = (
       ({ card }) =>
         card.source !== 'manual' &&
         !card.pinned &&
+        !isCoreMemory(card) &&
         !card.superseded &&
         (!pool || getMemoryPool(card) === pool)
     )
@@ -364,7 +435,7 @@ export const overflowMemoryCardsByChars = (
     if (remaining <= 0) {
       break
     }
-    if (entry.card.source === 'manual' || entry.card.pinned) {
+    if (entry.card.source === 'manual' || entry.card.pinned || isCoreMemory(entry.card)) {
       continue
     }
     archived.push(entry)
@@ -419,8 +490,19 @@ export const selectMemoryCardsForInjection = (
     .filter(({ card }) => card.pinned && !manualIds.has(card.id))
     .slice(-MEMORY_PINNED_MAX)
   const pinnedIds = new Set(pinned.map(({ card }) => card.id))
+  // 重要场景与关键事实是玩家明确挑出的“核心记忆”，不等关键词命中，也不被最近 12 张挤掉。
+  const scenes = active
+    .filter(({ card }) => getCharacterMemoryKind(card) === 'scene')
+    .slice(-MEMORY_SCENE_INJECT)
+  const facts = active
+    .filter(({ card }) => getCharacterMemoryKind(card) === 'fact')
+    .slice(-MEMORY_FACT_INJECT)
+  const coreIds = new Set([...scenes, ...facts].map(({ card }) => card.id))
   const unpinned = active
-    .filter(({ card }) => !manualIds.has(card.id) && !pinnedIds.has(card.id))
+    .filter(
+      ({ card }) =>
+        !manualIds.has(card.id) && !pinnedIds.has(card.id) && !coreIds.has(card.id)
+    )
     .slice(-Math.max(1, limit))
   const recent = unpinned.slice(-MEMORY_RECENT_INJECT)
   const older = unpinned.slice(0, Math.max(0, unpinned.length - MEMORY_RECENT_INJECT))
@@ -451,7 +533,14 @@ export const selectMemoryCardsForInjection = (
           .sort((a, b) => b.score - a.score)
           .slice(0, MEMORY_RELEVANT_INJECT)
           .map((item) => item.entry)
-  const chosen = [...manual, ...pinned, ...[...recent].reverse(), ...relevant]
+  const chosen = [
+    ...manual,
+    ...pinned,
+    ...scenes,
+    ...facts,
+    ...[...recent].reverse(),
+    ...relevant,
+  ]
   const seen = new Set<string>()
   return chosen.filter(({ card }) => {
     if (seen.has(card.id)) {
@@ -577,36 +666,57 @@ export const formatMemoryBlock = (
   if (character.length === 0) {
     return ''
   }
-  const lines: string[] = []
+  const visible = character.slice(0, limit)
+  const groups: Array<{ kind: CharacterMemoryKind; label: string; hint: string }> = [
+    { kind: 'scene', label: '重要场景', hint: '先当作角色亲身经历过的背景锚点' },
+    { kind: 'fact', label: '关键事实', hint: '姓名、关系、偏好、承诺等稳定设定' },
+    { kind: 'turn', label: '对话经历', hint: '按时间顺序保留的原话与回合' },
+  ]
+  const sections: string[] = []
   let used = 0
-  for (const card of character.slice(0, limit)) {
-    const line = `- ${card.text.replace(/\n/g, ' / ')}`
-    if (used + line.length > Math.max(1, chars)) {
-      if (lines.length === 0) {
-        lines.push(line.slice(0, Math.max(1, chars)))
-        used = chars
+  for (const group of groups) {
+    const items = visible.filter((card) => getCharacterMemoryKind(card) === group.kind)
+    if (items.length === 0) {
+      continue
+    }
+    const lines: string[] = []
+    for (const card of items) {
+      const line = `- ${card.text.replace(/\n/g, ' / ')}`
+      if (used + line.length > Math.max(1, chars)) {
+        if (used === 0) {
+          lines.push(line.slice(0, Math.max(1, chars)))
+          used = chars
+        }
+        break
       }
+      lines.push(line)
+      used += line.length
+    }
+    if (lines.length > 0) {
+      sections.push(`【${group.label} · ${group.hint}】\n${lines.join('\n')}`)
+    }
+    if (used >= chars) {
       break
     }
-    lines.push(line)
-    used += line.length
   }
-  if (lines.length === 0) {
+  if (sections.length === 0) {
     return ''
   }
   return (
     '【长期记忆 · 最高优先级】\n' +
-    '以下是你与{{user}}共同经历的记忆片段：手动记录和置顶在前，其后是最近和相关经历，都是已经发生的事实。' +
-    '每条开头的时间、轮次和关系阶段是当时的锚点。\n' +
+    '以下是你与{{user}}共同经历过的既定事实，不是可选的参考资料。' +
+    '每条开头的时间、轮次和关系阶段是当时的锚点；重要场景与关键事实优先于一般闲聊。\n' +
     '回应的规则：\n' +
-    '1. 当{{user}}提到某个时间、地点、物品、约定或经历时，先在下面的记忆里找对应片段，再依据那段经历回应；找不到就如实说不确定，不要编造。\n' +
-    '2. 记住你们的关系阶段、称呼、偏好、承诺和共同经历；不要把已经发生过的事当成第一次听说，也不要重置好感。\n' +
-    '3. 当{{user}}的行动和记忆里的习惯、承诺、时间线或关系阶段有关时，先按那段记忆判断角色会怎么反应，再继续演出。\n' +
-    '4. 如果记忆与当前场景冲突，以时间更近的记忆和当前场景为准；不确定时保留模糊，不要替{{user}}补完事实。\n' +
-    '5. 不要向{{user}}复述本段，也不要提到「记忆」「卡片」「设定」这类词。\n' +
-    '6. 记忆里出现「{{user}}」、玩家自己填写的名字或「用户」时，都指当前玩家；出现角色名、「角色」或「你」时，都指你。称呼不同不代表换人，不要当成两个角色。\n' +
-    '7. 当{{user}}询问自己或角色的姓名、喜好、习惯、经历、关系这类已知信息时，先查下面的记忆再回答；记忆里有明确记录就当成既定事实，直接给出记录中的答案，不要说不确定，也不要另编一个。\n' +
-    lines.join('\n')
+    '1. 当{{user}}提到某个时间、地点、物品、人物、约定或经历时，先在这些记忆里找对应片段，再依据那段经历回应；不要凭印象另编一段。\n' +
+    '2. 重要场景是角色在场经历过的背景：地点、天气、气氛、在场人物、发生过什么，都以场景卡为准；不要把它只当成摘要复述。\n' +
+    '3. 关键事实是稳定设定：姓名、称呼、关系阶段、喜好、承诺和边界不能前后矛盾；不要把已经发生过的事当成第一次听说，也不要重置好感。\n' +
+    '4. 对话经历保留原话和时间线；引用细节时以记录为准，不要把{{user}}没说过的话塞给{{user}}，也不要把角色说过的话记成{{user}}说的。\n' +
+    '5. 如果记忆与当前场景冲突，按“{{user}}当前明确说法 → 时间更近的记忆 → 更早的记忆”的顺序判断；不确定时保留模糊，不替{{user}}补完事实。\n' +
+    '6. 记忆里没有明确记录，不等于事情没发生过。{{user}}当前说出的新事实要当作真的接住，不要用“没有记录”“我不记得”否认{{user}}；只有与更近的明确记忆直接冲突时，才温和地保留差异。\n' +
+    '7. 不要向{{user}}复述本段，也不要提到「记忆」「卡片」「设定」这类词；被问到“你还记得吗”时，用角色的视角自然回答记得什么，不要回答成“我是 AI，没有记忆”。\n' +
+    '8. 记忆里出现「{{user}}」、玩家自己填写的名字或「用户」时，都指当前玩家；出现角色名、「角色」或「你」时，都指你。称呼不同不代表换人。\n' +
+    '9. 当{{user}}询问自己或角色的姓名、喜好、习惯、经历、关系这类已知信息时，先查下面的记忆再回答；有明确记录就当成既定事实，直接给出记录中的答案。\n'
+    + sections.join('\n\n')
   )
 }
 
@@ -647,7 +757,7 @@ export const createMemoryCard = (
   text: string,
   source: MemoryCard['source'],
   createdAt = Date.now(),
-  options: Pick<MemoryCard, 'pool' | 'category' | 'language'> = {}
+  options: Pick<MemoryCard, 'pool' | 'category' | 'language' | 'memoryKind'> = {}
 ): MemoryCard => ({
   id: createId(),
   text: text.trim(),
@@ -657,6 +767,7 @@ export const createMemoryCard = (
   ...(options.pool ? { pool: options.pool } : {}),
   ...(options.category ? { category: options.category } : {}),
   ...(options.language ? { language: options.language } : {}),
+  ...(options.memoryKind ? { memoryKind: options.memoryKind } : {}),
 })
 
 export type ConversationMemoryDraft = {

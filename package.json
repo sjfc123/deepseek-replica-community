@@ -17,7 +17,8 @@
     "test:prompt": "node --experimental-strip-types scripts/test-default-prompt.mjs",
     "test:memory": "node --experimental-strip-types scripts/test-memory-prune.mjs",
     "test:memory-routing": "node --experimental-strip-types scripts/test-memory-routing.mjs",
-    "test:memory-view": "node --experimental-strip-types scripts/test-memory-view.mjs"
+    "test:memory-view": "node --experimental-strip-types scripts/test-memory-view.mjs",
+    "test:memory-layers": "node --experimental-strip-types scripts/test-memory-layers.mjs"
   },
   "dependencies": {
     "@formatjs/intl-displaynames": "8.0.3",

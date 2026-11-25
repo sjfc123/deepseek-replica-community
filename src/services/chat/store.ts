@@ -49,6 +49,7 @@ import {
   activeMemoryCards,
   activeMemoryChars,
   buildConversationMemoryCards,
+  buildImportantMemoryCards,
   buildNormalMemoryCards,
   buildRefinePrompt,
   buildTurnMemoryText,
@@ -58,13 +59,16 @@ import {
   filterCharacterMemoryForInjection,
   formatMemoryBlock,
   formatNormalMemoryBlock,
+  getCharacterMemoryKind,
   getMemoryPool,
+  isCoreMemory,
   overflowMemoryCards,
   overflowMemoryCardsByChars,
   parseRefinedCards,
   replyPlainText,
   selectMemoryCardsForInjection,
   selectNormalMemoryCardsForInjection,
+  type CharacterMemoryKind,
   type MemoryCard,
   type MemoryPool,
   type NormalMemoryKind,
@@ -1396,9 +1400,13 @@ const attachMemoriesBatch = (
         return message
       }
       attached = true
-      // 同一轮旧的自动截断卡、提炼汇总卡让位给完整卡；手动卡与置顶卡保留
+      // 完整回合卡会让同一轮旧的自动截断卡、提炼汇总卡让位；场景/事实摘录不动原回合。
+      const keepsTurn = cards.some((card) => !isCoreMemory(card))
       const archived = (message.memories ?? []).map((card) =>
-        (card.source === 'auto' || card.source === 'refine') && !card.pinned && !card.superseded
+        keepsTurn &&
+        (card.source === 'auto' || card.source === 'refine') &&
+        !card.pinned &&
+        !card.superseded
           ? { ...card, superseded: true }
           : card
       )
@@ -1757,7 +1765,11 @@ const recordNormalCodeMemory = (sessionId: string, targetMessageId: string, answ
 export const addManualMemory = (
   sessionId: string,
   text: string,
-  target: { pool?: MemoryPool; category?: NormalMemoryKind } = {}
+  target: {
+    pool?: MemoryPool
+    category?: NormalMemoryKind
+    memoryKind?: CharacterMemoryKind
+  } = {}
 ) => {
   const session = getSession(sessionId)
   if (!session) {
@@ -1773,10 +1785,16 @@ export const addManualMemory = (
       ? 'normal'
       : 'character'
   const category = pool === 'normal' ? (target.category ?? 'dialogue') : undefined
+  const memoryKind = pool === 'character' ? (target.memoryKind ?? 'turn') : undefined
   const language = pool === 'normal' && category === 'code' ? detectCodeLanguage(text) : undefined
   if (
     attachMemories(sessionId, last.id, [
-      createMemoryCard(text, 'manual', undefined, { pool, category, language }),
+      createMemoryCard(text, 'manual', undefined, {
+        pool,
+        category,
+        language,
+        memoryKind,
+      }),
     ])
   ) {
     enforceMemoryChars(sessionId, pool)
@@ -1796,7 +1814,13 @@ export type SaveConversationMemoryResult = {
 }
 
 export type MemorySaveTarget =
-  | { pool: 'character' }
+  | {
+      pool: 'character'
+      /** 缺省保存完整回合；重要场景 / 关键事实会单独成卡 */
+      kind?: CharacterMemoryKind
+      /** 重要场景或关键事实的正文；界面里可先改再存 */
+      content?: string
+    }
   | { pool: 'normal'; category?: NormalMemoryKind | 'auto' }
 
 /**
@@ -1830,27 +1854,50 @@ export const saveMessagesAsMemory = (
     .slice(0, Math.max(0, firstIndex))
     .filter((message) => message.role === 'assistant').length
   const indexById = new Map(messages.map((message, index) => [message.id, index]))
+  const importantKind: Exclude<CharacterMemoryKind, 'turn'> | undefined =
+    pool === 'character' && target.pool === 'character' && target.kind && target.kind !== 'turn'
+      ? target.kind
+      : undefined
+  const importantContent = target.pool === 'character' ? target.content : undefined
   const drafts =
     pool === 'normal'
       ? buildNormalMemoryCards(
           picked,
           target.pool === 'normal' ? (target.category ?? 'auto') : 'auto'
         )
-      : buildConversationMemoryCards(
-          picked,
-          startTurn,
-          (user, assistant) => indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1
-        )
+      : importantKind
+        ? buildImportantMemoryCards(picked, importantKind, importantContent)
+        : buildConversationMemoryCards(
+            picked,
+            startTurn,
+            (user, assistant) =>
+              indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1
+          )
+  // 整段卡按消息去重；重要场景 / 关键事实按“同一消息 + 同类型 + 同正文”去重，
+  // 允许在同一轮里保存多个不同场景，也允许场景与完整回合并存。
   const alreadyBulk = new Set(
     session.messages
       .filter((message) =>
         (message.memories ?? []).some(
-          (card) => card.source === 'bulk' && getMemoryPool(card) === pool
+          (card) =>
+            card.source === 'bulk' &&
+            getMemoryPool(card) === pool &&
+            getCharacterMemoryKind(card) === 'turn'
         )
       )
       .map((message) => message.id)
   )
-  const fresh = drafts.filter((draft) => !alreadyBulk.has(draft.messageId))
+  const fresh = importantKind
+    ? drafts.filter((draft) => {
+        const targetMessage = session.messages.find((message) => message.id === draft.messageId)
+        return !(targetMessage?.memories ?? []).some(
+          (card) =>
+            !card.superseded &&
+            getCharacterMemoryKind(card) === importantKind &&
+            card.text === draft.card.text
+        )
+      })
+    : drafts.filter((draft) => !alreadyBulk.has(draft.messageId))
   const skipped = drafts.length - fresh.length
   if (fresh.length === 0) {
     return {
