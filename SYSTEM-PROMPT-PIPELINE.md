@@ -15,14 +15,14 @@ system 分两条路径：
 
 1. **读取表达提示词**：`initialSystemPrompt()` 读 `replica:system-prompt` 与 `replica:system-prompt-empty`。
    - 键不存在：新用户，使用 `DEFAULT_SYSTEM_PROMPT`。
-   - 清空标记为 `1`：返回空字符串，不注入 system。
-   - 键存在但只有空白：按主动清空处理，返回空字符串。
+   - 清空标记为 `1`：界面保持空字符串；发送时回退默认官方助手，并停用角色卡、档案与身份行。
+   - 键存在但只有空白：按主动清空处理，界面保持空字符串，发送时同样回退默认官方助手。
    - 读到旧版公司身份提示词：迁移为普通助手默认提示。
    - 其他内容：原样返回。
 2. **读取基础档案**：`initialCharacterProfile()` 从 `replica:character-profile` 读 JSON，`normalizeCharacterProfile()` 只保留 32 个已知字段，未知键丢弃，空字段不写入 system。`profileEnabled` 从 `replica:character-profile-enabled` 读取，默认开启，只有明确存过 `0` 才算关闭。档案与提示词、头像、显示、角色卡分开保存。
 3. **解析当前轮次人物**：`resolveTurnCharacterCard()` 先按 `session.characterId` 找卡；旧会话没有 id 时，用首条助手消息与卡内开场白匹配；两者都没有，才在全局开关开启时使用启用的卡。
 4. **选择人物层**：有当前人物卡时走 `formatCharacterCard(card, userName)`；没有卡、`profileEnabled` 为开且基础档案有内容时走 `formatCharacterProfile({ profile, name, userName })`；没有卡且档案关闭或为空、但手写档案名非空时走 `formatCharacterIdentity({ name, userName })`。三者互斥，不将卡、档案和身份行同时写入 system。角色卡先输出年龄、性别、代词、种族、身高、体重、生日、职业、居住地、语言等固定参数，再输出生活细节、性格边界与剧情表达；有任一固定字段时追加固定事实声明。档案按基本档案、身体与生活、性格与边界、剧情与表达四组、32 个字段的固定顺序输出：先姓名与年龄、性别、代词、种族、生日、职业、居住地、语言，再身高体重、外貌、食物、饮品、兴趣、作息、随身物、宠物，再性格、价值观、雷点、底线、配合方式，最后过往、关系、处境、目标、弱点、说话方式、秘密与补充。身份行只保留姓名、`【角色身份】`标题与不承认模型/助手的规则，不回填年龄、身体、经历等字段。档案同样只在有固定字段时追加固定事实声明，并固定追加配合推进与不承认模型/助手的规则；只陈述人物事实，不写“请扮演”或“按设定”。
-5. **拼表达提示词**：`composeSystemPrompt()` 先判断 `roleplayContext`。普通对话直接返回默认助手提示或用户手写提示词，不追加任何角色规则；角色上下文下，默认提示换成 `NEUTRAL_SYSTEM_PROMPT`，自定义提示词原样使用，再按“抑制元叙述”追加 `META_TALK_GUARD`，最后追加 `ASIDE_AND_ADDRESS_GUARD`。人物卡、完整档案或身份行任一存在时，system 保留人物层；档案开关关闭时不再读取整份档案，但身份行仍在；三者都为空且提示词也为空时才不注入 system。
+5. **拼表达提示词**：`composeSystemPrompt()` 先判断 `roleplayContext`。普通对话直接返回默认助手提示或用户手写提示词，不追加任何角色规则；角色上下文下，默认提示换成 `NEUTRAL_SYSTEM_PROMPT`，自定义提示词原样使用，再按“抑制元叙述”追加 `META_TALK_GUARD`，最后追加 `ASIDE_AND_ADDRESS_GUARD`。提示词为空时回退 `DEFAULT_SYSTEM_PROMPT`，并同步停用人物卡、档案与身份行；人物层只在提示词非空时保留。档案开关关闭时不再读取整份档案，但身份行仍在。空提示词不再对应空 system。
 6. **替换占位符**：`applyPlaceholders()` 把 `{{user}}` 换成用户名；`{{char}}` 通过 `resolveSystemCharacterName()` 统一解析，顺序为「当前轮次卡名 → 手写档案名 → `AI`」。基础档案与身份行在拼装阶段已经替换过一轮，写进档案里的 `{{user}}` / `{{char}}` 同样生效。
 7. **写入请求**：`CreateMessageRequest.system` 保存最终字符串。此时当前轮次记忆、场景、世界书和 `latest_reminder` 都还没有进入 system。
 8. **协议序列化**：按接口格式落到对应字段，见下表。
@@ -37,7 +37,7 @@ system 分两条路径：
 | 自定义 Chat / Responses | 对应协议的 system 字段 | 默认不生成；即使生成也在序列化时丢弃 |
 | 自定义 Messages | 顶层 `system` | 序列化时丢弃 |
 
-空白 system 在序列化阶段统一不发送：Chat 不插入 system 消息，Responses 不写空 `instructions`，Messages 不写空 `system`。因此，“清空提示词”对应真正无 system，不发送仅含空格的消息。
+空白 system 在序列化阶段统一不发送：Chat 不插入 system 消息，Responses 不写空 `instructions`，Messages 不写空 `system`。这是协议层的兜底；正常聊天路径下，用户清空提示词会回退默认官方助手，不会真的发送空 system。
 
 ## `latest_reminder` 的位置
 
@@ -91,7 +91,8 @@ system 分两条路径：
 - `composeSystemPrompt()` 增加 `roleplayContext`。普通对话不追加 `META_TALK_GUARD` / `ASIDE_AND_ADDRESS_GUARD`；角色卡、完整档案或轻量身份行存在时，默认助手文案换成 `NEUTRAL_SYSTEM_PROMPT`，避免“助手身份”和“人物身份”同时进入 system。
 - 全局只保存一个 `activeCharacterId`；`canEnableRoleplay()` 要求开关请求能解析到有效卡，`setRoleplayEnabled()` 不再允许“没有卡但角色扮演开着”。会话绑定卡仍优先，`resolveTurnCharacterCard()` 只返回一张。
 - 人物层仍为「卡 → 档案 → 身份行」三选一，单卡、单档案、单身份行互斥；记忆、场景和世界书仍放在 user 尾部。
-- 新增 `pnpm test:prompt`，覆盖默认文案、普通对话无角色规则、角色上下文中性基底、清空提示词、单卡开关和会话绑定优先。
+- 新增 `pnpm test:prompt`，覆盖默认文案、普通对话无角色规则、角色上下文中性基底、清空提示词回退官方助手、单卡开关和会话绑定优先。
+- 清空提示词不再进入角色层：同一轮停用角色卡、档案、身份行、场景、世界书与角色记忆，回到默认官方助手、普通采样与普通记忆，避免“默认提示被清掉、残留卡还在演”的冷淡回复。
 
 **0.8.86**
 
@@ -158,11 +159,11 @@ system 分两条路径：
 
 ## 验证方式
 
-- `pnpm test:prompt`：断言默认提示是普通 DeepSeek AI 助手、普通对话不追加演出/括号规则、角色上下文改用中性基底、清空与自定义提示原样处理、单卡开关必须有有效卡、会话绑定卡优先。
+- `pnpm test:prompt`：断言默认提示是普通 DeepSeek AI 助手、普通对话不追加演出/括号规则、角色上下文改用中性基底、清空提示词回退默认官方助手、自定义提示原样保留、单卡开关必须有有效卡、会话绑定卡优先。
 - `pnpm test:system`：断言角色卡前缀逐字稳定、开场白始终存在、Chat 的 system 位于首条、Responses 的 system 位于 `instructions`、空 system 不生成 system 消息。
 - `pnpm test:roleplay`：断言六张内置卡、补充设定不截断、情景/系统指令/对白示例进入 system、会话绑定优先于全局开关、世界书避触与整段历史扫描、场景新字段解析，以及基础档案 32 字段归一化、空字段、固定参数顺序、占位符替换、system 稳定性、档案开关注入门槛与规则逐字一致。
 - 基础档案装配：开关开启、不启用人物卡，只填档案和提示词，请求 system 必须以档案开头、包含已填字段、不含空字段名、不含 `{{char}}` / `{{user}}`；启用任意人物卡后，同一会话的 system 只保留卡，不混入档案；关闭档案开关后，请求 system 不再含 32 项档案字段；档案名非空时保留轻量身份行，再拼中性角色基底与按需演出规则。
 - 绑定会话关闭全局开关：同一会话仍带原卡身份；新会话才回落到基础档案与表达提示词，不含卡身份、关系、说话方式、世界书、场景。档案开关关闭时不回落 32 项档案字段；档案名非空时仍保留身份行。
 - 本地 8095 + mock：同一角色卡连续三轮发送，抓取请求体，比较 `messages[0].content` 的 SHA-256；三轮必须一致，且包含开场白、不含 `{{char}}`/`{{user}}`。档案模式同样跑三轮，档案字段顺序与内容必须一致。普通对话另外抓一轮，确认 system 只有默认助手提示，没有角色卡、档案、演出规则或括号约定。
-- 清空提示词：请求体首条为 user，不含 system 消息。
-- 纯空白提示词：与清空一致，不发空 system。
+- 清空提示词：请求体包含默认官方助手 system，不含角色卡、档案、身份行、演出规则或应用功能索引以外的角色内容。
+- 纯空白提示词：与清空一致，回退默认官方助手，不发送空 system。

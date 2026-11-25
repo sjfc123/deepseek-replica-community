@@ -799,8 +799,8 @@ export const setSiderCollapsed = (siderCollapsed: boolean) => {
 }
 
 /**
- * 角色提示词。清空就是清空：记住「主动清空」这一状态，不要偷偷回填默认提示词；
- * 想恢复默认走角色档案与表达页底部的复位。空白输入按清空处理，避免发出一条只有空格的 system。
+ * 角色提示词。清空不写回默认文本，只记录「主动清空」状态；发送时由 composeSystemPrompt
+ * 回退默认官方助手，并同步停用角色卡、档案与身份行。想恢复可见的默认文本走复位按钮。
  */
 export const setSystemPrompt = (systemPrompt: string) => {
   const cleared = !systemPrompt.trim()

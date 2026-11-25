@@ -93,10 +93,10 @@ export const composeSystemPrompt = ({
   // custom 仅为兼容旧调用保留；当前默认提示不再区分官方与自定义网关
   void custom
   const trimmed = savedPrompt.trim()
-  // 用户主动清空提示词：不注入任何 system，连中性角色提示也不补。
-  // 只有空白字符也按清空处理，避免发出“看起来有、实际为空”的 system。
+  // 用户主动清空提示词：回退默认官方助手，而不是发送空 system。
+  // 角色卡、档案身份行由调用方同步停用，避免残留身份把默认助手带成冷淡角色。
   if (!trimmed) {
-    return ''
+    return DEFAULT_SYSTEM_PROMPT
   }
   const isDefault = trimmed === SYSTEM_PROMPT
   const basePrompt = isDefault && roleplayContext ? NEUTRAL_SYSTEM_PROMPT : trimmed

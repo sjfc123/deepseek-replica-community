@@ -719,7 +719,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     ? systemPrompt === DEFAULT_SYSTEM_PROMPT
       ? tr('提示词默认', 'prompt default')
       : tr('提示词自定义', 'prompt custom')
-    : tr('提示词已清空', 'prompt empty')
+    : tr('提示词已清空 · 官方助手', 'prompt empty · official assistant')
   const accountName = accountProfile.username || tr('未设置名称', 'No name')
   const compactChars = (value: number) =>
     value >= 1_000_000
@@ -1976,8 +1976,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.pageIntro}>
               {tr(
-                '默认提示词是普通 DeepSeek AI 助手，不预置角色、人设或角色扮演规则；新装应用或恢复默认后，直接当普通助手使用。默认提示词还内置一份应用功能索引：用户问功能、入口或玩法时，会按相关分组介绍，普通聊天不会主动刷功能清单。要角色扮演，启用一张角色卡或填写基础档案，也可以自行改写这段提示词。提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：称呼与语气、动作与对白密度、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n称呼{{user}}为「你」，句子偏短，紧张时更沉默。\n用对话和动作推进，每轮只写一个动作落点。\n不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
-                'The default prompt is a plain DeepSeek AI assistant with no persona, role or role-play rules. A fresh install or reset behaves as a normal assistant. It also carries an in-app feature index: when asked about features, entry points or usage it answers by relevant group, and stays quiet during ordinary chat. To role-play, enable one character card, fill the base profile, or rewrite this prompt. The prompt is sent every turn and overrides other behavioural hints. Write it in three layers: address and tone, action and dialogue density, constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nCall {{user}} 「你」, keep sentences short, go quieter when nervous.\nAdvance through dialogue and one concrete action per turn.\nNever restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
+                '默认提示词是普通 DeepSeek AI 助手，不预置角色、人设或角色扮演规则；新装应用或恢复默认后，直接当普通助手使用。默认提示词还内置一份应用功能索引：用户问功能、入口或玩法时，会按相关分组介绍，普通聊天不会主动刷功能清单。清空提示词会回到这份默认官方助手，并暂停角色卡、档案与身份行；要角色扮演，填回默认或写自定义提示词并启用一张角色卡，也可以填写基础档案。提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：称呼与语气、动作与对白密度、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n称呼{{user}}为「你」，句子偏短，紧张时更沉默。\n用对话和动作推进，每轮只写一个动作落点。\n不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
+                'The default prompt is a plain DeepSeek AI assistant with no persona, role or role-play rules. A fresh install or reset behaves as a normal assistant. It also carries an in-app feature index: when asked about features, entry points or usage it answers by relevant group, and stays quiet during ordinary chat. Clearing it returns to the default official assistant and pauses cards, profiles and identity lines; to role-play, restore the default or write a custom prompt and enable one character card, or fill the base profile. The prompt is sent every turn and overrides other behavioural hints. Write it in three layers: address and tone, action and dialogue density, constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nCall {{user}} 「你」, keep sentences short, go quieter when nervous.\nAdvance through dialogue and one concrete action per turn.\nNever restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
               )}
             </p>
             <Group label={tr('system 身份名', 'System identity name')}>
@@ -2000,7 +2000,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   className={styles.promptInput}
                   rows={10}
                   value={systemPrompt}
-                  placeholder={tr('留空则不发送系统提示词', 'Leave empty to send no system prompt')}
+                  placeholder={tr(
+                    '留空则回到默认官方助手，不注入角色卡、档案或身份行',
+                    'Leave empty to fall back to the default official assistant without card, profile or identity lines'
+                  )}
                   aria-label={tr('表达提示词', 'Delivery prompt')}
                   onChange={(event) => setSystemPrompt(event.target.value)}
                 />

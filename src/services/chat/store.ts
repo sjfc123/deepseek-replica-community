@@ -2311,6 +2311,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const custom = Boolean(chatConfig.endpoint)
   // 表达提示词必须随每次请求下发：自定义网关同样需要 system 字段，缺失时模型无表达约束。
   // 手写文本原样使用，`{{user}}` 只在发请求时换成账号名字；打开出戏压制时再在后面追加演出规则。
+  // 表达提示词为空是用户主动清空：回到默认官方助手，并停用角色卡、档案与身份行。
+  // 否则残留的角色身份会单独留在 system，默认助手会被带成冷淡角色。
+  const promptEmpty = !systemPrompt.trim()
   const sessionForMemory = getSession(sessionId)
   const visibleForRoleplay = sessionForMemory ? getVisibleMessages(sessionForMemory) : []
   const activeCard = resolveTurnCharacterCard(
@@ -2319,8 +2322,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     activeCharacterId,
     roleplayEnabled
   )
-  // 会话已绑定人物时优先沿用该卡：关闭全局开关只影响新会话，不会中途换回系统人格
-  const roleplayActive = Boolean(activeCard)
+  // 会话已绑定人物时优先沿用该卡：关闭全局开关只影响新会话，不会中途换回系统人格。
+  // 提示词清空时角色层整体暂停，避免“官方助手文案被清掉、卡却还在演”的混合状态。
+  const roleplayActive = !promptEmpty && Boolean(activeCard)
   const selectedMemoryEntries =
     memoryMode === 'off' || !sessionForMemory
       ? []
@@ -2404,12 +2408,15 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           userName,
         })
       : ''
-  const identityBlock = activeCard
-    ? formatCharacterCard(activeCard, userName)
-    : profileSystem || identitySystem
+  // 提示词清空时三种身份来源全部跳过，只保留默认官方助手。
+  const identityBlock = promptEmpty
+    ? ''
+    : activeCard
+      ? formatCharacterCard(activeCard, userName)
+      : profileSystem || identitySystem
   // 三种身份来源互斥：一张卡、完整档案或轻量身份行，不会同时拼进 system。
   // 只有角色上下文才把默认助手提示替换成中性角色基底，并追加演出/格式规则。
-  const roleplayContext = Boolean(activeCard || profileSystem || identitySystem)
+  const roleplayContext = !promptEmpty && Boolean(activeCard || profileSystem || identitySystem)
   const baseSystem = [
     identityBlock,
     composeSystemPrompt({

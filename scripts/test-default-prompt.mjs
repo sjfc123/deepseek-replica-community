@@ -2,7 +2,7 @@
  * 默认提示词与角色上下文回归：
  * 1. 默认提示词是普通 DeepSeek AI 助手，不含预置人设，但带应用功能索引；
  * 2. 普通对话不加角色扮演规则，角色卡/档案上下文才使用中性基底，且不带功能索引；
- * 3. 清空提示词、自定义提示词不被改写；
+ * 3. 清空提示词回退默认官方助手，自定义提示词不被改写；
  * 4. 角色扮演开关必须依附一张有效角色卡，不能多卡同时生效。
  */
 import assert from 'node:assert/strict'
@@ -81,16 +81,27 @@ assert.equal(
   customPrompt,
   '自定义提示词在普通对话中应原样保留'
 )
+const emptyPrompt = composeSystemPrompt({
+  savedPrompt: '   ',
+  custom: false,
+  suppressMetaTalk: false,
+  userName: '用户',
+  roleplayContext: false,
+})
+assert.equal(emptyPrompt, DEFAULT_SYSTEM_PROMPT, '纯空白提示词必须回退默认官方助手')
+assert.doesNotMatch(emptyPrompt, /【角色身份|【演出规则|【对话格式与称呼/)
+
+const emptyPromptRoleplay = composeSystemPrompt({
+  savedPrompt: '',
+  custom: false,
+  suppressMetaTalk: true,
+  userName: '用户',
+  roleplayContext: true,
+})
 assert.equal(
-  composeSystemPrompt({
-    savedPrompt: '   ',
-    custom: false,
-    suppressMetaTalk: false,
-    userName: '用户',
-    roleplayContext: false,
-  }),
-  '',
-  '纯空白提示词必须按清空处理'
+  emptyPromptRoleplay,
+  DEFAULT_SYSTEM_PROMPT,
+  '清空提示词即使收到角色上下文标记也必须回到官方助手，不能恢复角色规则'
 )
 
 const cards = [
