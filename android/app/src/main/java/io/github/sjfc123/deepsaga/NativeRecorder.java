@@ -3,7 +3,7 @@
  * 职责：Android 原生录音：临时文件、编码结束与保留/丢弃。
  * ========================================================================== */
 
-package io.github.lijiahua1024.dsreplica;
+package io.github.sjfc123.deepsaga;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;

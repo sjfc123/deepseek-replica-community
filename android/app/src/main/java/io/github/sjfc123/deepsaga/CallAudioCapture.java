@@ -3,7 +3,7 @@
  * 职责：Android 通话采集：AudioRecord 读取、状态上报与线程退出。
  * ========================================================================== */
 
-package io.github.lijiahua1024.dsreplica;
+package io.github.sjfc123.deepsaga;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;

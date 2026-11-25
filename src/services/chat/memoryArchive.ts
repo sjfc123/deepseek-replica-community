@@ -112,7 +112,7 @@ const buildArchive = async (sessions: Session[], options?: MemoryExportOptions) 
   return { archived, total }
 }
 
-const readme = (cards: number, sessions: number) => `DeepSeek Replica 记忆归档
+const readme = (cards: number, sessions: number) => `DeepSaga 记忆归档
 =================================
 
 导出时间：${new Date().toISOString()}

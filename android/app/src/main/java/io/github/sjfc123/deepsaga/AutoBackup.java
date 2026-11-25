@@ -3,7 +3,7 @@
  * 职责：Android 自动备份：两阶段写入、ZIP 完整性校验、发布与清理。
  * ========================================================================== */
 
-package io.github.lijiahua1024.dsreplica;
+package io.github.sjfc123.deepsaga;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -36,7 +36,7 @@ import org.json.JSONObject;
  * RELATIVE_PATH 必须带 Environment.DIRECTORY_DOWNLOADS 前缀（"Download/..."）。
  */
 final class AutoBackup {
-    private static final String FOLDER = "DeepSeek Replica/自动备份";
+    private static final String FOLDER = "DeepSaga/自动备份";
     private static final String RELATIVE_PATH = Environment.DIRECTORY_DOWNLOADS + "/" + FOLDER;
     /** 查询按子目录匹配，兼容带或不带 Download 前缀、末尾斜杠不同的设备 */
     private static final String PATH_FILTER = "%" + FOLDER + "%";

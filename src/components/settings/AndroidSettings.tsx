@@ -3251,8 +3251,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           <>
             <p className={styles.pageIntro}>
               {tr(
-                '本页管理本机数据：自动备份、整包导入导出、长期记忆归档与数据结构检查。\n操作建议：根据会话频率设置自动备份间隔，文件保存至「下载/DeepSeek Replica/自动备份」，只保留最近的完整备份；更换设备或重装后，在新设备通过「导入历史对话」选择该 ZIP。\n示例：每日使用→间隔 120 分钟；更换设备→先「导出所有历史对话」，再在新设备导入。\n边界：备份包含对话与设置，不含 API Key；导入前校验 ZIP 结构与 CRC；覆盖安装不会清除数据，系统清理仍可能删除应用数据。',
-                'This page manages on-device data: auto backup, full import/export, memory archive and post-update checks.\nDaily use: set a backup interval that matches your chat frequency; complete ZIPs go to Downloads/DeepSeek Replica and only the latest five are kept. After switching or reinstalling, pick that ZIP under Import chat history.\nExample: chat daily → 120-minute interval; new phone → Export all chats first, then import on the new device.\nBoundary: backups contain chats and settings but no API key; imports verify the ZIP structure and CRC; a clean install keeps data, but system cleanup may still remove it.'
+                '本页管理本机数据：自动备份、整包导入导出、长期记忆归档与数据结构检查。\n操作建议：根据会话频率设置自动备份间隔，文件保存至「下载/DeepSaga/自动备份」，只保留最近的完整备份；更换设备或重装后，在新设备通过「导入历史对话」选择该 ZIP。\n示例：每日使用→间隔 120 分钟；更换设备→先「导出所有历史对话」，再在新设备导入。\n边界：备份包含对话与设置，不含 API Key；导入前校验 ZIP 结构与 CRC；覆盖安装不会清除数据，系统清理仍可能删除应用数据。',
+                'This page manages on-device data: auto backup, full import/export, memory archive and post-update checks.\nDaily use: set a backup interval that matches your chat frequency; complete ZIPs go to Downloads/DeepSaga and only the latest five are kept. After switching or reinstalling, pick that ZIP under Import chat history.\nExample: chat daily → 120-minute interval; new phone → Export all chats first, then import on the new device.\nBoundary: backups contain chats and settings but no API key; imports verify the ZIP structure and CRC; a clean install keeps data, but system cleanup may still remove it.'
               )}
             </p>
             <p className={styles.caption}>
@@ -3318,8 +3318,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                       if (result.outcome === 'ok') {
                         showToast(
                           tr(
-                            `已备份 ${result.sessionCount} 个对话，文件已校验，保存在「下载/DeepSeek Replica/自动备份」`,
-                            `Backed up ${result.sessionCount} chats; file verified in Downloads/DeepSeek Replica`
+                            `已备份 ${result.sessionCount} 个对话，文件已校验，保存在「下载/DeepSaga/自动备份」`,
+                            `Backed up ${result.sessionCount} chats; file verified in Downloads/DeepSaga`
                           )
                         )
                       } else if (result.outcome === 'empty') {
@@ -3408,8 +3408,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </p>
               <p className={styles.caption}>
                 {tr(
-                  `按设置的间隔检查，每 ${formatBackupInterval(autoBackupMinutes, tr)}最多备份一次，只保留最近 5 份完整文件，位置在「下载/DeepSeek Replica/自动备份」。每次成功会提示结果；备份先写应用内临时文件，核对大小并校验 ZIP 后才发布到下载目录，写入中断或进程被杀不会留下半截文件。覆盖安装、重装或系统清理后，通过下方「导入」选择该文件可恢复全部对话；导入前会校验 ZIP 结构与 CRC，API Key 不随备份迁移，需要重新填写。`,
-                  `Checked at most once every ${formatBackupInterval(autoBackupMinutes, tr)}; only the latest five complete files stay under Downloads/DeepSeek Replica. A toast confirms every success. The export is written to a temporary file, size-checked and opened as a ZIP before it is published, so an interruption or process kill cannot leave a partial file. After an update, reinstall or cleanup, import one of them below; imports verify the ZIP and CRC, and the API key is not included.`
+                  `按设置的间隔检查，每 ${formatBackupInterval(autoBackupMinutes, tr)}最多备份一次，只保留最近 5 份完整文件，位置在「下载/DeepSaga/自动备份」。每次成功会提示结果；备份先写应用内临时文件，核对大小并校验 ZIP 后才发布到下载目录，写入中断或进程被杀不会留下半截文件。覆盖安装、重装或系统清理后，通过下方「导入」选择该文件可恢复全部对话；导入前会校验 ZIP 结构与 CRC，API Key 不随备份迁移，需要重新填写。`,
+                  `Checked at most once every ${formatBackupInterval(autoBackupMinutes, tr)}; only the latest five complete files stay under Downloads/DeepSaga. A toast confirms every success. The export is written to a temporary file, size-checked and opened as a ZIP before it is published, so an interruption or process kill cannot leave a partial file. After an update, reinstall or cleanup, import one of them below; imports verify the ZIP and CRC, and the API key is not included.`
                 )}
               </p>
             </Group>
@@ -4665,7 +4665,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               {screen === page ? (
                 <aside className={styles.desktopRail}>
                   <div className={styles.desktopRailHeader}>
-                    <span className={styles.desktopRailBrand}>DeepSeek Replica</span>
+                    <span className={styles.desktopRailBrand}>DeepSaga</span>
                     <button
                       type="button"
                       className={styles.desktopRailClose}

@@ -110,6 +110,8 @@ export const createConfig = ({
         { from: path.resolve(root, 'LICENSE'), to: 'LICENSE', toType: 'file' },
         // 启动兜底脚本放在固定路径，先于主包执行，失败时显示原因而不是白屏
         { from: path.resolve(root, 'src/boot.js'), to: 'static/js/boot.js', toType: 'file' },
+        { from: path.resolve(root, 'src/assets/favicon.png'), to: 'favicon.png', toType: 'file' },
+        { from: path.resolve(root, 'src/assets/apple-touch-icon.png'), to: 'apple-touch-icon.png', toType: 'file' },
       ],
     }),
   ],

@@ -3,7 +3,7 @@
  * 职责：Android 主 Activity：WebView 生命周期、权限、文件选择、JS 桥与媒体采集。
  * ========================================================================== */
 
-package io.github.lijiahua1024.dsreplica;
+package io.github.sjfc123.deepsaga;
 
 import android.Manifest;
 import android.annotation.SuppressLint;

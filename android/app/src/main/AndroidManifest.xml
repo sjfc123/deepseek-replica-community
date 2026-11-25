@@ -15,7 +15,7 @@
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="DeepSeek Replica"
+        android:label="DeepSaga"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <provider

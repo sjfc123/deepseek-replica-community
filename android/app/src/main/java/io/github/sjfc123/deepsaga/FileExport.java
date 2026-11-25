@@ -4,7 +4,7 @@
  * 导出：无对外导出，仅供同目录模块使用。
  * ========================================================================== */
 
-package io.github.lijiahua1024.dsreplica;
+package io.github.sjfc123.deepsaga;
 
 import android.content.ContentResolver;
 import android.net.Uri;

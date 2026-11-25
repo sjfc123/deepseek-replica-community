@@ -645,7 +645,7 @@ export const collectDiagnosticReport = async () => {
   }
 
   const lines: string[] = [
-    'DeepSeek Replica 诊断日志',
+    'DeepSaga 诊断日志',
     '======================',
     `生成时间：${report.generatedAt}`,
     `版本：${report.version ?? '未知'}`,
