@@ -2685,8 +2685,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </div>
               <p>
                 {tr(
-                  '长期记忆把每轮对话写成一张带时间锚点的卡片，保留完整回合，并关联对应消息，在后续请求开头注入。卡片跟随分支：切换回答版本仅显示该分支的记忆，从旧消息分叉会继承分叉点之前的卡片。\n操作顺序：先选择模式，再设置卡片上限与字数上限；重要卡片手动置顶，过时卡片可关闭注入并保留文本。\n示例：用户说「上周三我们一起吃了火锅」，下一轮提到「上周三」时，对应的完整记忆会被召回，角色可以接着聊那天的细节。\n边界：记忆保存在本机，随对话导入导出；超过卡片或字数上限时，最早自动卡片归档，不删除内容。',
-                  'Long-term memory writes each turn into a timestamped card with the full exchange, attaches it to that message, and injects it at the start of later requests. Cards follow branches: switching reply versions shows only that branch, while forking from an older message inherits everything before that point.\nUsage: choose a mode, then set the card and character limits; pin what matters, and switch off stale cards without deleting their text.\nExample: 「上周三我们一起吃了火锅」 becomes a full card, so a later mention of 「上周三」 recalls that day and the character can continue with the details.\nBoundary: memories live on device and travel with chat export; when cards or characters exceed the ceiling, the oldest automatic cards are archived, never deleted.'
+                  '长期记忆把每轮对话写成一张带时间锚点的卡片，保留完整回合，并关联对应消息，在后续请求开头注入。卡片跟随分支：切换回答版本仅显示该分支的记忆，从旧消息分叉会继承分叉点之前的卡片。\n写入分类：当前显示名是 AI 或 DeepSeek 时自动写普通记忆；显示名是角色名（当前卡名或手写档案名）时自动写角色记忆。自动记录、长按保存和面板补卡使用同一判定，避免同一会话两池混写。\n操作顺序：先选择模式，再设置卡片上限与字数上限；重要卡片手动置顶，过时卡片可关闭注入并保留文本。\n示例：用户说「上周三我们一起吃了火锅」，下一轮提到「上周三」时，对应的完整记忆会被召回，角色可以接着聊那天的细节。\n边界：记忆保存在本机，随对话导入导出；超过卡片或字数上限时，最早自动卡片归档，不删除内容。',
+                  'Long-term memory writes each turn into a timestamped card with the full exchange, attaches it to that message, and injects it at the start of later requests. Cards follow branches: switching reply versions shows only that branch, while forking from an older message inherits everything before that point.\nPool routing: when the displayed name is AI or DeepSeek, the turn is written to normal memory; when it is a character name (active card or hand-written profile name), it goes to character memory. Auto recording, long-press saving and manual panel cards all use the same rule.\nUsage: choose a mode, then set the card and character limits; pin what matters, and switch off stale cards without deleting their text.\nExample: 「上周三我们一起吃了火锅」 becomes a full card, so a later mention of 「上周三」 recalls that day and the character can continue with the details.\nBoundary: memories live on device and travel with chat export; when cards or characters exceed the ceiling, the oldest automatic cards are archived, never deleted.'
                 )}
               </p>
             </div>
@@ -3014,8 +3014,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption}>
               {tr(
-                '普通记忆与角色记忆各算各的配额，互不挤占。普通记忆只按关键词检索，不做时间线、好感或关系阶段召回；角色扮演开启时不注入普通记忆，避免代码与开发日志污染人设。三连反引号代码块会自动归入「代码」，其余可在保存时手动选分类。',
-                'Normal and character memories have separate quotas. Normal memory is keyword-only: no timeline, affinity or relationship recall. While role-play is on, normal memory is not injected, so code and dev logs cannot leak into the persona. Triple-backtick code blocks are filed as Code automatically; other categories can be chosen when saving.'
+                '普通记忆与角色记忆各算各的配额，互不挤占。普通记忆只按关键词检索，不做时间线、好感或关系阶段召回；只有显示名仍是 AI / DeepSeek 时才注入普通记忆，显示名变成角色名后暂停，避免代码与开发日志污染人设。三连反引号代码块会自动归入「代码」，其余可在保存时手动选分类。',
+                'Normal and character memories have separate quotas. Normal memory is keyword-only: no timeline, affinity or relationship recall. It is injected only while the displayed name remains AI / DeepSeek; once the name becomes a character name, normal injection pauses so code and dev logs cannot leak into the persona. Triple-backtick code blocks are filed as Code automatically; other categories can be chosen when saving.'
               )}
             </p>
             <Group label={tr('使用方式', 'Usage')}>

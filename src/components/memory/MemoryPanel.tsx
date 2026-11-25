@@ -3,9 +3,13 @@
  * 职责：长期记忆面板：双分类、筛选、编辑、补卡、配额与注入预览。
  * ========================================================================== */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getVisibleMessages } from '../../services/chat/branches.js'
 import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
+import {
+  memoryPoolForDisplayName,
+  resolveMemoryDisplayName,
+} from '../../services/chat/memoryRouting.js'
 import {
   activeMemoryCards,
   activeMemoryChars,
@@ -125,14 +129,33 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const roleplayEnabled = useSettings((state) => state.roleplayEnabled)
   const activeCharacterId = useSettings((state) => state.activeCharacterId)
   const characterCards = useSettings((state) => state.characterCards)
-  const roleplayActive =
-    Boolean(findSessionCharacterCard(characterCards, session)) ||
-    (roleplayEnabled && Boolean(findActiveCharacterCard(characterCards, activeCharacterId)))
+  const characterName = useSettings((state) => state.characterName)
+  const systemPrompt = useSettings((state) => state.systemPrompt)
+  const sessionCard = findSessionCharacterCard(characterCards, session)
+  const activeCard = roleplayEnabled
+    ? findActiveCharacterCard(characterCards, activeCharacterId)
+    : undefined
+  const displayCard = sessionCard ?? activeCard
+  const characterMemoryActive =
+    Boolean(systemPrompt.trim()) &&
+    memoryPoolForDisplayName(
+      resolveMemoryDisplayName({
+        cardName: displayCard?.name,
+        characterName,
+        custom: false,
+      })
+    ) === 'character'
   const [draft, setDraft] = useState('')
   const [draftKind, setDraftKind] = useState<NormalMemoryKind | 'auto'>('auto')
   const [query, setQuery] = useState('')
-  const [pool, setPool] = useState<MemoryPool>('character')
-  const normalDraftLocked = roleplayActive && pool === 'normal'
+  const [pool, setPool] = useState<MemoryPool>(() =>
+    characterMemoryActive ? 'character' : 'normal'
+  )
+  const normalDraftLocked = characterMemoryActive && pool === 'normal'
+  // 显示名在面板打开期间变化时，把补卡池拉回当前允许的一侧，避免停在已锁定的普通池。
+  useEffect(() => {
+    setPool(characterMemoryActive ? 'character' : 'normal')
+  }, [characterMemoryActive])
   const [filter, setFilter] = useState<MemoryStatusFilter>('all')
   const [speech, setSpeech] = useState<MemorySpeechFilter>('all')
   const [time, setTime] = useState<MemoryTimeFilter>('all')
@@ -239,13 +262,13 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     const lastUser = messages.filter((message) => message.role === 'user').at(-1)
     return lastUser?.content ?? ''
   }, [messages])
-  const normalInjectionAllowed = normalMemoryEnabled && !roleplayActive
+  const normalInjectionAllowed = normalMemoryEnabled && !characterMemoryActive
   const injection = useMemo(
     () =>
       pool === 'character'
         ? filterCharacterMemoryForInjection(
             selectMemoryCardsForInjection(session, messages, memoryLimit, lastQuestion),
-            roleplayActive
+            characterMemoryActive
           )
         : normalInjectionAllowed
           ? selectNormalMemoryCardsForInjection(session, messages, normalMemoryLimit, lastQuestion)
@@ -258,7 +281,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
       normalMemoryLimit,
       lastQuestion,
       normalInjectionAllowed,
-      roleplayActive,
+      characterMemoryActive,
     ]
   )
   const budget = pool === 'normal' ? normalMemoryChars : memoryChars
@@ -303,7 +326,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
 
   const submit = () => {
     const text = draft.trim()
-    if (!text || (roleplayActive && pool === 'normal')) {
+    if (!text || (characterMemoryActive && pool === 'normal')) {
       return
     }
     const category =
@@ -384,7 +407,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             <span className={styles.poolIcon}>⌘</span>
             <span>
               <strong>普通记忆</strong>
-              <small>{roleplayActive ? '角色扮演中暂停写入' : '开发 · 问答 · 代码'}</small>
+              <small>{characterMemoryActive ? '当前显示角色名，普通池暂停写入' : '开发 · 问答 · 代码'}</small>
             </span>
             <em>{normalCount}</em>
           </button>
@@ -409,10 +432,10 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
           </div>
           <div className={styles.injectLine}>
             {pool === 'normal' && !normalInjectionAllowed
-              ? '角色扮演开启时普通记忆不会注入，避免代码与开发日志污染人设。'
+              ? '当前显示名是角色名，普通记忆不会注入，避免开发问答污染人物；把角色名恢复为 AI / DeepSeek 后恢复。'
               : lastQuestion
                 ? `这一轮会带上 ${injectionPreview.count} 张 · ${injectionPreview.chars.toLocaleString('zh-CN')} / ${budget.toLocaleString('zh-CN')} 字${
-                    pool === 'character' && !roleplayActive && hasRoleplayCodeCard
+                    pool === 'character' && !characterMemoryActive && hasRoleplayCodeCard
                       ? '；已排除带代码块的角色卡'
                       : ''
                   }`
@@ -726,7 +749,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                 disabled={normalDraftLocked}
                 placeholder={
                   normalDraftLocked
-                    ? '角色扮演开启中，普通记忆暂停写入；先关闭角色扮演再补开发代码。'
+                    ? '当前显示名是角色名，普通记忆暂停写入；把角色名恢复为 AI / DeepSeek 或清空表达提示词后再补开发代码。'
                     : pool === 'normal'
                       ? '记一条开发/问答参考，例如：报错原因、命令、接口字段；代码块会自动归入代码。'
                       : '手动记一条，例如：用户/韩寒最喜欢吃烧烤，角色/她习惯晚上聊天。'
@@ -746,8 +769,8 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             </div>
           ) : null}
           <p className={styles.footerHint}>
-            {roleplayActive
-              ? '角色扮演开启时，长按保存的代码与整轮内容只进角色记忆；普通记忆暂停手动补卡，关闭角色扮演后恢复。'
+            {characterMemoryActive
+              ? '当前显示名是角色名，长按保存的代码与整轮内容只进角色记忆；普通记忆暂停手动补卡，把角色名字恢复为 AI / DeepSeek 或清空表达提示词后恢复。'
               : '保存历史对话请长按消息 → 选择这条对话 / 全选本对话 → 保存为记忆，并在确认弹窗里选分类。'}
           </p>
           {filtered.length > 0 && !query.trim() ? (

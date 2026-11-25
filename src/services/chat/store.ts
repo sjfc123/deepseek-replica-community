@@ -71,6 +71,10 @@ import {
 } from './memory.js'
 import { removeMemoryCards, type MemoryRemovalTarget } from './memoryPrune.js'
 import {
+  memoryPoolForDisplayName,
+  resolveMemoryDisplayName,
+} from './memoryRouting.js'
+import {
   resolveUserName,
   matchRefusalKeyword,
   replaceScene,
@@ -1623,9 +1627,14 @@ const recordTurnMemory = (
   targetMessageId: string,
   question: string,
   answer: string,
-  mode: 'off' | 'turn' | 'refine'
+  mode: 'off' | 'turn' | 'refine',
+  pool: MemoryPool
 ) => {
   if (mode === 'off') {
+    return
+  }
+  // 普通记忆总开关关闭时不再写普通池，避免面板显示“已关闭”却持续产生新卡。
+  if (pool === 'normal' && !useSettings.getState().normalMemoryEnabled) {
     return
   }
   const session = getSession(sessionId)
@@ -1654,12 +1663,24 @@ const recordTurnMemory = (
   if (!text) {
     return
   }
-  if (!attachMemories(sessionId, target, [createMemoryCard(text, 'auto', at)])) {
+  // 普通池的自动卡按“对话”保存；出现三连反引号时归入代码，后面的代码专卡会自动跳过。
+  const category = pool === 'normal' ? (detectCodeBlock(answer) ? 'code' : 'dialogue') : undefined
+  if (
+    !attachMemories(sessionId, target, [
+      createMemoryCard(text, 'auto', at, {
+        ...(pool ? { pool } : {}),
+        ...(category ? { category } : {}),
+        ...(pool === 'normal' && category === 'code'
+          ? { language: detectCodeLanguage(answer) }
+          : {}),
+      }),
+    ])
+  ) {
     return
   }
-  enforceMemoryLimit(sessionId)
-  enforceMemoryChars(sessionId)
-  if (mode === 'refine') {
+  enforceMemoryLimit(sessionId, pool)
+  enforceMemoryChars(sessionId, pool)
+  if (pool === 'character' && mode === 'refine') {
     void refineMemories(sessionId, target, question, answer)
   } else {
     notifyMemoryAdded(sessionId, 'turn')
@@ -1667,21 +1688,28 @@ const recordTurnMemory = (
 }
 
 /**
- * 角色扮演开启且角色卡真实存在时，记忆写入锁在角色池：
- * 代码、开发日志和整轮剧情都不允许意外落进普通记忆。
- * 会话已绑定角色时同样视为角色扮演，避免关闭全局开关后记忆写错池。
+ * 记忆落池只看当前显示名：AI / DeepSeek 走普通池，角色名走角色池。
+ * 角色卡名优先，其次手写档案名；提示词清空时回到官方助手，一律写普通池。
+ * 这样会话绑定卡、只填档案名和普通问答都不会再被默认写成角色记忆。
  */
-const roleplayMemoryLocked = (sessionId?: string) => {
+const usesCharacterMemory = (sessionId?: string) => {
   const settings = useSettings.getState()
+  if (!settings.systemPrompt.trim()) {
+    return false
+  }
   const session = sessionId ? getSession(sessionId) : null
-  return Boolean(
-    resolveTurnCharacterCard(
-      settings.characterCards,
-      session,
-      settings.activeCharacterId,
-      settings.roleplayEnabled
-    )
+  const card = resolveTurnCharacterCard(
+    settings.characterCards,
+    session,
+    settings.activeCharacterId,
+    settings.roleplayEnabled
   )
+  const displayName = resolveMemoryDisplayName({
+    cardName: card?.name,
+    characterName: settings.characterName,
+    custom: Boolean(settings.chatConfig.endpoint),
+  })
+  return memoryPoolForDisplayName(displayName) === 'character'
 }
 
 /**
@@ -1690,7 +1718,7 @@ const roleplayMemoryLocked = (sessionId?: string) => {
  */
 const recordNormalCodeMemory = (sessionId: string, targetMessageId: string, answer: string) => {
   if (
-    roleplayMemoryLocked(sessionId) ||
+    usesCharacterMemory(sessionId) ||
     !useSettings.getState().normalMemoryEnabled ||
     !detectCodeBlock(answer)
   ) {
@@ -1739,7 +1767,7 @@ export const addManualMemory = (
   if (!last || !text.trim()) {
     return
   }
-  const pool: MemoryPool = roleplayMemoryLocked(sessionId)
+  const pool: MemoryPool = usesCharacterMemory(sessionId)
     ? 'character'
     : target.pool === 'normal'
       ? 'normal'
@@ -1786,7 +1814,7 @@ export const saveMessagesAsMemory = (
   if (!session) {
     return empty
   }
-  const pool: MemoryPool = roleplayMemoryLocked(sessionId) ? 'character' : target.pool
+  const pool: MemoryPool = usesCharacterMemory(sessionId) ? 'character' : target.pool
   const messages = getVisibleMessages(session)
   const selected = new Set(messageIds)
   const picked = messages.filter((message) => selected.has(message.id))
@@ -2342,6 +2370,18 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 会话已绑定人物时优先沿用该卡：关闭全局开关只影响新会话，不会中途换回系统人格。
   // 提示词清空时角色层整体暂停，避免“官方助手文案被清掉、卡却还在演”的混合状态。
   const roleplayActive = !promptEmpty && Boolean(activeCard)
+  // 记忆落池按显示名判断，不跟角色卡开关绑定：显示 AI / DeepSeek 走普通池，
+  // 显示角色名（卡名或手写档案名）走角色池，避免普通问答被默认写成角色剧情。
+  const memoryPool: MemoryPool = promptEmpty
+    ? 'normal'
+    : memoryPoolForDisplayName(
+        resolveMemoryDisplayName({
+          cardName: activeCard?.name,
+          characterName,
+          custom,
+        })
+      )
+  const characterMemoryActive = memoryPool === 'character'
   const selectedMemoryEntries =
     memoryMode === 'off' || !sessionForMemory
       ? []
@@ -2351,13 +2391,13 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           memoryLimit,
           request.question.content
         )
-  // 角色记忆属于角色剧情；关闭扮演后整段停用，普通对话只保留普通记忆与手写提示词
-  const memoryCards = roleplayActive
+  // 角色记忆只服务于角色名上下文；普通问答不再召回角色剧情。
+  const memoryCards = characterMemoryActive
     ? filterCharacterMemoryForInjection(selectedMemoryEntries, true).map((entry) => entry.card)
     : []
-  // 普通记忆只用于开发、排错与问答；角色扮演开启时不注入，避免代码和开发日志污染人设
+  // 普通记忆只在显示名仍是 AI / DeepSeek 时注入，避免角色剧情与开发问答互相污染。
   const normalCards =
-    normalMemoryEnabled && sessionForMemory && !roleplayActive
+    normalMemoryEnabled && sessionForMemory && !characterMemoryActive
       ? selectNormalMemoryCardsForInjection(
           sessionForMemory,
           visibleForRoleplay,
@@ -2806,8 +2846,15 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     persist(sessionId)
     const answerText = replyPlainText(reply)
     if ((reply.status === 'done' || reply.status === 'stopped') && answerText.trim()) {
-      recordTurnMemory(sessionId, reply.id, request.question.content, answerText, memoryMode)
-      if (!roleplayActive) {
+      recordTurnMemory(
+        sessionId,
+        reply.id,
+        request.question.content,
+        answerText,
+        memoryMode,
+        memoryPool
+      )
+      if (!characterMemoryActive) {
         recordNormalCodeMemory(sessionId, reply.id, answerText)
       }
       if (sceneAutoUpdate && roleplayActive) {

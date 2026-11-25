@@ -16,6 +16,7 @@
     "test:auto-backup": "node --experimental-strip-types scripts/test-auto-backup.mjs",
     "test:prompt": "node --experimental-strip-types scripts/test-default-prompt.mjs",
     "test:memory": "node --experimental-strip-types scripts/test-memory-prune.mjs",
+    "test:memory-routing": "node --experimental-strip-types scripts/test-memory-routing.mjs",
     "test:memory-view": "node --experimental-strip-types scripts/test-memory-view.mjs"
   },
   "dependencies": {
