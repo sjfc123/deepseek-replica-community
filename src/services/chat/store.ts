@@ -396,7 +396,8 @@ const createReply = (): AssistantMessage => {
     role: 'assistant',
     createdAt: Date.now(),
     model: chatConfig.model || DEFAULT_CHAT_MODEL,
-    thinking: !customEndpoint && thinking,
+    // 深度思考按用户开关透传；智能搜索仍只对默认端点开放，自定义端点不注入 DeepSeek 专用工具。
+    thinking,
     search: !customEndpoint && search,
     status: 'pending',
     blocks: [],
@@ -711,7 +712,10 @@ export const newChat = () => {
  * 把当前分支整段复制成一个新对话，两边各自继续，互不影响。
  * 消息 ID 全部换新，避免之后合并历史时被当成同一条消息；记忆卡片、附件引用、分支结构原样带过去。
  */
-export const forkSession = async (sessionId: string): Promise<string | null> => {
+export const forkSession = async (
+  sessionId: string,
+  title?: string
+): Promise<string | null> => {
   if (get().importingHistory || deletingSessions.has(sessionId) || getStreamController(sessionId)) {
     return null
   }
@@ -742,7 +746,10 @@ export const forkSession = async (sessionId: string): Promise<string | null> => 
   })
   const next: Session = {
     id: createId(),
-    title: `${source.title || translate('untitledChat')} · ${translate('sessionForkSuffix')}`,
+    // 用户填了名字就用原名；留空沿用旧规则，在原会话名后追加分支后缀。
+    title:
+      title?.trim() ||
+      `${source.title || translate('untitledChat')} · ${translate('sessionForkSuffix')}`,
     createdAt: now,
     updatedAt: now,
     messages,

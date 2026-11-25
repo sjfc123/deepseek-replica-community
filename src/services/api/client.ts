@@ -261,12 +261,15 @@ const customMessagesRequest = ({
   system,
   messages,
   max_tokens,
+  thinking,
   temperature,
   top_p,
 }: CreateMessageRequest) => ({
   model,
   system: system.trim() ? system : undefined,
   max_tokens,
+  // 自定义 Anthropic Messages 端点同样要带思考开关，否则上游按默认开启处理。
+  thinking,
   ...(temperature !== undefined ? { temperature } : {}),
   ...(top_p !== undefined ? { top_p } : {}),
   messages: messages.flatMap((message): CreateMessageRequest['messages'] => {

@@ -31,7 +31,6 @@ import {
   forkSession,
   newChat,
   removeSession,
-  selectSession,
   useChatStore,
 } from '../../services/chat/store.js'
 import {
@@ -51,6 +50,14 @@ import { SessionItem } from './SessionItem.js'
 import styles from './Sider.module.css'
 
 const ROW_OVERSCAN = 10
+
+/** 创建分支的三步：命名 → 是否分组 → 选择分组；分支在命名确认后就已经落盘 */
+type ForkFlow = {
+  target: SessionSummary
+  step: 'name' | 'groupAsk' | 'groupPick'
+  branchId: string | null
+  branchTitle: string
+}
 
 /** 展开的侧边栏：名称与收起按钮、开启新对话、按时间分组的会话列表、底部设置；移动端放在抽屉里，收起按钮关闭抽屉 */
 /* -------------------- 功能区：桌面侧栏 开始 -------------------- */
@@ -79,9 +86,16 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   const [toolsOpen, setToolsOpen] = useState(false)
   const [folderTarget, setFolderTarget] = useState<SessionSummary | null>(null)
   const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const [forkFlow, setForkFlow] = useState<ForkFlow | null>(null)
+  const [forkName, setForkName] = useState('')
+  const [newFolderAssign, setNewFolderAssign] = useState<{
+    sessionId: string
+    branchName: string
+  } | null>(null)
   const [bulkFolderOpen, setBulkFolderOpen] = useState(false)
   const [bulkConfirm, setBulkConfirm] = useState<'copy' | 'archive' | null>(null)
   const newFolderInput = useRef<HTMLInputElement>(null)
+  const forkNameInput = useRef<HTMLInputElement>(null)
   const unpin = checked.size > 0 && [...checked].every((id) => pinnedIds.includes(id))
   /** 分组与归档只影响这里，后面的虚拟列表按过滤结果算偏移 */
   const visibleSessions = useMemo(() => {
@@ -246,16 +260,53 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
       showToast({ key: 'sessionBundleFailed', type: 'error' })
     }
   }, [])
-  /** 复制成新对话：两条分支各自往下走，互不牵连 */
-  const forkOne = useCallback(async (session: SessionSummary) => {
-    const id = await forkSession(session.id)
-    if (!id) {
-      showToast({ key: 'sessionForkFailed', type: 'error' })
+  /** 打开创建分支的第一步：先给分支命名，不填则沿用原会话名加后缀 */
+  const beginFork = useCallback((session: SessionSummary) => {
+    setForkName('')
+    setForkFlow({ target: session, step: 'name', branchId: null, branchTitle: '' })
+  }, [])
+
+  /** 命名确认后立即创建分支；是否分组放到下一步询问 */
+  const confirmForkName = useCallback(async () => {
+    const flow = forkFlow
+    if (!flow || flow.step !== 'name') {
       return
     }
-    showToast({ key: 'sessionForkDone' })
-    selectSession(id)
-  }, [])
+    const requested = forkName.trim()
+    const fallback = `${flow.target.title || t('untitledChat')} · ${t('sessionForkSuffix')}`
+    const title = requested || fallback
+    const id = await forkSession(flow.target.id, requested || undefined)
+    if (!id) {
+      showToast({ key: 'sessionForkFailed', type: 'error' })
+      setForkFlow(null)
+      return
+    }
+    setForkFlow({
+      target: flow.target,
+      step: 'groupAsk',
+      branchId: id,
+      branchTitle: title,
+    })
+  }, [forkFlow, forkName, t])
+
+  /** 关闭创建分支流程；已创建的分支不会回滚 */
+  const finishFork = useCallback(
+    (folderName?: string) => {
+      const flow = forkFlow
+      setForkFlow(null)
+      setForkName('')
+      if (!flow?.branchId) {
+        return
+      }
+      showToast({
+        key: folderName ? 'sessionForkGrouped' : 'sessionForkCreated',
+        params: folderName
+          ? { name: flow.branchTitle, folder: folderName }
+          : { name: flow.branchTitle },
+      })
+    },
+    [forkFlow]
+  )
   /** 多选批量：复制选中会话，每条走 forkSession 生成独立分支，完成后提示条数 */
   const bulkCopy = useCallback(async () => {
     const ids = sessions.filter((session) => checked.has(session.id)).map((session) => session.id)
@@ -456,6 +507,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
             type="button"
             onClick={() => {
               setToolsOpen(false)
+              setNewFolderAssign(null)
               setNewFolderOpen(true)
             }}
           >
@@ -507,7 +559,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
                     onToggleArchive={toggleArchive}
                     onMoveFolder={setFolderTarget}
                     onExport={exportBundle}
-                    onFork={forkOne}
+                    onFork={beginFork}
                     onExportText={(item) => void exportText(item)}
                     selection={
                       selecting
@@ -651,6 +703,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
               className={styles.folderAdd}
               onClick={() => {
                 setBulkFolderOpen(false)
+                setNewFolderAssign(null)
                 setNewFolderOpen(true)
               }}
             >
@@ -714,7 +767,99 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
             <button
               type="button"
               className={styles.folderAdd}
-              onClick={() => setNewFolderOpen(true)}
+              onClick={() => {
+                setNewFolderAssign(null)
+                setNewFolderOpen(true)
+              }}
+            >
+              ＋ {t('sessionFolderNew')}
+            </button>
+          </div>
+        </SessionActionDialog>
+      ) : null}
+      {forkFlow?.step === 'name' ? (
+        <SessionActionDialog
+          title={t('sessionForkNameTitle')}
+          description={t('sessionForkNameDescription', {
+            name: forkFlow.target.title || t('untitledChat'),
+          })}
+          cancelLabel={t('cancel')}
+          confirmLabel={t('sessionForkNameConfirm')}
+          onCancel={() => {
+            setForkFlow(null)
+            setForkName('')
+          }}
+          onConfirm={() => void confirmForkName()}
+        >
+          <input
+            ref={forkNameInput}
+            className={styles.folderInput}
+            placeholder={t('sessionForkNamePlaceholder')}
+            value={forkName}
+            maxLength={80}
+            autoFocus
+            onChange={(event) => setForkName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                void confirmForkName()
+              }
+            }}
+          />
+        </SessionActionDialog>
+      ) : null}
+      {forkFlow?.step === 'groupAsk' ? (
+        <SessionActionDialog
+          title={t('sessionForkGroupAskTitle', { name: forkFlow.branchTitle })}
+          description={t('sessionForkGroupAskBody')}
+          cancelLabel={t('sessionForkGroupSkip')}
+          confirmLabel={t('sessionForkGroupPick')}
+          onCancel={() => finishFork()}
+          onConfirm={() => setForkFlow({ ...forkFlow, step: 'groupPick' })}
+        />
+      ) : null}
+      {forkFlow?.step === 'groupPick' ? (
+        <SessionActionDialog
+          title={t('sessionFolderPickTitle', { name: forkFlow.branchTitle })}
+          cancelLabel={t('sessionForkGroupSkip')}
+          confirmLabel={t('sessionFolderPickDone')}
+          onCancel={() => finishFork()}
+          onConfirm={() => finishFork()}
+        >
+          <div className={styles.folderPicker}>
+            {folders.map((folder) => (
+              <div key={folder.id} className={styles.folderPickRow}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!forkFlow.branchId) {
+                      return
+                    }
+                    assignSessionFolder(forkFlow.branchId, folder.id)
+                    finishFork(folder.name)
+                  }}
+                >
+                  {folder.name}
+                </button>
+              </div>
+            ))}
+            {folders.length === 0 ? (
+              <div className={styles.folderEmpty}>{t('sessionForkGroupEmpty')}</div>
+            ) : null}
+            <button
+              type="button"
+              className={styles.folderAdd}
+              onClick={() => {
+                if (!forkFlow.branchId) {
+                  return
+                }
+                setNewFolderAssign({
+                  sessionId: forkFlow.branchId,
+                  branchName: forkFlow.branchTitle,
+                })
+                setForkFlow(null)
+                setNewFolderOpen(true)
+              }}
             >
               ＋ {t('sessionFolderNew')}
             </button>
@@ -727,7 +872,14 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
           cancelLabel={t('cancel')}
           confirmLabel={t('sessionFolderCreate')}
           stacked
-          onCancel={() => setNewFolderOpen(false)}
+          onCancel={() => {
+            const pending = newFolderAssign
+            setNewFolderOpen(false)
+            setNewFolderAssign(null)
+            if (pending) {
+              showToast({ key: 'sessionForkCreated', params: { name: pending.branchName } })
+            }
+          }}
           onConfirm={() => {
             const name = newFolderInput.current?.value.trim() ?? ''
             const folder = createSessionFolder(name)
@@ -735,9 +887,18 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
               if (folderTarget) {
                 assignSessionFolder(folderTarget.id, folder.id)
               }
-              showToast({ key: 'sessionFolderCreated', params: { name: folder.name } })
+              if (newFolderAssign) {
+                assignSessionFolder(newFolderAssign.sessionId, folder.id)
+                showToast({
+                  key: 'sessionForkGrouped',
+                  params: { name: newFolderAssign.branchName, folder: folder.name },
+                })
+              } else {
+                showToast({ key: 'sessionFolderCreated', params: { name: folder.name } })
+              }
             }
             setNewFolderOpen(false)
+            setNewFolderAssign(null)
           }}
         >
           <input

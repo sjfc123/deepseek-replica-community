@@ -36,7 +36,6 @@ type PendingAction =
   | 'folder'
   | 'export'
   | 'exportText'
-  | 'fork'
   | 'archive'
   | 'unarchive'
 
@@ -73,11 +72,6 @@ const pendingCopy = (
       title: tr('sessionConfirmExportTextTitle', { name }),
       body: tr('sessionConfirmExportTextBody'),
       confirm: tr('sessionMenuExportText'),
-    },
-    fork: {
-      title: tr('sessionConfirmForkTitle', { name }),
-      body: tr('sessionConfirmForkBody'),
-      confirm: tr('sessionMenuFork'),
     },
     archive: {
       title: tr('sessionConfirmArchiveTitle', { name }),
@@ -274,7 +268,7 @@ export const SessionItem = memo(function SessionItem({
                       key: 'fork',
                       label: t('sessionMenuFork'),
                       icon: <IconCopyOutline16 />,
-                      onSelect: () => setPendingAction('fork'),
+                      onSelect: () => onFork(session),
                     },
                   ]
                 : []),
@@ -375,8 +369,6 @@ export const SessionItem = memo(function SessionItem({
               onExport?.(session)
             } else if (action === 'exportText') {
               onExportText?.(session)
-            } else if (action === 'fork') {
-              onFork?.(session)
             } else if (action === 'archive' || action === 'unarchive') {
               onToggleArchive?.(session)
             }
