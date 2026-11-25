@@ -92,8 +92,7 @@ export const zh = {
   sessionForkNamePlaceholder: '请填写分支名',
   sessionForkNameConfirm: '确定',
   sessionForkGroupAskTitle: '把「{name}」放进分组区？',
-  sessionForkGroupAskBody:
-    '分支已经创建。选「暂不分组」就留在未分组，之后仍可从会话菜单移动。',
+  sessionForkGroupAskBody: '分支已经创建。选「暂不分组」就留在未分组，之后仍可从会话菜单移动。',
   sessionForkGroupPick: '选择分组',
   sessionForkGroupSkip: '暂不分组',
   sessionForkGroupEmpty: '还没有分组，请先新建一个',
@@ -182,6 +181,8 @@ export const zh = {
   sessionHistoryTimelineLabel30days: '30 天前 · 近一个月',
   sessionHistoryTimelineLabel3months: '近三个月',
   sessionHistoryTimelineLabel1year: '近一年',
+  sessionHistoryNormalGroup: '普通聊天',
+  sessionHistoryUnknownCharacter: '未命名角色',
   sessionHistoryCollapseGroup: '收起「{label}」',
   sessionHistoryExpandGroup: '展开「{label}」',
   copy: '复制',
@@ -371,7 +372,8 @@ export const zh = {
   storyFailedBody:
     '零点已过，你没有在时限内找到真相并救出妹妹。当前对话已锁定，历史记录保留；新建会话可以重新开始。',
   storySuccessTitle: '营救成功',
-  storySuccessBody: '你识破了替身并救出了妹妹。当前对话已完成，历史记录保留；新建会话可以重新开始。',
+  storySuccessBody:
+    '你识破了替身并救出了妹妹。当前对话已完成，历史记录保留；新建会话可以重新开始。',
   storyEndClose: '知道了',
   replySuggestions: '回复建议',
   replySuggestionsTooltip: '根据当前剧情生成三条回复',

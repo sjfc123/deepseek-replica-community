@@ -1,6 +1,6 @@
 {
   "name": "deepseek-app-replica",
-  "version": "0.8.89",
+  "version": "0.8.90",
   "description": "基于 DeepSeek App Replica 与 DeepChat 部分功能移植的 Android 角色扮演客户端；仓库保存源码，编译、签名与分发由操作者自行承担。",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -20,6 +20,7 @@
     "test:memory-routing": "node --experimental-strip-types scripts/test-memory-routing.mjs",
     "test:memory-view": "node --experimental-strip-types scripts/test-memory-view.mjs",
     "test:memory-layers": "node --experimental-strip-types scripts/test-memory-layers.mjs",
+    "test:groups": "node --experimental-strip-types scripts/test-session-groups.mjs",
     "test:suggestions": "node --experimental-strip-types scripts/test-suggestions.mjs"
   },
   "dependencies": {

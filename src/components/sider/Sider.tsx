@@ -26,13 +26,8 @@ import {
   setSiderCollapsed,
   useSettings,
 } from '../../services/settings.js'
-import { groupSessions } from '../../services/chat/sessionGroups.js'
-import {
-  forkSession,
-  newChat,
-  removeSession,
-  useChatStore,
-} from '../../services/chat/store.js'
+import { groupSessionsByCharacter } from '../../services/chat/sessionGroups.js'
+import { forkSession, newChat, removeSession, useChatStore } from '../../services/chat/store.js'
 import {
   buildSessionBundle,
   sessionBundleName,
@@ -82,6 +77,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   const folders = useSettings((state) => state.sessionFolders)
   const folderMap = useSettings((state) => state.sessionFolderMap)
   const archivedIds = useSettings((state) => state.archivedSessions)
+  const characterCards = useSettings((state) => state.characterCards)
   const profile = useSettings((state) => state.accountProfile)
   const username = profile.username || t('profileDefaultUsername')
   const androidDrawer = Boolean(mobile && android)
@@ -117,7 +113,10 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   }, [])
   useEffect(() => {
     try {
-      window.localStorage.setItem(COLLAPSED_SESSION_GROUPS_KEY, JSON.stringify([...collapsedGroups]))
+      window.localStorage.setItem(
+        COLLAPSED_SESSION_GROUPS_KEY,
+        JSON.stringify([...collapsedGroups])
+      )
     } catch {
       // 隐私模式或存储已满时保持内存状态，不阻断会话列表。
     }
@@ -150,37 +149,55 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
     })
   }, [sessions, archivedIds, showArchived, folderFilter, folderMap])
   const groups = useMemo(() => {
+    const characterNameFor = (id: string) =>
+      characterCards.find((card) => card.id === id)?.name.trim() || undefined
     if (!androidDrawer || pinnedIds.length === 0) {
-      return groupSessions(visibleSessions, now, t)
+      return groupSessionsByCharacter(visibleSessions, now, t, characterNameFor)
     }
     const pinned = visibleSessions.filter((session) => pinnedIds.includes(session.id))
-    const rest = groupSessions(
+    const rest = groupSessionsByCharacter(
       visibleSessions.filter((session) => !pinnedIds.includes(session.id)),
       now,
-      t
+      t,
+      characterNameFor
     )
     return pinned.length
-      ? [{ key: 'pinned', label: t('androidPinned'), sessions: pinned }, ...rest]
+      ? [
+          {
+            key: 'pinned',
+            label: t('androidPinned'),
+            sessions: pinned,
+            total: pinned.length,
+            kind: 'time' as const,
+          },
+          ...rest,
+        ]
       : rest
-  }, [androidDrawer, visibleSessions, now, pinnedIds, t])
+  }, [androidDrawer, visibleSessions, now, pinnedIds, t, characterCards])
   const listRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ top: 0, height: 720 })
   const rowHeight = androidDrawer ? (selecting ? 48 : 44.8) : mobile ? 44 : 40
+  /** 时间父组折叠时直接移除其子组，避免虚拟列表继续为不可见行留位置。 */
+  const visibleGroups = useMemo(
+    () => groups.filter((group) => !group.parentKey || !collapsedGroups.has(group.parentKey)),
+    [groups, collapsedGroups]
+  )
   const positionedGroups = useMemo(() => {
     let end = 0
-    return groups.map((group, index) => {
+    return visibleGroups.map((group, index) => {
       const collapsed = collapsedGroups.has(group.key)
-      // 与分组的 margin、padding、标题行高和会话行高相同，保留原生粘性标题。
+      const subgroup = Boolean(group.parentKey)
+      // 子组是时间组内部的角色/普通分区：间距缩小，标题高度沿用同一行高。
       const top = androidDrawer
         ? end + (index ? 6.4 : 5.6889) + 22.4
-        : end + (index ? 16 : 0) + 4 + (mobile ? 29 : 22)
+        : end + (index ? (subgroup ? 6 : 16) : 0) + (subgroup ? 0 : 4) + (mobile ? 29 : 22)
       end = top + (collapsed ? 0 : group.sessions.length * rowHeight)
       if (group.key === 'pinned' && !collapsed) {
         end += 29
       }
       return { ...group, top, collapsed }
     })
-  }, [androidDrawer, collapsedGroups, groups, mobile, rowHeight])
+  }, [androidDrawer, collapsedGroups, visibleGroups, mobile, rowHeight])
   useLayoutEffect(() => {
     const list = listRef.current
     if (!list) {
@@ -580,17 +597,26 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
                   limit,
                   Math.max(
                     start,
-                    Math.ceil((viewport.top + viewport.height - group.top) / rowHeight) + ROW_OVERSCAN
+                    Math.ceil((viewport.top + viewport.height - group.top) / rowHeight) +
+                      ROW_OVERSCAN
                   )
                 )
             return (
               <div
                 key={group.key}
-                className={clsx(styles.section, group.key === 'pinned' && styles.pinnedSection)}
+                className={clsx(
+                  styles.section,
+                  group.key === 'pinned' && styles.pinnedSection,
+                  group.parentKey && styles.characterSection
+                )}
               >
                 <button
                   type="button"
-                  className={styles.sectionHeader}
+                  className={clsx(
+                    styles.sectionHeader,
+                    group.parentKey && styles.characterHeader,
+                    group.kind === 'normal' && styles.normalHeader
+                  )}
                   aria-expanded={!group.collapsed}
                   aria-label={t(
                     group.collapsed ? 'sessionHistoryExpandGroup' : 'sessionHistoryCollapseGroup',
@@ -605,47 +631,49 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
                   />
                   <span className={styles.sectionLabel}>{group.label}</span>
                   <span className={styles.sectionCount} aria-hidden="true">
-                    {group.sessions.length}
+                    {group.total}
                   </span>
                 </button>
                 {group.collapsed ? null : start ? (
                   <div aria-hidden="true" style={{ height: start * rowHeight }} />
                 ) : null}
-                {group.collapsed ? null : group.sessions.slice(start, end).map((session) => (
-                  <SessionItem
-                    key={session.id}
-                    session={session}
-                    active={session.id === activeId}
-                    pinned={pinnedIds.includes(session.id)}
-                    archived={archivedIds.includes(session.id)}
-                    onTogglePin={togglePinned}
-                    onMultiSelect={startSelection}
-                    onDelete={deleteOne}
-                    onToggleArchive={toggleArchive}
-                    onMoveFolder={setFolderTarget}
-                    onExport={exportBundle}
-                    onFork={beginFork}
-                    onExportText={(item) => void exportText(item)}
-                    selection={
-                      selecting
-                        ? {
-                            checked: checked.has(session.id),
-                            toggle: () => {
-                              setChecked((previous) => {
-                                const next = new Set(previous)
-                                if (next.has(session.id)) {
-                                  next.delete(session.id)
-                                } else {
-                                  next.add(session.id)
-                                }
-                                return next
-                              })
-                            },
-                          }
-                        : undefined
-                    }
-                  />
-                ))}
+                {group.collapsed
+                  ? null
+                  : group.sessions.slice(start, end).map((session) => (
+                      <SessionItem
+                        key={session.id}
+                        session={session}
+                        active={session.id === activeId}
+                        pinned={pinnedIds.includes(session.id)}
+                        archived={archivedIds.includes(session.id)}
+                        onTogglePin={togglePinned}
+                        onMultiSelect={startSelection}
+                        onDelete={deleteOne}
+                        onToggleArchive={toggleArchive}
+                        onMoveFolder={setFolderTarget}
+                        onExport={exportBundle}
+                        onFork={beginFork}
+                        onExportText={(item) => void exportText(item)}
+                        selection={
+                          selecting
+                            ? {
+                                checked: checked.has(session.id),
+                                toggle: () => {
+                                  setChecked((previous) => {
+                                    const next = new Set(previous)
+                                    if (next.has(session.id)) {
+                                      next.delete(session.id)
+                                    } else {
+                                      next.add(session.id)
+                                    }
+                                    return next
+                                  })
+                                },
+                              }
+                            : undefined
+                        }
+                      />
+                    ))}
                 {!group.collapsed && end < limit ? (
                   <div aria-hidden="true" style={{ height: (limit - end) * rowHeight }} />
                 ) : null}

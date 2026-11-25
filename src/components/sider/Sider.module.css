@@ -104,6 +104,37 @@
   }
 }
 
+/* 时间组内部的角色/普通子组：缩小间距并把标题内缩，形成二级层级 */
+.characterSection {
+  margin-top: 6px;
+  padding-top: 0;
+}
+
+.characterHeader {
+  position: static;
+  margin-left: 14px;
+  padding: 0 7px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+}
+
+.characterHeader::before {
+  content: '';
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--dsw-alias-brand-primary);
+  opacity: 0.9;
+}
+
+.normalHeader::before {
+  background: var(--dsw-alias-label-tertiary);
+}
+
 .pinnedSection::after {
   content: '';
   display: block;
@@ -276,6 +307,13 @@
     line-height: 22px;
   }
 
+  .characterHeader {
+    height: 29px;
+    margin-left: 12px;
+    padding: 4px 8px 3px;
+    font-size: 12px;
+  }
+
   .bottom {
     height: auto;
     padding: 12px 0;
@@ -405,6 +443,14 @@
     font-size: 13.1467px;
     line-height: 18.8444px;
     font-weight: 500;
+  }
+
+  .characterHeader {
+    margin-left: 32px;
+    padding: 0 7px;
+    border-color: transparent;
+    background: transparent;
+    font-size: 12px;
   }
 
   .section {
@@ -664,7 +710,6 @@
   color: var(--dsw-alias-label-primary);
 }
 
-
 /* 分组条重排：胶囊单独滚动，新建与归档固定在右侧，分组再多也不会把按钮顶出去 */
 .folderBar {
   display: flex;
@@ -829,7 +874,6 @@
 [data-android] .select {
   touch-action: manipulation;
 }
-
 
 /* 选分组弹窗底部「新建分组」：虚线幽灵样式，与分组行同宽同高，不再是一块灰底 */
 .folderAdd {

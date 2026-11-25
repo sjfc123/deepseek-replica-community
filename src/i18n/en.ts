@@ -192,6 +192,8 @@ export const en = {
   sessionHistoryTimelineLabel30days: '30+ days · Past month',
   sessionHistoryTimelineLabel3months: 'Past 3 months',
   sessionHistoryTimelineLabel1year: 'Past year',
+  sessionHistoryNormalGroup: 'Regular chats',
+  sessionHistoryUnknownCharacter: 'Unknown character',
   sessionHistoryCollapseGroup: 'Collapse “{label}”',
   sessionHistoryExpandGroup: 'Expand “{label}”',
   copy: 'Copy',
@@ -379,7 +381,8 @@ export const en = {
   storyRemainingLabel: '{time} until midnight',
   storyCluesLabel: 'Clues {done}/{total}',
   storyCluesTitle: 'Clue board',
-  storyCluesIntro: 'Only anomalies that have already appeared are recorded here. The questions, order and judgment are still yours.',
+  storyCluesIntro:
+    'Only anomalies that have already appeared are recorded here. The questions, order and judgment are still yours.',
   storyCluePendingTitle: 'Layer {index} · not yet appeared',
   storyCluePendingBody: 'Keep talking; it will be recorded as the clock advances.',
   storyCluesClose: 'Close',

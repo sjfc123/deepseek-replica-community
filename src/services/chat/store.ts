@@ -37,6 +37,7 @@ import {
   formatCharacterCard,
   formatSceneBlock,
   formatWorldbookBlock,
+  findActiveCharacterCard,
   parseSceneUpdate,
   SCENE_FIELDS,
   selectWorldbookEntries,
@@ -74,10 +75,7 @@ import {
   type NormalMemoryKind,
 } from './memory.js'
 import { removeMemoryCards, type MemoryRemovalTarget } from './memoryPrune.js'
-import {
-  memoryPoolForDisplayName,
-  resolveMemoryDisplayName,
-} from './memoryRouting.js'
+import { memoryPoolForDisplayName, resolveMemoryDisplayName } from './memoryRouting.js'
 import {
   resolveUserName,
   matchRefusalKeyword,
@@ -504,8 +502,15 @@ const ensureSessionLoaded = (id: string): Promise<void> => {
           ? activateBranch(synced, pendingJump.messageId)
           : synced
       touchSession(id)
-      set((state) => ({ sessionCache: { ...state.sessionCache, [id]: session } }))
-      if (session !== stored) {
+      const nextSummary = toSessionSummary(session)
+      set((state) => ({
+        sessionCache: { ...state.sessionCache, [id]: session },
+        // 旧版摘要没有 characterId；打开会话时顺手补回，侧栏之后就能进入对应角色分组。
+        sessions: state.sessions.map((item) =>
+          item.id === id && item.characterId !== nextSummary.characterId ? nextSummary : item
+        ),
+      }))
+      if (session !== stored || summary.characterId !== nextSummary.characterId) {
         persist(id)
       }
       trimSessionCache()
@@ -718,21 +723,33 @@ export const mergeHistory = async (
 
 /* -------------------- 功能区：会话选择、分叉与增删改 开始 -------------------- */
 export const newChat = () => {
-  if (!get().importingHistory) {
-    cancelMessageEdit()
-    set({ activeId: null, pendingJump: null })
-    trimSessionCache()
+  if (get().importingHistory) {
+    return
   }
+  cancelMessageEdit()
+  // 开启角色卡时，“开启新对话”也走开场流程：新会话立即绑定该卡并写入剧情说明与开场白。
+  // 否则直接从新对话发第一条，会绕过 startCharacterIntro，推理卡只剩半截剧情。
+  const settings = useSettings.getState()
+  const card = settings.roleplayEnabled
+    ? findActiveCharacterCard(settings.characterCards, settings.activeCharacterId)
+    : undefined
+  if (card) {
+    const created = startCharacterIntro(card)
+    if (created) {
+      set({ pendingJump: null })
+      trimSessionCache()
+      return
+    }
+  }
+  set({ activeId: null, pendingJump: null })
+  trimSessionCache()
 }
 
 /**
  * 把当前分支整段复制成一个新对话，两边各自继续，互不影响。
  * 消息 ID 全部换新，避免之后合并历史时被当成同一条消息；记忆卡片、附件引用、分支结构原样带过去。
  */
-export const forkSession = async (
-  sessionId: string,
-  title?: string
-): Promise<string | null> => {
+export const forkSession = async (sessionId: string, title?: string): Promise<string | null> => {
   if (get().importingHistory || deletingSessions.has(sessionId) || getStreamController(sessionId)) {
     return null
   }
@@ -1963,8 +1980,7 @@ export const saveMessagesAsMemory = (
         : buildConversationMemoryCards(
             picked,
             startTurn,
-            (user, assistant) =>
-              indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1
+            (user, assistant) => indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1
           )
   // 整段卡按消息去重；重要场景 / 关键事实按“同一消息 + 同类型 + 同正文”去重，
   // 允许在同一轮里保存多个不同场景，也允许场景与完整回合并存。
