@@ -29,6 +29,7 @@ const {
   WORLDBOOK_AUTHORITY_DEFAULT,
   EMPTY_SCENE,
   ROLEPLAY_FIXED_FACTS_RULE,
+  ROLEPLAY_VIEWPOINT_RULE,
   ROLEPLAY_COOPERATION_RULE,
   ROLEPLAY_IDENTITY_RULE,
   isAvatarDataUrl,
@@ -44,6 +45,7 @@ const {
   CHARACTER_PROFILE_FIELDS,
   shouldInjectCharacterProfile,
   PROFILE_FIXED_FACTS_RULE,
+  PROFILE_VIEWPOINT_RULE,
   PROFILE_COOPERATION_RULE,
   PROFILE_IDENTITY_RULE,
 } = await import('../src/services/chat/characterProfile.ts')
@@ -203,6 +205,18 @@ for (const card of builtins) {
   for (const label of ['姓名：', '情景设定：', '参考对白', '【角色内系统指令】']) {
     assert.ok(cardSystem.includes(label), `${card.name} 的 system 应包含 ${label}`)
   }
+  assert.ok(
+    cardSystem.includes('第三人称代词（只用于他人转述，不用于自称）：'),
+    `${card.name} 的代词必须标明只用于他人转述`
+  )
+  assert.ok(
+    cardSystem.includes('正文写自己时固定用第一人称「我」'),
+    `${card.name} 的 system 必须锁定第一人称自称`
+  )
+  assert.ok(
+    cardSystem.includes('上面的经历、秘密、外貌等资料可能用第三人称写成'),
+    `${card.name} 必须说明卡内资料不是输出范式`
+  )
   assert.doesNotMatch(cardSystem, /\{\{user\}\}|\{\{char\}\}/, `${card.name} 不应残留占位符`)
 }
 
@@ -532,7 +546,7 @@ const fixedProfileSystem = formatCharacterProfile({
 for (const label of [
   '年龄：24 岁',
   '性别：女性',
-  '代词：她',
+  '第三人称代词：她',
   '种族：人类',
   '身高：172cm',
   '体重：58kg',
@@ -545,9 +559,17 @@ assert.ok(
 )
 assert.ok(
   fixedProfileSystem.includes(
-    '年龄、性别、代词、种族、身高、体重、生日、职业、居住地和语言是固定事实'
+    '年龄、性别、第三人称代词、种族、身高、体重、生日、职业、居住地和语言是固定事实'
   ),
   '基础档案有固定字段时必须声明固定事实'
+)
+assert.ok(
+  fixedProfileSystem.includes('正文写自己时固定用第一人称「我」'),
+  '基础档案必须锁定第一人称自称'
+)
+assert.ok(
+  fixedProfileSystem.includes('不要用姓名或「她」「他」「ta」指自己'),
+  '基础档案必须禁止第三人称写自己'
 )
 assert.ok(
   fixedProfileSystem.includes('在角色逻辑里配合{{user}}的推进') === false &&
@@ -611,6 +633,7 @@ assert.equal(
 )
 assert.equal(PROFILE_COOPERATION_RULE, ROLEPLAY_COOPERATION_RULE, '档案与卡片的配合规则必须一致')
 assert.equal(PROFILE_IDENTITY_RULE, ROLEPLAY_IDENTITY_RULE, '档案与卡片的身份规则必须一致')
+assert.equal(PROFILE_VIEWPOINT_RULE, ROLEPLAY_VIEWPOINT_RULE, '档案与卡片的叙述视角规则必须一致')
 assert.deepEqual(
   [...new Set(CHARACTER_PROFILE_FIELDS.map((field) => field.group))],
   ['core', 'body', 'personality', 'story'],

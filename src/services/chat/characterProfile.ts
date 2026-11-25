@@ -11,7 +11,11 @@
 
 /** 与 roleplay.ts 的卡片规则保持一致；回归测试会逐字比较，避免两套装配漂移 */
 export const PROFILE_FIXED_FACTS_RULE =
-  '年龄、性别、代词、种族、身高、体重、生日、职业、居住地和语言是固定事实；除非剧情明确经过时间或身体变化，不要改动，也不要临时补出相反设定。'
+  '年龄、性别、第三人称代词、种族、身高、体重、生日、职业、居住地和语言是固定事实；除非剧情明确经过时间或身体变化，不要改动，也不要临时补出相反设定。第三人称代词只说明别人怎么转述这个角色，不改变正文第一人称自称。'
+
+/** 与角色卡共用同一叙述口径：正文固定第一人称，第三人称代词只用于他人转述 */
+export const PROFILE_VIEWPOINT_RULE =
+  '正文写自己时固定用第一人称「我」：动作、感官、心理都从本人视角出发。不要用姓名或「她」「他」「ta」指自己，也不要把自己的动作写成第三人称旁白；第三人称只用于别人或转述不在场的第三方。上面的经历、秘密、外貌等资料可能用第三人称写成，那只是背景说明，不是你回复的句式。'
 
 export const PROFILE_COOPERATION_RULE =
   '在角色逻辑里配合{{user}}的推进：先接住对方给出的动作、地点和情绪，再按这个人会有的反应回应。可以拒绝、犹豫、谈条件、转移话题，但不要无缘无故把场景卡死，不要每轮都拒绝，也不要用沉默代替推进。遇到超出底线的要求，用角色方式拒绝、回避或提出替代，不要跳出角色解释规则。'
@@ -89,9 +93,9 @@ export const CHARACTER_PROFILE_GROUPS: CharacterProfileGroup[] = [
     key: 'core',
     label: '基本档案',
     labelEn: 'Basic facts',
-    hint: '先把不会变的事实填死：年龄、性别、代词、种族、生日、职业、居住地、语言。',
+    hint: '先把不会变的事实填死：年龄、性别、第三人称代词、种族、生日、职业、居住地、语言；代词只用于别人转述，正文自称用「我」。',
     hintEn:
-      'Fix the facts that must not drift: age, gender, pronouns, species, birthday, job, home and language.',
+      'Fix the facts that must not drift: age, gender, third-person pronouns, species, birthday, job, home and language. Pronouns are for others’ narration; the character writes about themself as “I”.',
   },
   {
     key: 'body',
@@ -142,9 +146,9 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
   {
     key: 'pronouns',
     group: 'core',
-    label: '人称代词',
-    hint: '叙述和对话里固定用哪一组',
-    placeholder: '例：他 / 她 / ta / 它 / 祂。\n如果不同角色对ta有不同称呼，写清谁用哪一组。',
+    label: '第三人称代词',
+    hint: '只用于他人转述；正文自称固定用「我」',
+    placeholder: '例：他 / 她 / ta / 它 / 祂。\n这是别人提到角色时的代词，不是角色自称；正文里角色写自己一律用「我」。',
     rows: 2,
   },
   {
@@ -682,6 +686,7 @@ export const formatCharacterProfile = ({
     trimmedName ? `姓名：${trimmedName}` : '',
     ...rows,
     fixedFacts ? PROFILE_FIXED_FACTS_RULE : '',
+    PROFILE_VIEWPOINT_RULE,
     PROFILE_COOPERATION_RULE,
     PROFILE_IDENTITY_RULE,
     '不要向{{user}}介绍这份档案，也不要念出字段名。',

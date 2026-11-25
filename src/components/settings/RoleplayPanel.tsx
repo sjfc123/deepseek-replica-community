@@ -1039,7 +1039,7 @@ export function RoleplayPanel() {
         <div className={styles.editorHead}>
           <strong>{editingExisting ? '编辑角色卡' : '新建角色卡'}</strong>
           <span>
-            姓名必填。年龄、性别、代词和种族建议先填，避免人称和身份漂移；剩余字段留空不注入，越具体越稳定。
+            姓名必填。年龄、性别、第三人称代词和种族建议先填，避免人称和身份漂移；正文自称固定用「我」，代词只用于他人转述。剩余字段留空不注入，越具体越稳定。
           </span>
           <span className={styles.sourceLine}>
             字段支持 {'${char_name}'} 与 {'${user_name}'} 占位符，发送时替换为角色名和账户名。
@@ -1119,7 +1119,7 @@ export function RoleplayPanel() {
               <i>{cardSections.basic ? '收起' : '展开'}</i>
             </button>
             <span>
-              年龄、性别、代词和种族是硬事实，写清后不会随对话漂移；不知道的项留空，不要临时补。
+              年龄、性别、第三人称代词和种族是硬事实，写清后不会随对话漂移；正文写自己一律用「我」，代词只用于别人转述。不知道的项留空，不要临时补。
             </span>
           </div>
           {cardSections.basic ? (
@@ -1152,11 +1152,11 @@ export function RoleplayPanel() {
             />
           </label>
           <label>
-            <span>代词</span>
+            <span>第三人称代词</span>
             <input
               value={cardDraft.pronouns}
               maxLength={20}
-              placeholder="她 / 他 / ta"
+              placeholder="她 / 他 / ta（只用于他人转述）"
               onChange={(event) => setCardDraft({ ...cardDraft, pronouns: event.target.value })}
             />
           </label>

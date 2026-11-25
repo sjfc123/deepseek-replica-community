@@ -25,7 +25,7 @@ import {
 } from '../attachments.js'
 import { MANY_IMAGES_COUNT, MANY_IMAGES_MAX_EDGE, MAX_IMAGE_EDGE } from '../imageUpload.js'
 import { parseCustomHeaders } from '../api/headers.js'
-import { composeSystemPrompt } from './systemPrompt.js'
+import { composeSystemPrompt, ROLEPLAY_VIEWPOINT_REMINDER } from './systemPrompt.js'
 import {
   formatCharacterIdentity,
   formatCharacterProfile,
@@ -2706,6 +2706,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     formatStoryTurnBlock(activeCard?.story, sessionForMemory),
     formatWorldbookBlock(worldBefore),
     formatWorldbookBlock(worldAfter),
+    // 固定 system 之外的短提醒：长对话里模型容易滑向第三人称旁白，放在本轮背景末尾再压一次。
+    roleplayContext ? ROLEPLAY_VIEWPOINT_REMINDER : '',
   ]
     .filter(Boolean)
     .join('\n\n')

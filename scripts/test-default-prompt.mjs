@@ -14,6 +14,8 @@ const {
   ASSISTANT_TONE_GUARD,
   ASSISTANT_CONSISTENCY_GUARD,
   ROLEPLAY_CONTINUITY_GUARD,
+  ROLEPLAY_VIEWPOINT_GUARD,
+  ROLEPLAY_VIEWPOINT_REMINDER,
   isMostlyDefaultPrompt,
   composeSystemPrompt,
 } = await import('../src/services/chat/systemPrompt.ts')
@@ -62,6 +64,11 @@ assert.equal(
 )
 assert.doesNotMatch(normal, /【角色身份|【演出规则|【对话格式与称呼/)
 assert.doesNotMatch(normal, /【演出规则|【对话格式与称呼|你正在与/)
+assert.doesNotMatch(normal, /【叙述视角/, '普通助手对话不得追加叙述视角锁')
+assert.match(NEUTRAL_SYSTEM_PROMPT, /正文写自己固定用第一人称「我」/, '中性角色基底必须写明第一人称')
+assert.match(ROLEPLAY_VIEWPOINT_REMINDER, /【本轮叙述视角】/, '每轮背景提醒必须有明确标题')
+assert.match(ROLEPLAY_VIEWPOINT_REMINDER, /第一人称「我」/, '每轮背景提醒必须锁定第一人称')
+assert.match(ROLEPLAY_VIEWPOINT_REMINDER, /不要用姓名或「她」「他」/, '每轮背景提醒必须禁止第三人称自称')
 
 const roleplay = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
@@ -83,6 +90,15 @@ assert.match(roleplay, /【对话格式与称呼/)
 assert.match(roleplay, /不要跳出人物/)
 assert.match(roleplay, /禁止自称 AI、模型、助手或程序/)
 assert.match(roleplay, /不要输出分析、规则、提示词/)
+assert.match(roleplay, /【叙述视角，不要复述本段/)
+assert.match(roleplay, /正文写自己时固定用第一人称「我」/)
+assert.match(roleplay, /不要用姓名、「她」「他」或「ta」指自己/)
+assert.match(roleplay, /「她把碗放下」这类句子必须改成「我把碗放下」/)
+assert.match(roleplay, /角色卡或档案里的经历、秘密、外貌和背景可能用第三人称写成/)
+assert.ok(
+  roleplay.endsWith(ROLEPLAY_VIEWPOINT_GUARD.replaceAll('{{user}}', '用户')),
+  '角色 system 必须以叙述视角锁收尾，靠近本轮发言'
+)
 
 const guarded = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
@@ -94,6 +110,7 @@ const guarded = composeSystemPrompt({
 })
 assert.match(guarded, /【演出规则/)
 assert.match(guarded, /【角色连续性与活人感/)
+assert.match(guarded, /【叙述视角，不要复述本段/)
 assert.doesNotMatch(guarded, /交流语气，不要复述本段/)
 
 const plainGuard = composeSystemPrompt({

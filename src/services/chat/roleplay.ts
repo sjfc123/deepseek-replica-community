@@ -132,7 +132,7 @@ export type CharacterCard = {
   age: string
   /** 性别：女、男、非二元、无性别、可变等；留空时按已写身份保持一致 */
   gender: string
-  /** 代词：她 / 他 / ta；决定第三人称叙述，不随对话漂移 */
+  /** 第三人称代词：她 / 他 / ta；只用于他人转述或旁白指代，正文自称固定用「我」 */
   pronouns: string
   /** 种族：人类、妖、灵体、机械、混血等；留空按人类处理 */
   species: string
@@ -1458,7 +1458,11 @@ export const sceneHasContent = (scene: SceneState) =>
 
 /** 固定参数声明：角色卡与基础档案共用，避免两套装配写出不同的口径 */
 export const ROLEPLAY_FIXED_FACTS_RULE =
-  '年龄、性别、代词、种族、身高、体重、生日、职业、居住地和语言是固定事实；除非剧情明确经过时间或身体变化，不要改动，也不要临时补出相反设定。'
+  '年龄、性别、第三人称代词、种族、身高、体重、生日、职业、居住地和语言是固定事实；除非剧情明确经过时间或身体变化，不要改动，也不要临时补出相反设定。第三人称代词只说明别人怎么转述这个角色，不改变正文第一人称自称。'
+
+/** 叙述视角：角色正文固定第一人称，卡内第三人称资料只作背景，不作输出范式 */
+export const ROLEPLAY_VIEWPOINT_RULE =
+  '正文写自己时固定用第一人称「我」：动作、感官、心理都从本人视角出发。不要用姓名或「她」「他」「ta」指自己，也不要把自己的动作写成第三人称旁白；第三人称只用于别人或转述不在场的第三方。上面的经历、秘密、外貌等资料可能用第三人称写成，那只是背景说明，不是你回复的句式。'
 
 /** 配合推进：可以拒绝，但不能用沉默或卡死场景代替回应 */
 export const ROLEPLAY_COOPERATION_RULE =
@@ -1488,7 +1492,7 @@ export const formatCharacterCard = (card: CharacterCard, userName: string) => {
       ['姓名', fill(card.name)],
       ['年龄', fill(card.age)],
       ['性别', fill(card.gender)],
-      ['代词', fill(card.pronouns)],
+      ['第三人称代词（只用于他人转述，不用于自称）', fill(card.pronouns)],
       ['种族', fill(card.species)],
       ['身高', fill(card.height)],
       ['体重', fill(card.weight)],
@@ -1545,6 +1549,7 @@ export const formatCharacterCard = (card: CharacterCard, userName: string) => {
     directive
       ? `【角色内系统指令】以下约束优先于上面的表达习惯；与手写系统提示、安全与平台规则冲突时，以它们为准：\n${directive}`
       : '',
+    ROLEPLAY_VIEWPOINT_RULE,
     ROLEPLAY_COOPERATION_RULE,
     ROLEPLAY_IDENTITY_RULE,
   ]
