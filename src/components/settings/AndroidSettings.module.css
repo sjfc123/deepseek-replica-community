@@ -1012,6 +1012,10 @@ a.row:active,
     color: var(--settings-muted);
     background: color-mix(in srgb, var(--settings-muted) 7%, transparent);
   }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
 }
 
 .promptReset {

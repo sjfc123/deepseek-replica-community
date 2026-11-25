@@ -1962,3 +1962,96 @@
     -webkit-line-clamp: 5;
   }
 }
+
+/* 角色卡收纳、编辑器分组与折叠、世界书分类分组：只影响排版，不改命中与注入 */
+.cardCollapse {
+  flex: none;
+  margin-left: auto;
+  padding: 3px 9px;
+  border: 1px solid var(--rp-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--rp-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.cardCollapse:hover {
+  border-color: var(--rp-accent);
+  color: var(--rp-accent);
+}
+
+.fieldGroupToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.fieldGroupToggle i {
+  padding: 1px 7px;
+  border: 1px solid var(--rp-line);
+  border-radius: 999px;
+  color: var(--rp-muted);
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.6;
+}
+
+.entryGroup {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--rp-line);
+  border-radius: 14px;
+  background: var(--rp-card, transparent);
+}
+
+.entryGroupHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--rp-line);
+  background: color-mix(in srgb, var(--rp-accent) 5%, transparent);
+  color: var(--dsw-alias-label-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.entryGroupHead strong {
+  font-size: 12px;
+}
+
+.entryGroupHead small {
+  color: var(--rp-muted);
+  font-size: 10px;
+}
+
+.entryGroupHead i {
+  margin-left: auto;
+  padding: 1px 7px;
+  border: 1px solid var(--rp-line);
+  border-radius: 999px;
+  color: var(--rp-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.entryGroupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.cardList .cardRow[data-collapsed] {
+  align-self: start;
+}

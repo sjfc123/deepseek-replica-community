@@ -5,7 +5,6 @@
  * ========================================================================== */
 
 import {
-  WORLDBOOK_CONTENT_MAX,
   findPlayStyle,
   findWorldbookAuthority,
   findWorldbookKind,
@@ -316,7 +315,7 @@ const toWorldbookEntry = (
     id: text(item.id) || newRoleplayId(),
     title,
     keywords: normalizeKeywords(keys),
-    content: content.slice(0, WORLDBOOK_CONTENT_MAX),
+    content,
     enabled: item.disable === true ? false : item.enabled !== false,
     always: item.constant === true || item.always === true,
     match: item.regex === true || item.match === 'regex' ? 'regex' : 'keyword',

@@ -143,6 +143,25 @@ const [card] = normalizeCharacterCards([
   },
 ])
 assert.equal(card.notes.length, longNotes.length, '补充设定不能被归一化截断')
+const longFields = {
+  identity: '身份'.repeat(3_000),
+  relationship: '关系'.repeat(2_000),
+  style: '语气'.repeat(2_000),
+  greeting: '开场'.repeat(4_000),
+  scenario: '情景'.repeat(4_000),
+  background: '经历'.repeat(10_000),
+  speechExamples: '对白'.repeat(8_000),
+}
+const [unlimited] = normalizeCharacterCards([{ name: '长设定', ...longFields }])
+for (const [key, value] of Object.entries(longFields)) {
+  assert.equal(unlimited[key].length, value.length, `${key} 不能再被归一化截断`)
+}
+const [coreLimited] = normalizeCharacterCards([
+  { name: '名'.repeat(60), age: '龄'.repeat(120), gender: '别'.repeat(80) },
+])
+assert.equal(coreLimited.name.length, 30, '姓名属于核心设定，保留长度上限')
+assert.equal(coreLimited.age.length, 80, '年龄属于核心设定，保留长度上限')
+assert.equal(coreLimited.gender.length, 40, '性别属于核心设定，保留长度上限')
 assert.equal(card.playStyle, 'mystery', '英文玩法 key 应保留')
 assert.equal(
   normalizeCharacterCards([{ name: '中文玩法', playStyle: '悬疑调查' }])[0].playStyle,
@@ -153,6 +172,13 @@ assert.equal(
   normalizeWorldbook([{ title: '码头', content: '旧码头', kind: '地点' }])[0].kind,
   'location',
   '导入中文世界书分类应映射到 key'
+)
+
+const longWorldbook = '设定'.repeat(5_000)
+assert.equal(
+  normalizeWorldbook([{ title: '长条目', content: longWorldbook }])[0].content.length,
+  longWorldbook.length,
+  '世界书正文不能再被归一化截断'
 )
 
 const prompt = formatCharacterCard(card, '用户')

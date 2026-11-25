@@ -988,6 +988,8 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
   return raw
     .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
     .map((item) => ({
+      // 核心事实保留长度限制，避免姓名、年龄、性别被写成整段并破坏列表与检索；
+      // 其余可填写设定按用户要求不截断，保存与重载都保留原文字数。
       id: text(item.id) || newRoleplayId(),
       name: text(item.name).slice(0, 30),
       age: text(item.age).slice(0, 80),
@@ -997,37 +999,36 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
       height: text(item.height).slice(0, 40),
       weight: text(item.weight).slice(0, 40),
       birthday: text(item.birthday).slice(0, 40),
-      occupation: text(item.occupation).slice(0, 80),
-      residence: text(item.residence).slice(0, 80),
-      languages: text(item.languages).slice(0, 80),
-      favoriteFoods: text(item.favoriteFoods).slice(0, 200),
-      dislikedFoods: text(item.dislikedFoods).slice(0, 200),
-      favoriteDrinks: text(item.favoriteDrinks).slice(0, 200),
-      hobbies: text(item.hobbies).slice(0, 200),
-      dailyRoutine: text(item.dailyRoutine).slice(0, 300),
-      possessions: text(item.possessions).slice(0, 200),
-      pet: text(item.pet).slice(0, 80),
-      temperament: text(item.temperament).slice(0, 300),
-      values: text(item.values).slice(0, 300),
-      petPeeves: text(item.petPeeves).slice(0, 200),
-      boundaries: text(item.boundaries).slice(0, 300),
-      cooperation: text(item.cooperation).slice(0, 300),
-      identity: text(item.identity).slice(0, 1200),
-      relationship: text(item.relationship).slice(0, 800),
-      style: text(item.style).slice(0, 800),
-      tics: text(item.tics).slice(0, 600),
-      greeting: text(item.greeting).slice(0, 2000),
-      // 补充设定不限制字数：该字段不截断，界面也不设置 maxLength
+      occupation: text(item.occupation),
+      residence: text(item.residence),
+      languages: text(item.languages),
+      favoriteFoods: text(item.favoriteFoods),
+      dislikedFoods: text(item.dislikedFoods),
+      favoriteDrinks: text(item.favoriteDrinks),
+      hobbies: text(item.hobbies),
+      dailyRoutine: text(item.dailyRoutine),
+      possessions: text(item.possessions),
+      pet: text(item.pet),
+      temperament: text(item.temperament),
+      values: text(item.values),
+      petPeeves: text(item.petPeeves),
+      boundaries: text(item.boundaries),
+      cooperation: text(item.cooperation),
+      identity: text(item.identity),
+      relationship: text(item.relationship),
+      style: text(item.style),
+      tics: text(item.tics),
+      greeting: text(item.greeting),
       notes: text(item.notes),
-      genre: text(item.genre).slice(0, 12),
+      genre: text(item.genre),
       playStyle: findPlayStyle(item.playStyle).key,
-      scenario: text(item.scenario).slice(0, 3000),
-      systemDirective: text(item.systemDirective).slice(0, 3000),
-      appearance: text(item.appearance).slice(0, 1000),
-      background: text(item.background).slice(0, 4000),
-      goal: text(item.goal).slice(0, 1000),
-      secret: text(item.secret).slice(0, 3000),
-      speechExamples: text(item.speechExamples).slice(0, 6000),
+      scenario: text(item.scenario),
+      systemDirective: text(item.systemDirective),
+      appearance: text(item.appearance),
+      background: text(item.background),
+      goal: text(item.goal),
+      secret: text(item.secret),
+      speechExamples: text(item.speechExamples),
       createdAt: Number(item.createdAt) || Date.now(),
       updatedAt: Number(item.updatedAt) || Date.now(),
       builtin: item.builtin === true,
@@ -1037,8 +1038,6 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
     .filter((card) => card.name)
     .slice(0, CHARACTER_CARD_MAX)
 }
-
-export const WORLDBOOK_CONTENT_MAX = 4000
 
 /**
  * 完全重复（同一角色、分类、标题和正文）只保留一条，合并时取更宽的启用状态与更高权重。
@@ -1082,7 +1081,7 @@ export const normalizeWorldbook = (raw: unknown): WorldbookEntry[] => {
         id: text(item.id) || newRoleplayId(),
         title: text(item.title).slice(0, 60),
         keywords: normalizeKeywords(Array.isArray(item.keywords) ? item.keywords.map(String) : []),
-        content: text(item.content).slice(0, WORLDBOOK_CONTENT_MAX),
+        content: text(item.content),
         enabled: item.enabled !== false,
         always: item.always === true,
         match: (item.match === 'regex' ? 'regex' : 'keyword') as WorldbookEntry['match'],

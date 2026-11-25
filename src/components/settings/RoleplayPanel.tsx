@@ -16,7 +16,6 @@ import {
   PLAY_STYLE_DEFAULT,
   SCENE_FIELDS,
   SCENE_LIMITS,
-  WORLDBOOK_CONTENT_MAX,
   WORLDBOOK_AUTHORITIES,
   WORLDBOOK_AUTHORITY_DEFAULT,
   WORLDBOOK_KINDS,
@@ -533,6 +532,14 @@ export function RoleplayPanel() {
   const [panelTab, setPanelTab] = useState<'cards' | 'worldbook' | 'scene'>('cards')
   const [entryQuery, setEntryQuery] = useState('')
   const [entryKindFilter, setEntryKindFilter] = useState<'all' | WorldbookEntry['kind']>('all')
+  const [collapsedEntryKinds, setCollapsedEntryKinds] = useState<WorldbookEntry['kind'][]>([])
+  const [collapsedCards, setCollapsedCards] = useState<string[]>([])
+  const [cardSections, setCardSections] = useState({
+    basic: true,
+    body: true,
+    character: true,
+    story: true,
+  })
   const [budgetDraft, setBudgetDraft] = useState(String(worldbookChars))
   const [cardImporting, setCardImporting] = useState(false)
   const avatarInput = useRef<HTMLInputElement>(null)
@@ -596,11 +603,29 @@ export function RoleplayPanel() {
     (entry) =>
       (entryKindFilter === 'all' || entry.kind === entryKindFilter) &&
       (!entryNeedle ||
-        [entry.title, entry.content, ...entry.keywords]
+        [entry.title, entry.content, ...entry.keywords, ...entry.excludeKeywords]
           .join('\n')
           .toLowerCase()
           .includes(entryNeedle))
   )
+  // 分类分组只影响展示顺序与折叠，不改变命中、启用和注入逻辑。
+  const entryGroups = WORLDBOOK_KINDS.map((kind) => ({
+    ...kind,
+    entries: filteredEntries.filter((entry) => entry.kind === kind.key),
+  })).filter((group) => group.entries.length > 0)
+  const allEntryGroupsOpen =
+    entryGroups.length > 0 &&
+    entryGroups.every((group) => !collapsedEntryKinds.includes(group.key))
+  const toggleEntryKind = (kind: WorldbookEntry['kind']) =>
+    setCollapsedEntryKinds((current) =>
+      current.includes(kind) ? current.filter((item) => item !== kind) : [...current, kind]
+    )
+  const toggleCardCollapsed = (id: string) =>
+    setCollapsedCards((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    )
+  const toggleCardSection = (key: keyof typeof cardSections) =>
+    setCardSections((current) => ({ ...current, [key]: !current[key] }))
   const enabledEntries = worldbook.filter((entry) => entry.enabled).length
   const alwaysEntries =
     roleplayOn && worldbookInject
@@ -658,6 +683,8 @@ export function RoleplayPanel() {
         card.background,
         card.systemDirective,
         card.notes,
+        card.genre,
+        ...card.tags,
       ]
         .join('\n')
         .toLowerCase()
@@ -1082,11 +1109,21 @@ export function RoleplayPanel() {
         </datalist>
         <div className={styles.fieldGrid}>
           <div className={styles.fieldGroup}>
-            <strong>基本档案</strong>
+            <button
+              type="button"
+              className={styles.fieldGroupToggle}
+              aria-expanded={cardSections.basic}
+              onClick={() => toggleCardSection('basic')}
+            >
+              <strong>基本档案</strong>
+              <i>{cardSections.basic ? '收起' : '展开'}</i>
+            </button>
             <span>
               年龄、性别、代词和种族是硬事实，写清后不会随对话漂移；不知道的项留空，不要临时补。
             </span>
           </div>
+          {cardSections.basic ? (
+            <>
           <label>
             <span>姓名 *</span>
             <input
@@ -1145,7 +1182,6 @@ export function RoleplayPanel() {
             <span>职业</span>
             <input
               value={cardDraft.occupation}
-              maxLength={80}
               placeholder="夜班店员 / 剑冢守冢人 / 学生"
               onChange={(event) => setCardDraft({ ...cardDraft, occupation: event.target.value })}
             />
@@ -1154,7 +1190,6 @@ export function RoleplayPanel() {
             <span>居住地</span>
             <input
               value={cardDraft.residence}
-              maxLength={80}
               placeholder="旧城巷口 / 宗门后山 / 终端里"
               onChange={(event) => setCardDraft({ ...cardDraft, residence: event.target.value })}
             />
@@ -1163,7 +1198,6 @@ export function RoleplayPanel() {
             <span>语言与口音</span>
             <input
               value={cardDraft.languages}
-              maxLength={80}
               placeholder="普通话，带一点江城口音"
               onChange={(event) => setCardDraft({ ...cardDraft, languages: event.target.value })}
             />
@@ -1173,18 +1207,29 @@ export function RoleplayPanel() {
             <input
               list="rp-genre-options"
               value={cardDraft.genre}
-              maxLength={12}
               placeholder="例如：江湖、修仙、都市、悬疑"
               onChange={(event) => setCardDraft({ ...cardDraft, genre: event.target.value })}
             />
           </label>
+            </>
+          ) : null}
 
           <div className={styles.fieldGroup}>
-            <strong>身体与生活</strong>
+            <button
+              type="button"
+              className={styles.fieldGroupToggle}
+              aria-expanded={cardSections.body}
+              onClick={() => toggleCardSection('body')}
+            >
+              <strong>身体与生活</strong>
+              <i>{cardSections.body ? '收起' : '展开'}</i>
+            </button>
             <span>
               把能被看见、吃到、摸到的东西写具体；这些细节决定角色是“活着”还是只在等人回复。
             </span>
           </div>
+          {cardSections.body ? (
+            <>
           <label>
             <span>身高</span>
             <input
@@ -1208,7 +1253,6 @@ export function RoleplayPanel() {
             <textarea
               rows={2}
               value={cardDraft.appearance}
-              maxLength={1000}
               placeholder="脸、发型、肤色、常穿的衣服、旧伤、声音、气味；身高体重不在这里重复"
               onChange={(event) => setCardDraft({ ...cardDraft, appearance: event.target.value })}
             />
@@ -1217,7 +1261,6 @@ export function RoleplayPanel() {
             <span>喜欢的食物</span>
             <input
               value={cardDraft.favoriteFoods}
-              maxLength={200}
               placeholder="巷口牛肉粉、白米饭、小鱼干"
               onChange={(event) =>
                 setCardDraft({ ...cardDraft, favoriteFoods: event.target.value })
@@ -1228,7 +1271,6 @@ export function RoleplayPanel() {
             <span>讨厌的食物</span>
             <input
               value={cardDraft.dislikedFoods}
-              maxLength={200}
               placeholder="香菜、太甜的、隔夜饭"
               onChange={(event) =>
                 setCardDraft({ ...cardDraft, dislikedFoods: event.target.value })
@@ -1239,7 +1281,6 @@ export function RoleplayPanel() {
             <span>常喝的</span>
             <input
               value={cardDraft.favoriteDrinks}
-              maxLength={200}
               placeholder="冷咖啡、粗茶、牛奶"
               onChange={(event) =>
                 setCardDraft({ ...cardDraft, favoriteDrinks: event.target.value })
@@ -1250,7 +1291,6 @@ export function RoleplayPanel() {
             <span>兴趣</span>
             <input
               value={cardDraft.hobbies}
-              maxLength={200}
               placeholder="修旧表、听雨、拍老建筑"
               onChange={(event) => setCardDraft({ ...cardDraft, hobbies: event.target.value })}
             />
@@ -1260,7 +1300,6 @@ export function RoleplayPanel() {
             <textarea
               rows={2}
               value={cardDraft.dailyRoutine}
-              maxLength={300}
               placeholder="几点起、几点睡、白天在哪、饭点做什么；没有剧情作用的小习惯最能让角色落地"
               onChange={(event) => setCardDraft({ ...cardDraft, dailyRoutine: event.target.value })}
             />
@@ -1269,7 +1308,6 @@ export function RoleplayPanel() {
             <span>随身物</span>
             <input
               value={cardDraft.possessions}
-              maxLength={200}
               placeholder="旧表、卷尺、一枚磨亮的铜钱"
               onChange={(event) => setCardDraft({ ...cardDraft, possessions: event.target.value })}
             />
@@ -1278,24 +1316,34 @@ export function RoleplayPanel() {
             <span>宠物</span>
             <input
               value={cardDraft.pet}
-              maxLength={80}
               placeholder="无 / 一只叫年糕的橘猫"
               onChange={(event) => setCardDraft({ ...cardDraft, pet: event.target.value })}
             />
           </label>
+            </>
+          ) : null}
 
           <div className={styles.fieldGroup}>
-            <strong>性格与边界</strong>
+            <button
+              type="button"
+              className={styles.fieldGroupToggle}
+              aria-expanded={cardSections.character}
+              onClick={() => toggleCardSection('character')}
+            >
+              <strong>性格与边界</strong>
+              <i>{cardSections.character ? '收起' : '展开'}</i>
+            </button>
             <span>
               性格不是标签堆叠，是压力下的选择；雷点和底线写具体，角色才不会为了配合而丢掉自己。
             </span>
           </div>
+          {cardSections.character ? (
+            <>
           <label className={styles.wide}>
             <span>性格底色</span>
             <textarea
               rows={2}
               value={cardDraft.temperament}
-              maxLength={300}
               placeholder="平时怎样，被逼到墙角会怎样；核心欲望、矛盾点、对亲近和冲突的反应"
               onChange={(event) => setCardDraft({ ...cardDraft, temperament: event.target.value })}
             />
@@ -1305,7 +1353,6 @@ export function RoleplayPanel() {
             <textarea
               rows={2}
               value={cardDraft.values}
-              maxLength={300}
               placeholder="最看重什么、为什么不肯让步；遇到冲突时先保什么、后放弃什么"
               onChange={(event) => setCardDraft({ ...cardDraft, values: event.target.value })}
             />
@@ -1314,7 +1361,6 @@ export function RoleplayPanel() {
             <span>雷点</span>
             <input
               value={cardDraft.petPeeves}
-              maxLength={200}
               placeholder="被说胖、被替死去的弟兄做主、被催婚"
               onChange={(event) => setCardDraft({ ...cardDraft, petPeeves: event.target.value })}
             />
@@ -1323,7 +1369,6 @@ export function RoleplayPanel() {
             <span>底线</span>
             <input
               value={cardDraft.boundaries}
-              maxLength={300}
               placeholder="不接杀人买卖、不写成人内容、不替对方做重大决定"
               onChange={(event) => setCardDraft({ ...cardDraft, boundaries: event.target.value })}
             />
@@ -1333,24 +1378,34 @@ export function RoleplayPanel() {
             <textarea
               rows={2}
               value={cardDraft.cooperation}
-              maxLength={300}
               placeholder="希望怎样推进场景；可以拒绝、犹豫或谈条件，但每轮都要留一个可继续的落点"
               onChange={(event) => setCardDraft({ ...cardDraft, cooperation: event.target.value })}
             />
           </label>
+            </>
+          ) : null}
 
           <div className={styles.fieldGroup}>
-            <strong>剧情与表达</strong>
+            <button
+              type="button"
+              className={styles.fieldGroupToggle}
+              aria-expanded={cardSections.story}
+              onClick={() => toggleCardSection('story')}
+            >
+              <strong>剧情与表达</strong>
+              <i>{cardSections.story ? '收起' : '展开'}</i>
+            </button>
             <span>
               这一段决定这场戏怎么开始、怎么推进、哪些事不到时候不能说；越具体，越不容易 OOC。
             </span>
           </div>
+          {cardSections.story ? (
+            <>
           <label className={styles.wide}>
             <span>身份与自我认知</span>
             <textarea
               rows={3}
               value={cardDraft.identity}
-              maxLength={1200}
               placeholder="职业之外的自我认知、社会位置、别人怎么看她；年龄、性别、身高不在这里重复"
               onChange={(event) => setCardDraft({ ...cardDraft, identity: event.target.value })}
             />
@@ -1360,7 +1415,6 @@ export function RoleplayPanel() {
             <textarea
               rows={2}
               value={cardDraft.relationship}
-              maxLength={800}
               placeholder="怎么认识、认识多久、现在算什么、边界在哪；关系会变化时写清起点与可能走向"
               onChange={(event) => setCardDraft({ ...cardDraft, relationship: event.target.value })}
             />
@@ -1369,7 +1423,6 @@ export function RoleplayPanel() {
             <span>说话风格</span>
             <input
               value={cardDraft.style}
-              maxLength={800}
               placeholder="话量、句长、语气强弱、用词习惯"
               onChange={(event) => setCardDraft({ ...cardDraft, style: event.target.value })}
             />
@@ -1378,7 +1431,6 @@ export function RoleplayPanel() {
             <span>小习惯</span>
             <input
               value={cardDraft.tics}
-              maxLength={600}
               placeholder="紧张时捏衣角，开口前先叹气"
               onChange={(event) => setCardDraft({ ...cardDraft, tics: event.target.value })}
             />
@@ -1406,7 +1458,6 @@ export function RoleplayPanel() {
             <textarea
               rows={4}
               value={cardDraft.scenario}
-              maxLength={3000}
               placeholder="时间、地点、正在发生的事、对方为什么在这里；动态变化请写入场景"
               onChange={(event) => setCardDraft({ ...cardDraft, scenario: event.target.value })}
             />
@@ -1416,7 +1467,6 @@ export function RoleplayPanel() {
             <textarea
               rows={3}
               value={cardDraft.background}
-              maxLength={4000}
               placeholder="塑造现在的关键经历；不必写成完整传记，留白比堆事件更好用"
               onChange={(event) => setCardDraft({ ...cardDraft, background: event.target.value })}
             />
@@ -1426,7 +1476,6 @@ export function RoleplayPanel() {
             <textarea
               rows={2}
               value={cardDraft.goal}
-              maxLength={1000}
               placeholder="角色眼下想做成的事；有目标人物才会有自己的行动"
               onChange={(event) => setCardDraft({ ...cardDraft, goal: event.target.value })}
             />
@@ -1436,7 +1485,6 @@ export function RoleplayPanel() {
             <textarea
               rows={2}
               value={cardDraft.secret}
-              maxLength={3000}
               placeholder="不到时候不说破的隐情；用于制造试探、误会和后续反转"
               onChange={(event) => setCardDraft({ ...cardDraft, secret: event.target.value })}
             />
@@ -1446,7 +1494,6 @@ export function RoleplayPanel() {
             <textarea
               rows={4}
               value={cardDraft.speechExamples}
-              maxLength={6000}
               placeholder="三到五句能代表语气的话，每句一行；模型只学节奏，不会照抄"
               onChange={(event) =>
                 setCardDraft({ ...cardDraft, speechExamples: event.target.value })
@@ -1458,7 +1505,6 @@ export function RoleplayPanel() {
             <textarea
               rows={4}
               value={cardDraft.systemDirective}
-              maxLength={3000}
               placeholder="例如：动刀必须有代价；每轮只放出一条线索；不替对方做重大决定"
               onChange={(event) =>
                 setCardDraft({ ...cardDraft, systemDirective: event.target.value })
@@ -1470,7 +1516,6 @@ export function RoleplayPanel() {
             <textarea
               rows={3}
               value={cardDraft.greeting}
-              maxLength={2000}
               placeholder="新对话开场白，可包含动作与环境描写；启用该卡时作为首条消息发送"
               onChange={(event) => setCardDraft({ ...cardDraft, greeting: event.target.value })}
             />
@@ -1493,6 +1538,8 @@ export function RoleplayPanel() {
               onChange={(event) => setTagDraft(event.target.value)}
             />
           </label>
+            </>
+          ) : null}
         </div>
         <div className={styles.editorActions}>
           <button
@@ -1530,6 +1577,65 @@ export function RoleplayPanel() {
   }
 
   /* -------------------- 功能区：角色卡编辑器 结束 -------------------- */
+
+  /* -------------------- 功能区：世界书条目行渲染 开始 -------------------- */
+  const renderEntryRow = (entry: WorldbookEntry) => (
+    <article key={entry.id} className={styles.entryRow} data-off={!entry.enabled}>
+      <div className={styles.entryHead}>
+        <div>
+          <strong>{entry.title}</strong>
+          <span className={styles.constantTag}>
+            {WORLDBOOK_KINDS.find((kind) => kind.key === entry.kind)?.label ?? '其他'}
+          </span>
+          <span className={styles.authorityTag} data-authority={entry.authority}>
+            {WORLDBOOK_AUTHORITIES.find((authority) => authority.key === entry.authority)?.label ??
+              '硬设定'}
+          </span>
+          {entry.scope === 'session' ? (
+            <span className={styles.constantTag}>整段历史</span>
+          ) : null}
+          {entry.match === 'regex' ? <span className={styles.constantTag}>正则</span> : null}
+          {entry.cardId ? (
+            <span className={styles.constantTag}>
+              仅 {cards.find((card) => card.id === entry.cardId)?.name ?? '已删除的卡'}
+            </span>
+          ) : null}
+          {entry.always ? <span className={styles.constantTag}>每轮注入</span> : null}
+          {entry.position === 'tail' ? <span className={styles.constantTag}>靠后</span> : null}
+          {entry.weight !== WORLDBOOK_WEIGHT_DEFAULT ? (
+            <span className={styles.constantTag}>权重 {entry.weight}</span>
+          ) : null}
+          {!entry.enabled ? <span className={styles.offTag}>已停用</span> : null}
+        </div>
+        <div className={styles.rowActions}>
+          <button type="button" onClick={() => startEditEntry(entry)}>
+            编辑
+          </button>
+          <button
+            type="button"
+            className={styles.dangerText}
+            onClick={() => setConfirm({ kind: 'entry', id: entry.id, name: entry.title })}
+          >
+            删除
+          </button>
+        </div>
+      </div>
+      <p>{entry.content}</p>
+      <div className={styles.keywords}>
+        {entry.keywords.length > 0 ? (
+          entry.keywords.map((keyword) => <span key={keyword}>{keyword}</span>)
+        ) : (
+          <span className={styles.mutedChip}>未设置关键词，仅在「每轮注入」开启时生效</span>
+        )}
+        {entry.excludeKeywords.map((keyword) => (
+          <span key={`x-${keyword}`} className={styles.mutedChip}>
+            避触 {keyword}
+          </span>
+        ))}
+      </div>
+    </article>
+  )
+  /* -------------------- 功能区：世界书条目行渲染 结束 -------------------- */
 
   /* -------------------- 功能区：示例应用与面板主渲染 开始 -------------------- */
   return (
@@ -1697,11 +1803,11 @@ export function RoleplayPanel() {
           )}
         </div>
 
-        {cards.length > 6 ? (
+        {cards.length > 0 ? (
           <div className={styles.searchRow}>
             <input
               value={cardQuery}
-              placeholder="按姓名、身份或关系搜索角色卡"
+              placeholder="搜索姓名、身份、关系、性格或标签"
               aria-label="搜索角色卡"
               onChange={(event) => setCardQuery(event.target.value)}
             />
@@ -1753,6 +1859,7 @@ export function RoleplayPanel() {
                 className={styles.cardRow}
                 data-active={selected}
                 data-editing={editing}
+                data-collapsed={collapsedCards.includes(card.id) ? '' : undefined}
               >
                 {editing ? (
                   <div className={styles.inlineEditor}>{renderCardEditor()}</div>
@@ -1792,8 +1899,17 @@ export function RoleplayPanel() {
                                   : `${formatDate(card.updatedAt)} 更新`}
                         </small>
                       </div>
+                      <button
+                        type="button"
+                        className={styles.cardCollapse}
+                        aria-expanded={!collapsedCards.includes(card.id)}
+                        onClick={() => toggleCardCollapsed(card.id)}
+                      >
+                        {collapsedCards.includes(card.id) ? '展开' : '收起'}
+                      </button>
                     </div>
-                    <div className={styles.cardMain}>
+                    {!collapsedCards.includes(card.id) ? (
+                      <div className={styles.cardMain}>
                       <p>{card.identity || card.relationship || '未填写身份'}</p>
                       {card.greeting ? (
                         <blockquote className={styles.cardQuote}>
@@ -1872,7 +1988,8 @@ export function RoleplayPanel() {
                           删除
                         </button>
                       </div>
-                    </div>
+                      </div>
+                    ) : null}
                   </>
                 )}
               </article>
@@ -2262,7 +2379,6 @@ export function RoleplayPanel() {
                 <textarea
                   rows={5}
                   value={entryDraft.content}
-                  maxLength={WORLDBOOK_CONTENT_MAX}
                   placeholder="记录稳定设定：地点环境、人物关系、规则与既往事件；随剧情变化的状态请写入场景。"
                   onChange={(event) =>
                     setEntryDraft({ ...entryDraft, content: event.target.value })
@@ -2344,69 +2460,40 @@ export function RoleplayPanel() {
               {kind.label}
             </button>
           ))}
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={() =>
+              setCollapsedEntryKinds(allEntryGroupsOpen ? entryGroups.map((group) => group.key) : [])
+            }
+          >
+            {allEntryGroupsOpen ? '收起全部分类' : '展开全部分类'}
+          </button>
         </div>
 
         <div className={styles.list}>
-          {filteredEntries.map((entry) => (
-            <article key={entry.id} className={styles.entryRow} data-off={!entry.enabled}>
-              <div className={styles.entryHead}>
-                <div>
-                  <strong>{entry.title}</strong>
-                  <span className={styles.constantTag}>
-                    {WORLDBOOK_KINDS.find((kind) => kind.key === entry.kind)?.label ?? '其他'}
-                  </span>
-                  <span className={styles.authorityTag} data-authority={entry.authority}>
-                    {WORLDBOOK_AUTHORITIES.find((authority) => authority.key === entry.authority)
-                      ?.label ?? '硬设定'}
-                  </span>
-                  {entry.scope === 'session' ? (
-                    <span className={styles.constantTag}>整段历史</span>
-                  ) : null}
-                  {entry.match === 'regex' ? (
-                    <span className={styles.constantTag}>正则</span>
-                  ) : null}
-                  {entry.cardId ? (
-                    <span className={styles.constantTag}>
-                      仅 {cards.find((card) => card.id === entry.cardId)?.name ?? '已删除的卡'}
-                    </span>
-                  ) : null}
-                  {entry.always ? <span className={styles.constantTag}>每轮注入</span> : null}
-                  {entry.position === 'tail' ? (
-                    <span className={styles.constantTag}>靠后</span>
-                  ) : null}
-                  {entry.weight !== WORLDBOOK_WEIGHT_DEFAULT ? (
-                    <span className={styles.constantTag}>权重 {entry.weight}</span>
-                  ) : null}
-                  {!entry.enabled ? <span className={styles.offTag}>已停用</span> : null}
-                </div>
-                <div className={styles.rowActions}>
-                  <button type="button" onClick={() => startEditEntry(entry)}>
-                    编辑
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.dangerText}
-                    onClick={() => setConfirm({ kind: 'entry', id: entry.id, name: entry.title })}
-                  >
-                    删除
-                  </button>
-                </div>
-              </div>
-              <p>{entry.content}</p>
-              <div className={styles.keywords}>
-                {entry.keywords.length > 0 ? (
-                  entry.keywords.map((keyword) => <span key={keyword}>{keyword}</span>)
-                ) : (
-                  <span className={styles.mutedChip}>未设置关键词，仅在「每轮注入」开启时生效</span>
-                )}
-                {entry.excludeKeywords.map((keyword) => (
-                  <span key={`x-${keyword}`} className={styles.mutedChip}>
-                    避触 {keyword}
-                  </span>
-                ))}
-              </div>
-            </article>
-          ))}
+          {entryGroups.map((group) => {
+            const collapsed = collapsedEntryKinds.includes(group.key)
+            return (
+              <section key={group.key} className={styles.entryGroup}>
+                <button
+                  type="button"
+                  className={styles.entryGroupHead}
+                  aria-expanded={!collapsed}
+                  onClick={() => toggleEntryKind(group.key)}
+                >
+                  <strong>{group.label}</strong>
+                  <small>{group.entries.length} 条</small>
+                  <i>{collapsed ? '展开' : '收起'}</i>
+                </button>
+                {!collapsed ? (
+                  <div className={styles.entryGroupBody}>
+                    {group.entries.map((entry) => renderEntryRow(entry))}
+                  </div>
+                ) : null}
+              </section>
+            )
+          })}
           {entryNeedle && filteredEntries.length === 0 && worldbook.length > 0 ? (
             <div className={styles.emptyLine}>
               未找到匹配「{entryQuery.trim()}」的条目，请调整关键词或清除搜索。

@@ -12,6 +12,9 @@ const {
   LEGACY_SYSTEM_PROMPT,
   NEUTRAL_SYSTEM_PROMPT,
   ASSISTANT_TONE_GUARD,
+  ASSISTANT_CONSISTENCY_GUARD,
+  ROLEPLAY_CONTINUITY_GUARD,
+  isMostlyDefaultPrompt,
   composeSystemPrompt,
 } = await import('../src/services/chat/systemPrompt.ts')
 const { canEnableRoleplay, resolveTurnCharacterCard } = await import(
@@ -39,8 +42,8 @@ const normal = composeSystemPrompt({
 })
 assert.equal(
   normal,
-  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}`,
-  '普通助手默认提示应带固定友好语气约束，不应追加任何角色规则'
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}`,
+  '普通助手默认提示应带固定友好语气与一致性约束，不应追加任何角色规则'
 )
 assert.doesNotMatch(normal, /【角色身份|【演出规则|【对话格式与称呼/)
 assert.doesNotMatch(normal, /【演出规则|【对话格式与称呼|你正在与/)
@@ -60,6 +63,7 @@ assert.ok(
 assert.doesNotMatch(roleplay, /由深度求索开发的 AI 助手/, '角色上下文不能保留助手身份')
 assert.doesNotMatch(roleplay, /本应用功能说明/, '角色上下文不应带入应用功能索引')
 assert.doesNotMatch(roleplay, /交流语气，不要复述本段/, '角色上下文不应追加普通助手语气约束')
+assert.match(roleplay, /【角色连续性与活人感，不要复述本段/)
 assert.match(roleplay, /【对话格式与称呼/)
 
 const guarded = composeSystemPrompt({
@@ -71,6 +75,7 @@ const guarded = composeSystemPrompt({
   assistantWarmth: true,
 })
 assert.match(guarded, /【演出规则/)
+assert.match(guarded, /【角色连续性与活人感/)
 assert.doesNotMatch(guarded, /交流语气，不要复述本段/)
 
 const plainGuard = composeSystemPrompt({
@@ -83,7 +88,7 @@ const plainGuard = composeSystemPrompt({
 })
 assert.equal(
   plainGuard,
-  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}`,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}`,
   '普通助手对话不应因开关追加演出规则'
 )
 
@@ -110,7 +115,7 @@ const emptyPrompt = composeSystemPrompt({
 })
 assert.equal(
   emptyPrompt,
-  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}`,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}`,
   '纯空白提示词必须回退默认官方助手'
 )
 assert.doesNotMatch(emptyPrompt, /【角色身份|【演出规则|【对话格式与称呼/)
@@ -125,7 +130,7 @@ const emptyPromptRoleplay = composeSystemPrompt({
 })
 assert.equal(
   emptyPromptRoleplay,
-  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}`,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}`,
   '清空提示词即使收到角色上下文标记也必须回到官方助手，不能恢复角色规则'
 )
 
@@ -137,7 +142,11 @@ const warmOff = composeSystemPrompt({
   roleplayContext: false,
   assistantWarmth: false,
 })
-assert.equal(warmOff, DEFAULT_SYSTEM_PROMPT, '关闭友好助手语气后应回到纯默认提示词')
+assert.equal(
+  warmOff,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_CONSISTENCY_GUARD}`,
+  '关闭友好助手语气后只保留一致性核对，不再追加语气约束'
+)
 assert.equal(
   composeSystemPrompt({
     savedPrompt: DEFAULT_SYSTEM_PROMPT,
@@ -150,6 +159,44 @@ assert.equal(
   normal,
   '同参数重复拼装必须逐字一致，保证 system 前缀稳定'
 )
+
+assert.equal(isMostlyDefaultPrompt(DEFAULT_SYSTEM_PROMPT), true, '默认提示词应识别为默认人格')
+assert.equal(
+  isMostlyDefaultPrompt(`${DEFAULT_SYSTEM_PROMPT}。`),
+  true,
+  '只加标点仍应识别为默认人格'
+)
+const nearDefault = `${DEFAULT_SYSTEM_PROMPT}\n\n回答时可以更温柔一点。`
+assert.equal(isMostlyDefaultPrompt(nearDefault), true, '补一句要求仍应识别为默认人格')
+assert.equal(isMostlyDefaultPrompt('你是一个只写古风台词的猫娘。'), false, '整套换人设不能算默认人格')
+assert.equal(
+  isMostlyDefaultPrompt(DEFAULT_SYSTEM_PROMPT.slice(0, Math.floor(DEFAULT_SYSTEM_PROMPT.length / 2))),
+  false,
+  '删掉大半默认提示不能算默认人格'
+)
+const nearDefaultReply = composeSystemPrompt({
+  savedPrompt: nearDefault,
+  custom: false,
+  suppressMetaTalk: false,
+  userName: '用户',
+  roleplayContext: false,
+  assistantWarmth: true,
+})
+assert.equal(
+  nearDefaultReply,
+  `${nearDefault}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}`,
+  '近似默认人格仍应保留友好语气与一致性约束'
+)
+const nearDefaultRoleplay = composeSystemPrompt({
+  savedPrompt: nearDefault,
+  custom: false,
+  suppressMetaTalk: false,
+  userName: '用户',
+  roleplayContext: true,
+  assistantWarmth: true,
+})
+assert.match(nearDefaultRoleplay, /【角色连续性与活人感/)
+assert.doesNotMatch(nearDefaultRoleplay, /交流语气，不要复述本段/)
 
 const cards = [
   { id: 'card-a', name: '甲' },

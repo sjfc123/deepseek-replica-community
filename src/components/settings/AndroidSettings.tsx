@@ -750,6 +750,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     .map((item) => item.trim())
     .filter(Boolean).length
   const [page, setPage] = useState<Page>(start)
+  const [profileOpen, setProfileOpen] = useState(profileFields > 0)
   const [popup, setPopup] = useState<Popup | null>(null)
   const [usageOpen, setUsageOpen] = useState(false)
   const [tokenDraft, setTokenDraft] = useState('')
@@ -1818,7 +1819,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 'This page holds the character base profile: who this person is, what body they live in, how they live and which lines they never cross. It carries no delivery prompt, lore, scene or play-style rules, and is stored separately from avatar, display, prompt and cards. The character name is also stored separately: enabling a card never overwrites it.\nThe profile switch is on by default. When on and no card is active, this profile enters every system turn; an active card wins and the profile is not stacked. When off, the profile fields stay on device but are never read or injected, and every field turns grey and read-only. Only the character name remains as a compact identity line so the system still knows who it is. Turn the switch back on to edit the profile fields. This keeps two identities from fighting inside one system block.\nOrder: basic facts → body & daily life → character & limits → story & voice. Fill age, gender, pronouns, species, height, weight, birthday, occupation, residence and language whenever possible; a missing one lets the character drift in gender, age or species mid-scene. Use the same order for OCs, fan characters, game, anime and novel characters.'
               )}
             </p>
-            {profileGroups.map((group, index) => (
+            {profileGroups
+              .filter((_, index) => profileOpen || index === 0)
+              .map((group, index) => (
               <Group
                 key={group.key}
                 label={tr(
@@ -1836,7 +1839,14 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                         <Switch
                           label={tr('读取基础档案', 'Read base profile')}
                           checked={profileEnabled}
-                          toggle={() => setCharacterProfileEnabled(!profileEnabled)}
+                          toggle={() => {
+                            const next = !profileEnabled
+                            setCharacterProfileEnabled(next)
+                            // 重新开启档案时自动展开字段，避免开关已开却只看到一张空卡。
+                            if (next) {
+                              setProfileOpen(true)
+                            }
+                          }}
                         />
                       }
                     />
@@ -1849,6 +1859,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                         placeholder={tr('留空则显示 AI', 'Blank shows AI')}
                         aria-label={tr('角色名字', 'Character name')}
                         maxLength={20}
+                        disabled={!profileEnabled}
                         readOnly={!profileEnabled}
                         onChange={(event) => profileEnabled && setCharacterName(event.target.value)}
                       />
@@ -1889,36 +1900,60 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                               'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line so the model keeps a name. Turn the switch back on to edit.'
                             )}
                     </p>
+                    <Row
+                      label={tr('展开基础档案', 'Show base profile')}
+                      value={profileOpen ? tr('已展开', 'Expanded') : tr('已收起', 'Collapsed')}
+                      arrow={false}
+                      control={
+                        <Switch
+                          label={tr('展开基础档案', 'Show base profile')}
+                          checked={profileOpen}
+                          toggle={() => setProfileOpen((open) => !open)}
+                        />
+                      }
+                    />
+                    <p className={styles.profileNotice}>
+                      {tr(
+                        '只写表达提示词、暂时不想填档案时，可以收起下面的基础档案；重新展开后原有内容都在，不会被清空。',
+                        'If you only want to write a delivery prompt, collapse the base profile below. Expanding it again restores every saved field.'
+                      )}
+                    </p>
                   </>
                 ) : null}
-                <p className={styles.profileGroupHint}>{tr(group.hint, group.hintEn)}</p>
-                {group.fields.map((field) => {
-                  const en = CHARACTER_PROFILE_EN[field.key]
-                  return (
-                    <label
-                      className={styles.profileField}
-                      data-disabled={!profileEnabled ? '' : undefined}
-                      key={field.key}
-                    >
-                      <span className={styles.profileLabel}>
-                        <span>{tr(field.label, en.label)}</span>
-                        <span className={styles.profileHint}>{tr(field.hint, en.hint)}</span>
-                      </span>
-                      <textarea
-                        className={styles.profileInput}
-                        data-disabled={!profileEnabled ? '' : undefined}
-                        rows={field.rows}
-                        value={characterProfile[field.key]}
-                        placeholder={tr(field.placeholder, en.placeholder)}
-                        aria-label={tr(field.label, en.label)}
-                        readOnly={!profileEnabled}
-                        onChange={(event) =>
-                          profileEnabled && setCharacterProfileField(field.key, event.target.value)
-                        }
-                      />
-                    </label>
-                  )
-                })}
+                {profileOpen ? (
+                  <>
+                    <p className={styles.profileGroupHint}>{tr(group.hint, group.hintEn)}</p>
+                    {group.fields.map((field) => {
+                      const en = CHARACTER_PROFILE_EN[field.key]
+                      return (
+                        <label
+                          className={styles.profileField}
+                          data-disabled={!profileEnabled ? '' : undefined}
+                          key={field.key}
+                        >
+                          <span className={styles.profileLabel}>
+                            <span>{tr(field.label, en.label)}</span>
+                            <span className={styles.profileHint}>{tr(field.hint, en.hint)}</span>
+                          </span>
+                          <textarea
+                            className={styles.profileInput}
+                            data-disabled={!profileEnabled ? '' : undefined}
+                            rows={field.rows}
+                            value={characterProfile[field.key]}
+                            placeholder={tr(field.placeholder, en.placeholder)}
+                            aria-label={tr(field.label, en.label)}
+                            disabled={!profileEnabled}
+                            readOnly={!profileEnabled}
+                            onChange={(event) =>
+                              profileEnabled &&
+                              setCharacterProfileField(field.key, event.target.value)
+                            }
+                          />
+                        </label>
+                      )
+                    })}
+                  </>
+                ) : null}
               </Group>
             ))}
             <p className={styles.caption}>
