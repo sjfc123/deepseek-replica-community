@@ -1,7 +1,7 @@
 /**
  * 默认提示词与角色上下文回归：
- * 1. 默认提示词是普通 DeepSeek AI 助手，不含预置人设；
- * 2. 普通对话不加角色扮演规则，角色卡/档案上下文才使用中性基底；
+ * 1. 默认提示词是普通 DeepSeek AI 助手，不含预置人设，但带应用功能索引；
+ * 2. 普通对话不加角色扮演规则，角色卡/档案上下文才使用中性基底，且不带功能索引；
  * 3. 清空提示词、自定义提示词不被改写；
  * 4. 角色扮演开关必须依附一张有效角色卡，不能多卡同时生效。
  */
@@ -20,7 +20,10 @@ const { canEnableRoleplay, resolveTurnCharacterCard } = await import(
 assert.match(DEFAULT_SYSTEM_PROMPT, /DeepSeek/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /深度求索/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /AI 助手/)
-assert.doesNotMatch(DEFAULT_SYSTEM_PROMPT, /有血有肉|角色扮演|预置角色|人设/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /除了基础常用的对话功能，我还拥有以下功能/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /角色卡/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /长期记忆/)
+assert.doesNotMatch(DEFAULT_SYSTEM_PROMPT, /有血有肉|预置角色|人设|你正在扮演/)
 assert.equal(LEGACY_SYSTEM_PROMPT, '该助手为DeepSeek，由深度求索公司创造。')
 
 const normal = composeSystemPrompt({
@@ -31,7 +34,7 @@ const normal = composeSystemPrompt({
   roleplayContext: false,
 })
 assert.equal(normal, DEFAULT_SYSTEM_PROMPT, '普通助手默认提示不应追加任何角色规则')
-assert.doesNotMatch(normal, /演出规则|内心独白|角色/)
+assert.doesNotMatch(normal, /【演出规则|【对话格式与称呼|你正在与/)
 
 const roleplay = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
@@ -45,6 +48,7 @@ assert.ok(
   '角色上下文应换成中性角色基底'
 )
 assert.doesNotMatch(roleplay, /由深度求索开发的 AI 助手/, '角色上下文不能保留助手身份')
+assert.doesNotMatch(roleplay, /本应用功能说明/, '角色上下文不应带入应用功能索引')
 assert.match(roleplay, /【对话格式与称呼/)
 
 const guarded = composeSystemPrompt({

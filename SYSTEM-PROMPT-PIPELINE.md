@@ -87,6 +87,7 @@ system 分两条路径：
 **0.8.87**
 
 - 默认 `DEFAULT_SYSTEM_PROMPT` 改为普通 DeepSeek AI 助手；新装、恢复默认、从未保存提示词，或只保存过旧版公司身份提示的用户，不再默认进入角色扮演。
+- 默认提示词附带应用功能索引：用户问“有什么功能 / 怎么玩 / 怎么用 / 怎么设置”等指向本应用的问题时，先以“除了基础常用的对话功能，我还拥有以下功能”开头，再按对话、分组、角色、记忆、文件语音、设定数据、生成请求、接口模型、用量、外观等分组介绍；普通知识问答与闲聊不展开功能清单。该索引是普通助手文案的一部分，不额外注入 system。
 - `composeSystemPrompt()` 增加 `roleplayContext`。普通对话不追加 `META_TALK_GUARD` / `ASIDE_AND_ADDRESS_GUARD`；角色卡、完整档案或轻量身份行存在时，默认助手文案换成 `NEUTRAL_SYSTEM_PROMPT`，避免“助手身份”和“人物身份”同时进入 system。
 - 全局只保存一个 `activeCharacterId`；`canEnableRoleplay()` 要求开关请求能解析到有效卡，`setRoleplayEnabled()` 不再允许“没有卡但角色扮演开着”。会话绑定卡仍优先，`resolveTurnCharacterCard()` 只返回一张。
 - 人物层仍为「卡 → 档案 → 身份行」三选一，单卡、单档案、单身份行互斥；记忆、场景和世界书仍放在 user 尾部。
