@@ -57,9 +57,8 @@ export const VoiceCallOverlay = () => {
   const cardName = activeCard?.name?.trim() ?? ''
   const fallbackName = characterName.trim()
   const displayName = cardName || fallbackName
-  const displayAvatar = activeCard
-    ? (cardAvatars[activeCard.id] ?? characterAvatar)
-    : characterAvatar
+  // 角色卡会话只使用卡头像；未设置时交给首字占位，不借用档案页的 AI 头像。
+  const displayAvatar = activeCard ? (cardAvatars[activeCard.id] ?? null) : characterAvatar
 
   useAndroidBackInterception(active)
 

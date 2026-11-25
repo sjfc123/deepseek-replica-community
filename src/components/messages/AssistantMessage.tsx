@@ -107,6 +107,10 @@ export const AssistantMessage = memo(function AssistantMessage({
   const cardAvatars = useSettings((state) => state.cardAvatars)
   const characterAvatar = useSettings((state) => state.characterAvatar)
   const cardAvatar = activeCard ? (cardAvatars[activeCard.id] ?? null) : null
+  // 开场旁白、错误模板这类只有模板正文的消息不是角色发言，顶部不挂头像和名字。
+  const templateOnly =
+    message.blocks.length > 0 &&
+    message.blocks.every((block) => block.type === 'text' && block.isTemplate)
   const characterName = useSettings((state) => state.characterName)
   const thoughtAside = useSettings((state) => state.thoughtAside)
   const memoryInline = useSettings((state) => state.memoryInline)
@@ -221,9 +225,10 @@ export const AssistantMessage = memo(function AssistantMessage({
       {searchHighlightNonce !== null ? (
         <div key={searchHighlightNonce} className={styles.searchHighlight} aria-hidden="true" />
       ) : null}
-      {avatarInChat ? (
+      {avatarInChat && !templateOnly ? (
         <MessageAvatar
-          src={cardAvatar || characterAvatar}
+          // 角色卡会话只认卡头像；卡没设头像时用姓名首字，不借用角色档案页的 AI 头像。
+          src={activeCard ? cardAvatar : characterAvatar}
           name={activeCard?.name || characterName || (customEndpoint ? 'AI' : 'DeepSeek')}
           align="start"
         />

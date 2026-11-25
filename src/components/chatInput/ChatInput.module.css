@@ -47,6 +47,101 @@
   color: var(--dsw-alias-label-caption);
 }
 
+/* 线索板入口：只给进度，不用颜色提前标记“危险程度” */
+.storyCluesButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 24%, transparent);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+  background: transparent;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 8%, transparent);
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+/* 线索板弹窗：已出现的写方向和异常，未到点的只占位，不给标题剧透 */
+.cluesIntro {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.cluesList {
+  display: grid;
+  gap: 8px;
+}
+
+.clueItem {
+  padding: 10px 12px;
+  border: 1px dashed var(--dsw-alias-border-l2);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 68%, transparent);
+}
+
+.clueItemRevealed {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 20%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 5%, var(--dsw-alias-bg-layer-2));
+}
+
+.clueHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clueIndex {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.clueItemRevealed .clueIndex {
+  color: #fff;
+  background: var(--dsw-alias-brand-primary, #4d6bfe);
+}
+
+.clueTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.clueTime {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--dsw-alias-label-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.clueHint {
+  margin: 7px 0 0 28px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
 /* 三条玩家回复建议：贴在输入框上方，点击只填草稿，不直接发送 */
 .suggestions {
   margin: 0 4px 8px;

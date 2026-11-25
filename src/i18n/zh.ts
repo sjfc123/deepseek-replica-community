@@ -360,6 +360,12 @@ export const zh = {
   chatInputPlaceholderChat: '请输入消息',
   storyClockLabel: '剧情时间 {time}',
   storyRemainingLabel: '距零点还有 {time}',
+  storyCluesLabel: '线索 {done}/{total}',
+  storyCluesTitle: '线索板',
+  storyCluesIntro: '这里只记录已经出现的异常，不替你下结论。问法、顺序和判断仍由你决定。',
+  storyCluePendingTitle: '第 {index} 层 · 尚未出现',
+  storyCluePendingBody: '继续聊，时间推进后才会记录。',
+  storyCluesClose: '关闭',
   storyLockedPlaceholder: '剧情已结束，无法继续对话',
   storyFailedTitle: '剧情已失败',
   storyFailedBody:

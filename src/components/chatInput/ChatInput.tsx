@@ -16,6 +16,7 @@ import {
   IconLightOutline16,
   IconPaperclipOutline16,
   IconRefreshOutline16,
+  IconSearchOutline16,
   IconSendOutline16,
   IconStopFill16,
   IconThinkOutline14,
@@ -26,9 +27,11 @@ import { useIsMobile } from '../../app/viewport.js'
 import { editMessage, sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import { generateReplySuggestions } from '../../services/chat/suggestions.js'
 import {
+  currentStoryClue,
   formatStoryClock,
   formatStoryRemaining,
   isStoryLocked,
+  storyCluesUntil,
 } from '../../services/chat/story.js'
 import {
   findSessionCharacterCard,
@@ -195,7 +198,14 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       ? formatStoryRemaining(session.storyClockMinute, story.deadlineMinute)
       : ''
   const storyEnd = session?.storyState
+  const storyClue = story && session?.storyClockMinute !== undefined
+    ? currentStoryClue(story, session.storyClockMinute)
+    : undefined
+  const revealedClues = story && session?.storyClockMinute !== undefined
+    ? storyCluesUntil(story, session.storyClockMinute)
+    : []
   const [storyNoticeClosed, setStoryNoticeClosed] = useState(false)
+  const [cluesOpen, setCluesOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const mirrorRef = useRef<HTMLDivElement>(null)
@@ -611,6 +621,19 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           <span className={styles.storyRemaining}>
             {storyLocked ? t('storyLockedPlaceholder') : t('storyRemainingLabel', { time: storyRemaining })}
           </span>
+          {story.clues?.length ? (
+            <button
+              type="button"
+              className={styles.storyCluesButton}
+              onClick={() => setCluesOpen(true)}
+            >
+              <IconSearchOutline16 />
+              {t('storyCluesLabel', {
+                done: storyClue ? storyClue.index + 1 : 0,
+                total: storyClue?.total ?? story.clues.length,
+              })}
+            </button>
+          ) : null}
         </div>
       ) : null}
       {suggestionOpen && activeCard && !storyLocked ? (
@@ -1248,6 +1271,41 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             document.body
           )
         : null}
+      {cluesOpen && story ? (
+        <Modal
+          title={t('storyCluesTitle')}
+          footer={
+            <Button size="m" onClick={() => setCluesOpen(false)}>
+              {t('storyCluesClose')}
+            </Button>
+          }
+          onClose={() => setCluesOpen(false)}
+        >
+          <p className={styles.cluesIntro}>{t('storyCluesIntro')}</p>
+          <div className={styles.cluesList}>
+            {(story.clues ?? []).map((clue, index) => {
+              const revealed = revealedClues.includes(clue)
+              return (
+                <div
+                  key={`${clue.atMinute}-${clue.title}`}
+                  className={clsx(styles.clueItem, revealed && styles.clueItemRevealed)}
+                >
+                  <div className={styles.clueHead}>
+                    <span className={styles.clueIndex}>{index + 1}</span>
+                    <span className={styles.clueTitle}>
+                      {revealed ? clue.title : t('storyCluePendingTitle', { index: index + 1 })}
+                    </span>
+                    {revealed ? <span className={styles.clueTime}>{formatStoryClock(clue.atMinute)}</span> : null}
+                  </div>
+                  <p className={styles.clueHint}>
+                    {revealed ? clue.hint : t('storyCluePendingBody')}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </Modal>
+      ) : null}
       {!storyNoticeClosed && storyEnd === 'bad_end' ? (
         <Modal
           title={t('storyFailedTitle')}

@@ -74,6 +74,15 @@ assert.equal(storyCard.story.startMinute, 20 * 60, '开场应为 20:00')
 assert.equal(storyCard.story.normalUntilMinute, 22 * 60, '22:00 前是本人')
 assert.equal(storyCard.story.deadlineMinute, 24 * 60, '00:00 截止')
 assert.equal(storyCard.story.stepMinutes, 10, '每轮推进十分钟')
+assert.equal(storyCard.story.clues?.length, 4, '限时推理卡必须配置四层线索')
+assert.deepEqual(
+  storyCard.story.clues?.map((clue) => clue.atMinute),
+  [1321, 1361, 1391, 1421],
+  '四层线索必须按 22:01、22:41、23:11、23:41 解锁'
+)
+assert.match(storyCard.story.intro, /调查目标/)
+assert.match(storyCard.story.intro, /线索板/)
+assert.doesNotMatch(storyCard.story.intro, /替身|镜子里的东西/, '开场说明不能提前说出真相')
 assert.match(formatCharacterCard(storyCard, '阿遥'), /限时剧情：从 20:00 开始/)
 assert.equal(
   normalizeCharacterStory({

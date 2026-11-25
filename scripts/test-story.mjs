@@ -10,7 +10,10 @@ const {
   formatStoryClock,
   formatStoryRemaining,
   formatStoryTurnBlock,
+  currentStoryClue,
+  formatStoryPublicStatus,
   isStoryLocked,
+  storyCluesUntil,
   storyPhaseOf,
   stripStoryMarkers,
 } = await import('../src/services/chat/story.ts')
@@ -21,6 +24,12 @@ const story = {
   normalUntilMinute: 22 * 60,
   deadlineMinute: 24 * 60,
   stepMinutes: 10,
+  clues: [
+    { atMinute: 1321, title: '标点与独白', hint: '句末标点消失' },
+    { atMinute: 1361, title: '左右腕旧疤', hint: '旧疤在左腕' },
+    { atMinute: 1391, title: '奶奶的暗号', hint: '红豆糕要趁热' },
+    { atMinute: 1421, title: '旧屋动线', hint: '窗与储物间对不上' },
+  ],
 }
 
 assert.deepEqual(createStoryState(story), {
@@ -56,10 +65,24 @@ const normalBlock = formatStoryTurnBlock(story, { ...start, storyClockMinute: 12
 assert.match(normalBlock, /20:00/)
 assert.match(normalBlock, /仍是本人/)
 assert.doesNotMatch(normalBlock, /不使用逗号/)
+assert.equal(storyCluesUntil(story, 1200).length, 0)
+assert.equal(storyCluesUntil(story, 1321).length, 1)
+assert.equal(storyCluesUntil(story, 1421).length, 4)
+const clueAtFirst = currentStoryClue(story, 1321)
+assert.equal(clueAtFirst?.index, 0)
+assert.equal(clueAtFirst?.total, 4)
+assert.equal(currentStoryClue(story, 1200), undefined)
+const publicStatus = formatStoryPublicStatus(story, { ...start, storyClockMinute: 1321 })
+assert.match(publicStatus, /22:01/)
+assert.match(publicStatus, /第 1\/4 层异常「标点与独白」/)
+assert.doesNotMatch(publicStatus, /储物间|替身|镜子/)
 const anomalyBlock = formatStoryTurnBlock(story, { ...start, storyClockMinute: 1321 })
 assert.match(anomalyBlock, /22:01/)
 assert.match(anomalyBlock, /不使用逗号/)
 assert.match(anomalyBlock, /旧屋储物间/)
+assert.match(anomalyBlock, /【本轮线索层】第 1\/4 层「标点与独白」/)
+assert.match(anomalyBlock, /不要提前揭示更后面的层/)
+assert.doesNotMatch(anomalyBlock, /左右腕旧疤|奶奶的暗号|旧屋动线/, '首轮不得泄漏后续线索层')
 const deadlineBlock = formatStoryTurnBlock(story, { ...start, storyClockMinute: 1440 })
 assert.match(deadlineBlock, /\[\[STORY_END:BAD\]\]/)
 assert.match(deadlineBlock, /\[\[STORY_END:GOOD\]\]/)

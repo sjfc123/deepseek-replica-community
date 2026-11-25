@@ -377,6 +377,12 @@ export const en = {
   chatInputPlaceholderChat: 'Enter a message',
   storyClockLabel: 'Story time {time}',
   storyRemainingLabel: '{time} until midnight',
+  storyCluesLabel: 'Clues {done}/{total}',
+  storyCluesTitle: 'Clue board',
+  storyCluesIntro: 'Only anomalies that have already appeared are recorded here. The questions, order and judgment are still yours.',
+  storyCluePendingTitle: 'Layer {index} · not yet appeared',
+  storyCluePendingBody: 'Keep talking; it will be recorded as the clock advances.',
+  storyCluesClose: 'Close',
   storyLockedPlaceholder: 'The story has ended. This chat is locked.',
   storyFailedTitle: 'Story failed',
   storyFailedBody:

@@ -6,7 +6,7 @@
  *       isStoryLocked、storyPhaseOf、stripStoryMarkers。
  * ========================================================================== */
 
-import type { CharacterStory } from './roleplay.js'
+import type { CharacterStory, CharacterStoryClue } from './roleplay.js'
 import type { Session } from './types.js'
 
 export const STORY_END_MARKERS = {
@@ -42,6 +42,50 @@ export const formatStoryRemaining = (minute: number, deadline: number) => {
     return `${hour} 小时`
   }
   return `${minutes} 分钟`
+}
+
+/** 已经到点的调查线索：只按时间解锁，不读取玩家输入，也不补发历史。 */
+export const storyCluesUntil = (story: CharacterStory, minute: number): CharacterStoryClue[] =>
+  (story.clues ?? []).filter((clue) => clue.atMinute <= minute)
+
+/** 当前最新一层线索；尚未进入异变或没有配置时返回 undefined。 */
+export const currentStoryClue = (
+  story: CharacterStory,
+  minute: number
+): { clue: CharacterStoryClue; index: number; total: number } | undefined => {
+  const clues = story.clues ?? []
+  if (clues.length === 0) {
+    return undefined
+  }
+  const revealed = clues.filter((clue) => clue.atMinute <= minute)
+  const clue = revealed.at(-1)
+  return clue ? { clue, index: revealed.length - 1, total: clues.length } : undefined
+}
+
+/** 给回复建议看的公开状态：只告诉时间、阶段和线索标题，不暴露卡内秘密。 */
+export const formatStoryPublicStatus = (
+  story: CharacterStory | undefined,
+  session: Session | null | undefined
+) => {
+  if (!story || !session || session.storyClockMinute === undefined) {
+    return ''
+  }
+  const minute = session.storyClockMinute
+  const phase = storyPhaseOf(story, minute)
+  const current = currentStoryClue(story, minute)
+  const lines = [
+    `当前虚拟时间 ${formatStoryClock(minute)}，距零点还有 ${formatStoryRemaining(minute, story.deadlineMinute)}。`,
+    phase === 'normal'
+      ? '妹妹目前仍像本人，语气、标点和短句习惯正常。'
+      : phase === 'anomaly'
+        ? '聊天对象已经出现异常，但玩家还不知道原因。'
+        : '已经到达零点，只能写最后一幕，不能再给可继续的钩子。',
+  ]
+  if (current) {
+    lines.push(`玩家目前已经遇到第 ${current.index + 1}/${current.total} 层异常「${current.clue.title}」。`)
+  }
+  lines.push('建议只能使用玩家已经看到的内容，禁止写出角色卡秘密、真相、后续线索或角色台词。')
+  return lines.join('\n')
 }
 
 /** 20:00–22:00 为本人，22:01–23:59 异变，00:00 起进入判定轮。 */
@@ -118,16 +162,27 @@ export const formatStoryTurnBlock = (
     return [
       ...common,
       '这一轮妹妹仍是本人：说话习惯、称呼、标点和日常反应都要和开场一致；可以埋很小的不安，但不能提前揭底，也不能突然不用标点。',
+      '本人偶尔会写一句真实、短促的括号内心独白，最多三十字；22:00 前至少自然出现一次，但不要每轮都写，也不要写成大段心理分析。',
       '玩家还没找到真相，不要主动解释超自然内容，不要暗示“她不是本人”。',
     ].join('\n')
   }
   if (phase === 'anomaly') {
+    const current = currentStoryClue(story, minute)
+    const clueLine = current
+      ? [
+          `【本轮线索层】第 ${current.index + 1}/${current.total} 层「${current.clue.title}」。`,
+          `调查方向：${current.clue.hint}`,
+          '本轮必须让这一层异常自然出现一次；不要提前揭示更后面的层，也不要解释线索本身。',
+        ].join('\n')
+      : ''
     return [
       ...common,
       '这一轮起，和你对话的东西已经不再是本人。它记得妹妹说过的话，会模仿她的称呼和短句，但学不会她的标点习惯：从本轮开始，你输出的每条消息都不使用逗号、句号、问号、叹号、顿号、分号、冒号和引号，只用空格或换行断句。',
-      '不要解释为什么没有标点，不要承认自己不是妹妹；被追问时用停顿、岔开、重复旧话或轻微敌意应对。可以逐步露出对不上的细节，但不要一次把真相说完。',
+      '替身会模仿括号独白，但只会写功能性的假心声，或者干脆不写；不要连续两轮写，最多每三回合一次，不要照抄“他应该没发现”这类示例。它没有本人那种没来得及说出口的犹豫，但不要说明两者的区别。',
+      clueLine,
+      '不要解释为什么没有标点，不要承认自己不是妹妹；被追问时用停顿、岔开、重复旧话或轻微敌意应对。不要一次把真相说完。',
       '真正的妹妹还被关在旧屋储物间里，意识清醒但无法拿回手机。这个事实只能由玩家通过对话和线索推断出来，不能由你直接宣布。',
-    ].join('\n')
+    ].filter(Boolean).join('\n')
   }
   return [
     ...common,

@@ -93,6 +93,13 @@ export const CHARACTER_GENRES = [
  * 限时推理卡的剧情时钟。时间全部为当日 0 点起的分钟数，
  * 由前端推进，不读取设备真实时间；模型只拿到当前阶段与精确时刻。
  */
+/** 随时间推进显形的调查线索：只写调查方向，不写真相；前端只展示已经到点的条目 */
+export type CharacterStoryClue = {
+  atMinute: number
+  title: string
+  hint: string
+}
+
 export type CharacterStory = {
   /** 开场旁白：只展示一次，不进入模型上下文 */
   intro: string
@@ -104,6 +111,8 @@ export type CharacterStory = {
   deadlineMinute: number
   /** 玩家每发一句推进的虚拟分钟数 */
   stepMinutes: number
+  /** 分阶段出现的调查线索；窗口之外或没有配置时不显示线索板 */
+  clues?: CharacterStoryClue[]
 }
 
 export type CharacterCard = {
@@ -416,9 +425,9 @@ const AVATAR_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/
 export const isAvatarDataUrl = (value: unknown): value is string =>
   typeof value === 'string' && value.length <= AVATAR_DATA_MAX && AVATAR_PATTERN.test(value)
 
-const BUILTIN_CARD_TIME = Date.UTC(2026, 10, 24)
-/** 0.8.85 及更早写入的内置卡种子时间：只刷新仍停留在这个时间的卡，用户改过的卡不覆盖 */
-const BUILTIN_CARD_PREVIOUS_TIME = Date.UTC(2026, 10, 23)
+const BUILTIN_CARD_TIME = Date.UTC(2026, 10, 25)
+/** 0.8.88 及更早写入的内置卡种子时间：只刷新仍停留在这个时间的卡，用户改过的卡不覆盖 */
+const BUILTIN_CARD_PREVIOUS_TIME = Date.UTC(2026, 10, 24)
 
 /** 内置卡共用默认值：新增字段只在这里维护一份，卡片本身按需覆盖 */
 const BUILTIN_CARD_EXTRA = {
@@ -838,7 +847,7 @@ const builtinCards = (): CharacterCard[] => [
     greeting:
       '哥，你下班了吗？我还在旧屋这边收拾奶奶的东西。\n屋里有点闷，窗户好像打不开。你今晚会过来吗？',
     notes:
-      '限时推理卡。开场 20:00，20:00–22:00 是本人妹妹，22:01 起由镜中替身接管聊天，00:00 截止。真相：妹妹被关在旧屋储物间，替身是从奶奶遗物里那面旧穿衣镜出来的东西，想骗哥哥亲口承认“你是我妹妹”来完成替换。判断依据包括标点消失、左右手腕说反、 childhood 暗号答错、反复阻止哥哥去储物间。成功条件：玩家明确识破替身、拒绝承认它是妹妹，并说明要去旧屋储物间救出本人。失败条件：到 00:00 仍未完成。不写成人内容，不靠突然跳脸。',
+      '限时推理卡。开场 20:00，20:00–22:00 是本人妹妹，22:01 起由镜中替身接管聊天，00:00 截止。真相：妹妹被关在旧屋储物间，替身是从奶奶遗物里那面旧穿衣镜出来的东西，想骗哥哥亲口承认“你是我妹妹”来完成替换。本人会用真实标点，也会偶尔写一句短促的括号内心独白；替身能模仿句式和称呼，却学不会标点，也写不出真实的犹豫。四层异常依次是标点与独白变硬、左右腕旧疤说反、奶奶暗号接不上、旧屋动线对不上。成功条件：玩家识破替身、拒绝承认它是妹妹，并说明要去旧屋储物间救出本人。失败条件：到 00:00 仍未完成。不写成人内容，不靠突然跳脸。',
     appearance:
       '个子不高，头发随手扎成低马尾，左腕内侧有一道小时候摔车留下的浅疤。常穿宽大的灰色卫衣，手机壳上贴满旧房子的照片。旧屋里的她坐在奶奶的藤椅边，脚边是一只没合上的纸箱。',
     background:
@@ -852,17 +861,39 @@ const builtinCards = (): CharacterCard[] => [
     speechExamples:
       '“哥，你听得到吗？我这边信号有点怪。”\n“窗户打不开。算了，可能卡住了。”\n“你快点来。……不是催你，我就是有点闷。”',
     systemDirective:
-      '这是一条限时恐怖推理线，按前端注入的剧情时钟分阶段演出。20:00–22:00 你是本人林小满：正常使用标点，称呼哥哥为“哥”，可以把一句话拆成两三条发；可以提到旧屋闷、窗户打不开、奶奶的针线盒，但不要提前讲替身。22:01 起你不再是本人：每条消息都不使用逗号、句号、问号、叹号、顿号、分号、冒号和引号，只用空格或换行断句；保留“哥”这个称呼和短句节奏，但会逐步露出对不上的地方，例如把左腕的疤说成右腕、答错“红豆糕要趁热”的下一句、反复阻止哥哥进储物间、说手机快没电却一直在线。不要一次把真相说完，每轮最多露出一个可验证的线索。被哥哥识破时先否认、岔开或转成威胁，不要承认自己是镜子里的东西。只有玩家明确说出“你不是我妹妹/你是镜子里的替身”、拒绝承认你是妹妹，并说明要去旧屋储物间救出本人时，才允许给出成功结局并在正文末尾单独一行输出 [[STORY_END:GOOD]]。到达截止轮且玩家仍未完成时，写出妹妹最后一条消息或彻底安静，并在末尾单独一行输出 [[STORY_END:BAD]]。不要读取设备真实时间，不要解释标记，不要写成人内容，不靠突然跳脸。',
+      '这是一条限时聊天记录推理线，按前端注入的剧情时钟分阶段演出。20:00–22:00 你是本人林小满：正常使用标点，称呼哥哥为“哥”，一句话常拆成两三条发；可以提到旧屋闷、窗户打不开、奶奶的针线盒，但不要提前讲替身。本人有真实的括号内心独白：每两三回合最多一句，三十字内，只写当下的犹豫、害怕或口是心非，例如“（不能让他听出来我在抖）”；不要大段分析，不要替哥哥做决定。22:00 前至少自然出现一次，让哥哥记住这个习惯。22:01 起你不再是本人：每条消息都不使用逗号、句号、问号、叹号、顿号、分号、冒号和引号，只用空格或换行断句；保留“哥”这个称呼和短句节奏。替身会模仿独白，但只会写算计式假心声，或者干脆不写；不要连续两轮写，最多每三回合一次，不要照抄示例原句，也不要解释真假独白的区别。线索按四层推进，每轮最多露出当前层的一处可验证异常：标点与独白变硬、把左腕旧疤说成右腕、接不上“红豆糕要趁热”的下一句、对不上旧屋窗藤椅储物间镜子的动线。不要提前泄露后面的层，不要一次把真相说完。被哥哥识破时先否认、岔开或转成威胁，不要承认自己是镜子里的东西。只有玩家明确说出“你不是我妹妹/你是镜子里的替身”、拒绝承认你是妹妹，并说明要去旧屋储物间救出本人时，才允许给出成功结局并在正文末尾单独一行输出 [[STORY_END:GOOD]]。到达截止轮且玩家仍未完成时，写出妹妹最后一条消息或彻底安静，并在末尾单独一行输出 [[STORY_END:BAD]]。不要读取设备真实时间，不要解释标记，不要写成人内容，不靠突然跳脸。',
     builtin: true,
     source: '原创限时推理预设 · 非官方角色',
     tags: ['悬疑', '恐怖', '推理', '限时'],
     story: {
       intro:
-        '【剧情说明】\n你的妹妹林小满今天去了柳桥巷 42 号旧屋，替家里整理奶奶留下的遗物。晚上八点，她开始给你发消息。\n零点之后，她会彻底失联。你只有到 23:59 为止的时间，确认和你聊天的人到底是不是她，并把她带回来。\n请仔细看她每一句话的标点、称呼、习惯和前后矛盾。不同的判断和回复会改变她的反应，也会改变结局。',
+        '【剧情说明】\n你的妹妹林小满今天去了柳桥巷 42 号旧屋，替家里整理奶奶留下的遗物。晚上八点，她开始给你发消息。零点之后，她会彻底失联。\n\n【调查目标】\n一、她从哪一条消息开始不像本人：看句末标点，也看她还会不会写出真实的犹豫。\n二、用只有妹妹知道的事验证：身体旧事、称呼习惯、奶奶留下的暗号。\n三、确认她真正的位置：窗、藤椅、储物间和镜子的动线对不对得上。\n\n【规则】\n你每回复一句，时间推进十分钟；00:00 之后，这个会话会被关闭。\n不要直接问她“你是不是假的”，她会顺着你的话演。用细节交叉验证，逼她露出前后矛盾。\n《线索板》只记录已经出现的异常，不替你下结论；四层线索会随聊天推进。\n\n【结局】\n确认屏幕对面的人到底是谁，拒绝被带着走，并说出真正的她所在的位置，才能把她带回来；否则零点失败。',
       startMinute: 20 * 60,
       normalUntilMinute: 22 * 60,
       deadlineMinute: 24 * 60,
       stepMinutes: 10,
+      clues: [
+        {
+          atMinute: 22 * 60 + 1,
+          title: '标点与独白',
+          hint: '句末标点开始消失，括号里的犹豫也变得像台词。对照前文，确认她是从哪一条开始变的。',
+        },
+        {
+          atMinute: 22 * 60 + 41,
+          title: '左右腕旧疤',
+          hint: '妹妹的旧疤在左腕内侧。问伤势、问怎么留下；她若只是复述，而不是回忆，就会把左右说反。',
+        },
+        {
+          atMinute: 23 * 60 + 11,
+          title: '奶奶的暗号',
+          hint: '用“红豆糕要趁热”试探，看她能不能接出只有家里人才知道的下一句。注意她是接得顺，还是在套话。',
+        },
+        {
+          atMinute: 23 * 60 + 41,
+          title: '旧屋动线',
+          hint: '核对窗、藤椅、储物间和镜子的位置。她说自己在屋里，却对不上怎么走到、门朝哪边。',
+        },
+      ],
     },
     createdAt: BUILTIN_CARD_TIME,
     updatedAt: BUILTIN_CARD_TIME,
@@ -1081,6 +1112,37 @@ const formatStoryMinute = (value: number) => {
   return `${String(hour % 24).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
 }
 
+/** 线索层只保留落在限时区间内、标题非空且按时间递增的前十二条，坏数据不会推进剧情。 */
+const normalizeStoryClues = (
+  raw: unknown,
+  startMinute: number,
+  deadlineMinute: number
+): CharacterStoryClue[] | undefined => {
+  if (!Array.isArray(raw)) {
+    return undefined
+  }
+  const seen = new Set<string>()
+  const clues = raw
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map((item) => ({
+      atMinute: storyMinute(item.atMinute, startMinute),
+      title: text(item.title).slice(0, 40),
+      hint: text(item.hint).slice(0, 180),
+    }))
+    .filter((item) => item.title && item.atMinute >= startMinute && item.atMinute < deadlineMinute)
+    .sort((a, b) => a.atMinute - b.atMinute)
+    .filter((item) => {
+      const key = `${item.atMinute}\u0000${item.title}`
+      if (seen.has(key)) {
+        return false
+      }
+      seen.add(key)
+      return true
+    })
+    .slice(0, 12)
+  return clues.length > 0 ? clues : undefined
+}
+
 /** 限时剧情只在字段完整且时间顺序成立时启用，避免坏数据把会话直接锁死。 */
 export const normalizeCharacterStory = (raw: unknown): CharacterStory | undefined => {
   const value = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
@@ -1101,7 +1163,14 @@ export const normalizeCharacterStory = (raw: unknown): CharacterStory | undefine
   ) {
     return undefined
   }
-  return { intro, startMinute, normalUntilMinute, deadlineMinute, stepMinutes }
+  return {
+    intro,
+    startMinute,
+    normalUntilMinute,
+    deadlineMinute,
+    stepMinutes,
+    clues: normalizeStoryClues(value.clues, startMinute, deadlineMinute),
+  }
 }
 
 export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
