@@ -382,9 +382,16 @@ export const en = {
   storyCluesLabel: 'Clues {done}/{total}',
   storyCluesTitle: 'Clue board',
   storyCluesIntro:
-    'Only anomalies that have already appeared are recorded here. The questions, order and judgment are still yours.',
+    'Only anomalies that have already appeared are recorded here. Ask about a related detail to confirm it and unfold the full clue chain.',
+  storyClueChainTitle: 'Clue chain',
+  storyClueChainIntro:
+    'You asked the right question. The weird behavior is now linked into a complete chain; the judgment is still yours.',
+  storyClueConfirmed: 'Confirmed',
+  storyClueBehaviorLabel: 'Weird behavior',
+  storyClueChainLabel: 'Full clue chain',
   storyCluePendingTitle: 'Layer {index} · not yet appeared',
-  storyCluePendingBody: 'Keep talking; it will be recorded as the clock advances.',
+  storyCluePendingBody:
+    'Keep talking; it will be recorded as the clock advances. Ask about a related detail to unfold the full clue chain.',
   storyCluesClose: 'Close',
   storyLockedPlaceholder: 'The story has ended. This chat is locked.',
   storyFailedTitle: 'Story failed',

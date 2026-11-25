@@ -363,9 +363,16 @@ export const zh = {
   storyRemainingLabel: '距零点还有 {time}',
   storyCluesLabel: '线索 {done}/{total}',
   storyCluesTitle: '线索板',
-  storyCluesIntro: '这里只记录已经出现的异常，不替你下结论。问法、顺序和判断仍由你决定。',
+  storyCluesIntro:
+    '这里只记录已经出现的异常，不替你下结论。问到相关细节并确认后，会展开完整线索链。',
+  storyClueChainTitle: '线索链',
+  storyClueChainIntro:
+    '这个问题问到了点子上。下面把之前出现过的怪异行为串成一条完整线索链；判断仍由你来做。',
+  storyClueConfirmed: '已确认',
+  storyClueBehaviorLabel: '怪异行为',
+  storyClueChainLabel: '完整线索链',
   storyCluePendingTitle: '第 {index} 层 · 尚未出现',
-  storyCluePendingBody: '继续聊，时间推进后才会记录。',
+  storyCluePendingBody: '继续聊，时间推进后才会记录；问到相关细节时会展开完整线索链。',
   storyCluesClose: '关闭',
   storyLockedPlaceholder: '剧情已结束，无法继续对话',
   storyFailedTitle: '剧情已失败',

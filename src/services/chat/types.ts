@@ -145,6 +145,10 @@ export type Session = {
   storyState?: 'active' | 'bad_end' | 'good_end'
   /** 本轮已推进到截止时间，等待模型给出最后一幕或前端兜底判定 */
   storyFinalTurn?: boolean
+  /** 玩家已经问到点子上、确认过的线索 id；用于线索链弹窗去重和落盘 */
+  storyClueIds?: string[]
+  /** 刚确认、尚未查看的线索 id；打开弹窗或关闭后清空，避免刷新重复弹出 */
+  storyClueNotice?: string
 }
 
 /** 会话列表元数据；消息只在打开会话时加载。 */

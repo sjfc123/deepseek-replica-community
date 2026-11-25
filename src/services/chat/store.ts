@@ -122,6 +122,7 @@ import {
 import { createLatestReminder } from './latestReminder.js'
 import {
   advanceStoryClock,
+  confirmStoryClueFromQuestion,
   createStoryState,
   detectStoryEnd,
   formatStoryTurnBlock,
@@ -825,6 +826,7 @@ export const forkSession = async (sessionId: string, title?: string): Promise<st
     storyClockMinute: source.storyClockMinute,
     storyState: source.storyState,
     storyFinalTurn: source.storyFinalTurn,
+    storyClueIds: source.storyClueIds ? [...source.storyClueIds] : undefined,
     contextCheckpoints: source.contextCheckpoints
       ? source.contextCheckpoints.map((checkpoint) => ({ ...checkpoint }))
       : undefined,
@@ -848,6 +850,20 @@ export const selectSession = (id: string) => {
     void ensureSessionLoaded(id)
     trimSessionCache()
   }
+}
+
+/** 玩家看过线索链弹窗后清掉一次性提示；线索本身仍保留在 storyClueIds 里。 */
+export const acknowledgeStoryClue = (sessionId: string) => {
+  const current = getSession(sessionId)
+  if (!current?.storyClueNotice) {
+    return
+  }
+  updateSession(sessionId, (session) => ({
+    ...session,
+    storyClueNotice: undefined,
+    updatedAt: Date.now(),
+  }))
+  persist(sessionId)
 }
 
 /** 从搜索结果跳转到指定会话的指定消息：若目标消息在非当前分支，自动激活通往该消息的分支路径。 */
@@ -3090,13 +3106,38 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       }))
     }
     updateReply(sessionId, reply)
+    const answerText = replyPlainText(reply)
+    // 玩家问题贴近当前已到点线索时，只在本轮回复完成后确认，避免弹窗早于角色表现。
+    if (!storyEnd && (reply.status === 'done' || reply.status === 'stopped') && answerText.trim()) {
+      const sessionNow = getSession(sessionId)
+      if (sessionNow?.storyState === 'active') {
+        const settingsNow = useSettings.getState()
+        const turnCard = resolveTurnCharacterCard(
+          settingsNow.characterCards,
+          sessionNow,
+          settingsNow.activeCharacterId,
+          settingsNow.roleplayEnabled
+        )
+        const clueState = confirmStoryClueFromQuestion(
+          turnCard?.story,
+          sessionNow,
+          request.question.content
+        )
+        if (clueState) {
+          updateSession(sessionId, (session) => ({
+            ...session,
+            ...clueState,
+            updatedAt: Date.now(),
+          }))
+        }
+      }
+    }
     set((state) => ({
       streaming: Object.fromEntries(
         Object.entries(state.streaming).filter(([id]) => id !== sessionId)
       ),
     }))
     persist(sessionId)
-    const answerText = replyPlainText(reply)
     if ((reply.status === 'done' || reply.status === 'stopped') && answerText.trim()) {
       recordTurnMemory(
         sessionId,

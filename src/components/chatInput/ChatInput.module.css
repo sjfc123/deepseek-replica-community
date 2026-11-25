@@ -33,7 +33,8 @@
 
 .storyBarLocked .storyDot {
   background: var(--dsw-alias-state-error-primary, #d14343);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-error-primary, #d14343) 12%, transparent);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--dsw-alias-state-error-primary, #d14343) 12%, transparent);
 }
 
 .storyClock {
@@ -95,7 +96,24 @@
 .clueItemRevealed {
   border-style: solid;
   border-color: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 20%, transparent);
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 5%, var(--dsw-alias-bg-layer-2));
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-brand-primary, #4d6bfe) 5%,
+    var(--dsw-alias-bg-layer-2)
+  );
+}
+
+.clueItemConfirmed {
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 42%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-brand-primary, #4d6bfe) 8%,
+    var(--dsw-alias-bg-layer-2)
+  );
+}
+
+.clueItemFocus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 22%, transparent);
 }
 
 .clueHead {
@@ -140,6 +158,47 @@
   font-size: 13px;
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);
+}
+
+.clueBehavior {
+  margin: 8px 0 0 28px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.clueBehavior span {
+  margin-right: 6px;
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+  font-weight: 600;
+}
+
+.clueChain {
+  margin: 10px 0 0 28px;
+  padding: 9px 10px;
+  border-left: 2px solid
+    color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 34%, transparent);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 4%, transparent);
+}
+
+.clueChainTitle {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.clueChain ol {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.clueChain li + li {
+  margin-top: 3px;
 }
 
 /* 三条玩家回复建议：贴在输入框上方，点击只填草稿，不直接发送 */
@@ -241,7 +300,11 @@
 
   &:hover {
     border-color: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 40%, transparent);
-    background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 6%, var(--dsw-specific-input-major));
+    background: color-mix(
+      in srgb,
+      var(--dsw-alias-brand-primary, #4d6bfe) 6%,
+      var(--dsw-specific-input-major)
+    );
   }
 }
 

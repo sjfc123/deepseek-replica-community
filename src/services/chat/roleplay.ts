@@ -98,6 +98,14 @@ export type CharacterStoryClue = {
   atMinute: number
   title: string
   hint: string
+  /** 玩家在对话里实际能看到的怪异行为；只在时间到点后注入，不提前泄漏 */
+  behavior?: string
+  /** 看完行为后能串起来的完整线索链，按“前因→异常→结论”排列 */
+  chain?: string[]
+  /** 玩家提问命中这些词时，视为接近该线索；只在时间到点后生效 */
+  triggers?: string[]
+  /** 正常阶段可以自然埋下的可回收伏笔，只说生活细节，不解释异常 */
+  foreshadow?: string
 }
 
 export type CharacterStory = {
@@ -113,6 +121,8 @@ export type CharacterStory = {
   stepMinutes: number
   /** 分阶段出现的调查线索；窗口之外或没有配置时不显示线索板 */
   clues?: CharacterStoryClue[]
+  /** 能公开给建议器的当前环境，不写真相和后续线索 */
+  publicScene?: string
 }
 
 export type CharacterCard = {
@@ -425,9 +435,9 @@ const AVATAR_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/
 export const isAvatarDataUrl = (value: unknown): value is string =>
   typeof value === 'string' && value.length <= AVATAR_DATA_MAX && AVATAR_PATTERN.test(value)
 
-const BUILTIN_CARD_TIME = Date.UTC(2026, 10, 25)
-/** 0.8.88 及更早写入的内置卡种子时间：只刷新仍停留在这个时间的卡，用户改过的卡不覆盖 */
-const BUILTIN_CARD_PREVIOUS_TIME = Date.UTC(2026, 10, 24)
+const BUILTIN_CARD_TIME = Date.UTC(2026, 10, 25, 12)
+/** 0.8.90 及更早写入的内置卡种子时间：只刷新仍停留在这个时间的卡，用户改过的卡不覆盖 */
+const BUILTIN_CARD_PREVIOUS_TIME = Date.UTC(2026, 10, 25)
 
 /** 内置卡共用默认值：新增字段只在这里维护一份，卡片本身按需覆盖 */
 const BUILTIN_CARD_EXTRA = {
@@ -842,8 +852,7 @@ const builtinCards = (): CharacterCard[] => [
       '{{user}} 是她哥哥，大她五岁。她平时叫“哥”，嫌他管得多时叫“老哥”。她答应过奶奶，旧屋收拾完之前不让别人进去；也答应过哥哥，零点前一定回家。',
     style:
       '短句，语速快，一条消息常常拆成两三条。句末一定有标点，问句用问号，紧张时句号会连打两个。会先问“你听得到吗”，再讲正事；被哥哥唠叨时先顶一句，过两秒又软下来。',
-    tics:
-      '发消息爱把一句话拆开发；害怕时连打两个句号；提到奶奶会先停一下再说；从不发没有标点的长句，也不用空格代替标点。',
+    tics: '发消息爱把一句话拆开发；害怕时连打两个句号；提到奶奶会先停一下再说；从不发没有标点的长句，也不用空格代替标点。',
     greeting:
       '哥，你下班了吗？我还在旧屋这边收拾奶奶的东西。\n屋里有点闷，窗户好像打不开。你今晚会过来吗？',
     notes:
@@ -854,8 +863,7 @@ const builtinCards = (): CharacterCard[] => [
       '奶奶去世后留下柳桥巷 42 号旧屋和一屋子旧东西。家里商量着月底清空，小满主动揽下整理的事，说想自己把奶奶的针线盒和照片收好。她去过旧屋三次，前两次都正常；第三次，她把奶奶遗物里那面蒙着布的旧穿衣镜搬进了储物间。',
     scenario:
       '晚上八点，{{user}} 还没回家。小满一个人待在旧屋，手机电量只剩一半，屋里闷得像下过雨。她给哥哥发消息，说窗户打不开。旧屋的储物间门在她身后半掩着，镜子上蒙着的布掉了一角。',
-    goal:
-      '本人妹妹想撑到哥哥来，把奶奶的针线盒交给他，再一起回家；她不敢说自己刚才在镜子里看见了什么。替身则想拖住哥哥，让他亲口承认“你是我妹妹”，并在零点前完成替换。',
+    goal: '本人妹妹想撑到哥哥来，把奶奶的针线盒交给他，再一起回家；她不敢说自己刚才在镜子里看见了什么。替身则想拖住哥哥，让他亲口承认“你是我妹妹”，并在零点前完成替换。',
     secret:
       '22:01 之后发消息的不是林小满，而是旧穿衣镜里的替身。真正的妹妹被关在旧屋储物间，手脚被旧布条缠住，手机被替身拿走。替身能模仿她的称呼和短句，却学不会她的标点习惯，也记不清她左腕的疤、奶奶的暗号和储物间钥匙放在哪。替身最怕哥哥拒绝承认它是妹妹，也怕哥哥打开储物间那面镜子。',
     speechExamples:
@@ -867,7 +875,7 @@ const builtinCards = (): CharacterCard[] => [
     tags: ['悬疑', '恐怖', '推理', '限时'],
     story: {
       intro:
-        '【剧情说明】\n你的妹妹林小满今天去了柳桥巷 42 号旧屋，替家里整理奶奶留下的遗物。晚上八点，她开始给你发消息。零点之后，她会彻底失联。\n\n【调查目标】\n一、她从哪一条消息开始不像本人：看句末标点，也看她还会不会写出真实的犹豫。\n二、用只有妹妹知道的事验证：身体旧事、称呼习惯、奶奶留下的暗号。\n三、确认她真正的位置：窗、藤椅、储物间和镜子的动线对不对得上。\n\n【规则】\n你每回复一句，时间推进十分钟；00:00 之后，这个会话会被关闭。\n不要直接问她“你是不是假的”，她会顺着你的话演。用细节交叉验证，逼她露出前后矛盾。\n《线索板》只记录已经出现的异常，不替你下结论；四层线索会随聊天推进。\n\n【结局】\n确认屏幕对面的人到底是谁，拒绝被带着走，并说出真正的她所在的位置，才能把她带回来；否则零点失败。',
+        '【剧情说明】\n你的妹妹林小满今天去了柳桥巷 42 号旧屋，替家里整理奶奶留下的遗物。晚上八点，她开始给你发消息。零点之后，她会彻底失联。\n\n【调查目标】\n一、她从哪一条消息开始不像本人：看句末标点，也看她还会不会写出真实的犹豫。\n二、用只有妹妹知道的事验证：身体旧事、称呼习惯、奶奶留下的暗号。\n三、确认她真正的位置：窗、藤椅、储物间和镜子的动线对不对得上。\n\n【规则】\n你每回复一句，时间推进十分钟；00:00 之后，这个会话会被关闭。\n不要直接问她“你是不是假的”，她会顺着你的话演。用细节交叉验证，逼她露出前后矛盾。\n《线索板》只记录已经出现的异常，不替你下结论；四层线索会随聊天推进。问到相关细节时，会把怪异行为串成完整线索链供你核对。\n\n【结局】\n确认屏幕对面的人到底是谁，拒绝被带着走，并说出真正的她所在的位置，才能把她带回来；否则零点失败。',
       startMinute: 20 * 60,
       normalUntilMinute: 22 * 60,
       deadlineMinute: 24 * 60,
@@ -877,23 +885,89 @@ const builtinCards = (): CharacterCard[] => [
           atMinute: 22 * 60 + 1,
           title: '标点与独白',
           hint: '句末标点开始消失，括号里的犹豫也变得像台词。对照前文，确认她是从哪一条开始变的。',
+          behavior:
+            '22:01 起消息不再出现逗号、句号、问号、叹号和引号，句子只用空格或换行断开；括号里的独白变得像算计，不再像没来得及说出口的犹豫。',
+          chain: [
+            '20:00–22:00 的本人习惯把一句话拆成两三条发，每条都有标点；紧张时句号会连打两个，这是长期养成的打字习惯。',
+            '22:01 后标点全部消失，但“哥”的称呼和拆句节奏仍在，说明对方在模仿表面句式，而不是本人。',
+            '标点不是知识，是肌肉记忆；能复制词句却复制不了标点，是第一层身份裂缝。',
+          ],
+          triggers: [
+            '标点',
+            '句号',
+            '问号',
+            '逗号',
+            '独白',
+            '括号',
+            '打字',
+            '语气',
+            '句子',
+            '断句',
+            '不对劲',
+            '变了',
+            '怪',
+          ],
+          foreshadow:
+            '正常阶段可以自然提到自己发消息总爱把一句话拆成两三条，每条都带标点，不要解释这个习惯。',
         },
         {
           atMinute: 22 * 60 + 41,
           title: '左右腕旧疤',
           hint: '妹妹的旧疤在左腕内侧。问伤势、问怎么留下；她若只是复述，而不是回忆，就会把左右说反。',
+          behavior:
+            '问起小时候摔车留下的疤时，对方把左腕说成右腕，或只能说“摔的”“早好了”，答不出哥哥当年在场看到的细节。',
+          chain: [
+            '本人左腕内侧有一道小时候摔车留下的浅疤，哥哥亲眼见过，也知道是怎么摔的。',
+            '替身能复述“有疤”，却把左右说反，对形成过程只能用套话。',
+            '身体旧事不是知识题，是共同经历；答得顺却没有画面，反而暴露它在背答案。',
+          ],
+          triggers: ['疤', '手腕', '左腕', '右腕', '摔车', '旧伤', '伤', '疼'],
+          foreshadow: '正常阶段可以自然提一句左手腕以前摔车留过疤，只说这一句，不展开。',
         },
         {
           atMinute: 23 * 60 + 11,
           title: '奶奶的暗号',
           hint: '用“红豆糕要趁热”试探，看她能不能接出只有家里人才知道的下一句。注意她是接得顺，还是在套话。',
+          behavior:
+            '听到“红豆糕要趁热”时，对方没有本能接出家里的后半句，而是反问“下一句是什么”、重复前半句，或用“你说呢”拖时间。',
+          chain: [
+            '奶奶留下的暗号只有家里三个人知道；本人会不假思索接上，不需要想。',
+            '替身记得“有暗号”，却不知道后半句，只能用反问、重复或转移话题拖时间。',
+            '暗号的价值不在内容，在反应速度和接法；迟疑、反问、套话都是异常。',
+          ],
+          triggers: ['暗号', '红豆糕', '趁热', '奶奶', '下一句', '接什么', '后半句', '口令'],
+          foreshadow: '正常阶段可以自然提到奶奶常做的红豆糕，但不要说出完整暗号，也不要解释。',
         },
         {
           atMinute: 23 * 60 + 41,
           title: '旧屋动线',
           hint: '核对窗、藤椅、储物间和镜子的位置。她说自己在屋里，却对不上怎么走到、门朝哪边。',
+          behavior:
+            '问窗、藤椅、储物间和镜子怎么走时，对方把方位说反，或只能说“就在屋里”，答不出从窗边到储物间门口的路线。',
+          chain: [
+            '旧屋的窗在里侧，藤椅靠窗，储物间门在藤椅背后半掩，旧穿衣镜被搬进了储物间。',
+            '本人当天就在这间屋子，能自然说出从窗边到储物间门口怎么走、门朝哪边。',
+            '替身只有聊天里的零碎描述，空间记忆是拼出来的；动线一处对不上，就能把它锁回镜子或储物间。',
+          ],
+          triggers: [
+            '窗',
+            '藤椅',
+            '储物间',
+            '镜子',
+            '门',
+            '旧屋',
+            '位置',
+            '哪',
+            '怎么走',
+            '动线',
+            '路线',
+            '房间',
+          ],
+          foreshadow:
+            '正常阶段可以自然描述一次从窗边走到储物间门口的路线，只说路线，不提镜子异常。',
         },
       ],
+      publicScene: '她一个人待在柳桥巷 42 号旧屋，屋里很闷，窗户打不开，手机电量不多；哥哥还没到。',
     },
     createdAt: BUILTIN_CARD_TIME,
     updatedAt: BUILTIN_CARD_TIME,
@@ -1128,6 +1202,25 @@ const normalizeStoryClues = (
       atMinute: storyMinute(item.atMinute, startMinute),
       title: text(item.title).slice(0, 40),
       hint: text(item.hint).slice(0, 180),
+      behavior: text(item.behavior).slice(0, 180) || undefined,
+      chain: Array.isArray(item.chain)
+        ? item.chain
+            .map(text)
+            .filter(Boolean)
+            .map((line) => line.slice(0, 160))
+            .slice(0, 6)
+        : undefined,
+      triggers: Array.isArray(item.triggers)
+        ? [
+            ...new Set(
+              item.triggers
+                .map(text)
+                .filter(Boolean)
+                .map((line) => line.slice(0, 20))
+            ),
+          ].slice(0, 16)
+        : undefined,
+      foreshadow: text(item.foreshadow).slice(0, 180) || undefined,
     }))
     .filter((item) => item.title && item.atMinute >= startMinute && item.atMinute < deadlineMinute)
     .sort((a, b) => a.atMinute - b.atMinute)
@@ -1170,6 +1263,7 @@ export const normalizeCharacterStory = (raw: unknown): CharacterStory | undefine
     deadlineMinute,
     stepMinutes,
     clues: normalizeStoryClues(value.clues, startMinute, deadlineMinute),
+    publicScene: text(value.publicScene).slice(0, 240) || undefined,
   }
 }
 

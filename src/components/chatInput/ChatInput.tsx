@@ -24,18 +24,22 @@ import {
 import { setSearch, setThinking, setThinkingEffort, useSettings } from '../../services/settings.js'
 import { hasAside, splitAsides } from '../../services/chat/aside.js'
 import { useIsMobile } from '../../app/viewport.js'
-import { editMessage, sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
+import {
+  editMessage,
+  sendMessage,
+  stopReply,
+  useChatStore,
+  acknowledgeStoryClue,
+} from '../../services/chat/store.js'
 import { generateReplySuggestions } from '../../services/chat/suggestions.js'
 import {
-  currentStoryClue,
   formatStoryClock,
   formatStoryRemaining,
   isStoryLocked,
+  storyClueKey,
   storyCluesUntil,
 } from '../../services/chat/story.js'
-import {
-  findSessionCharacterCard,
-} from '../../services/chat/roleplay.js'
+import { findSessionCharacterCard } from '../../services/chat/roleplay.js'
 import {
   addDraftFiles,
   addEditFiles,
@@ -198,18 +202,43 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       ? formatStoryRemaining(session.storyClockMinute, story.deadlineMinute)
       : ''
   const storyEnd = session?.storyState
-  const storyClue = story && session?.storyClockMinute !== undefined
-    ? currentStoryClue(story, session.storyClockMinute)
-    : undefined
-  const revealedClues = story && session?.storyClockMinute !== undefined
-    ? storyCluesUntil(story, session.storyClockMinute)
+  const confirmedClueIds = session?.storyClueIds ?? []
+  const revealedClues =
+    story && session?.storyClockMinute !== undefined
+      ? storyCluesUntil(story, session.storyClockMinute)
+      : []
+  const confirmedClues = story
+    ? (story.clues ?? []).filter((clue) => confirmedClueIds.includes(storyClueKey(clue)))
     : []
   const [storyNoticeClosed, setStoryNoticeClosed] = useState(false)
   const [cluesOpen, setCluesOpen] = useState(false)
+  const [cluesAuto, setCluesAuto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const mirrorRef = useRef<HTMLDivElement>(null)
   const togglesRef = useRef<HTMLDivElement>(null)
+
+  // 玩家问到已到点线索后，后端只留一次提示；这里自动展开线索链，关闭时再清掉。
+  useEffect(() => {
+    if (!session?.storyClueNotice) {
+      return
+    }
+    setCluesAuto(true)
+    setCluesOpen(true)
+  }, [session?.storyClueNotice])
+
+  const openClues = () => {
+    setCluesAuto(false)
+    setCluesOpen(true)
+  }
+
+  const closeClues = () => {
+    setCluesOpen(false)
+    setCluesAuto(false)
+    if (sessionId && session?.storyClueNotice) {
+      acknowledgeStoryClue(sessionId)
+    }
+  }
 
   const clearEffortTimer = () => {
     if (effortTimer.current !== null) {
@@ -484,7 +513,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   }, [focusComposer, sessionId])
 
   // 排队、上传中与上传失败的附件均保留在输入框，全部上传成功后方可发送
-  const canSend = !importingHistory && !streaming && !storyLocked && voice.status === 'idle' && draftReady
+  const canSend =
+    !importingHistory && !streaming && !storyLocked && voice.status === 'idle' && draftReady
   const showSend = !android || editingHere || streaming || draftReady || typing
 
   useAndroidBackInterception(showAttachments || editingHere)
@@ -619,18 +649,16 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           <span className={styles.storyDot} aria-hidden />
           <span className={styles.storyClock}>{t('storyClockLabel', { time: storyClock })}</span>
           <span className={styles.storyRemaining}>
-            {storyLocked ? t('storyLockedPlaceholder') : t('storyRemainingLabel', { time: storyRemaining })}
+            {storyLocked
+              ? t('storyLockedPlaceholder')
+              : t('storyRemainingLabel', { time: storyRemaining })}
           </span>
           {story.clues?.length ? (
-            <button
-              type="button"
-              className={styles.storyCluesButton}
-              onClick={() => setCluesOpen(true)}
-            >
+            <button type="button" className={styles.storyCluesButton} onClick={openClues}>
               <IconSearchOutline16 />
               {t('storyCluesLabel', {
-                done: storyClue ? storyClue.index + 1 : 0,
-                total: storyClue?.total ?? story.clues.length,
+                done: confirmedClues.length,
+                total: story.clues.length,
               })}
             </button>
           ) : null}
@@ -1273,33 +1301,66 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         : null}
       {cluesOpen && story ? (
         <Modal
-          title={t('storyCluesTitle')}
+          title={cluesAuto ? t('storyClueChainTitle') : t('storyCluesTitle')}
           footer={
-            <Button size="m" onClick={() => setCluesOpen(false)}>
+            <Button size="m" onClick={closeClues}>
               {t('storyCluesClose')}
             </Button>
           }
-          onClose={() => setCluesOpen(false)}
+          onClose={closeClues}
         >
-          <p className={styles.cluesIntro}>{t('storyCluesIntro')}</p>
+          <p className={styles.cluesIntro}>
+            {cluesAuto ? t('storyClueChainIntro') : t('storyCluesIntro')}
+          </p>
           <div className={styles.cluesList}>
             {(story.clues ?? []).map((clue, index) => {
               const revealed = revealedClues.includes(clue)
+              const clueId = storyClueKey(clue)
+              const confirmed = confirmedClueIds.includes(clueId)
+              const focused = cluesAuto && session?.storyClueNotice === clueId
               return (
                 <div
-                  key={`${clue.atMinute}-${clue.title}`}
-                  className={clsx(styles.clueItem, revealed && styles.clueItemRevealed)}
+                  key={clueId}
+                  className={clsx(
+                    styles.clueItem,
+                    revealed && styles.clueItemRevealed,
+                    confirmed && styles.clueItemConfirmed,
+                    focused && styles.clueItemFocus
+                  )}
                 >
                   <div className={styles.clueHead}>
                     <span className={styles.clueIndex}>{index + 1}</span>
                     <span className={styles.clueTitle}>
                       {revealed ? clue.title : t('storyCluePendingTitle', { index: index + 1 })}
                     </span>
-                    {revealed ? <span className={styles.clueTime}>{formatStoryClock(clue.atMinute)}</span> : null}
+                    {confirmed ? (
+                      <span className={styles.clueTime}>{t('storyClueConfirmed')}</span>
+                    ) : revealed ? (
+                      <span className={styles.clueTime}>{formatStoryClock(clue.atMinute)}</span>
+                    ) : null}
                   </div>
-                  <p className={styles.clueHint}>
-                    {revealed ? clue.hint : t('storyCluePendingBody')}
-                  </p>
+                  {confirmed && clue.behavior ? (
+                    <>
+                      <p className={styles.clueBehavior}>
+                        <span>{t('storyClueBehaviorLabel')}</span>
+                        {clue.behavior}
+                      </p>
+                      {clue.chain?.length ? (
+                        <div className={styles.clueChain}>
+                          <div className={styles.clueChainTitle}>{t('storyClueChainLabel')}</div>
+                          <ol>
+                            {clue.chain.map((line, lineIndex) => (
+                              <li key={`${clueId}-${lineIndex}`}>{line}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className={styles.clueHint}>
+                      {revealed ? clue.hint : t('storyCluePendingBody')}
+                    </p>
+                  )}
                 </div>
               )
             })}
