@@ -449,7 +449,40 @@ export const initChat = (): Promise<void> => {
   set({ initError: false })
   initTask = (async () => {
     try {
-      const summaries = await db.loadSessionSummaries()
+      const loaded = await db.loadSessionSummaries()
+      const summaries = [...loaded]
+      // 功能区：会话与角色核心 / 旧摘要角色回填。只按卡名筛候选，最终仍以完整会话的
+      // characterId 为准，标题相同但未绑卡的普通会话不会被误分组。
+      const cardNames = useSettings
+        .getState()
+        .characterCards.map((card) => card.name.trim())
+        .filter(Boolean)
+      const candidates = loaded.filter((summary) => {
+        if (summary.characterId || !summary.title) {
+          return false
+        }
+        const title = summary.title.trim()
+        return cardNames.some((name) => title === name || title.startsWith(`${name} ·`))
+      })
+      for (const summary of candidates) {
+        try {
+          const session = await db.loadSession(summary.id)
+          const characterId = session?.characterId
+          if (!characterId) {
+            continue
+          }
+          const index = summaries.findIndex((item) => item.id === summary.id)
+          if (index < 0 || summaries[index].characterId === characterId) {
+            continue
+          }
+          summaries[index] = { ...summaries[index], characterId }
+          void db
+            .saveSession(session)
+            .catch(db.reportStorageError('repair session character binding'))
+        } catch (error) {
+          db.reportStorageError('read session for character repair')(error)
+        }
+      }
       if (epoch === historyEpoch) {
         set({ ready: true, sessions: sortSessions(summaries) })
       }
