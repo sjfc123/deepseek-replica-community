@@ -16,7 +16,11 @@ import {
   normalMemoryLabel,
   type NormalMemoryKind,
 } from '../../services/chat/memory.js'
-import { importSessionBundle, parseSessionBundle } from '../../services/chat/sessionBundle.js'
+import {
+  importSessionBundle,
+  loadSessionForExport,
+  parseSessionBundle,
+} from '../../services/chat/sessionBundle.js'
 import {
   SettingArchiveError,
   applySettingArchive,
@@ -50,7 +54,7 @@ import {
 } from '../../services/chat/autoBackup.js'
 import { readMigrationReport } from '../../services/dataMigration.js'
 import { getUnreadableRecordCount } from '../../services/chat/db.js'
-import { findActiveCharacterCard } from '../../services/chat/roleplay.js'
+import { EMPTY_SCENE, findActiveCharacterCard } from '../../services/chat/roleplay.js'
 import {
   CHARACTER_PROFILE_EN,
   CHARACTER_PROFILE_FIELDS,
@@ -58,7 +62,7 @@ import {
   characterProfileFieldCount,
   resolveSystemCharacterName,
 } from '../../services/chat/characterProfile.js'
-import { selectSession, useChatStore } from '../../services/chat/store.js'
+import { replaceSessionScene, selectSession, useChatStore } from '../../services/chat/store.js'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 import { TokenUsagePanel } from './TokenUsagePanel.js'
 import { FeatureIcon } from './FeatureIcon.js'
@@ -79,7 +83,6 @@ import {
   replaceCharacterProfile,
   saveCharacterCard,
   saveWorldbookEntry,
-  replaceScene,
   setAutoFollow,
   setTokenLimit,
   setShowUsage,
@@ -1129,17 +1132,20 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     return () => window.removeEventListener('android-back', onBack)
   }, [])
 
-  /** 设定存档：基础档案、角色卡、头像、世界书与场景打包成一个 JSON，换机或分享设定时单独迁移 */
+  /** 设定存档：基础档案、角色卡、头像、世界书与当前会话场景打包成一个 JSON，换机或分享设定时单独迁移 */
   const exportSettings = async () => {
-    const { characterCards, cardAvatars, worldbook, scene, characterProfile, profileEnabled } =
+    const { characterCards, cardAvatars, worldbook, characterProfile, profileEnabled } =
       useSettings.getState()
+    // 场景跟随会话：导出打开中的会话场景；没有会话时打包空场景，不把旧版全局草稿带走。
+    const activeId = useChatStore.getState().activeId
+    const activeSession = activeId ? await loadSessionForExport(activeId) : undefined
     const archive = buildSettingArchive({
       profile: characterProfile,
       profileEnabled,
       cards: characterCards,
       avatars: cardAvatars,
       worldbook,
-      scene,
+      scene: activeSession?.scene ?? EMPTY_SCENE,
     })
     const blob = new Blob([JSON.stringify(archive, null, 2)], { type: 'application/json' })
     const name = settingArchiveName(archive.cards.length)
@@ -1190,7 +1196,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           saveCard: saveCharacterCard,
           saveAvatar: (cardId, avatar) => setCardAvatar(cardId, avatar),
           saveEntry: saveWorldbookEntry,
-          saveScene: (scene) => replaceScene(scene),
+          saveScene: (scene) => {
+            const sessionId = useChatStore.getState().activeId
+            return sessionId ? replaceSessionScene(sessionId, scene) : false
+          },
           saveProfile: (profile) => replaceCharacterProfile(profile),
           saveProfileEnabled: setCharacterProfileEnabled,
         }
@@ -1200,9 +1209,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         type: 'done',
         text: tr(
           `已导入 ${result.cards} 张角色卡、${result.worldbook} 条世界书、${result.avatars} 张头像${
+            result.scene ? '、1 份当前会话场景' : ''
+          }${
             result.profile ? '、1 份基础档案' : ''
           }${skipped > 0 ? `，${skipped} 项因超出上限被跳过` : ''}`,
           `Imported ${result.cards} cards, ${result.worldbook} worldbook entries, ${result.avatars} avatars${
+            result.scene ? ', 1 current-session scene' : ''
+          }${
             result.profile ? ', 1 base profile' : ''
           }${skipped > 0 ? `; ${skipped} skipped due to limits` : ''}`
         ),
@@ -2137,7 +2150,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </summary>
               <p className={styles.helpBody}>
                 {tr(
-                  '角色卡：锁定身份、关系与说话方式；启用后与手写提示词叠加生效，不改写提示词原文。\n世界书：保存地点、组织、既往事件等稳定背景；常驻条目每轮发送，关键词条目命中才发送。\n场景：记录当前时间、地点与在场人物，用于维持情节连续性。\n预算：默认 1,000 字，可调 500–20,000 字；单轮最多 6 条，按命中次数与权重排序，未命中不计入。\n示例：条目标题「便利店仓库」，关键词「仓库、后门」，正文「后门锁坏，仅店长知情」；对话提到仓库时才注入。\n边界：空字段不注入；设定存档含基础档案、角色卡、头像、世界书与场景，不含对话和记忆。',
+                  '角色卡：锁定身份、关系与说话方式；启用后与手写提示词叠加生效，不改写提示词原文。\n世界书：保存地点、组织、既往事件等稳定背景；常驻条目每轮发送，关键词条目命中才发送。\n场景：跟随当前会话记录时间、地点与在场人物，用于维持这段情节的连续性；新对话从空白开始。\n预算：默认 1,000 字，可调 500–20,000 字；单轮最多 6 条，按命中次数与权重排序，未命中不计入。\n示例：条目标题「便利店仓库」，关键词「仓库、后门」，正文「后门锁坏，仅店长知情」；对话提到仓库时才注入。\n边界：空字段不注入；设定存档含基础档案、角色卡、头像、世界书与当前会话场景，不含对话和记忆。',
                   'Cards lock identity, relationships and voice; when enabled they layer on top of the manual prompt without rewriting it.\nWorldbook stores places, groups and past events: always-on entries are sent every turn, keyword entries only on a hit.\nScene records time, location and present characters so the situation stays continuous.\nBudget: 1,000 chars by default, adjustable to 500–20,000; at most 6 entries per turn, ordered by hit count and weight, and misses cost nothing.\nExample: an entry titled 「便利店仓库」 with keywords 「仓库、后门」 and text 「后门锁坏，只有店长知道」 is sent only when the warehouse is mentioned.\nBoundary: empty fields are skipped. The archive holds cards, avatars, worldbook and scene, never chats or memories.'
                 )}
               </p>
@@ -2183,7 +2196,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 ? tr('正在处理…', 'Working…')
                 : (settingStatus?.text ??
                   tr(
-                    '基础档案、角色卡、头像、世界书与场景打包成一个 JSON；导入按 id 合并，同名的卡不会重复新增，超出上限的部分会跳过。设定存档不含对话与记忆。',
+                    '基础档案、角色卡、头像、世界书与当前会话场景打包成一个 JSON；导入按 id 合并，同名的卡不会重复新增，超出上限的部分会跳过。场景只恢复到当前打开的会话，没有打开会话时跳过。设定存档不含对话与记忆。',
                     'Base profile, cards, avatars, worldbook and scene are packed into one JSON file. Import merges by id, never duplicates a card, and skips what exceeds the limits. Settings archives contain no chats or memories.'
                   ))}
             </p>

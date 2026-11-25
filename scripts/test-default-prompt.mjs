@@ -14,6 +14,7 @@ const {
   ASSISTANT_TONE_GUARD,
   ASSISTANT_CONSISTENCY_GUARD,
   ROLEPLAY_CONTINUITY_GUARD,
+  ROLEPLAY_SAFETY_GUARD,
   ROLEPLAY_VIEWPOINT_GUARD,
   ROLEPLAY_VIEWPOINT_REMINDER,
   isMostlyDefaultPrompt,
@@ -90,6 +91,13 @@ assert.match(roleplay, /【对话格式与称呼/)
 assert.match(roleplay, /不要跳出人物/)
 assert.match(roleplay, /禁止自称 AI、模型、助手或程序/)
 assert.match(roleplay, /不要输出分析、规则、提示词/)
+assert.match(roleplay, /【互动尺度，不要复述本段/)
+assert.match(roleplay, /不用露骨性描写推进/)
+assert.ok(
+  roleplay.indexOf(ROLEPLAY_SAFETY_GUARD) <
+    roleplay.indexOf(ROLEPLAY_VIEWPOINT_GUARD.replaceAll('{{user}}', '用户')),
+  '互动尺度必须在叙述视角锁之前，视角锁仍然收尾'
+)
 assert.match(roleplay, /【叙述视角，不要复述本段/)
 assert.match(roleplay, /正文写自己时固定用第一人称「我」/)
 assert.match(roleplay, /不要用姓名、「她」「他」或「ta」指自己/)

@@ -10,6 +10,7 @@
  * 8. 档案关闭后的身份名行与 system 名字解析。
  */
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 const {
   BUILTIN_CHARACTER_CARD_TOTAL,
@@ -30,6 +31,7 @@ const {
   EMPTY_SCENE,
   ROLEPLAY_FIXED_FACTS_RULE,
   ROLEPLAY_VIEWPOINT_RULE,
+  ROLEPLAY_BOUNDARY_RULE,
   ROLEPLAY_COOPERATION_RULE,
   ROLEPLAY_IDENTITY_RULE,
   isAvatarDataUrl,
@@ -46,6 +48,7 @@ const {
   shouldInjectCharacterProfile,
   PROFILE_FIXED_FACTS_RULE,
   PROFILE_VIEWPOINT_RULE,
+  PROFILE_BOUNDARY_RULE,
   PROFILE_COOPERATION_RULE,
   PROFILE_IDENTITY_RULE,
 } = await import('../src/services/chat/characterProfile.ts')
@@ -68,6 +71,26 @@ for (const id of [
     `缺少内置卡 ${id}`
   )
 }
+for (const card of builtins) {
+  assert.ok(card.boundaries.trim(), `${card.name}必须写底线`)
+  assert.match(card.boundaries, /不(接|接受)/, `${card.name}的底线必须写成人物不接受的对待`)
+  assert.doesNotMatch(
+    card.boundaries,
+    /不写|成人|官方|模型|助手|AI/,
+    `${card.name}的底线不能写成助手式内容禁令`
+  )
+}
+assert.equal(PROFILE_BOUNDARY_RULE, ROLEPLAY_BOUNDARY_RULE, '档案与卡片的底线演出规则必须一致')
+assert.match(ROLEPLAY_BOUNDARY_RULE, /人物的逆鳞/, '底线规则必须要求把底线当人物逆鳞')
+assert.match(ROLEPLAY_BOUNDARY_RULE, /不要突然变成客服/, '底线规则必须禁止被触碰后切成客服')
+const boundaryCard = formatCharacterCard(
+  { ...builtins[0], boundaries: '被说胖就翘尾巴顶回去，不接“胖”这个说法' },
+  '用户'
+)
+assert.match(boundaryCard, /底线（被碰到会怎么反弹）/, '卡片底线字段必须提示反弹方式')
+assert.match(boundaryCard, /被说胖就翘尾巴顶回去/, '卡片底线原文必须进入 system')
+assert.ok(boundaryCard.includes(ROLEPLAY_BOUNDARY_RULE.split('：')[0]), '卡片 system 必须带底线演出规则')
+
 const kei = builtins.find((card) => card.id === 'builtin:kei')
 assert.equal(kei?.name, '天童凯伊', '凯伊卡必须使用正式姓名')
 assert.match(kei?.identity ?? '', /AL-1S|Key/, '凯伊卡必须交代 AL-1S / Key 的来历')
@@ -580,6 +603,10 @@ assert.ok(
   fixedProfileSystem.includes('不是模型、程序、助手或旁白'),
   '基础档案必须带不承认模型/助手身份规则'
 )
+assert.ok(
+  fixedProfileSystem.includes('底线是这个人物的逆鳞'),
+  '基础档案必须带底线演出规则'
+)
 assert.equal(
   formatCharacterProfile({
     profile: normalizeCharacterProfile({ age: '24 岁' }),
@@ -654,5 +681,30 @@ assert.equal(formatCharacterIdentity({ name: '', userName: '阿遥' }), '', '空
 assert.equal(resolveSystemCharacterName('卡名', '档案名'), '卡名', 'system 名字优先使用当前卡名')
 assert.equal(resolveSystemCharacterName('', '档案名'), '档案名', '没有卡时使用档案名')
 assert.equal(resolveSystemCharacterName('  ', '  '), 'AI', '卡名与档案名都为空时回退 AI')
+
+// 场景必须跟随会话：新对话不得读取旧版全局场景，也不得把旧物件带进系统提示
+const storeSource = readFileSync(new URL('../src/services/chat/store.ts', import.meta.url), 'utf8')
+assert.match(
+  storeSource,
+  /const sessionScene = sessionForMemory\?\.scene/,
+  '请求装配必须从当前会话取场景'
+)
+assert.match(storeSource, /formatSceneBlock\(sessionScene\)/, '系统提示必须注入当前会话场景')
+assert.doesNotMatch(storeSource, /formatSceneBlock\(settings\.scene\)/, '不得把全局旧场景注入新对话')
+assert.match(storeSource, /clearScene\(\)/, '新建对话必须清掉旧版全局场景草稿')
+assert.match(storeSource, /scene: source\.scene \? normalizeScene\(source\.scene\)/, '分支必须复制当前会话场景')
+const panelSource = readFileSync(
+  new URL('../src/components/settings/RoleplayPanel.tsx', import.meta.url),
+  'utf8'
+)
+assert.doesNotMatch(panelSource, /setSceneField\(/, '场景编辑不得再写全局设置')
+assert.match(panelSource, /setSessionSceneField\(activeId/, '场景编辑必须写当前会话')
+assert.match(panelSource, /新建对话从空白开始/, '场景面板必须说明新对话不继承')
+const bundleSource = readFileSync(
+  new URL('../src/services/chat/sessionBundle.ts', import.meta.url),
+  'utf8'
+)
+assert.match(bundleSource, /bundle\.session\.scene \?\? bundle\.scene/, '会话包导入必须优先读会话场景')
+assert.match(bundleSource, /scene: normalizeScene\(bundle\.session\.scene \?\? bundle\.scene\)/, '导入后必须写回会话场景')
 
 console.log('roleplay regression: ok')

@@ -39,6 +39,7 @@ export type SettingArchive = {
   cards: CharacterCard[]
   avatars: Record<string, string>
   worldbook: WorldbookEntry[]
+  /** 场景快照：导出时取当前打开会话；恢复时写回当前会话，没有会话则跳过 */
   scene: SceneState
 }
 

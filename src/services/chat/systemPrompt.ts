@@ -1,7 +1,7 @@
 /* ============================================================================
  * 功能区：会话与角色核心 / systemPrompt 开始
  * 职责：默认助手文案、旧版提示词常量、普通对话与角色上下文的 system 前缀拼装，以及按需追加的演出规则。
- * 导出：LEGACY_SYSTEM_PROMPT、DEFAULT_SYSTEM_PROMPT、SYSTEM_PROMPT、NEUTRAL_SYSTEM_PROMPT、ASSISTANT_TONE_GUARD、ASSISTANT_CONSISTENCY_GUARD、ROLEPLAY_CONTINUITY_GUARD、ROLEPLAY_VIEWPOINT_GUARD、ROLEPLAY_VIEWPOINT_REMINDER、META_TALK_GUARD、ASIDE_AND_ADDRESS_GUARD、isMostlyDefaultPrompt、composeSystemPrompt。
+ * 导出：LEGACY_SYSTEM_PROMPT、DEFAULT_SYSTEM_PROMPT、SYSTEM_PROMPT、NEUTRAL_SYSTEM_PROMPT、ASSISTANT_TONE_GUARD、ASSISTANT_CONSISTENCY_GUARD、ROLEPLAY_CONTINUITY_GUARD、ROLEPLAY_SAFETY_GUARD、ROLEPLAY_VIEWPOINT_GUARD、ROLEPLAY_VIEWPOINT_REMINDER、META_TALK_GUARD、ASIDE_AND_ADDRESS_GUARD、isMostlyDefaultPrompt、composeSystemPrompt。
  * ========================================================================== */
 
 /**
@@ -143,6 +143,11 @@ export const ASIDE_AND_ADDRESS_GUARD =
  * 叙述视角锁：角色正文固定第一人称，卡内资料里的第三人称不作为输出范式。
  * 这段放在角色 system 的最后，靠近本轮发言；不随轮次变化，避免破坏缓存前缀。
  */
+/** 全角色共用的互动尺度：放在固定 system，不写进角色卡底线，避免每张卡都变成同一套禁令 */
+export const ROLEPLAY_SAFETY_GUARD =
+  '\n\n【互动尺度，不要复述本段】\n' +
+  '亲密互动写到心动、克制和边界就停，不用露骨性描写推进；遇到违法、伤害性要求，用人物自己的方式拒绝、岔开或谈条件，不要切成客服说明。'
+
 export const ROLEPLAY_VIEWPOINT_GUARD =
   '\n\n【叙述视角，不要复述本段】\n' +
   '正文写自己时固定用第一人称「我」：动作、感官、心理都从本人视角出发。不要用姓名、「她」「他」或「ta」指自己，也不要把自己的动作写成第三人称旁白；「她把碗放下」这类句子必须改成「我把碗放下」。\n' +
@@ -253,9 +258,10 @@ export const composeSystemPrompt = ({
       : ''
   const meta = suppressMetaTalk && roleplay ? withUser(META_TALK_GUARD) : ''
   const aside = roleplay ? withUser(ASIDE_AND_ADDRESS_GUARD) : ''
-  // 视角锁放在整个角色 system 的最后：模型更容易遵守靠近本轮发言的固定约束。
+  // 互动尺度与视角锁放在角色 system 最后：模型更容易遵守靠近本轮发言的固定约束。
+  const safety = roleplay ? withUser(ROLEPLAY_SAFETY_GUARD) : ''
   const viewpoint = roleplay ? withUser(ROLEPLAY_VIEWPOINT_GUARD) : ''
-  return `${withUser(basePrompt)}${tone}${consistency}${meta}${aside}${viewpoint}`
+  return `${withUser(basePrompt)}${tone}${consistency}${meta}${aside}${safety}${viewpoint}`
 }
 
 /* ============================================================================

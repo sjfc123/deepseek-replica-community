@@ -16,6 +16,7 @@ import type {
 } from '../api/types.js'
 import type { UploadedImage } from '../imageUpload.js'
 import type { MemoryCard } from './memory.js'
+import type { SceneState } from './roleplay.js'
 
 /**
  * 消息附件。id 是本地标识（IndexedDB files 表的主键，原件按它存储，所有引用同一 id 的消息共用一份），
@@ -139,6 +140,8 @@ export type Session = {
   contextCheckpoints?: ContextCheckpoint[]
   /** 已进入本会话的角色卡；关闭全局角色扮演后仍按这张卡延续人物 */
   characterId?: string
+  /** 当前会话的场景快照；场景不跨会话共用，新对话始终从空场景开始 */
+  scene?: SceneState
   /** 限时推理卡的虚拟时钟，单位分钟；普通会话不写 */
   storyClockMinute?: number
   /** active：可继续；bad_end / good_end：结局已定，输入与 regenerate 都锁死 */

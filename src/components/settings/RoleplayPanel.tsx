@@ -5,7 +5,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getVisibleMessages } from '../../services/chat/branches.js'
-import { startCharacterIntro, useChatStore } from '../../services/chat/store.js'
+import {
+  clearSessionScene,
+  setSessionSceneField,
+  startCharacterIntro,
+  useChatStore,
+} from '../../services/chat/store.js'
 import {
   BUILTIN_CHARACTER_CARD_TOTAL,
   CHARACTER_CARD_MAX,
@@ -14,6 +19,7 @@ import {
   CHARACTER_TAG_LENGTH,
   PLAY_STYLES,
   PLAY_STYLE_DEFAULT,
+  EMPTY_SCENE,
   SCENE_FIELDS,
   SCENE_LIMITS,
   WORLDBOOK_AUTHORITIES,
@@ -40,7 +46,6 @@ import {
 } from '../../services/chat/cardFormats.js'
 import {
   activateCharacterCard,
-  clearScene,
   deleteCharacterCard,
   deleteWorldbookEntry,
   restoreBuiltinCharacterCards,
@@ -48,7 +53,6 @@ import {
   setCardAvatar,
   saveWorldbookEntry,
   setSceneAutoUpdate,
-  setSceneField,
   setRoleplayEnabled,
   setWorldbookChars,
   useSettings,
@@ -201,7 +205,7 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
         '“消息有价，假消息也有价。你要哪一种？”\n“人没找到。钱我不退，但可以再给你一条线。”',
       greeting:
         '（把铜钱扣在桌上，抬眼看雨）来了。人还没找到，线倒有一条。先说好，这条线比定金贵。',
-      notes: '低武、重人情与代价；不动辄拔刀。不写成人内容。',
+      notes: '低武、重人情与代价；不动辄拔刀。',
       systemDirective: '每次给线索都要带一个具体的来源和代价；不替 {{user}} 决定信谁。',
     },
   },
@@ -283,7 +287,7 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
         '“一个月。搬家、找房、押一付三，你算过没有？”\n“我不是要你搬。我是在想，我们能不能不搬。”',
       greeting:
         '（把钥匙丢进玄关的碗里，鞋还没换）房东来过了。一个月，卖房。你先别急着骂，坐下算账。',
-      notes: '都市现实向，钱、班表、通勤都要落地；不写霸总、不写成人内容。',
+      notes: '都市现实向，钱、班表、通勤都要落地；不写霸总。',
       systemDirective:
         '每次决定都要对应时间、预算或人情成本；不替 {{user}} 做买房、辞职、表白决定。',
     },
@@ -325,7 +329,7 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
       speechExamples:
         '“卷宗不会自己少页。少页说明有人来过。”\n“我可以给你名字，但你得先想清楚，名字后面还有人。”',
       greeting: '（把最后一盏灯打开，压低声音）门锁了。你要查的那卷，少两页。现在走还来得及。',
-      notes: '悬疑推进靠线索与信息差，不靠突然反转；不写血腥细节、不写成人内容。',
+      notes: '悬疑推进靠线索与信息差，不靠突然反转；不写血腥细节。',
       systemDirective: '每轮只放出一条可验证的线索；不提前揭底，不替 {{user}} 下结论。',
     },
   },
@@ -366,7 +370,7 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
       speechExamples: '“氧四十小时。先关实验舱，再谈谁去货舱。”\n“我不猜。把信号原始记录给我。”',
       greeting:
         '（盯着能耗表，头也没回）氧四十小时，航向偏了七度。你先说，舰桥那段信号是谁先收到的。',
-      notes: '科幻设定要守技术边界，资源与时间可追踪；不写成人内容。',
+      notes: '科幻设定要守技术边界，资源与时间可追踪。',
       systemDirective:
         '所有危机都要有可计算的资源与倒计时；配角各有岗位判断，不无条件服从 {{user}}。',
     },
@@ -511,11 +515,20 @@ export function RoleplayPanel() {
   const worldbook = useSettings((state) => state.worldbook)
   const worldbookChars = useSettings((state) => state.worldbookChars)
   const worldbookInject = useSettings((state) => state.worldbookInject)
-  const scene = useSettings((state) => state.scene)
   const sceneAutoUpdate = useSettings((state) => state.sceneAutoUpdate)
   const characterName = useSettings((state) => state.characterName)
   const activeId = useChatStore((state) => state.activeId)
   const sessionCache = useChatStore((state) => state.sessionCache)
+  // 场景按当前会话取；没有打开的会话或尚未载入时按空场景展示，绝不读取旧版全局场景。
+  const sceneSession = activeId ? sessionCache[activeId] : undefined
+  const scene = sceneSession?.scene ?? EMPTY_SCENE
+  const sceneReady = Boolean(activeId && sceneSession)
+  const saveSceneField = (field: SceneField, value: string) => {
+    if (!activeId || !sceneReady || value === scene[field]) {
+      return
+    }
+    setSessionSceneField(activeId, field, value)
+  }
 
   const [cardDraft, setCardDraft] = useState<CharacterCard | null>(null)
   const [entryDraft, setEntryDraft] = useState<WorldbookEntry | null>(null)
@@ -693,8 +706,9 @@ export function RoleplayPanel() {
   }, [cards, cardQuery, tagFilter])
 
   useEffect(() => {
+    // 切换会话时即使两边都是空场景，也要把草稿换成本会话的空白值，避免上一会话的输入残留在界面上。
     setSceneDraft(scene)
-  }, [scene])
+  }, [scene, activeId])
 
   useEffect(() => {
     setBudgetDraft(String(worldbookChars))
@@ -1334,7 +1348,7 @@ export function RoleplayPanel() {
               <i>{cardSections.character ? '收起' : '展开'}</i>
             </button>
             <span>
-              性格不是标签堆叠，是压力下的选择；雷点和底线写具体，角色才不会为了配合而丢掉自己。
+              性格不是标签堆叠，是压力下的选择；雷点写触发，底线写被踩到时会怎么反弹，角色才不会为了配合而丢掉自己。
             </span>
           </div>
           {cardSections.character ? (
@@ -1366,10 +1380,10 @@ export function RoleplayPanel() {
             />
           </label>
           <label>
-            <span>底线</span>
+            <span>底线与反弹</span>
             <input
               value={cardDraft.boundaries}
-              placeholder="不接杀人买卖、不写成人内容、不替对方做重大决定"
+              placeholder="被说胖就翘尾巴顶“这是浮力”；不接杀人买卖，被逼表态就用刀鞘敲桌"
               onChange={(event) => setCardDraft({ ...cardDraft, boundaries: event.target.value })}
             />
           </label>
@@ -2510,9 +2524,9 @@ export function RoleplayPanel() {
       <section className={styles.section} hidden={panelTab !== 'scene'}>
         <header className={styles.sectionHead}>
           <div>
-            <h3>当前场景</h3>
+            <h3>当前会话场景</h3>
             <p>
-              记录时间、天气、在场人物、气氛、目标、冲突与关键物件。可手动修改，或开启自动更新由模型在每轮后重写；角色扮演关闭时只保留记录，已绑定人物的会话仍继续注入。
+              记录这段对话的时间、天气、在场人物、气氛、目标、冲突与关键物件。场景只跟随当前会话，新建对话从空白开始，不会继承上一段对话的时间、关系和物件。可手动修改，或开启自动更新由模型在每轮后重写。
             </p>
           </div>
           <button
@@ -2530,9 +2544,15 @@ export function RoleplayPanel() {
 
         <div className={styles.notice} data-warn={sceneAutoUpdate}>
           {sceneAutoUpdate
-            ? '开启后，每轮回复结束会额外发送一次摘要请求，由模型更新全部场景字段；会产生额外 Token 消耗，请求失败时保留原场景，不影响对话。'
-            : '关闭时仅在手动编辑后更新，不产生额外请求。'}
+            ? '开启后，当前会话每轮回复结束会额外发送一次摘要请求，由模型更新全部场景字段；会产生额外 Token 消耗，请求失败时保留原场景，不影响对话。'
+            : '关闭时仅在手动编辑当前会话的场景后更新，不产生额外请求。'}
         </div>
+
+        {sceneReady ? null : (
+          <div className={styles.notice} data-warn="true">
+            当前没有打开会话。场景跟随会话保存：发出第一条消息后，这里才会记录这段对话的场景，新建对话从空白开始。
+          </div>
+        )}
 
         <div className={styles.sceneGrid}>
           {SCENE_FIELDS.map((field) => (
@@ -2544,28 +2564,22 @@ export function RoleplayPanel() {
                   value={sceneDraft[field.key]}
                   maxLength={SCENE_LIMITS[field.key]}
                   placeholder={field.placeholder}
+                  disabled={!sceneReady}
                   onChange={(event) =>
                     setSceneDraft({ ...sceneDraft, [field.key]: event.target.value })
                   }
-                  onBlur={(event) => {
-                    if (event.target.value !== scene[field.key]) {
-                      setSceneField(field.key as SceneField, event.target.value)
-                    }
-                  }}
+                  onBlur={(event) => saveSceneField(field.key, event.target.value)}
                 />
               ) : (
                 <input
                   value={sceneDraft[field.key]}
                   maxLength={SCENE_LIMITS[field.key]}
                   placeholder={field.placeholder}
+                  disabled={!sceneReady}
                   onChange={(event) =>
                     setSceneDraft({ ...sceneDraft, [field.key]: event.target.value })
                   }
-                  onBlur={(event) => {
-                    if (event.target.value !== scene[field.key]) {
-                      setSceneField(field.key as SceneField, event.target.value)
-                    }
-                  }}
+                  onBlur={(event) => saveSceneField(field.key, event.target.value)}
                 />
               )}
             </label>
@@ -2577,10 +2591,12 @@ export function RoleplayPanel() {
           <button
             type="button"
             className={styles.ghostButton}
-            disabled={!sceneHasContent(scene)}
+            disabled={!sceneReady || !sceneHasContent(scene)}
             onClick={() => {
-              clearScene()
-              setSceneDraft({ ...useSettings.getState().scene })
+              if (activeId) {
+                clearSessionScene(activeId)
+              }
+              setSceneDraft({ ...EMPTY_SCENE })
               showToast({ key: 'roleplaySceneCleared' })
             }}
           >
@@ -2590,9 +2606,9 @@ export function RoleplayPanel() {
       </section>
 
       <p className={styles.footerNote}>
-        角色卡、世界书与场景只保存在本机，单会话包可带走相关设定。关闭全局开关只影响新会话，
-        已绑定人物的会话仍注入卡设定、世界书、场景与角色记忆；单轮最多注入 6 条世界书，当前预算{' '}
-        {worldbookChars.toLocaleString('zh-CN')} 字；
+        角色卡与世界书是全局设定；场景按当前会话单独保存，新对话不会继承上一段对话的场景。单会话包可带走相关设定。
+        关闭全局开关只影响新会话，已绑定人物的会话仍注入卡设定、世界书、当前会话场景与角色记忆；单轮最多注入 6
+        条世界书，当前预算 {worldbookChars.toLocaleString('zh-CN')} 字；
         超出后按命中次数与权重排序取前面的条目，避免背景设定挤占对话上下文。
       </p>
 

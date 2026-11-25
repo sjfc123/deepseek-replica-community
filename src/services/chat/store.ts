@@ -39,11 +39,16 @@ import {
   formatWorldbookBlock,
   findActiveCharacterCard,
   parseSceneUpdate,
+  EMPTY_SCENE,
+  normalizeScene,
+  sceneHasContent,
   SCENE_FIELDS,
+  SCENE_LIMITS,
   selectWorldbookEntries,
   WORLDBOOK_INJECT_MAX,
   resolveTurnCharacterCard,
   type CharacterCard,
+  type SceneField,
   type SceneState,
 } from './roleplay.js'
 import {
@@ -79,7 +84,7 @@ import { memoryPoolForDisplayName, resolveMemoryDisplayName } from './memoryRout
 import {
   resolveUserName,
   matchRefusalKeyword,
-  replaceScene,
+  clearScene,
   setPinnedSessions,
   useSettings,
 } from '../settings.js'
@@ -349,6 +354,50 @@ const persist = (sessionId: string) => {
   }
 }
 
+/** 当前会话场景：旧会话没有该字段就回退空场景，绝不读取全局旧场景，避免跨对话串物件。 */
+export const getSessionScene = (sessionId: string): SceneState => {
+  const session = getSession(sessionId)
+  return session?.scene ? normalizeScene(session.scene) : { ...EMPTY_SCENE }
+}
+
+/** 场景编辑只写当前会话；没有打开的会话时返回 false，不落到全局设置。 */
+export const setSessionSceneField = (
+  sessionId: string,
+  field: SceneField,
+  value: string
+): boolean => {
+  const session = getSession(sessionId)
+  if (!session) {
+    return false
+  }
+  const scene = normalizeScene(session.scene)
+  scene[field] = value.slice(0, SCENE_LIMITS[field])
+  scene.updatedAt = Date.now()
+  updateSession(sessionId, (current) => ({ ...current, scene }))
+  persist(sessionId)
+  return true
+}
+
+/** 整体替换当前会话场景：设定存档恢复场景时使用，不写全局设置。 */
+export const replaceSessionScene = (sessionId: string, scene: SceneState): boolean => {
+  if (!getSession(sessionId)) {
+    return false
+  }
+  updateSession(sessionId, (session) => ({ ...session, scene: normalizeScene(scene) }))
+  persist(sessionId)
+  return true
+}
+
+/** 清空当前会话场景，不影响其他会话。 */
+export const clearSessionScene = (sessionId: string): boolean => {
+  if (!getSession(sessionId)) {
+    return false
+  }
+  updateSession(sessionId, (session) => ({ ...session, scene: { ...EMPTY_SCENE } }))
+  persist(sessionId)
+  return true
+}
+
 export const retrySaveSessions = () => {
   if (!get().importingHistory) {
     unsavedSessions.forEach(persist)
@@ -482,6 +531,41 @@ export const initChat = (): Promise<void> => {
             .catch(db.reportStorageError('repair session character binding'))
         } catch (error) {
           db.reportStorageError('read session for character repair')(error)
+        }
+      }
+      // 升级兼容：旧版只有一份全局场景。把它挂到最近一条有消息的旧会话上再清空全局草稿，
+      // 这样旧对话还能接上原来的时间与物件，新对话仍然是空白。
+      const legacyScene = useSettings.getState().scene
+      if (sceneHasContent(legacyScene)) {
+        let legacySceneMoved = false
+        const ordered = [...summaries].sort((a, b) => b.updatedAt - a.updatedAt)
+        for (const summary of ordered.slice(0, 5)) {
+          if (epoch !== historyEpoch) {
+            break
+          }
+          try {
+            const candidate = await db.loadSession(summary.id)
+            if (!candidate) {
+              continue
+            }
+            // 已经带会话场景的会话说明新版已经写过，旧全局草稿属于历史残留，直接丢弃。
+            if (candidate.scene) {
+              legacySceneMoved = true
+              break
+            }
+            if (candidate.messages.length === 0) {
+              continue
+            }
+            await db.saveSession({ ...candidate, scene: normalizeScene(legacyScene) })
+            legacySceneMoved = true
+            break
+          } catch (error) {
+            db.reportStorageError('migrate legacy scene')(error)
+          }
+        }
+        // 写盘成功才清全局；失败时保留草稿，下次启动再试，也不会被新会话读取。
+        if (legacySceneMoved && epoch === historyEpoch) {
+          clearScene()
         }
       }
       if (epoch === historyEpoch) {
@@ -761,6 +845,8 @@ export const newChat = () => {
     return
   }
   cancelMessageEdit()
+  // 场景跟随会话：新对话从空白开始，先把旧版全局场景草稿清掉，避免上一段的物件和关系被带进来。
+  clearScene()
   // 开启角色卡时，“开启新对话”也走开场流程：新会话立即绑定该卡并写入剧情说明与开场白。
   // 否则直接从新对话发第一条，会绕过 startCharacterIntro，推理卡只剩半截剧情。
   const settings = useSettings.getState()
@@ -823,6 +909,7 @@ export const forkSession = async (sessionId: string, title?: string): Promise<st
     messages,
     rootMessageId: messages[0].id,
     characterId: source.characterId,
+    scene: source.scene ? normalizeScene(source.scene) : { ...EMPTY_SCENE },
     storyClockMinute: source.storyClockMinute,
     storyState: source.storyState,
     storyFinalTurn: source.storyFinalTurn,
@@ -1046,6 +1133,7 @@ export const sendMessage = (targetSessionId: string | null) => {
       updatedAt: now,
       messages: [],
       rootMessageId: null,
+      scene: { ...EMPTY_SCENE },
     }
     sessionId = session.id
     touchSession(session.id)
@@ -1155,6 +1243,7 @@ export const startCharacterIntro = (
       messages: [],
       rootMessageId: null,
       characterId: card.id,
+      scene: { ...EMPTY_SCENE },
       ...(card.story ? createStoryState(card.story) : {}),
     }
     touchSession(session.id)
@@ -1201,6 +1290,7 @@ export const startCharacterIntro = (
     rootMessageId: intro ? intro.id : opener.id,
     updatedAt: now,
     characterId: card.id,
+    scene: { ...EMPTY_SCENE },
     ...(card.story ? createStoryState(card.story) : {}),
   }))
   persist(sessionId)
@@ -1235,6 +1325,7 @@ export const sendVoicePrompt = (
       updatedAt: now,
       messages: [],
       rootMessageId: null,
+      scene: { ...EMPTY_SCENE },
     }
     sessionId = session.id
     touchSession(session.id)
@@ -1742,12 +1833,17 @@ const sceneUpdateSnapshot = (scene: SceneState) =>
   SCENE_FIELDS.map((field) => `${field.label}：${scene[field.key].trim() || '未记录'}`).join('\n')
 
 /** 自动场景更新：多发一次很小的请求；失败就保持原场景，不影响聊天 */
-const updateSceneFromTurn = async (question: string, answer: string) => {
-  const { chatConfig, apiKey: key, customHeaders, scene } = useSettings.getState()
+const updateSceneFromTurn = async (sessionId: string, question: string, answer: string) => {
+  const { chatConfig, apiKey: key, customHeaders } = useSettings.getState()
   const apiKey = key ?? ''
   if (!apiKey && !chatConfig.endpoint) {
     return
   }
+  const session = getSession(sessionId)
+  if (!session) {
+    return
+  }
+  const scene = session.scene ? normalizeScene(session.scene) : { ...EMPTY_SCENE }
   let text = ''
   try {
     const events = streamChatMessage(
@@ -1779,12 +1875,17 @@ const updateSceneFromTurn = async (question: string, answer: string) => {
   } catch {
     return
   }
-  const current = useSettings.getState().scene
+  const latest = getSession(sessionId)
+  if (!latest) {
+    return
+  }
+  const current = latest.scene ? normalizeScene(latest.scene) : { ...EMPTY_SCENE }
   const next = parseSceneUpdate(text, current)
   if (next === current) {
     return
   }
-  replaceScene(next)
+  updateSession(sessionId, (target) => ({ ...target, scene: next }))
+  persist(sessionId)
   window.dispatchEvent(new CustomEvent('replica:scene-updated', { detail: next }))
 }
 
@@ -1821,7 +1922,7 @@ const recordTurnMemory = (
   const targetMessage = visible.find((message) => message.id === target)
   const at = targetMessage?.createdAt ?? Date.now()
   const turnIndex = visible.filter((message) => message.role === 'assistant').length
-  const relationship = useSettings.getState().scene.relationship.trim()
+  const relationship = session.scene?.relationship.trim() || ''
   const text = buildTurnMemoryText(question, answer, {
     at,
     turnIndex: turnIndex > 0 ? turnIndex : undefined,
@@ -2554,7 +2655,6 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     roleplayEnabled,
     worldbook,
     worldbookInject,
-    scene,
     sceneAutoUpdate,
   } = useSettings.getState()
   const apiKey = storedKey ?? ''
@@ -2565,6 +2665,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 否则残留的角色身份会单独留在 system，默认助手会被带成冷淡角色。
   const promptEmpty = !systemPrompt.trim()
   const sessionForMemory = getSession(sessionId)
+  // 场景按会话取；旧会话没有快照就按空场景处理，不从全局设置补，避免旧物件跨新对话。
+  const sessionScene = sessionForMemory?.scene
+    ? normalizeScene(sessionForMemory.scene)
+    : { ...EMPTY_SCENE }
   const visibleForRoleplay = sessionForMemory ? getVisibleMessages(sessionForMemory) : []
   const activeCard = resolveTurnCharacterCard(
     characterCards,
@@ -2702,7 +2806,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const dynamicContext = [
     formatNormalMemoryBlock(normalCards, normalCards.length, normalMemoryChars),
     formatMemoryBlock(memoryCards, memoryCards.length, memoryChars),
-    roleplayActive ? formatSceneBlock(scene) : '',
+    roleplayActive ? formatSceneBlock(sessionScene) : '',
     formatStoryTurnBlock(activeCard?.story, sessionForMemory),
     formatWorldbookBlock(worldBefore),
     formatWorldbookBlock(worldAfter),
@@ -3153,7 +3257,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         recordNormalCodeMemory(sessionId, reply.id, answerText)
       }
       if (sceneAutoUpdate && roleplayActive) {
-        void updateSceneFromTurn(request.question.content, answerText)
+        void updateSceneFromTurn(sessionId, request.question.content, answerText)
       }
     }
   }

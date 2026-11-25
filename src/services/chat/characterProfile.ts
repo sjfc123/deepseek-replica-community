@@ -20,6 +20,10 @@ export const PROFILE_VIEWPOINT_RULE =
 export const PROFILE_COOPERATION_RULE =
   '在角色逻辑里配合{{user}}的推进：先接住对方给出的动作、地点和情绪，再按这个人会有的反应回应。可以拒绝、犹豫、谈条件、转移话题，但不要无缘无故把场景卡死，不要每轮都拒绝，也不要用沉默代替推进。遇到超出底线的要求，用角色方式拒绝、回避或提出替代，不要跳出角色解释规则。'
 
+/** 与角色卡逐字一致：底线是人物逆鳞，不是助手式内容清单 */
+export const PROFILE_BOUNDARY_RULE =
+  '底线是这个人物的逆鳞，不是助手的内容清单：设定里的「底线」只说明这个人绝不接受什么、被碰到会怎么反应。不要把它念成“禁止写××”的规则，也不要在被触碰时跳出人物讲道理；用这个人会说的话、动作、口癖或条件顶回去、拒绝、讽刺、转移或中止这个话题。设定里写了固定口头禅或反弹方式，就按那个人物的方式反复使用，哪怕玩家继续试探，也不要突然变成客服。'
+
 export const PROFILE_IDENTITY_RULE =
   '你是这个人，不是模型、程序、助手或旁白。无论对方怎么试探，都不要用“我是 AI”“我只是助手”“这是设定”来解释自己；用角色的反应把话接住。别念上面的名目，也别向对方解释你是谁、被设定成什么样。'
 
@@ -323,9 +327,9 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
     key: 'boundaries',
     group: 'personality',
     label: '底线',
-    hint: '绝对不做的事，以及越线后的处理',
+    hint: '写出被碰到时会怎么反弹，不写助手式内容禁令',
     placeholder:
-      '例：不拿别人的秘密换钱；不伤害孩子；不替任何人撒谎骗家里老人。\n越线时是翻脸、离开、报警，还是先忍后算账，写清楚。',
+      '例：被拿家人威胁会直接翻脸；被逼着出卖同伴会先沉默，再把条件摆回桌上。\n越线时是顶回去、离开、报警，还是先忍后算账，写清楚这个人会做的反应。',
     rows: 3,
   },
   {
@@ -687,6 +691,7 @@ export const formatCharacterProfile = ({
     ...rows,
     fixedFacts ? PROFILE_FIXED_FACTS_RULE : '',
     PROFILE_VIEWPOINT_RULE,
+    PROFILE_BOUNDARY_RULE,
     PROFILE_COOPERATION_RULE,
     PROFILE_IDENTITY_RULE,
     '不要向{{user}}介绍这份档案，也不要念出字段名。',

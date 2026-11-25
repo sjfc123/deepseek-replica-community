@@ -22,10 +22,8 @@ import {
   normalizeCharacterCards,
   normalizeScene,
   normalizeWorldbook,
-  sceneHasContent,
   WORLDBOOK_MAX,
   type CharacterCard,
-  type SceneField,
   type SceneState,
   type WorldbookEntry,
 } from './chat/roleplay.js'
@@ -211,7 +209,7 @@ type Settings = {
   worldbookChars: number
   /** 世界书是否进入请求：关闭后保留条目与预算，但不拼进 system */
   worldbookInject: boolean
-  /** 当前场景，手动编辑或每轮自动更新，单独一层注入 */
+  /** 旧版全局场景草稿，仅用于升级兼容与旧存档；当前场景已改为会话自己的 scene 字段 */
   scene: SceneState
   /** 每轮结束后自动提取场景变化；会多发一次小请求 */
   sceneAutoUpdate: boolean
@@ -1114,28 +1112,7 @@ export const deleteWorldbookEntry = (id: string) => {
   return true
 }
 
-const persistScene = (scene: SceneState) =>
-  write(KEYS.scene, sceneHasContent(scene) ? JSON.stringify(scene) : null)
-
-export const setSceneField = (field: SceneField, value: string) => {
-  const scene = { ...useSettings.getState().scene, [field]: value, updatedAt: Date.now() }
-  if (!persistScene(scene)) {
-    return false
-  }
-  useSettings.setState({ scene })
-  return true
-}
-
-/** 整段替换场景：自动提取后使用；非法字段已在 normalizeScene 里收口 */
-export const replaceScene = (scene: SceneState) => {
-  const next = normalizeScene(scene)
-  if (!persistScene(next)) {
-    return false
-  }
-  useSettings.setState({ scene: next })
-  return true
-}
-
+/** 仅清掉旧版全局场景草稿；当前场景由会话自己的 scene 字段保存。 */
 export const clearScene = () => {
   write(KEYS.scene, null)
   useSettings.setState({ scene: { ...EMPTY_SCENE } })

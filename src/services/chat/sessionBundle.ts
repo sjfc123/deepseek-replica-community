@@ -8,7 +8,7 @@ import * as db from './db.js'
 import type { Session, SessionSummary } from './types.js'
 import type { MemoryCard } from './memory.js'
 import type { CharacterCard, WorldbookEntry, SceneState } from './roleplay.js'
-import { findSessionCharacterCard } from './roleplay.js'
+import { EMPTY_SCENE, findSessionCharacterCard, normalizeScene } from './roleplay.js'
 import { useSettings } from '../settings.js'
 import { useChatStore } from './store.js'
 import { createId } from '../../utils/id.js'
@@ -87,7 +87,7 @@ export const buildSessionBundle = async (
   if (!session) {
     return null
   }
-  const { characterCards, activeCharacterId, worldbook, scene } = useSettings.getState()
+  const { characterCards, activeCharacterId, worldbook } = useSettings.getState()
   const card =
     findSessionCharacterCard(characterCards, session) ??
     (activeCharacterId
@@ -104,7 +104,7 @@ export const buildSessionBundle = async (
     session,
     card,
     worldbook: related,
-    scene,
+    scene: session.scene ? normalizeScene(session.scene) : { ...EMPTY_SCENE },
     memories: collectMemories(selectedPath(session)),
   }
 }
@@ -144,7 +144,7 @@ export const parseSessionBundle = async (file: File): Promise<SessionBundle> => 
 
 /**
  * 导入单会话包：整体复制成一个新会话，消息 ID 全部换新，避免与本机已有消息撞 ID。
- * 只写会话与消息（记忆随消息走）；角色卡、世界书、场景不自动写入，由使用者决定是否手动套用。
+ * 只写会话与消息（记忆与场景随会话走）；角色卡、世界书不自动写入，由使用者决定是否手动套用。
  */
 export const importSessionBundle = async (bundle: SessionBundle): Promise<Session> => {
   const { messages: source } = bundle.session
@@ -184,6 +184,7 @@ export const importSessionBundle = async (bundle: SessionBundle): Promise<Sessio
       ? bundle.session.contextCheckpoints.map((checkpoint) => ({ ...checkpoint }))
       : undefined,
     characterId: bundle.session.characterId,
+    scene: normalizeScene(bundle.session.scene ?? bundle.scene),
   }
   await db.saveSession(next)
   useChatStore.setState((state) => ({
