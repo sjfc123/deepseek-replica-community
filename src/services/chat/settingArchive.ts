@@ -140,42 +140,6 @@ export const parseSettingArchive = (raw: string): SettingArchive => {
   }
 }
 
-export type SettingArchivePreview = {
-  cards: number
-  newCards: number
-  worldbook: number
-  newWorldbook: number
-  avatars: number
-  /** 存档里是否带基础档案；旧版存档为 false */
-  profile: boolean
-  exportedAt: string
-}
-
-/** 导入前的预览：分出新卡、覆盖卡与超出上限的数量，导入动作与预览共用同一套判定 */
-export const previewSettingArchive = (
-  archive: SettingArchive,
-  current: { cards: CharacterCard[]; worldbook: WorldbookEntry[] }
-): SettingArchivePreview => {
-  const cardIds = new Set(current.cards.map((card) => card.id))
-  const newCards = archive.cards.filter((card) => !cardIds.has(card.id)).length
-  const cardRoom = Math.max(0, CHARACTER_CARD_MAX - current.cards.length)
-  const worldbookIds = new Set(current.worldbook.map((entry) => entry.id))
-  const newWorldbook = archive.worldbook.filter((entry) => !worldbookIds.has(entry.id)).length
-  const worldbookRoom = Math.max(0, WORLDBOOK_MAX - current.worldbook.length)
-  return {
-    cards: Math.min(archive.cards.length, cardRoom + (archive.cards.length - newCards)),
-    newCards: Math.min(newCards, cardRoom),
-    worldbook: Math.min(
-      archive.worldbook.length,
-      worldbookRoom + (archive.worldbook.length - newWorldbook)
-    ),
-    newWorldbook: Math.min(newWorldbook, worldbookRoom),
-    avatars: Object.keys(archive.avatars).length,
-    profile: Boolean(archive.profile && characterProfileHasContent(archive.profile)),
-    exportedAt: archive.exportedAt,
-  }
-}
-
 export type SettingArchiveResult = {
   cards: number
   cardsSkipped: number

@@ -1526,21 +1526,6 @@ export const resetRefusalSettings = () => {
   setRefusalMessage('')
 }
 
-/** 一键恢复默认提示词、采样参数与请求策略 */
-export const resetChatTuning = () => {
-  setSystemPrompt(DEFAULT_SYSTEM_PROMPT)
-  setTemperature(null)
-  setTopP(null)
-  setMaxTokens(null)
-  setKeepRefusedContent(false)
-  setAutoCompact(true)
-  setThinkingEffort(null)
-  setSafetyCheck(true)
-  setSendLatestReminder(true)
-  setAutoTitle(true)
-  setAllowRefusedContext(false)
-}
-
 applyChatLayout(useSettings.getState().chatLayout)
 applyAvatarSizes()
 applyAvatarShape(useSettings.getState().avatarShape)

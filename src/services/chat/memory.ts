@@ -18,6 +18,21 @@ export type NormalMemoryKind = 'dialogue' | 'code' | 'user' | 'ai'
 /** 角色记忆类型：完整回合 / 重要场景 / 关键事实；旧卡没有该字段时按回合处理 */
 export type CharacterMemoryKind = 'turn' | 'scene' | 'fact'
 
+/** 记忆归属：角色自己的经历与信息 / 玩家自己的经历与信息 / 双方共同经历 */
+export type MemoryOwner = 'character' | 'user' | 'shared'
+
+export const MEMORY_OWNERS: MemoryOwner[] = ['shared', 'character', 'user']
+
+export const memoryOwnerLabel = (owner: MemoryOwner) => {
+  if (owner === 'character') {
+    return '角色本人'
+  }
+  if (owner === 'user') {
+    return '玩家本人'
+  }
+  return '共同经历'
+}
+
 export const CHARACTER_MEMORY_KINDS: CharacterMemoryKind[] = ['turn', 'scene', 'fact']
 
 export const characterMemoryLabel = (kind: CharacterMemoryKind) => {
@@ -33,6 +48,9 @@ export const characterMemoryLabel = (kind: CharacterMemoryKind) => {
 /** 缺省与旧卡都按整轮回合；重要场景与关键事实属于玩家明确标记的核心记忆 */
 export const getCharacterMemoryKind = (card: MemoryCard): CharacterMemoryKind =>
   card.pool === 'normal' ? 'turn' : (card.memoryKind ?? 'turn')
+
+/** 缺省与旧卡都按共同经历；手动卡由玩家显式改归属。 */
+export const getMemoryOwner = (card: MemoryCard): MemoryOwner => card.owner ?? 'shared'
 
 /** 核心记忆不参与自动配额淘汰：重要场景与关键事实由玩家主动挑出，文本必须长期保留 */
 export const isCoreMemory = (card: MemoryCard) =>
@@ -104,6 +122,12 @@ export type MemoryCard = {
   category?: NormalMemoryKind
   /** 角色记忆类型；缺省视为完整回合，普通记忆不写该字段 */
   memoryKind?: CharacterMemoryKind
+  /** 记忆归属；缺省视为共同经历，避免旧卡被误判成角色或玩家单方 */
+  owner?: MemoryOwner
+  /** 玩家提到这些词、动作或地点时，角色更容易想起这张卡；只作触发线索，不朗读 */
+  trigger?: string
+  /** 允许角色在气氛合适时主动提起，不必等玩家问到 */
+  proactive?: boolean
   /** 代码块语言标记，便于搜索；只对普通-代码卡片有意义 */
   language?: string
   /** 已归档：被提炼结果取代，或超出卡片/字数上限；不再注入，仍在面板可见，文本不删除 */
@@ -498,14 +522,14 @@ export const selectMemoryCardsForInjection = (
     .filter(({ card }) => getCharacterMemoryKind(card) === 'fact')
     .slice(-MEMORY_FACT_INJECT)
   const coreIds = new Set([...scenes, ...facts].map(({ card }) => card.id))
-  const unpinned = active
-    .filter(
-      ({ card }) =>
-        !manualIds.has(card.id) && !pinnedIds.has(card.id) && !coreIds.has(card.id)
-    )
-    .slice(-Math.max(1, limit))
-  const recent = unpinned.slice(-MEMORY_RECENT_INJECT)
-  const older = unpinned.slice(0, Math.max(0, unpinned.length - MEMORY_RECENT_INJECT))
+  const unpinned = active.filter(
+    ({ card }) =>
+      !manualIds.has(card.id) && !pinnedIds.has(card.id) && !coreIds.has(card.id)
+  )
+  // 最近窗口与“候选总数”分开算：limit 很小时也要保留更早的卡给触发词和时间锚点召回，不能提前截断。
+  const recentCount = Math.min(MEMORY_RECENT_INJECT, Math.max(1, limit))
+  const recent = unpinned.slice(-recentCount)
+  const older = unpinned.slice(0, Math.max(0, unpinned.length - recent.length))
   const terms = queryTerms(query)
   const timeHints = parseMemoryTimeHints(query)
   const relevant =
@@ -514,10 +538,15 @@ export const selectMemoryCardsForInjection = (
       : older
           .map((entry) => {
             const text = entry.card.text.toLowerCase()
+            const trigger = entry.card.trigger?.toLowerCase() ?? ''
             let score = 0
             for (const term of terms) {
               if (text.includes(term)) {
                 score += term.length
+              }
+              // 触发词是玩家写下的召回锚点，命中后比正文关键词更强，避免旧卡永远沉在最近 12 张之外。
+              if (trigger.includes(term)) {
+                score += term.length * 2 + 8
               }
             }
             const timeHit = timeHints.some(
@@ -681,7 +710,12 @@ export const formatMemoryBlock = (
     }
     const lines: string[] = []
     for (const card of items) {
-      const line = `- ${card.text.replace(/\n/g, ' / ')}`
+      const owner = getMemoryOwner(card)
+      const ownerTag =
+        owner === 'character' ? '（角色本人）' : owner === 'user' ? '（玩家本人）' : ''
+      const triggerTag = card.trigger ? `（回忆触发：${card.trigger}）` : ''
+      const proactiveTag = card.proactive ? '（可主动提起）' : ''
+      const line = `- ${ownerTag}${triggerTag}${proactiveTag}${card.text.replace(/\n/g, ' / ')}`
       if (used + line.length > Math.max(1, chars)) {
         if (used === 0) {
           lines.push(line.slice(0, Math.max(1, chars)))
@@ -715,8 +749,10 @@ export const formatMemoryBlock = (
     '6. 记忆里没有明确记录，不等于事情没发生过。{{user}}当前说出的新事实要当作真的接住，不要用“没有记录”“我不记得”否认{{user}}；只有与更近的明确记忆直接冲突时，才温和地保留差异。\n' +
     '7. 不要向{{user}}复述本段，也不要提到「记忆」「卡片」「设定」这类词；被问到“你还记得吗”时，用角色的视角自然回答记得什么，不要回答成“我是 AI，没有记忆”。\n' +
     '8. 记忆里出现「{{user}}」、玩家自己填写的名字或「用户」时，都指当前玩家；出现角色名、「角色」或「你」时，都指你。称呼不同不代表换人。\n' +
-    '9. 当{{user}}询问自己或角色的姓名、喜好、习惯、经历、关系这类已知信息时，先查下面的记忆再回答；有明确记录就当成既定事实，直接给出记录中的答案。\n'
-    + sections.join('\n\n')
+    '9. 当{{user}}询问自己或角色的姓名、喜好、习惯、经历、关系这类已知信息时，先查下面的记忆再回答；有明确记录就当成既定事实，直接给出记录中的答案。\n' +
+    '10. 标了「角色本人」的是角色自己的经历、喜好、习惯或承诺；标了「玩家本人」的是玩家告诉角色的关于玩家的事。不要把玩家的事实说成角色自己的，也不要把角色的事塞给玩家。\n' +
+    '11. 「回忆触发」只用来判断什么时候想起：玩家说到相关词、做出相关动作或走到相关地点时，再自然提起；不要把“触发”“记忆卡”这类词念出来。标了「可主动提起」的卡片不要只等玩家问：话题靠近、气氛停顿，或角色有理由想起时，用一句具体的话主动带出来（例如“上次你说……我后来一直记着”），不要每轮重复，也不要一次把几张卡全倒出来。\n' +
+    sections.join('\n\n')
   )
 }
 
@@ -757,7 +793,10 @@ export const createMemoryCard = (
   text: string,
   source: MemoryCard['source'],
   createdAt = Date.now(),
-  options: Pick<MemoryCard, 'pool' | 'category' | 'language' | 'memoryKind'> = {}
+  options: Pick<
+    MemoryCard,
+    'pool' | 'category' | 'language' | 'memoryKind' | 'owner' | 'trigger' | 'proactive' | 'pinned'
+  > = {}
 ): MemoryCard => ({
   id: createId(),
   text: text.trim(),
@@ -768,6 +807,10 @@ export const createMemoryCard = (
   ...(options.category ? { category: options.category } : {}),
   ...(options.language ? { language: options.language } : {}),
   ...(options.memoryKind ? { memoryKind: options.memoryKind } : {}),
+  ...(options.owner ? { owner: options.owner } : {}),
+  ...(options.trigger?.trim() ? { trigger: options.trigger.trim() } : {}),
+  ...(options.proactive ? { proactive: true } : {}),
+  ...(options.pinned ? { pinned: true } : {}),
 })
 
 export type ConversationMemoryDraft = {

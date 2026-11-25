@@ -388,6 +388,8 @@ export const zh = {
   replySuggestionsLoading: '正在读取当前剧情…',
   replySuggestionsFailed: '回复建议生成失败，请稍后重试',
   replySuggestionsHint: '点击一条填入输入框，可继续修改',
+  replySuggestionAside: '旁白',
+  replySuggestionTo: '对 {name} 说',
   deactivatedThinkTooltip: '先思考后回答，解决推理问题',
   thinkingSwitch: '深度思考',
   cacheHitRateShort: '命中率',

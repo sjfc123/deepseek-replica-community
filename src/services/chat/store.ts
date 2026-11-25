@@ -75,6 +75,8 @@ import {
   selectMemoryCardsForInjection,
   selectNormalMemoryCardsForInjection,
   type CharacterMemoryKind,
+  type ConversationMemoryDraft,
+  type MemoryOwner,
   type MemoryCard,
   type MemoryPool,
   type NormalMemoryKind,
@@ -352,12 +354,6 @@ const persist = (sessionId: string) => {
         }
       })
   }
-}
-
-/** 当前会话场景：旧会话没有该字段就回退空场景，绝不读取全局旧场景，避免跨对话串物件。 */
-export const getSessionScene = (sessionId: string): SceneState => {
-  const session = getSession(sessionId)
-  return session?.scene ? normalizeScene(session.scene) : { ...EMPTY_SCENE }
 }
 
 /** 场景编辑只写当前会话；没有打开的会话时返回 false，不落到全局设置。 */
@@ -2021,7 +2017,7 @@ const recordNormalCodeMemory = (sessionId: string, targetMessageId: string, answ
   }
 }
 
-/** 面板里手动加一条：挂到当前分支最后一条消息上 */
+/** 面板里手动加一条：挂到当前分支第一条消息上，重新生成和继续对话都不会把它切掉 */
 export const addManualMemory = (
   sessionId: string,
   text: string,
@@ -2029,14 +2025,20 @@ export const addManualMemory = (
     pool?: MemoryPool
     category?: NormalMemoryKind
     memoryKind?: CharacterMemoryKind
+    owner?: MemoryOwner
+    trigger?: string
+    proactive?: boolean
+    pinned?: boolean
   } = {}
 ) => {
   const session = getSession(sessionId)
   if (!session) {
     return
   }
-  const last = getVisibleMessages(session).at(-1)
-  if (!last || !text.trim()) {
+  // 手动记忆属于整段会话，不挂在最后一轮回答上：
+  // 重新生成会换掉最后一条回答，挂在上面会让刚记下的内容在新分支里消失。
+  const anchor = getVisibleMessages(session)[0]
+  if (!anchor || !text.trim()) {
     return
   }
   const pool: MemoryPool = usesCharacterMemory(sessionId)
@@ -2047,13 +2049,18 @@ export const addManualMemory = (
   const category = pool === 'normal' ? (target.category ?? 'dialogue') : undefined
   const memoryKind = pool === 'character' ? (target.memoryKind ?? 'turn') : undefined
   const language = pool === 'normal' && category === 'code' ? detectCodeLanguage(text) : undefined
+  const owner = pool === 'character' ? (target.owner ?? 'shared') : undefined
   if (
-    attachMemories(sessionId, last.id, [
+    attachMemories(sessionId, anchor.id, [
       createMemoryCard(text, 'manual', undefined, {
         pool,
         category,
         language,
         memoryKind,
+        owner,
+        trigger: target.trigger,
+        proactive: target.proactive,
+        pinned: target.pinned,
       }),
     ])
   ) {
@@ -2080,6 +2087,8 @@ export type MemorySaveTarget =
       kind?: CharacterMemoryKind
       /** 重要场景或关键事实的正文；界面里可先改再存 */
       content?: string
+      /** 这批卡片属于谁；缺省按共同经历 */
+      owner?: MemoryOwner
     }
   | { pool: 'normal'; category?: NormalMemoryKind | 'auto' }
 
@@ -2119,7 +2128,8 @@ export const saveMessagesAsMemory = (
       ? target.kind
       : undefined
   const importantContent = target.pool === 'character' ? target.content : undefined
-  const drafts =
+  const owner = pool === 'character' && target.pool === 'character' ? target.owner : undefined
+  const drafts: ConversationMemoryDraft[] =
     pool === 'normal'
       ? buildNormalMemoryCards(
           picked,
@@ -2132,6 +2142,9 @@ export const saveMessagesAsMemory = (
             startTurn,
             (user, assistant) => indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1
           )
+  const ownedDrafts = owner
+    ? drafts.map((draft) => ({ ...draft, card: { ...draft.card, owner } }))
+    : drafts
   // 整段卡按消息去重；重要场景 / 关键事实按“同一消息 + 同类型 + 同正文”去重，
   // 允许在同一轮里保存多个不同场景，也允许场景与完整回合并存。
   const alreadyBulk = new Set(
@@ -2147,7 +2160,7 @@ export const saveMessagesAsMemory = (
       .map((message) => message.id)
   )
   const fresh = importantKind
-    ? drafts.filter((draft) => {
+    ? ownedDrafts.filter((draft) => {
         const targetMessage = session.messages.find((message) => message.id === draft.messageId)
         return !(targetMessage?.memories ?? []).some(
           (card) =>
@@ -2156,8 +2169,8 @@ export const saveMessagesAsMemory = (
             card.text === draft.card.text
         )
       })
-    : drafts.filter((draft) => !alreadyBulk.has(draft.messageId))
-  const skipped = drafts.length - fresh.length
+    : ownedDrafts.filter((draft) => !alreadyBulk.has(draft.messageId))
+  const skipped = ownedDrafts.length - fresh.length
   if (fresh.length === 0) {
     return {
       ...empty,
@@ -2179,18 +2192,6 @@ export const saveMessagesAsMemory = (
     active: next ? activeMemoryCards(next, getVisibleMessages(next), undefined, pool).length : 0,
     chars: next ? activeMemoryChars(next, getVisibleMessages(next), pool) : 0,
   }
-}
-
-/** 全选当前分支的全部对话；面板里的整段保存仍走这里 */
-export const saveConversationAsMemory = (sessionId: string): SaveConversationMemoryResult => {
-  const session = getSession(sessionId)
-  if (!session) {
-    return { created: 0, skipped: 0, active: 0, chars: 0 }
-  }
-  return saveMessagesAsMemory(
-    sessionId,
-    getVisibleMessages(session).map((message) => message.id)
-  )
 }
 
 /** 置顶开关：置顶卡片每轮必进注入名单，最多 8 张 */

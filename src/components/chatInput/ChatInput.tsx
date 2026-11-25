@@ -32,6 +32,7 @@ import {
   acknowledgeStoryClue,
 } from '../../services/chat/store.js'
 import { generateReplySuggestions } from '../../services/chat/suggestions.js'
+import type { ReplySuggestion } from '../../services/chat/suggestions.js'
 import {
   formatStoryClock,
   formatStoryRemaining,
@@ -186,7 +187,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const [illustrationBusy, setIllustrationBusy] = useState(false)
   const [suggestionOpen, setSuggestionOpen] = useState(false)
   const [suggestionLoading, setSuggestionLoading] = useState(false)
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestions, setSuggestions] = useState<ReplySuggestion[]>([])
   const suggestionAbort = useRef<AbortController | null>(null)
   const session = useChatStore((state) => (sessionId ? state.sessionCache[sessionId] : undefined))
   const characterCards = useSettings((state) => state.characterCards)
@@ -675,10 +676,14 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               <button
                 type="button"
                 className={styles.suggestionRefresh}
+                data-loading={suggestionLoading ? '' : undefined}
+                aria-busy={suggestionLoading}
                 disabled={suggestionLoading}
                 onClick={() => void requestSuggestions()}
               >
-                <IconRefreshOutline16 />
+                <span className={styles.suggestionRefreshIcon} aria-hidden>
+                  <IconRefreshOutline16 />
+                </span>
                 {t('replySuggestionsRefresh')}
               </button>
               <IconButton
@@ -691,18 +696,39 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             </span>
           </div>
           {suggestionLoading ? (
-            <div className={styles.suggestionLoading}>{t('replySuggestionsLoading')}</div>
+            <div className={styles.suggestionLoading} role="status" aria-live="polite">
+              <span className={styles.suggestionSpinner} aria-hidden />
+              <span>{t('replySuggestionsLoading')}</span>
+              <span className={styles.suggestionSkeleton} aria-hidden>
+                <i />
+                <i />
+                <i />
+              </span>
+            </div>
           ) : (
-            <div className={styles.suggestionList}>
+            <div className={styles.suggestionList} key={suggestions.map((item) => item.text).join('|')}>
               {suggestions.map((item, index) => (
                 <button
-                  key={`${index}-${item}`}
+                  key={`${index}-${item.text}`}
                   type="button"
                   className={styles.suggestionItem}
-                  onClick={() => chooseSuggestion(item)}
+                  data-mode={item.mode}
+                  style={{ animationDelay: `${index * 45}ms` }}
+                  onClick={() => chooseSuggestion(item.text)}
                 >
                   <span className={styles.suggestionIndex}>{index + 1}</span>
-                  <span>{item}</span>
+                  <span className={styles.suggestionBody}>
+                    <span className={styles.suggestionMeta}>
+                      <span className={styles.suggestionMode} data-mode={item.mode}>
+                        {item.mode === 'aside'
+                          ? t('replySuggestionAside')
+                          : item.target
+                            ? t('replySuggestionTo', { name: item.target })
+                            : t('replySuggestions')}
+                      </span>
+                    </span>
+                    <span className={styles.suggestionText}>{item.text}</span>
+                  </span>
                 </button>
               ))}
             </div>

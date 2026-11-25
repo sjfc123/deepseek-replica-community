@@ -17,8 +17,14 @@ const {
   buildSuggestionAsk,
   buildSuggestionCardContext,
   buildSuggestionTranscript,
+  buildSuggestionCastContext,
+  buildSuggestionSceneContext,
+  detectSuggestionPresence,
   filterPrematureSuggestions,
+  parseReplySuggestions,
+  pickFreshReplySuggestions,
   pickFreshSuggestions,
+  resolvePresentCast,
 } = await import('../src/services/chat/suggestionsContext.ts')
 
 const card = getBuiltinCharacterCards().find((item) => item.id === 'builtin:midnight-sister')
@@ -72,7 +78,7 @@ assert.match(ask, /当前轮次与阶段行为/)
 assert.match(ask, /第 13 轮/)
 assert.match(ask, /上一批建议，禁止原句复现或换词复读/)
 assert.match(ask, /我马上到楼下了/)
-assert.match(ask, /三条必须分别是不同方向/)
+assert.match(ask, /三条必须方向不同/)
 assert.match(ask, /玩家：你先别硬推。/)
 assert.match(ask, /玩家已经输入到一半的话/)
 for (const forbidden of ['镜子', '储物间', '替身', '真正的妹妹', '[[STORY_END', card.secret]) {
@@ -85,6 +91,10 @@ assert.match(SUGGESTION_SYSTEM, /称呼方向不能反/)
 assert.match(SUGGESTION_SYSTEM, /参考不是素材库/)
 assert.match(SUGGESTION_SYSTEM, /上一批建议/)
 assert.match(SUGGESTION_SYSTEM, /不要把角色卡秘密、真相、后续线索或完整线索链直接说破/)
+assert.match(SUGGESTION_SYSTEM, /两种呈现方式/)
+assert.match(SUGGESTION_SYSTEM, /至少两条建议要以“（”开头/)
+assert.match(SUGGESTION_SYSTEM, /不要客服腔/)
+assert.match(SUGGESTION_SYSTEM, /多角色场景/)
 
 const blocked = futureStoryClueTerms(card.story, session)
 assert.ok(blocked.includes('左腕'))
@@ -109,5 +119,132 @@ assert.equal(fresh.length, 3)
 assert.equal(fresh[0], '你左腕的疤还疼吗？')
 assert.equal(fresh.includes('你左腕上的疤还疼吗？'), false, '近义改写应被去重')
 assert.equal(pickFreshSuggestions(['我马上到楼下了'], ['我马上到楼下了']).length, 0)
+
+
+
+// 场景站位：角色把玩家往外推、玩家自己离开、玩家仍留在原地必须分流
+const leaveByCharacter = detectSuggestionPresence({
+  lastCharacterLine: '你走吧，我一个人待会儿。',
+  lastPlayerLine: '我再说一句。',
+})
+assert.equal(leaveByCharacter.presence, 'leaving')
+const leaveByPlayer = detectSuggestionPresence({
+  lastCharacterLine: '门没锁。',
+  lastPlayerLine: '（我把外套拎起来，往门口走）',
+})
+assert.equal(leaveByPlayer.presence, 'leaving')
+const stillHere = detectSuggestionPresence({
+  lastCharacterLine: '你别站那儿。',
+  lastPlayerLine: '我没走，我就在门口。',
+})
+assert.equal(stillHere.presence, 'together')
+const group = detectSuggestionPresence({
+  lastCharacterLine: '你们两个都进来。',
+  lastPlayerLine: '我把门推开。',
+  castCount: 2,
+})
+assert.equal(group.presence, 'group')
+
+const cast = resolvePresentCast(
+  '林小满',
+  '林小满、许棠、门外的人、邻居老周（住在对门）'
+)
+assert.deepEqual(cast, ['林小满', '许棠', '邻居老周'], '角色卡外 NPC 也应进入在场名单')
+assert.equal(resolvePresentCast('林小满', '林小满和许棠')[1], '许棠', '“和”也应能拆开人名')
+const castText = buildSuggestionCastContext(cast, [card, { name: '许棠' }], card.name)
+assert.match(castText, /林小满/)
+assert.match(castText, /许棠/)
+assert.match(castText, /邻居老周/)
+const leavingScene = buildSuggestionSceneContext({
+  scene: {
+    time: '21:10',
+    place: '旧屋堂屋',
+    weather: '雨',
+    atmosphere: '灯没开，门口有风',
+    mood: '压着话',
+    props: '窗边的旧台灯',
+    objective: '让玩家离开屋子',
+    conflict: '她不想被看见',
+  },
+  clockText: '21:10',
+  cast,
+  presence: 'leaving',
+  presenceReason: leaveByCharacter.reason,
+  lastCharacterLine: '你走吧，我一个人待会儿。',
+})
+assert.match(leavingScene, /旧屋堂屋/)
+assert.match(leavingScene, /林小满、许棠/)
+assert.match(leavingScene, /玩家正在离开/)
+assert.match(leavingScene, /至少两条用括号旁白/)
+assert.match(leavingScene, /幕后目标/)
+const askLeaving = buildSuggestionAsk({
+  card,
+  stageText,
+  sceneText: leavingScene,
+  castText,
+  presence: 'leaving',
+  draft: '',
+  transcript,
+})
+assert.match(askLeaving, /至少两条建议用“（”开头/)
+assert.match(askLeaving, /在场角色/)
+
+// 对象输出：mode/target 必须保留；字符串旧格式仍可解析
+const parsed = parseReplySuggestions(
+  JSON.stringify([
+    { mode: 'aside', target: '林小满', text: '（我把手从门把上收回来，没有回头。）' },
+    { mode: 'speech', target: '许棠', text: '你刚才也听见了？' },
+    { mode: 'speech', target: '门外的人', text: '都别站在门口。' },
+  ]),
+  ['林小满', '许棠'],
+  '林小满'
+)
+assert.equal(parsed.length, 3)
+assert.equal(parsed[0].mode, 'aside')
+assert.equal(parsed[0].text.startsWith('（'), true)
+assert.equal(parsed[1].target, '许棠')
+assert.equal(parsed[2].target, '林小满')
+const legacy = parseReplySuggestions('["你先把窗关好","（我退到门口）","别急着点灯"]', ['林小满'], '林小满')
+assert.equal(legacy[1].mode, 'aside')
+assert.equal(legacy[0].mode, 'speech')
+const freshObjects = pickFreshReplySuggestions(
+  [
+    { mode: 'speech', target: '林小满', text: '你先把窗关好' },
+    { mode: 'speech', target: '林小满', text: '你先把窗户关好' },
+    { mode: 'aside', target: '林小满', text: '（我退到门口，没再往里看。）' },
+  ],
+  []
+)
+assert.equal(freshObjects.length, 2)
+assert.equal(freshObjects[1].mode, 'aside')
+
+assert.equal(
+  detectSuggestionPresence({ lastCharacterLine: '你别走，外面还在下雨。' }).presence,
+  'together',
+  '角色挽留不应判为离开'
+)
+assert.equal(
+  detectSuggestionPresence({
+    lastCharacterLine: '你走吧，把门带上。',
+    lastPlayerLine: '我还没走，我在门口。',
+  }).presence,
+  'together',
+  '玩家明确还在场时不应因为角色推动作废'
+)
+const remotePresence = detectSuggestionPresence({
+  lastCharacterLine: '你把门带上，我一个人待会儿。',
+  lastPlayerLine: '我在楼下，还没上去。',
+  castCount: 1,
+})
+assert.equal(remotePresence.presence, 'remote', '玩家在楼下时应判为不在身边')
+assert.match(
+  buildSuggestionSceneContext({
+    scene: {},
+    cast: ['林小满'],
+    presence: remotePresence.presence,
+    presenceReason: remotePresence.reason,
+  }),
+  /不能假设玩家看得见屋内陈设/
+)
 
 console.log('suggestions regression: ok')

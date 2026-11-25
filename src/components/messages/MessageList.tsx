@@ -22,10 +22,13 @@ import {
 import {
   characterMemoryLabel,
   CHARACTER_MEMORY_KINDS,
+  MEMORY_OWNERS,
+  memoryOwnerLabel,
   NORMAL_MEMORY_KINDS,
   normalMemoryLabel,
   replyPlainText,
   type CharacterMemoryKind,
+  type MemoryOwner,
   type MemoryPool,
   type NormalMemoryKind,
 } from '../../services/chat/memory.js'
@@ -199,6 +202,7 @@ export const MessageList = ({
   const [memoryPool, setMemoryPool] = useState<MemoryPool>('character')
   const [memoryKind, setMemoryKind] = useState<NormalMemoryKind | 'auto'>('auto')
   const [memoryCharacterKind, setMemoryCharacterKind] = useState<CharacterMemoryKind>('turn')
+  const [memoryOwner, setMemoryOwner] = useState<MemoryOwner>('shared')
   const [memoryDraft, setMemoryDraft] = useState('')
   useEffect(() => {
     setMemorySelect({ active: false, ids: new Set() })
@@ -822,6 +826,7 @@ export const MessageList = ({
     setMemoryPool(characterMemoryActive ? 'character' : 'normal')
     setMemoryKind('auto')
     setMemoryCharacterKind('turn')
+    setMemoryOwner('shared')
     setMemoryDraft('')
     setMemoryConfirm(true)
   }
@@ -849,8 +854,9 @@ export const MessageList = ({
               pool: 'character' as const,
               kind: importantKind,
               content: memoryDraft,
+              owner: memoryOwner,
             }
-          : { pool: 'character' as const }
+          : { pool: 'character' as const, owner: memoryOwner }
     const result = saveMessagesAsMemory(session.id, Array.from(memorySelect.ids), target)
     const savedLabel =
       savePool === 'character' ? characterMemoryLabel(memoryCharacterKind) : '记忆'
@@ -1107,6 +1113,26 @@ export const MessageList = ({
                     ))}
                   </div>
                 )}
+                {memoryPool === 'character' ? (
+                  <div
+                    className={styles.memoryConfirmKinds}
+                    role="radiogroup"
+                    aria-label="记忆归属"
+                  >
+                    {MEMORY_OWNERS.map((owner) => (
+                      <button
+                        key={owner}
+                        type="button"
+                        role="radio"
+                        aria-checked={memoryOwner === owner}
+                        data-active={memoryOwner === owner}
+                        onClick={() => setMemoryOwner(owner)}
+                      >
+                        {memoryOwnerLabel(owner)}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 {memoryPool === 'character' && memoryCharacterKind !== 'turn' ? (
                   <div className={styles.memoryConfirmEditor}>
                     <label htmlFor="memory-confirm-draft">

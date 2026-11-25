@@ -19,6 +19,7 @@
   background: var(--settings-card, var(--ds-bg-elevated, #fff));
   color: var(--dsw-alias-label-primary, #1f2329);
   box-shadow: 0 18px 48px rgb(0 0 0 / 30%);
+  animation: memory-card-in 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .head {
@@ -932,6 +933,24 @@ body[data-ds-dark-theme] .injectLine {
   }
 }
 
+.ownerTag {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgb(127 127 127 / 7%);
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-size: 10.5px;
+
+  &[data-owner='character'] {
+    background: color-mix(in srgb, #8b5cf6 11%, transparent);
+    color: #7c4fe0;
+  }
+
+  &[data-owner='user'] {
+    background: color-mix(in srgb, #0ea5e9 11%, transparent);
+    color: #0369a1;
+  }
+}
+
 .codeText {
   max-height: 300px;
   margin: 6px 0 4px;
@@ -1015,7 +1034,10 @@ body[data-ds-dark-theme] .injectLine {
 /* 输入框独占一行，添加按钮放到下一行右侧，避免窄屏按钮压住输入框边框 */
 .addActions {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .addLead {
@@ -1073,6 +1095,97 @@ body[data-ds-dark-theme] .injectLine {
   button {
     padding: 3px 8px;
     font-size: 10.5px;
+  }
+}
+
+/* 手动补卡的归属、触发和主动回忆选项：和类型行分开，避免一排按钮挤在一起 */
+.addOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 9px;
+  border: 1px solid rgb(127 127 127 / 14%);
+  border-radius: 10px;
+  background: rgb(127 127 127 / 4%);
+}
+
+.addOwnerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+
+  button {
+    padding: 3px 9px;
+    border: 1px solid rgb(127 127 127 / 16%);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--dsw-alias-label-caption, #8c9097);
+    font: inherit;
+    font-size: 10.5px;
+
+    &[data-active='true'] {
+      border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 50%, transparent);
+      background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
+      color: var(--dsw-alias-brand-primary, #4d6bfe);
+      font-weight: 600;
+    }
+  }
+}
+
+.addOwnerLabel {
+  margin-right: 2px;
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.addOwnerHint {
+  margin: 0;
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.addTrigger {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid rgb(127 127 127 / 16%);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2, transparent);
+  color: var(--dsw-alias-label-primary, inherit);
+  font: inherit;
+  font-size: 11px;
+}
+
+.addFlags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+
+  button {
+    padding: 3px 9px;
+    border: 1px solid rgb(127 127 127 / 16%);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--dsw-alias-label-caption, #8c9097);
+    font: inherit;
+    font-size: 10.5px;
+
+    &[data-active='true'] {
+      border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent);
+      background: color-mix(in srgb, var(--dsw-alias-brand-primary) 9%, transparent);
+      color: var(--dsw-alias-brand-primary, #4d6bfe);
+    }
+  }
+
+  small {
+    flex: 1 0 100%;
+    color: var(--dsw-alias-label-caption, #8c9097);
+    font-size: 10px;
+    line-height: 1.5;
   }
 }
 
@@ -1233,6 +1346,12 @@ body[data-ds-dark-theme] .confirm section {
   }
 
   .poolTabs > button small {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     font-size: 9px;
     letter-spacing: -0.02em;
   }
@@ -1316,5 +1435,52 @@ body[data-ds-dark-theme] .confirm section {
 
   .footerHint {
     font-size: 9.5px;
+  }
+}
+
+
+.saveNotice {
+  align-self: center;
+  color: var(--dsw-alias-brand-primary);
+  font-size: 12px;
+  line-height: 1.5;
+  animation: saveNoticeIn 180ms ease-out both;
+}
+
+@keyframes saveNoticeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saveNotice {
+    animation: none;
+  }
+}
+
+
+@keyframes memory-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .card {
+    animation: none;
   }
 }

@@ -407,6 +407,8 @@ export const en = {
   replySuggestionsLoading: 'Reading the current scene…',
   replySuggestionsFailed: 'Could not generate reply ideas. Try again later.',
   replySuggestionsHint: 'Tap one to put it in the input box; you can still edit it.',
+  replySuggestionAside: 'Aside',
+  replySuggestionTo: 'To {name}',
   deactivatedThinkTooltip: 'Think before responding to solve reasoning problems',
   thinkingSwitch: 'DeepThink',
   cacheHitRateShort: 'Hit rate',

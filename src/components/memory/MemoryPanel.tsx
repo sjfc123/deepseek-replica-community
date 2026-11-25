@@ -20,15 +20,19 @@ import {
   detectNormalMemoryKind,
   filterCharacterMemoryForInjection,
   getCharacterMemoryKind,
+  getMemoryOwner,
   getMemoryPool,
   getNormalMemoryKind,
   isCoreMemory,
+  MEMORY_OWNERS,
+  memoryOwnerLabel,
   NORMAL_MEMORY_KINDS,
   normalMemoryLabel,
   selectMemoryCardsForInjection,
   selectNormalMemoryCardsForInjection,
   type CharacterMemoryKind,
   type MemoryCard,
+  type MemoryOwner,
   type MemoryPool,
   type NormalMemoryKind,
 } from '../../services/chat/memory.js'
@@ -168,6 +172,11 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const [draftKind, setDraftKind] = useState<NormalMemoryKind | 'auto'>('auto')
   const [draftCharacterKind, setDraftCharacterKind] =
     useState<CharacterMemoryKind>('turn')
+  const [draftOwner, setDraftOwner] = useState<MemoryOwner>('shared')
+  const [draftTrigger, setDraftTrigger] = useState('')
+  const [draftProactive, setDraftProactive] = useState(true)
+  const [draftPinned, setDraftPinned] = useState(false)
+  const [saveNotice, setSaveNotice] = useState('')
   const [query, setQuery] = useState('')
   const [pool, setPool] = useState<MemoryPool>(() =>
     characterMemoryActive ? 'character' : 'normal'
@@ -177,6 +186,13 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   useEffect(() => {
     setPool(characterMemoryActive ? 'character' : 'normal')
   }, [characterMemoryActive])
+  useEffect(() => {
+    if (!saveNotice) {
+      return
+    }
+    const timer = window.setTimeout(() => setSaveNotice(''), 2600)
+    return () => window.clearTimeout(timer)
+  }, [saveNotice])
   const [filter, setFilter] = useState<MemoryStatusFilter>('all')
   const [speech, setSpeech] = useState<MemorySpeechFilter>('all')
   const [time, setTime] = useState<MemoryTimeFilter>('all')
@@ -191,6 +207,10 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     setDraft('')
     setDraftKind('auto')
     setDraftCharacterKind('turn')
+    setDraftOwner('shared')
+    setDraftTrigger('')
+    setDraftProactive(false)
+    setDraftPinned(false)
   }
 
   /** 编辑框按内容自动撑高：卡片正文越长，textarea 越高，避免文字被固定三行挡住 */
@@ -280,6 +300,18 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   )
   const manualCount = useMemo(
     () => poolEntries.filter(({ card }) => card.source === 'manual').length,
+    [poolEntries]
+  )
+  const ownerCounts = useMemo(
+    () =>
+      poolEntries.reduce(
+        (total, { card }) => {
+          const owner = getMemoryOwner(card)
+          total[owner] += 1
+          return total
+        },
+        { character: 0, user: 0, shared: 0 }
+      ),
     [poolEntries]
   )
   const pinnedCount = useMemo(
@@ -379,8 +411,25 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
       pool,
       category,
       memoryKind: pool === 'character' ? draftCharacterKind : undefined,
+      owner: pool === 'character' ? draftOwner : undefined,
+      trigger: pool === 'character' ? draftTrigger : undefined,
+      proactive: pool === 'character' ? draftProactive : undefined,
+      pinned: pool === 'character' ? draftPinned : undefined,
     })
     setDraft('')
+    setDraftTrigger('')
+    setDraftOwner('shared')
+    setDraftProactive(true)
+    setDraftPinned(false)
+    setSaveNotice(
+      pool === 'character'
+        ? draftOwner === 'character'
+          ? '已记下角色本人的记忆，重新生成或继续对话时会带进上下文。'
+          : draftOwner === 'user'
+            ? '已记下玩家本人的信息，角色会知道这是你说的，不会当成自己的经历。'
+            : '已记下共同经历，重新生成或继续对话时会带进上下文。'
+        : '已记下这条普通记忆。'
+    )
   }
 
   const emptyForFilter =
@@ -419,6 +468,9 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               角色 {characterCount} 张 · 普通 {normalCount} 张
               {pool === 'character' && (sceneCount > 0 || factCount > 0)
                 ? ` · 场景 ${sceneCount} · 事实 ${factCount}`
+                : ''}
+              {pool === 'character' && (ownerCounts.character > 0 || ownerCounts.user > 0)
+                ? ` · 角色本人 ${ownerCounts.character} · 玩家本人 ${ownerCounts.user}`
                 : ''}
               {manualCount > 0 ? ` · 当前手动 ${manualCount}` : ''}
               {pinnedCount > 0 ? ` · 当前置顶 ${pinnedCount}` : ''}
@@ -671,6 +723,16 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                           {sourceLabel(card)}
                           {card.superseded ? ' · 已归档' : ''}
                         </span>
+                        {card.pool === 'character' &&
+                        (card.source === 'manual' || getMemoryOwner(card) !== 'shared') ? (
+                          <span className={styles.ownerTag} data-owner={getMemoryOwner(card)}>
+                            {memoryOwnerLabel(getMemoryOwner(card))}
+                          </span>
+                        ) : null}
+                        {card.trigger ? (
+                          <span className={styles.tag}>触发 · {card.trigger}</span>
+                        ) : null}
+                        {card.proactive ? <span className={styles.tag}>主动提起</span> : null}
                         {card.pinned ? <span className={styles.pinTag}>置顶</span> : null}
                       </div>
                       <span className={styles.time}>{formatTime(card.createdAt)}</span>
@@ -827,6 +889,59 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                   ))}
                 </div>
               ) : null}
+              {pool === 'character' ? (
+                <div className={styles.addOptions}>
+                  <div className={styles.addOwnerRow} role="radiogroup" aria-label="这条记忆属于谁">
+                    <span className={styles.addOwnerLabel}>归属</span>
+                    {MEMORY_OWNERS.map((owner) => (
+                      <button
+                        key={owner}
+                        type="button"
+                        role="radio"
+                        aria-checked={draftOwner === owner}
+                        data-active={draftOwner === owner}
+                        onClick={() => setDraftOwner(owner)}
+                      >
+                        {memoryOwnerLabel(owner)}
+                      </button>
+                    ))}
+                  </div>
+                  <p className={styles.addOwnerHint}>
+                    {draftOwner === 'character'
+                      ? '记角色自己的经历、喜好或承诺；她会把它当成自己的事。'
+                      : draftOwner === 'user'
+                        ? '记玩家告诉她的信息；她可以提起，但不能说成自己的经历。'
+                        : '记双方一起经历或共同知道的事，角色和玩家都算在场。'}
+                  </p>
+                  <input
+                    className={styles.addTrigger}
+                    value={draftTrigger}
+                    maxLength={80}
+                    placeholder="触发线索（可选）：她看到手表、听见下雨、你提到生日时更容易想起"
+                    aria-label="记忆触发线索"
+                    onChange={(event) => setDraftTrigger(event.target.value)}
+                  />
+                  <div className={styles.addFlags}>
+                    <button
+                      type="button"
+                      aria-pressed={draftProactive}
+                      data-active={draftProactive}
+                      onClick={() => setDraftProactive((current) => !current)}
+                    >
+                      主动提起
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={draftPinned}
+                      data-active={draftPinned}
+                      onClick={() => setDraftPinned((current) => !current)}
+                    >
+                      每轮优先
+                    </button>
+                    <small>主动提起只在气氛合适时用，不会每轮重复；每轮优先会先占注入预算。</small>
+                  </div>
+                </div>
+              ) : null}
               <textarea
                 value={draft}
                 rows={2}
@@ -854,6 +969,11 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                 >
                   添加
                 </button>
+                {saveNotice ? (
+                  <span className={styles.saveNotice} role="status">
+                    {saveNotice}
+                  </span>
+                ) : null}
               </div>
             </div>
           ) : null}

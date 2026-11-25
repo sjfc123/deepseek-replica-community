@@ -323,12 +323,6 @@ export const deleteSession = (sessionId: string): Promise<void> =>
     }
   })
 
-export const saveFiles = (files: StoredFile[]): Promise<void> =>
-  withActive('readwrite', async (tx, { slot }) => {
-    const store = tx.objectStore(slots[slot].files)
-    await Promise.all(files.map((file) => store.put(file)))
-  })
-
 export const loadFile = (id: string): Promise<Blob | undefined> =>
   withActive(
     'readonly',

@@ -209,6 +209,7 @@
   border-radius: 18px;
   background: var(--dsw-alias-bg-layer-2);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  animation: suggestionPanelIn 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .suggestionHeader {
@@ -270,10 +271,63 @@
   }
 }
 
+.suggestionRefreshIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 180ms ease;
+}
+
+.suggestionRefresh[data-loading] .suggestionRefreshIcon {
+  animation: suggestionSpin 900ms linear infinite;
+}
+
 .suggestionLoading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   padding: 10px 4px;
   font-size: 13px;
   color: var(--dsw-alias-label-caption);
+}
+
+.suggestionSpinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 18%, transparent);
+  border-top-color: var(--dsw-alias-brand-primary, #4d6bfe);
+  border-radius: 50%;
+  animation: suggestionSpin 900ms linear infinite;
+}
+
+.suggestionSkeleton {
+  display: grid;
+  flex: 1 0 100%;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.suggestionSkeleton i {
+  display: block;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--dsw-alias-label-caption) 7%, transparent) 20%,
+    color-mix(in srgb, var(--dsw-alias-label-caption) 14%, transparent) 40%,
+    color-mix(in srgb, var(--dsw-alias-label-caption) 7%, transparent) 60%
+  );
+  background-size: 220% 100%;
+  animation: suggestionShimmer 1.35s ease-in-out infinite;
+}
+
+.suggestionSkeleton i:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.suggestionSkeleton i:nth-child(3) {
+  animation-delay: 240ms;
 }
 
 .suggestionList {
@@ -297,6 +351,12 @@
   text-align: left;
   background: var(--dsw-specific-input-major);
   cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+  animation: suggestionItemIn 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 
   &:hover {
     border-color: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 40%, transparent);
@@ -305,6 +365,12 @@
       var(--dsw-alias-brand-primary, #4d6bfe) 6%,
       var(--dsw-specific-input-major)
     );
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  &:active {
+    transform: scale(0.995);
   }
 }
 
@@ -322,11 +388,106 @@
   background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 10%, transparent);
 }
 
+.suggestionBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.suggestionMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.suggestionMode {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 18px;
+  padding: 0 7px;
+  overflow: hidden;
+  border-radius: 6px;
+  font-size: 10px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-caption);
+  background: color-mix(in srgb, var(--dsw-alias-label-caption) 10%, transparent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestionMode[data-mode='aside'] {
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 11%, transparent);
+}
+
+.suggestionText {
+  display: block;
+  min-width: 0;
+  word-break: break-word;
+}
+
 .suggestionHint {
   margin-top: 8px;
   font-size: 11px;
   line-height: 16px;
   color: var(--dsw-alias-label-caption);
+}
+
+@keyframes suggestionPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes suggestionItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes suggestionSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes suggestionShimmer {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .suggestions,
+  .suggestionItem,
+  .suggestionSkeleton i,
+  .suggestionRefreshIcon,
+  .suggestionSpinner {
+    animation: none;
+  }
+
+  .suggestionItem {
+    transition: none;
+  }
 }
 
 .wrapper {
