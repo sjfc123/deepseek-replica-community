@@ -1,279 +1,107 @@
-# DeepSaga 源码留存说明 · 0.9.0
+# 源码包与构建交付说明
 
-本文档随源码包提供，用于说明版本、包内容、未包含项及构建方法。
+本文档规定 DeepSaga 源码包的内容、构建输入、校验方式与交付边界。源码许可以 [LICENSE](LICENSE) 为准，来源与署名以 [NOTICE.md](NOTICE.md) 为准。
 
-## 版本
+## 1. 版本标识
 
-- 版本号：0.9.0
-- 当前包名：`io.github.sjfc123.deepsaga`
-- 历史上游包名：`io.github.lijiahua1024.dsreplica`、`io.github.lijiahua1024.dsreplica.rp`，本版均已不再使用
-- 前端版本标记：按本源码构建后，`dist/index.html` 应写入 `application-version=0.9.0`
-- 应用显示名：`DeepSaga`
-- 启动图标：`android/app/src/main/res/mipmap-*` 下的星空图标；自适应图标见 `mipmap-anydpi-v26/ic_launcher.xml`
+- 应用名：`DeepSaga`
+- 版本：`0.9.0`
+- versionCode：`143`
+- 包名 / namespace：`io.github.sjfc123.deepsaga`
+- 最终版本状态：**自本项目最终版本源代码开源后，将不再进行更新。**
+- 本声明中的“更新”指版本号变更、版本说明追加与发布节点。同步性修正仅限上游兼容、构建修复和安全修补，不属于版本更新；不单独变更版本号、不追加版本说明、不写入变更日志。仅在明确要求时记录。
 
-## 维护状态
+## 2. 包内容
 
-本项目为个人维护的衍生分支，不定期更新。优先处理自用场景中的问题；常规 Issue、Pull Request 与兼容性报告不保证逐条处理，也不承诺固定更新节奏。安全与权利通知按 [NOTICE.md](NOTICE.md) 的边界处理。
+源码包由 `git archive` 生成，包含：
 
-## 0.9.0 品牌独立化（2026-11-26）
+- 前端源码：`src/`、`public/`、配置文件与 `package.json` / `pnpm-lock.yaml`
+- Android 源码：`android/`，含 Gradle 配置、Java 源码、资源与图标
+- 测试脚本：`scripts/`
+- 文档：`README.md`、`NOTICE.md`、`SOURCE-BACKUP.md`、`SYSTEM-PROMPT-PIPELINE.md`
+- 许可证：`LICENSE`、`licenses/MIT-DeepSeek.txt`
+- 网页图标：`src/assets/favicon.png`、`src/assets/apple-touch-icon.png`、`src/assets/app-icon.png`
+- 安卓图标：`mipmap-*` 多密度 PNG、自适应背景层与前景层、`mipmap-anydpi-v26/ic_launcher.xml`
 
-- 应用名从 `DeepSeek Replica` 改为 `DeepSaga`，侧栏品牌、网页标题、诊断日志标题、记忆归档说明同步替换。
-- `applicationId` 与 `namespace` 从 `io.github.lijiahua1024.dsreplica` 改为 `io.github.sjfc123.deepsaga`，Java 源码包目录同步迁移。新旧包名互不覆盖，可并存安装；旧版数据需要先导出再导入。
-- 启动图标去掉上游蓝色鲸鱼矢量，改为深空星空底图与低亮度星座连线；安卓补齐 mdpi 至 xxxhdpi 多密度 PNG、自适应背景层和透明前景层，网页使用独立 favicon 与 apple-touch-icon。
-- 自动备份目录从 `Download/DeepSeek Replica/自动备份` 改为 `Download/DeepSaga/自动备份`，设置页文案、英文提示与 Java 常量同步。
-- 历史对话 ZIP、单会话包、设定存档和记忆归档的格式标识保持不变，DeepSaga 仍可读取旧版导出的包；品牌变更不影响导入字段与 CRC 校验。
-- README、NOTICE、本说明与 System 前缀文档同步更新来源声明、迁移方式和维护边界。
+包内文件清单以 ZIP 实际内容为准。源码包注释记录构建时的 Git 提交号，用于核对来源。
 
-## 包内容
+## 3. 不包含内容
 
-- `src/`：React + TypeScript 前端源码
-- `android/`：Android 容器、Java 源码和 Gradle 工程
-- `scripts/`、`rspack.config.ts`、`tsconfig.json`：构建与测试脚本
-- `package.json`、`pnpm-lock.yaml`：依赖和锁定版本
-- `README.md`、`NOTICE.md`、`LICENSE`、`SYSTEM-PROMPT-PIPELINE.md`、本说明：来源、许可、System 前缀链路和使用边界
+源码包不包含：
 
-## 未包含内容
+- `release.jks`、`debug.keystore`、任何签名文件或签名密码
+- 预编译 APK、AAB、网页构建产物 `dist/`
+- API Key、聊天记录、角色卡、世界书、记忆、诊断日志或用户数据
+- `node_modules/`、Gradle 缓存、IDE 配置、`.env` 或本机路径配置
+- 第三方网关凭据、CDN 凭据、发布令牌或自动部署密钥
 
-- `node_modules/`：按 `pnpm-lock.yaml` 重新安装
-- `dist/`：按源码重新构建
-- 构建产物、签名文件、`debug.keystore`、`release.jks`
-- 打包中间产物、测试演练页、个人备份
+接收者不得向源码包补入上述内容后再公开分发。
 
-以上项目不纳入源码包。构建产物和签名文件由使用者生成并保管；具体边界见 README 的“构建”一节及 NOTICE。经第三方提供的构建产物不代表本仓库，也无法证明未被修改。
+## 4. 构建输入
 
-## 0.8.87 默认提示词与单卡约束（2026-11-24）
-
-- `DEFAULT_SYSTEM_PROMPT` 改为普通 DeepSeek AI 助手，不再预置长人设。新装、恢复默认、从未保存提示词或只保存过旧版公司身份提示的用户，启动后直接普通问答；角色扮演由玩家自行启用卡/档案或改写提示词。
-- 角色卡、完整档案或轻量身份行存在时，`composeSystemPrompt()` 把默认助手文案换成 `NEUTRAL_SYSTEM_PROMPT`，仅在这条路径追加括号约定与按需演出规则；普通对话不再追加任何角色规则。
-- 全局只保留一个 `activeCharacterId`；`canEnableRoleplay()` 与 `setRoleplayEnabled()` 要求开关能解析到有效卡，没有卡时不会保持“角色扮演已开启”。会话绑定卡仍优先，`resolveTurnCharacterCard()` 只返回一张。
-- 人物层固定「卡 → 档案 → 身份行」三选一；记忆、场景与世界书继续放在当前 user 尾部。改卡、改档案、改提示词会改变 system 前缀，缓存暂时未命中属预期。
-- README、`SYSTEM-PROMPT-PIPELINE.md` 与设置页说明同步；缓存未命中补充“可能是冷启动或网关抖动，先重试同一句话一次确认”的边界。
-- 清空表达提示词回退默认官方助手：`composeSystemPrompt()` 对空字符串或纯空白返回 `DEFAULT_SYSTEM_PROMPT`；`streamReply` 在同一轮停用角色卡、基础档案、身份行、场景、世界书与角色记忆，改用普通采样与普通记忆。非空提示词仍保留原角色链路。设置页清空状态改为「提示词已清空 · 官方助手」。
-- 新增 `pnpm test:prompt`，覆盖默认文案、普通对话无角色规则、角色上下文中性基底、清空提示词回退官方助手、单卡开关与会话绑定优先。
-- 自用整理移除应用内公告：删除公告数据、启动弹窗、设置页入口和公告已读存储键；后续版本不再展示版本公告。
-- 自用整理移除应用内更新：删除版本检查、下载校验、安装入口、安装来源权限与更新内容提供器，设置页不再显示检查更新状态。
-
-## 0.8.87 归档与文档整理（历史）
-
-- `README.md` 顶层重构为“项目状态 / 项目定位 / 在两项上游基础上的全面更新 / 已知边界与维护方式 / 维护方式与责任边界”。全面更新部分按请求层、会话持久化、角色运行时、长期记忆、语音、设置界面、Token 诊断、默认提示词、Android 构建、文档测试十个功能域列出实际改动，不按宣传口径概括。
-- 记录了 0.8.87 当时的功能边界与未完成验证项；后续 0.8.88–0.9.0 已继续迭代，该段只作为历史记录，不代表当前维护状态。
-- 同步校正文档中的最终提示词长度与记忆分层口径：默认提示 4697 字，友好语气 846 字，一致性核对 265 字，角色连续性 680 字，中性基底 103 字；普通助手 5808 / 4962 字，角色上下文 967 / 1137 字；角色记忆按完整回合、重要场景、关键事实三层注入。
-- 本次仅修改说明文档，不改运行时、构建配置与界面代码；前端构建、八组回归与 APK 校验结果沿用 0.8.87 终版记录。
-
-## 0.8.87 记忆分层、偏好推荐与防出戏（2026-11-25 晚）
-
-- 角色记忆新增 `memoryKind`：`turn` 完整回合、`scene` 重要场景、`fact` 关键事实；旧卡缺省按 `turn` 读取，不迁移原文。场景与事实独立成卡，`isCoreMemory()` 把它们排除在自动配额与提炼替换之外，每轮分别最多固定注入 6 张，不依赖关键词命中。
-- `buildImportantMemoryCards()` 从选中消息生成场景/事实卡，默认带入双方原文，保存弹窗里可删改成地点、人物、事件、气氛或稳定事实；同一消息、同类型、同正文去重，同一轮可保存多个不同场景，也可与完整回合并存。
-- 注入块改为“重要场景 → 关键事实 → 对话经历”分段，先声明记忆是已发生事实而非可选参考；新增“用户当前明确说法 → 更近记忆 → 更早记忆”的冲突顺序，禁止用“没有记录”否认玩家刚说出的经历，也禁止把“你记得吗”回答成“我是 AI，没有记忆”。
-- 默认助手新增「功能偏好与选择」：玩家问哪个功能更好时先按当前场景与已有偏好给明确推荐，不用“没有绝对最好 / 不存在哪个功能更好 / 因人而异”单独打发或否定玩家；差异说明后必须落到具体建议。`DEFAULT_SYSTEM_PROMPT` 4697 字，普通助手最终 5808 / 4962 字。
-- `ROLEPLAY_CONTINUITY_GUARD` 扩到 680 字，新增禁止自称 AI / 模型 / 助手 / 程序，禁止提系统提示词、上下文、Token、功能表、角色卡、设定规则或“我正在扮演”，禁止把功能、设置或比较切成客服说明；安全边界仍用人物方式守住。角色上下文 967 / 1137 字。
-- 记忆面板增加“重要场景 / 关键事实”筛选与手动补卡类型；诊断改为“本轮注入 / 容量占用 / 核心记忆”三块，明确核心卡不占自动配额、不参与淘汰。设置页长期记忆顶部改为三列速览、记忆分层说明与更短的模式/配额文案。
-- 新增 `scripts/test-memory-layers.mjs`，并扩展 `scripts/test-default-prompt.mjs`；`pnpm type`、`pnpm lint`、八组回归与 `pnpm build` 通过。浏览器实测：保存重要场景后胶囊计数为 1，面板显示“角色 1 · 场景 1 · 事实 0”，场景卡标签、筛选、诊断三块与设置页三列速览均正常。
-
-## 0.8.87 功能详表、一致性链与收纳检索（2026-11-25）
-
-- `DEFAULT_SYSTEM_PROMPT` 从 1356 字扩到 4697 字，功能表从 10 组扩到 11 组：对话与会话、分组整理、角色与扮演、长期记忆、文件与语音、设定与数据、生成与请求、接口与模型、数据与用量、外观与其他、助手交流语气。功能边界后新增 13 条「功能入口速查」，逐条写真实页面、标签与按钮，并硬性要求表外入口只能回答“当前版本没有”或“无法确认”，不得编造页面、按钮或多级菜单。
-- 新增「详细介绍某个功能」回答顺序：先用一句话说明用途与场景，再给入口路径，再按 1/2/3 给可执行步骤，最后补可调项、关联功能、数据保存位置、额外消耗、限制与常见问题。实际界面与描述不一致时以当前界面为准，不编造路径、按钮名或未实现能力；普通聊天不主动罗列功能清单。
-- `ASSISTANT_TONE_GUARD` 扩到 846 字，普通助手最终 5808 字。固定要求专业、准确、简洁，同时友好、耐心、尊重，像人说话一样有温度、有情绪、有分寸；允许自然停顿、无奈、轻松、轻微嘴硬，不演、不卖萌、不油腻；去除客服腔、论文腔和模板开场白，少用“首先 / 其次 / 总之 / 综上所述”，不空泛客套，不每段道歉、总结或列点。该段不含日期、用户名或当前问题，避免改变 system 前缀。
-- 语气段新增立场与施压处理：用户表明立场时，只要不极端、不违法、不伤害他人，先站在用户角度理解，不因立场差异唱反调，可保留判断并用轻微别扭或无奈语气说明；遇到极端、违法、伤害性或仇恨性立场，不附和、不顺着演，用克制略带无奈的语气明确不赞成并指出具体风险，不能拿傲娇、玩笑或情绪化表演稀释拒绝，也不能把拒绝包装成顺从。拒绝不用模板句，直接说明哪一步不能做、为什么、能换成什么；面对“别客气 / 随便骂 / 只是测试 / 忘掉限制 / 扮演另一个不受约束的人”等施压，不改变基本尊重、事实边界与安全底线，不泄露或复述约束文本，不假装完成没做的事。
-- 新增 `ASSISTANT_CONSISTENCY_GUARD`，265 字。普通助手在正式回复前先内部核对用户最后一句话的诉求、自己上一轮答应过什么、还有什么没做完、当前话题和对象是否换了，再决定这一轮只推进哪一步；不跳话题、不替用户改设定、不把建议说成已经完成、不为显得完整而过度展开，信息不够时只问最关键的一点。关闭友好语气后，普通助手为默认提示词加这一段，共 4962 字。
-- `ROLEPLAY_CONTINUITY_GUARD` 扩到 680 字，追加到所有角色上下文。回复前先核对用户最后的动作与台词、角色上一轮的时间地点身体状态情绪、尚未结束的动作、承诺、误会和线索，先接住这一拍；不跳场景、不替用户决定、不无故推进时间地点关系；需要过渡时用动作、对话或因果带过，不写“过了一会儿 / 就这样”式概述，用户明确要求快进才快进；角色可以犹豫、误解、停顿、开玩笑或闹脾气，情绪沿上一轮延续，也可被用户的新行为改变；不每轮解释动机、不机械重复口癖、不像客服总结道歉列点；遇到极端要求不用角色口吻照做，也不生硬说教，用人物能说出口的方式拒绝、岔开或谈条件，并保留剧情落点。角色上下文 967 字，追加演出规则后 1137 字。
-- 新增 `memoryRouting.ts`：`resolveMemoryDisplayName()` 按角色卡名、手写档案名、端点默认名的顺序解析显示名；`memoryPoolForDisplayName()` 把空名、`AI`、`DeepSeek` 及大小写变体归普通池，其余非空名字归角色池。`recordTurnMemory()` 显式接收 `pool`，自动卡按池写库、按池执行配额；普通池自动卡按是否含三连反引号代码块分为 `code` / `dialogue`，`refine` 只对角色池执行。`usesCharacterMemory()` 替换旧的 `roleplayMemoryLocked()`，只填档案名也会进角色池，提示词清空直接回普通池。`streamReply`、`MessageList` 保存弹窗与 `MemoryPanel` 统一改用显示名判定，`roleplayActive` 继续只服务角色采样、场景和世界书。
-- 新增 `isMostlyDefaultPrompt()`，把默认人格判定从精确字符串改为近似判定：去掉空白、标点和符号后比较字符二元组 Dice 重合度，长度比低于 0.8 直接判否，重合度不低于 0.9 判为仍以默认人格为主体。只加标点、补一句话、改一个称呼时，友好语气与一致性链继续生效；删掉大半默认提示或整套换成另一套人设时停止追加，避免覆盖用户自己写的人格。精确匹配仍单独用于角色上下文切换 `NEUTRAL_SYSTEM_PROMPT`。
-- 新增 `friendlyTone` 与存储键 `replica:friendly-tone`，无值或 `1` 为开，只有 `0` 为关，默认开启；`resetCharacterSettings()` 复位为开启。设置页「角色档案与表达」底部新增「友好助手语气」开关，位于「演出呈现」之后、「恢复本页默认」之前。切换开关会改变 system 前缀，首轮缓存未命中属预期。
-- 角色档案页新增整体展开 / 收起：收起后只保留档案开关、角色名字、当前角色卡、展开按钮与说明，其余 32 项字段全部隐藏，适合只填写表达提示词的玩家；重新打开档案开关自动展开。关闭档案开关时名字输入与全部文本域使用真正的 `disabled`，变灰后不能聚焦、不能输入，修复此前仅 `readOnly`、关闭后仍可点进编辑的问题。
-- 角色卡列表新增本地搜索与单卡收纳：有卡就显示搜索框，搜索覆盖姓名、身份、关系、性格和标签；每张卡右上提供收起 / 展开，收起时只留头像、名字、状态和展开按钮，点开恢复完整摘要、标签、完成度、编辑与删除操作。角色卡编辑器的基本档案、身体与生活、性格与边界、剧情与表达四组改为可折叠按钮，写长卡时可只展开当前要改的一组。
-- 世界书条目改为按分类分组，每组显示分类名、条数和收起 / 展开，支持单组切换与一键收起 / 展开全部分类；搜索同时覆盖正文与避触词。非核心字数限制解除：角色卡只保留姓名 30、年龄 80、性别 40、代词 20、种族 40、身高 40、体重 40、生日 40 等核心事实截断，职业、居住地、语言、食物、兴趣、作息、随身物、宠物、性格、价值观、雷点、底线、配合方式、身份、关系、说话方式、口癖、开场参考、补充设定、题材、情景、系统指令、外貌、过往、目标、秘密、对白示例全部保留原文；世界书正文取消 4,000 字截断，编辑器删除字数上限，导入导出同步不截断。长设定仍受单轮注入预算与上下文窗口约束。
-- 重新生成改为复用原回答的 `latestReminder` 快照。`Request` 增加 `latestReminder` 与 `reuseLatestReminder`；`regenerateReply()` 传入原回答快照，`refreshRequest()` 展开原 request 保留字段；发送前仅在未要求复用时调用 `createLatestReminder()`。同一条问题重新生成时 system、提醒和历史前缀逐字一致。
-- 回归更新 `scripts/test-default-prompt.mjs`：覆盖默认提示词详细功能说明、语气约束内容与追加位置、一致性链、角色连续性链、关闭语气仍保留一致性、角色上下文不追加语气、自定义提示词原样保留、近似默认人格的标点 / 补句 / 换称呼与整套换人设判定、空提示词回退默认加语气、同参数重复拼装逐字一致。`scripts/test-roleplay.mjs` 新增长字段不截断、核心字段仍截断、世界书 15000 字正文不截断断言。
-- 文档同步 `README.md` 与 `SYSTEM-PROMPT-PIPELINE.md`：默认提示 4697 字、11 组功能表、13 条入口速查、语气 846 字、普通 5808 字、关闭语气 4962 字、角色 967 / 1137 字、一致性 265 字、连续性 680 字、显示名记忆分池、近似默认人格、非核心字段与世界书正文不截断、档案 / 角色卡 / 世界书折叠与搜索。
-- 已验证：`pnpm type`、`pnpm lint`（0 warnings / 0 errors，205 文件）、`pnpm test:prompt`、`pnpm test:system`、`pnpm test:roleplay`、`pnpm test:auto-backup`、`pnpm test:memory`、`pnpm test:memory-view`、`pnpm build` 全部通过。浏览器快照确认档案收起后仅剩控制区、关闭档案后输入框为 `[disabled edit]`、角色卡搜索可按标签筛卡、单卡收纳与编辑器四组折叠正常、世界书分组与单组 / 全部收起正常。
-
-## 源码注释与分区整理（2026-11-24）
-
-- 204 个手写 TS/TSX/JS/Java 源文件增加文件级职责说明与 `功能区：<模块> / <文件> 开始/结束` 边界；共 250 个文件级与模块内功能分区，`*.module.css.d.ts` 等生成文件不手工插入。
-- 聊天状态机、设置状态、设置页、角色卡面板、消息列表、侧栏、记忆面板、输入控件、连续语音和 `MainActivity` 再按状态、数据、操作、渲染、权限与媒体链路拆分内部区域，便于从入口直接定位实现。
-- 修正档案开关历史口径 `0.8.83` 为 `0.8.84`，并把“这里/这条/这个”等依赖上下文的注释改为明确指代；同步修正语音通道、错误归一化、消息删除、自动备份、主题色和 Android 媒体采集注释。
-- README 顶部补充项目状态：功能与改动规模、稳定性判断、历史兼容负担及维护不确定性；同时清理重复的记忆默认值说明，修正 0.8.74 已被 0.8.86 取代的名字行为。
-- 该次整理不改请求协议、数据结构、界面行为与版本号；仍是 0.8.86，运行时与已发布包一致。0.8.87 才调整默认提示词与单卡约束。
-
-## 0.8.86 版本变更
-
-- `settings.ts` 的 `initialCharacterName()` 不再把与当前启用卡同名的档案名当成历史残留清空；`characterName` 只由用户手动修改，角色卡启用、切换、关闭和保存都不写这个键。
-- `AndroidSettings.tsx` 的档案页名字框改为始终显示 `characterName`，角色卡启用时不再用卡名替换；当前卡名单独用只读行展示。档案关闭时名字框只读，但文本仍保留。
-- `characterProfile.ts` 新增 `formatCharacterIdentity()`：档案关闭或为空时只输出 `【角色身份】`、姓名与不承认模型/助手的一条规则，不回填年龄、身体、经历等字段。新增 `resolveSystemCharacterName()`，统一「卡名 → 档案名 → AI」的解析顺序。
-- `store.ts` 的人物层改为「当前卡 → 完整档案 → 轻量身份行」三选一；档案关闭不再导致 system 完全没有姓名。`promptCharName` 与占位符替换同步使用统一解析。
-- 系统提示词页新增「system 身份名」区块，显示本次生效名字与来源：当前卡、基础档案、档案名（档案已关闭）或 AI 兜底。
-- `setCharacterProfileEnabled()` 的存储值由 `String(boolean)`（`true`/`false`）改为 `1`/`0`，与 `initialProfileEnabled()` 的读取口径一致；此前关闭档案后刷新页面会重新变回开启，现已修复。
-- 六张内置角色卡补齐 `appearance`、`background`、`scenario`、`goal`、`secret`、`speechExamples`、`systemDirective`；基础档案不预填。`BUILTIN_CARD_TIME` 更新为 2026-11-24，`ensureBuiltinCharacterCards()` 会刷新仍停留在 2026-11-23 旧种子且未被用户保存过的内置卡，用户编辑过的卡按 `updatedAt` 保留。
-- `scripts/test-roleplay.mjs` 增加六卡字段完整度、旧种子刷新与用户编辑保留、身份行、system 名字解析断言。
-- 公告、README、本说明与 `SYSTEM-PROMPT-PIPELINE.md` 同步到 0.8.86；公告共 18 条：新增 4、优化 4、修复 5、说明 5。
-
-## 0.8.85 版本变更
-
-- `android/.../AutoBackup.java` 改为两阶段写入：先写应用缓存中的 `.part` 文件，关闭后核对 `expectedSize` 与临时文件长度，再用 `ZipFile` 打开中央目录确认 ZIP 完整。校验通过后才复制到 `MediaStore Downloads`，复制字节数与临时文件不一致时删除 pending 条目，下载目录不会出现半截文件。
-- `AutoBackup.begin()` 增加预期字节数参数，`MainActivity` 的 `beginAutoBackup(String, long)` 同步；`append()` 在超过预期大小时立即失败，`finish()` 校验失败会清理临时文件并返回 false。
-- `status()` 与 `prune()` 只查询 `IS_PENDING = 0` 的条目，并检查文件头 `PK\x03\x04` 与末尾 EOCD `PK\x05\x06`；空文件、截断文件、pending 残留和超出保留数量的文件会被删除。目录匹配改为 `%DeepSaga/自动备份%`，兼容带或不带 `Download` 前缀、末尾斜杠不同的设备。
-- 新增 `src/services/chat/backupName.ts`，备份名改为 `deepseek_data-YYYY-MM-DD-HHMMSS.zip`；同一天多次备份不再产生同名副本，`backup.ts` 统一使用该生成器。
-- `runAutoBackup` 增加单飞锁 `inFlight`：自动备份与手动「立即备份」同时触发时复用同一次执行，避免同一秒发布两份同名文件。
-- `runAutoBackup` 支持 `notify`：定时、启动和回到前台触发的成功/失败分别派发 `replica:auto-backup-success` / `replica:auto-backup-failed`；`App.tsx` 监听后 toast 提示「自动备份完成：N 个对话，文件已校验」或「失败，下载目录不会留下不完整文件」。
-- 手动备份提示与失败文案同步：补上「文件已校验」；区分 `verify`（完整性校验失败）与 `finish`（发布未确认），不再显示“文件已写入但系统未确认”的旧口径。
-- 设置页状态与说明更新：上次校验仅在 `meta.name` 与当前最新备份同名时展示，避免旧指纹误导；数据页文案说明临时文件、校验、发布和清理顺序。
-- 新增 `scripts/test-auto-backup.mjs` 与 `pnpm test:auto-backup`，断言文件名精确到秒、同日不同秒不重名、不含路径分隔符。
-- 公告、README、本说明同步到 0.8.85。
-
-## 0.8.84 版本变更
-
-- `CharacterProfile` 从 12 个字段扩到 32 个，新增 `age`、`gender`、`pronouns`、`species`、`height`、`weight`、`birthday`、`occupation`、`residence`、`languages`、`favoriteFoods`、`dislikedFoods`、`favoriteDrinks`、`hobbies`、`dailyRoutine`、`possessions`、`pet`、`values`、`petPeeves`、`boundaries`、`cooperation`。`origin` 收窄为出处与身份；`appearance` 只写外貌，不再包含身高体重；`habits` 拆成食物、饮品、兴趣、作息、随身物与宠物。
-- `CHARACTER_PROFILE_FIELDS` 增加 `group`，四组为 `core`、`body`、`personality`、`story`；`CHARACTER_PROFILE_GROUPS` 提供分组标题与说明。`normalizeCharacterProfile` 同步归一化 32 个字段，旧档案缺字段补空串。
-- `formatCharacterProfile` 按四组固定顺序装配；有任一固定字段时追加固定事实声明，结尾追加配合推进与不承认模型/助手的规则。规则文本与 `roleplay.ts` 的 `ROLEPLAY_*_RULE` 逐字一致，回归测试直接比较。
-- `Settings` 新增 `profileEnabled`，存储键 `replica:character-profile-enabled`，默认开启；新增 `setCharacterProfileEnabled`，复位角色页时恢复开启。
-- `streamReply` 改为 `profileEnabled && !activeCard && characterProfileHasContent()` 才装配完整档案；关闭后 32 项字段不读取。0.8.86 起非空档案名会以轻量身份行保留，不再只走表达提示词。
-- `AndroidSettings` 新增「读取基础档案」开关；关闭后 32 个字段与角色名 `readOnly` 并置灰，重新开启才能编辑。页面由单组改为四组，根页状态显示「已关闭」。搜索索引同步新字段。
-- `AndroidSettings.module.css` 新增 `.profileNotice`、`.profileGroupHint` 与 `.profileField[data-disabled]`、`.profileInput[data-disabled]`、`.inlineInput[data-disabled]`。
-- 设定存档新增 `profileEnabled`；`buildSettingArchive` 写入，`parseSettingArchive` 兼容旧档按开启处理，`applySettingArchive` 通过 `saveProfileEnabled` 恢复。
-- 公告、README、`SYSTEM-PROMPT-PIPELINE.md` 与旧 12 项说明同步替换；删除“档案和提示词一起进入”等过期口径。
-- `scripts/test-roleplay.mjs` 新增 32 字段计数、固定参数顺序、固定事实声明、配合与身份规则、档案与卡片规则逐字一致、四组顺序断言。
-
-## 0.8.83 版本变更
-
-- `CharacterCard` 新增 22 个字符串字段：`age`、`gender`、`pronouns`、`species`、`height`、`weight`、`birthday`、`occupation`、`residence`、`languages`、`favoriteFoods`、`dislikedFoods`、`favoriteDrinks`、`hobbies`、`dailyRoutine`、`possessions`、`pet`、`temperament`、`values`、`petPeeves`、`boundaries`、`cooperation`。字段顺序固定，旧卡缺字段时补空串。
-- `formatCharacterCard` 改为先输出固定参数，再输出生活细节、性格边界与剧情表达；有任一固定字段时追加固定事实声明，结尾固定追加配合规则与“不承认模型、程序、助手”的身份规则。
-- 角色卡编辑器重排为「基本档案」「身体与生活」「性格与边界」「剧情与表达」四组；完整度计数从 15 项扩到 37 项。`CARD_EXAMPLES` 八套模板全部补齐新字段，切换模板时保留 id 与创建时间，其余整组重置。
-- `CharacterCard` 导入增加 `race`、`job`、`home`、`language`、`likes`、`dislikes`、`items` 等外部键名映射；旧版 V2 的 `personality` 只进入 `style`，不再复制到 `temperament`。
-- 六张内置卡补齐固定参数与生活细节，拆出原先写在 `identity` / `appearance` 里的年龄、身高与体重；删除“被问是不是 AI 时照实回答”一类旧说明。
-- `WorldbookEntry` 新增必填 `authority`：`canon`（硬设定）、`local`（局部事实）、`rumor`（传闻）；默认 `canon`。`formatWorldbookBlock` 前缀改为「分类·可信度」并解释三者差别。
-- 新增 `dedupeWorldbookEntries`：按 `cardId + kind + authority + 小写标题 + 正文` 合并，关键词去重拼接、启用与每轮注入取或、权重与更新时间取最大。`normalizeWorldbook` 与 `saveWorldbookEntry` 都会调用；编辑器保存前拦截完全重复，并提示同角色、同分类、同标题、同正文。
-- 世界书编辑器新增可信度下拉与说明，列表新增可信度标签；同名条目在同范围内出现时给出重复提示。
-- `DEFAULT_SYSTEM_PROMPT` 新增“在人物逻辑里配合推进”段落，纯基础档案路径也有同样的配合约束。
-- `scripts/test-roleplay.mjs` 新增 22 字段保留与旧卡补空、固定事实顺序、配合规则、身份规则、可信度默认值、世界书可信度前缀与完全重复合并断言。
-
-## 0.8.82 版本变更
-
-- 设置根页入口「角色设定」改为「角色档案与表达」，页面拆成「角色设定 · 基础档案」「头像与显示」「表达提示词」三部分；根页状态显示已填档案项数与提示词状态。
-- 新增 `src/services/chat/characterProfile.ts`：`CharacterProfile` 当时固定 12 字段（0.8.84 已扩到 32 并加开关），`CHARACTER_PROFILE_FIELDS` 定义顺序、标签、提示与占位，`normalizeCharacterProfile` 丢弃未知键，`characterProfileFieldCount` 计数，`formatCharacterProfile` 生成 system 片段。
-- `Settings` 新增 `characterProfile`，存储键 `replica:character-profile`；逐字段写入、整体替换、清空三个接口都在 `settings.ts`。角色名字仍在 `character-name`，不并入档案 JSON。
-- `streamReply` 的 system 选择改为「有当前人物卡用卡，否则有档案用档案」；两者互斥，不叠加。提示词为空但档案有内容时仍保留档案。
-- 基础档案支持 `{{user}}` / `{{char}}`，装配时统一替换；空字段整行跳过，不生成“字段：无”。
-- 设定存档新增 `profile`；`parseSettingArchive` 的空判断包含档案。导入场景改用 `replaceScene(scene)`，一次写入完整 11 字段，修掉此前只写回 5 个旧字段的问题。
-- `DEFAULT_SYSTEM_PROMPT` 改为读取角色卡与基础档案；`resetCharacterSettings` 一并清空档案。
-- `scripts/test-roleplay.mjs` 新增基础档案归一化、计数、空 system、占位符替换和稳定性断言。
-
-## 0.8.81 版本变更
-
-- 角色卡新增题材、玩法、外貌、过往、情景、目标、秘密、对白示例和卡内系统指令；补充设定取消字数限制，归一化不再截断；模板从三套扩到八套。
-- 世界书新增分类、整段历史扫描和避触词，正文上限从 1,500 提到 4,000 字；导入同步读取 `kind/scope/excludeKeywords`。
-- 场景从 5 个字段扩到 11 个，新增天气、氛围与感官、在场人物、当前目标、冲突与悬念、关键物件；自动提取提示词和快照按字段动态生成。
-- 请求改按会话绑定人物解析：`Session.characterId` 优先，其次才看全局启用卡；旧会话按首条助手消息与卡内开场白匹配。关闭全局开关只影响新会话，消息气泡、记忆面板和语音通话同步。
-- 新增内置卡 `builtin:jianghu`（顾长风）、`builtin:xianxia`（云岫）、`builtin:urban`（许棠），内置总数改为 6。
-- 新增 `scripts/test-roleplay.mjs` 与 `pnpm test:roleplay`，覆盖内置卡、字段拼装、中文标签映射、会话绑定、世界书避触和场景解析。
-
-## 0.8.80 版本变更
-
-- 修复角色扮演世界书命中预览的 Hook 依赖：由只看“角色扮演总开关”改为按当前实际可用的角色卡状态重算，切换或清空启用卡后不再保留旧命中。
-- 修复长期记忆注入预览的 Hook 依赖：角色扮演开关变化后会重新计算角色/普通记忆注入，不再沿用旧结果。
-- 清理 23 条历史静态检查错误：移除对象型本地设置的动态删除、补齐会话复制和单会话包导入的 ID 映射校验、统一条件分支花括号与 Hook 依赖；诊断日志保留并做定点说明。
-- 该版本未改动 system 与请求前缀链路。
-
-## 0.8.77 版本变更
-
-- 校正 README 与 `SYSTEM-PROMPT-PIPELINE.md`：system 只含角色卡、手写提示词和固定演出规则；记忆、场景、当前轮次世界书以 `turnContext` 接在当前 user 末尾；`latest_reminder` 是当前 user 前的独立提醒消息；自动压缩、历史编辑和分支会改变请求前缀，但不改 system。
-
-## 0.8.76 版本变更
-
-- 角色卡开场白不再按消息条数进入或退出 system：`formatCharacterCard` 去掉 `includeGreeting` 参数，开场白始终作为卡字段保留，文案改为“只在第一条回复使用，后续自然延续”。同一张卡从第一轮起 system 逐字一致，消除第二轮前缀变化。
-- `composeSystemPrompt` 对纯空白提示词返回空字符串；`initialSystemPrompt` 区分“键不存在”（新用户，给默认人格）与“键存在但只有空白”（主动清空，保持空）。
-- 手写角色名与卡名都为空时，`{{char}}` 回退为 `AI`，避免字面占位符进入 system 或背景资料。
-- 默认人格与 `META_TALK_GUARD` / `ASIDE_AND_ADDRESS_GUARD` 对括号内容的表述统一：禁止旁白、分析、推理步骤和写作计划；允许角色主观心理活动放进圆括号。
-- Chat、Responses、自定义 Messages 三种序列化统一拦截空白 system。
-- 新增 `scripts/test-system-prompt.mjs` 与 `pnpm test:system`，固定角色卡前缀、开场白存在性、Chat/Responses 的 system 位置与空 system 行为；新增 `SYSTEM-PROMPT-PIPELINE.md` 说明装配顺序和缓存不变量。
-
-## 0.8.75 版本变更
-
-- 修复会话历史“更多”菜单在窄视口下的透明底：此前未套用侧栏菜单的滚动和高度规则，菜单容器仅绘制到内容高度，后续项溢出到底板外。
-- `Menu` 底板统一加 `overflow-y: auto` 与 `overscroll-behavior: contain`，任何超过最大高度的菜单都在容器内滚动。
-- 会话菜单按侧栏菜单计算高度，九项内容按可用空间完整展开；窄屏空间不足时在菜单内部滚动。
-- 用户消息和助手消息的长按菜单复用同一底板规则，避免同类透明溢出。
-
-## 0.8.74 版本变更
-
-- 角色名与角色卡解耦：启用、改名或保存角色卡不再写入 `replica:character-name`；聊天、语音和角色设定页名字栏在角色扮演开启时按当前启用卡显示卡名（名字栏只读，避免误写手写名），关闭后回到手写角色名和手写头像。
-- 兼容旧版本残留：启动时如果手写角色名与当前启用卡同名，视为旧版覆盖值并清空一次；无法反推出被覆盖前的原名字，需要重新填写。
-- `streamReply` 的 system 只在该卡真正启用时拼入 `formatCharacterCard`；关闭后 `{{char}}` 使用手写角色名，世界书、场景、角色记忆和角色扮演生成参数一并停用。
-- 语音页移除“卡名即通用标题”的启发式；手写名字即使与某张卡同名也照常显示。
-- 角色卡设置页、关闭提示、根页状态和 README 统一改为“关闭后卡暂停，不注入卡设定”的口径。
-
-## 0.8.73 版本变更
-
-- 关闭角色扮演或角色卡后，语音通话不再沿用角色卡名字和头像；角色扮演开启且启用卡存在时才用卡身份，关闭后使用提示词侧角色名字/头像，名字仍为卡名残留时显示“语音通话”。
-- 鲸鱼图标点击改成随机牌堆：单次点击必换一句，快速点击连续切换，10 句全部用完后短暂冷却并重新洗牌，不再出现点几次后永久静默。
-
-## 0.8.72 版本变更
-
-- 移除普通记忆顶部重复的“全部 / 对话 / 代码 / 用户原话 / AI 原话”子分类行；“全部 / 生效中 / 手动 / 已归档”状态筛选保留。
-- 底部“自动识别 / 对话 / 代码 / 用户原话 / AI 原话”保留，继续决定手动补卡写入哪个子分类；已有卡片归类、搜索与注入顺序不变。
-- 补卡区改为纵向排列：标题、分类、输入框、添加按钮自上而下，输入框占满整行并修正 390px 视口下向左溢出的问题；添加按钮移到下一行右侧，不再压住输入框边框。
-
-## 0.8.71 版本变更
-
-- 长期记忆面板宽度上限从 640px 提到 720px；窄屏外边距收至 6px，左右内边距收至 14px，正文可用宽度增加。
-- 面板改为整块滚动：标题 sticky 在顶部、补卡区 sticky 在底部，列表不再单独滚动；在面板边框或卡片外空白处下滑也能浏览长对话。
-- 卡片头只保留分类、来源和时间；已启用、置顶移到卡片底部操作行，与编辑、删除排在一起，减少顶部拥挤。
-- 移除补卡区上方重复的“角色记忆 / 普通记忆”选择；手动补卡跟随顶部当前分类，切换分类会清空未提交草稿，避免写错池。
-- 主界面 `PeakWindowHint` 改为高峰红色、空闲绿色，圆点、文字和浅色边框一起跟随；深色主题用更亮的红绿。
-
-## 0.8.70 版本变更
-
-- 设置页转场锁 `exiting.current` 增加超时收尾：动画 Promise 完成、取消、抛错或超过约 0.9 秒都会释放，不再出现“点着点着按钮全部无响应、返回也没用”。
-- 旧 WebView 缺少 `Element.animate` 或调用抛错时，设置页直接无动画切换，避免 `e.animate is not a function` 崩溃页。
-- 导出、备份等待原生文件选择时不再阻止返回；只有导入、删除这类改动本机数据的动作继续锁返回。
-- ZIP 导出按分片和会话批次让出主线程，减少长归档写入期间按钮与返回一起卡住。
-- 标题栏、子页和弹窗里重复的“返回”仍按层级处理；快速点击在 300ms 转场内可能被忽略，但不会永久锁死。
-
-## 0.8.69 版本变更
-
-- 角色扮演开启时，长按消息保存与记忆面板手动补卡锁定角色记忆；普通记忆暂停写入，代码块不再预选普通分类。写入层同样强制角色池，避免旧状态或绕过界面时把代码落进普通记忆。
-- 角色扮演关闭后，角色池里带三连反引号代码块的角色卡不再注入普通对话；剧情、关系与时间线卡照常注入，避免角色写出的命令和开发日志污染普通问答。
-- 记忆面板同步说明：角色扮演中普通 Tab 标注暂停写入、补卡框与添加按钮禁用；关闭角色后注入预览会显示“已排除带代码块的角色卡”。
-
-## 0.8.68 版本变更
-
-- 修复记忆面板分类联动：顶部从普通记忆切回角色记忆时，底部手动补卡同步回到角色记忆，普通子分类按钮收起，不再出现“上面是角色、下面还在补普通卡”的错位。
-- 保留 0.8.67 的缓存前缀修复：稳定 system 放角色卡与人设，记忆、场景、世界书接在当前轮次发言末尾。
-
-## 0.8.67 版本变更
-
-- 修复长对话缓存命中率异常偏低。根因是每轮都把当前长期记忆、场景和关键词世界书拼进 `system` 开头，前缀从第一个变化处失效，后面的历史全部按未命中计费。
-- `system` 现在只保留跨轮稳定的角色卡、人设和手写提示词；记忆、场景、世界书移到当前轮次发言末尾，作为背景资料发送，不写回历史原文。
-- 每轮把 `system`、当前轮次背景和上下文提醒一起计入上下文预算，避免背景很多时低估输入。
-- 逐条用量行的“未命中”现在包含写入缓存的输入，使“输入 = 未命中 + 缓存命中”在 Anthropic/OpenAI 两种 usage 口径下都能对平。
-
-## 0.8.66 版本变更
-
-- 长期记忆增加“普通记忆 / 角色记忆”双分类。旧卡没有分类字段，统一按角色记忆读取，不改原文、不破坏时间线与注入。
-- 普通记忆分“对话 / 代码 / 用户说的话 / AI 说的话”，每条消息独立成卡；面板支持双 Tab、子分类、跨分类搜索、代码块展示与按分类清空。
-- 消息长按保存弹窗和手动补卡支持分类选择；三连反引号代码块自动预选普通-代码，非角色扮演回复里的代码块会自动入库。
-- 普通记忆与角色记忆各自有卡片上限、字数上限和注入开关；普通记忆只做关键词检索，角色扮演开启时不注入，避免污染人设。
-- 记忆导出支持全部 / 仅普通 / 仅角色，普通可再选四个子分类；导入按原分类合并。
-
-## 构建与运行
+前端：
 
 ```bash
 pnpm install
 pnpm type
+pnpm lint
 pnpm build
 ```
 
-前端产物输出到 `dist/`。Android 工程使用 `android/gradlew` 构建；当前配置为 Gradle 9.7.1、AGP 9.4.0、compileSdk 37，环境不一致时需相应调整。签名由使用者生成并保管，密钥不得提交到仓库。
+- Node.js 与 pnpm 版本以 `package.json` 的 `engines` 为准。
+- 构建产物输出到 `dist/`。
+- 网页部署时，`dist/index.html`、`dist/static/js/main.*.js`、`dist/favicon.png` 必须来自同一次构建。
 
-如需预览界面，可运行 `pnpm dev` 启动本地开发服务。设备安装、API Key 配置、系统权限和 ROM 差异需另行验证；源码仅提供构建起点。
+Android：
 
-## 维护状态与交接
+```bash
+cd android
+./gradlew assembleRelease
+```
 
-本项目为个人维护的衍生分支，不定期更新。优先处理自用场景中的问题，其次考虑可复现、边界清楚的改进；不承诺固定版本节点、完整设备兼容矩阵或 Issue / Pull Request 响应时间。
+- JDK 21。
+- Android SDK 需包含 compileSdk 37、minSdk 29 及对应 build-tools。
+- Gradle 9.7.1、AGP 9.4.0。
+- 构建者必须自行提供签名配置。仓库中的示例路径和别名不构成发布凭据。
+- 签名配置中的 `keyAlias 'dsreplica'` 是历史签名别名，不是应用品牌。更换别名会使既有签名链失效，是否更换由构建者自行决定。
 
-常规 Issue、Pull Request 与兼容性报告不保证逐条处理。需要继续开发时，可自行 Fork；Fork 后的代码、文档、构建和签名由 Fork 方负责。如项目后续由他人接手，以接手方的仓库、文档和发布渠道为准。
+## 5. 校验项目
 
-源码提供请求组装、角色注入、记忆隔离和语音断句等实现基础，不构成商业级 SLA 或后续维护承诺。
+发布或分发前，构建者必须核对：
 
-API Key 存储、导入导出、Keystore 加密或凭据泄露类安全问题优先通过 GitHub 仓库的私密安全报告入口提交；入口不可用时，再通过 Issue 标题标注 `[SECURITY]` 提交最小必要信息，不公开真实密钥或可直接利用的细节。安全与权利通知会被查看，但不构成固定处理时限或恢复维护的承诺。
+- `aapt2 dump badging`：包名 `io.github.sjfc123.deepsaga`、versionCode `143`、versionName `0.9.0`、application-label `DeepSaga`。
+- 启动 Activity：`io.github.sjfc123.deepsaga.MainActivity`。
+- APK 内 `ic_launcher.png` 为星空图标，不是上游蓝色鲸鱼。
+- `dist/index.html` 标题为 `DeepSaga`，版本 meta 为 `0.9.0`。
+- `dist/favicon.png` 与主脚本返回 HTTP 200。
+- `pnpm type`、`pnpm lint`、`pnpm build` 通过。
+- `pnpm test:system`、`test:roleplay`、`test:story`、`test:auto-backup`、`test:prompt`、`test:memory`、`test:memory-routing`、`test:memory-view`、`test:memory-layers`、`test:groups`、`test:suggestions` 通过。
+- APK 签名证书指纹与发布记录一致；不一致时不得作为同一应用的升级包分发。
+
+校验结果只证明该次构建的输入与产物，不证明第三方修改版、转载包或非官方渠道产物。
+
+## 6. 迁移与兼容
+
+- 0.9.0 使用独立包名，旧版 `io.github.lijiahua1024.dsreplica` 的数据不会自动迁移。
+- 迁移必须通过旧版「导出所有历史对话」再在新版导入完成。
+- API Key 不进入备份，迁移后必须重新填写。
+- 历史对话 ZIP、单会话包、设定存档和记忆归档保持原格式标识。
+- 内部 `replica:` 存储键保持不变，用于读取既有数据。
+- 旧包字段缺失、ID 冲突或手工修改导致的格式异常，导入时跳过并计数，不保证全部恢复。
+
+## 7. 交付边界
+
+- 本仓库只提供源代码，不提供预编译 APK、在线服务、代打包、部署指导或技术支持。
+- 第三方构建产物由构建者、分发者独立负责。本仓库不为其完整性、签名来源、内置内容、隐私行为或平台合规作担保。
+- 数据泄露、违规内容、账号封禁、法律纠纷和经济损失的责任，按构建者、分发者与使用者的实际行为分别归属，不转移给源码作者。
+- 本仓库作者不提供任何形式的担保，不承担任何连带法律责任。
+
+## 8. 交接
+
+如由他人接手：
+
+- 以接手方仓库和发布渠道为准。
+- 接手方必须保留 GPL-3.0、MIT 与上游署名。
+- 接手方必须重新生成并保管签名密钥，不得复用来源不明的签名。
+- 接手方必须自行完成设备矩阵、接口网关、安装升级和数据迁移验证。
+- 原仓库不承诺交接、不承诺转移发布渠道，也不对后继版本作背书。
