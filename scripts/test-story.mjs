@@ -13,6 +13,7 @@ const {
   currentStoryClue,
   formatStoryPublicStatus,
   isStoryLocked,
+  limitStoryAsides,
   storyCluesUntil,
   storyPhaseOf,
   stripStoryMarkers,
@@ -86,6 +87,43 @@ assert.doesNotMatch(anomalyBlock, /左右腕旧疤|奶奶的暗号|旧屋动线/
 const deadlineBlock = formatStoryTurnBlock(story, { ...start, storyClockMinute: 1440 })
 assert.match(deadlineBlock, /\[\[STORY_END:BAD\]\]/)
 assert.match(deadlineBlock, /\[\[STORY_END:GOOD\]\]/)
+
+const anomalySession = { ...start, storyClockMinute: 1380 }
+assert.equal(
+  limitStoryAsides('门我开一条缝了\n（他应该没发现）', story, anomalySession, [
+    '没事 就是右腕蹭了一下\n（他应该没发现）',
+    '我快到楼下了\n（他应该不会多问）',
+  ]),
+  '门我开一条缝了',
+  '最近两轮都有独白时本轮必须剔除'
+)
+assert.match(
+  limitStoryAsides('门我开一条缝了\n（他应该没发现）', story, anomalySession, [
+    '上一轮正文',
+    '这一轮正文',
+  ]),
+  /（他应该没发现）/,
+  '最近两轮没有独白时允许保留一条'
+)
+assert.equal(
+  limitStoryAsides('门我开一条缝了\n（他应该没发现）', story, anomalySession, [
+    '更早一轮\n（他应该没发现）',
+    '上一轮正文',
+    '这一轮正文',
+  ]),
+  '门我开一条缝了',
+  '最近三轮出现过同一句独白时不得复读'
+)
+assert.doesNotMatch(
+  limitStoryAsides('正文\n（第一句）\n（第二句）', story, anomalySession, []),
+  /第二句/,
+  '一轮最多保留一条独白'
+)
+assert.equal(
+  limitStoryAsides('正文\n（最后一句）', story, { ...start, storyClockMinute: 1440 }, []),
+  '正文\n（最后一句）',
+  '判定轮不强行改写最后一幕'
+)
 
 assert.equal(detectStoryEnd('最后一句\n[[STORY_END:BAD]]'), 'bad')
 assert.equal(detectStoryEnd('救出来了\n[[STORY_END:GOOD]]'), 'good')

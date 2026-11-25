@@ -128,6 +128,7 @@ import {
   detectStoryEnd,
   formatStoryTurnBlock,
   isStoryLocked,
+  limitStoryAsides,
   stripStoryMarkers,
 } from './story.js'
 import { applyEvent, getContextRounds, settleReply, toRequestMessages } from './reply.js'
@@ -2687,6 +2688,33 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       },
     }
   }
+  // 独白密度由前端兜底：只统计本轮之前的助手正文，最近两轮出现过独白就整轮剔除，
+  // 允许保留时也只留一条，避免提示词失效时每轮复读同一句假心声。
+  const settleStoryAsides = (target: AssistantMessage) => {
+    if (!activeCard?.story) {
+      return target
+    }
+    const previousReplies = visibleForRoleplay
+      .filter((message) => message.role === 'assistant' && message.id !== target.id)
+      .map((message) => replyPlainText(message))
+      .filter((text) => text.trim())
+    return {
+      ...target,
+      blocks: target.blocks.map((block) =>
+        block.type === 'text'
+          ? {
+              ...block,
+              text: limitStoryAsides(
+                block.text,
+                activeCard.story,
+                sessionForMemory,
+                previousReplies
+              ),
+            }
+          : block
+      ),
+    }
+  }
   const outputCap = (requested: number) =>
     effectiveMaxTokens !== null ? Math.min(requested, effectiveMaxTokens) : requested
   const controller = new AbortController()
@@ -3001,6 +3029,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     titleRequests.delete(controller)
     streamFlushes.delete(sessionId)
     cancelAnimationFrame(frame)
+    reply = settleStoryAsides(reply)
     const storyEnd = settleStory(reply)
     if (storyEnd) {
       reply = storyEnd.reply

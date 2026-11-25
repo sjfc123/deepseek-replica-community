@@ -3,7 +3,7 @@
  * 职责：限时推理角色卡的虚拟时钟、阶段注入、结局标记与会话锁定。
  * 导出：STORY_END_MARKERS、advanceStoryClock、createStoryState、detectStoryEnd、
  *       formatStoryClock、formatStoryRemaining、formatStoryTurnBlock、
- *       isStoryLocked、storyPhaseOf、stripStoryMarkers。
+ *       isStoryLocked、limitStoryAsides、storyPhaseOf、stripStoryMarkers。
  * ========================================================================== */
 
 import type { CharacterStory, CharacterStoryClue } from './roleplay.js'
@@ -16,6 +16,27 @@ export const STORY_END_MARKERS = {
 
 const END_PATTERN = /\[\[STORY_END:(BAD|GOOD)\]\]/g
 const END_PATTERN_SINGLE = /\[\[STORY_END:(BAD|GOOD)\]\]/
+const ASIDE_IN_LINE = /（[^（）]*）|\([^()]*\)/g
+
+/** 与 aside 服务同一口径：只把同行成对括号当成独白，未闭合括号留在正文。 */
+const splitStoryAsides = (text: string) => {
+  const parts: Array<{ text: string; aside: boolean }> = []
+  let cursor = 0
+  for (const match of text.matchAll(ASIDE_IN_LINE)) {
+    const start = match.index ?? 0
+    if (start > cursor) {
+      parts.push({ text: text.slice(cursor, start), aside: false })
+    }
+    parts.push({ text: match[0], aside: true })
+    cursor = start + match[0].length
+  }
+  if (cursor < text.length) {
+    parts.push({ text: text.slice(cursor), aside: false })
+  }
+  return parts
+}
+
+const hasStoryAside = (text: string) => /（[^（）]*）|\([^()]*\)/.test(text)
 
 export type StoryPhase = 'normal' | 'anomaly' | 'deadline'
 
@@ -94,6 +115,52 @@ export const storyPhaseOf = (story: CharacterStory, minute: number): StoryPhase 
     return 'deadline'
   }
   return minute > story.normalUntilMinute ? 'anomaly' : 'normal'
+}
+
+/**
+ * 内心独白的硬上限：提示词只能降低概率，这里按最近两轮兜底。
+ * 最近两条回复只要有一条独白，本轮就全部剔除；同一条独白在最近三轮出现过也剔除。
+ * 允许保留时最多保留一条，避免一轮里连续写两三句心理分析。
+ */
+export const limitStoryAsides = (
+  text: string,
+  story: CharacterStory | undefined,
+  session: Session | null | undefined,
+  previousReplies: string[] = []
+): string => {
+  if (!text || !story || !session || session.storyClockMinute === undefined) {
+    return text
+  }
+  const phase = storyPhaseOf(story, session.storyClockMinute)
+  if (phase === 'deadline') {
+    return text
+  }
+  const recent = previousReplies.slice(-2)
+  const blocked = recent.some(hasStoryAside)
+  const recentAsides = new Set(
+    previousReplies
+      .slice(-3)
+      .flatMap((reply) => splitStoryAsides(reply).filter((part) => part.aside))
+      .map((part) => part.text.trim())
+  )
+  let kept = false
+  const cleaned = splitStoryAsides(text)
+    .map((part) => {
+      if (!part.aside) {
+        return part.text
+      }
+      if (blocked || kept || recentAsides.has(part.text.trim())) {
+        return ''
+      }
+      kept = true
+      return part.text
+    })
+    .join('')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\n+|\n+$/g, '')
+  // 极端情况下模型整条回复只有一句独白，清空会让消息变成空白；这时保留原文，交给提示词约束。
+  return cleaned.trim() ? cleaned : text
 }
 
 export const createStoryState = (story: CharacterStory) => ({
