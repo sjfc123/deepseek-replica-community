@@ -155,6 +155,8 @@ type Settings = {
   characterProfile: CharacterProfile
   /** 基础档案开关：默认开启；关闭后档案只保留在本地，不进入 system */
   profileEnabled: boolean
+  /** 普通官方助手友好语气：默认开启；只追加固定语气约束，不覆盖角色卡或自定义提示词 */
+  friendlyTone: boolean
   /** 角色头像，data URL；空表示用首字母占位 */
   characterAvatar: string | null
   /** 聊天区显示头像：助手用角色头像，用户用账号头像 */
@@ -268,6 +270,8 @@ const KEYS = {
   characterProfile: 'replica:character-profile',
   /** 基础档案开关：无历史值时默认开启；该口径自 0.8.84 引入独立开关起生效 */
   profileEnabled: 'replica:character-profile-enabled',
+  /** 普通助手友好语气开关：无历史值时默认开启，只有明确保存过 0 才算关闭 */
+  friendlyTone: 'replica:friendly-tone',
   characterAvatar: 'replica:character-avatar',
   avatarInChat: 'replica:avatar-in-chat',
   thoughtAside: 'replica:thought-aside',
@@ -482,6 +486,8 @@ const initialCharacterProfile = (): CharacterProfile =>
 
 /** 档案开关默认开启；只有明确存过 '0' 才视为关闭 */
 const initialProfileEnabled = (): boolean => read(KEYS.profileEnabled) !== '0'
+/** 友好助手语气默认开启；只有用户明确关过才为关 */
+const initialFriendlyTone = (): boolean => read(KEYS.friendlyTone) !== '0'
 
 const initialCharacterAvatar = (): string | null => {
   const saved = read(KEYS.characterAvatar)
@@ -660,6 +666,7 @@ export const useSettings = create<Settings>(() => ({
   characterName: initialCharacterName(),
   characterProfile: initialCharacterProfile(),
   profileEnabled: initialProfileEnabled(),
+  friendlyTone: initialFriendlyTone(),
   characterAvatar: initialCharacterAvatar(),
   avatarInChat: read(KEYS.avatarInChat) !== 'false',
   thoughtAside: read(KEYS.thoughtAside) !== 'false',
@@ -1224,6 +1231,12 @@ export const setCharacterProfileEnabled = (profileEnabled: boolean) => {
   useSettings.setState({ profileEnabled })
 }
 
+/** 普通助手友好语气：默认开启，只影响默认官方助手；角色卡、档案与自定义提示词不受覆盖 */
+export const setFriendlyTone = (friendlyTone: boolean) => {
+  write(KEYS.friendlyTone, friendlyTone ? '1' : '0')
+  useSettings.setState({ friendlyTone })
+}
+
 /** 基础档案逐字段写入：只更新当前字段，不清掉其它已填内容 */
 export const setCharacterProfileField = (
   key: keyof Omit<CharacterProfile, 'updatedAt'>,
@@ -1459,6 +1472,7 @@ export const resetCharacterSettings = () => {
   setSystemPrompt(DEFAULT_SYSTEM_PROMPT)
   setCharacterName('')
   setSuppressMetaTalk(false)
+  setFriendlyTone(true)
   clearCharacterProfile()
   setCharacterProfileEnabled(true)
 }

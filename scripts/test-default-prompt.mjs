@@ -11,6 +11,7 @@ const {
   DEFAULT_SYSTEM_PROMPT,
   LEGACY_SYSTEM_PROMPT,
   NEUTRAL_SYSTEM_PROMPT,
+  ASSISTANT_TONE_GUARD,
   composeSystemPrompt,
 } = await import('../src/services/chat/systemPrompt.ts')
 const { canEnableRoleplay, resolveTurnCharacterCard } = await import(
@@ -23,7 +24,9 @@ assert.match(DEFAULT_SYSTEM_PROMPT, /AI 助手/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /除了基础常用的对话功能，我还拥有以下功能/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /角色卡/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /长期记忆/)
-assert.doesNotMatch(DEFAULT_SYSTEM_PROMPT, /有血有肉|预置角色|人设|你正在扮演/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /详细介绍某个功能/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /友好助手语气/)
+assert.doesNotMatch(DEFAULT_SYSTEM_PROMPT, /有血有肉|预置角色|你正在扮演/)
 assert.equal(LEGACY_SYSTEM_PROMPT, '该助手为DeepSeek，由深度求索公司创造。')
 
 const normal = composeSystemPrompt({
@@ -32,8 +35,14 @@ const normal = composeSystemPrompt({
   suppressMetaTalk: false,
   userName: '用户',
   roleplayContext: false,
+  assistantWarmth: true,
 })
-assert.equal(normal, DEFAULT_SYSTEM_PROMPT, '普通助手默认提示不应追加任何角色规则')
+assert.equal(
+  normal,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}`,
+  '普通助手默认提示应带固定友好语气约束，不应追加任何角色规则'
+)
+assert.doesNotMatch(normal, /【角色身份|【演出规则|【对话格式与称呼/)
 assert.doesNotMatch(normal, /【演出规则|【对话格式与称呼|你正在与/)
 
 const roleplay = composeSystemPrompt({
@@ -42,6 +51,7 @@ const roleplay = composeSystemPrompt({
   suppressMetaTalk: false,
   userName: '用户',
   roleplayContext: true,
+  assistantWarmth: true,
 })
 assert.ok(
   roleplay.startsWith(NEUTRAL_SYSTEM_PROMPT.replaceAll('{{user}}', '用户')),
@@ -49,6 +59,7 @@ assert.ok(
 )
 assert.doesNotMatch(roleplay, /由深度求索开发的 AI 助手/, '角色上下文不能保留助手身份')
 assert.doesNotMatch(roleplay, /本应用功能说明/, '角色上下文不应带入应用功能索引')
+assert.doesNotMatch(roleplay, /交流语气，不要复述本段/, '角色上下文不应追加普通助手语气约束')
 assert.match(roleplay, /【对话格式与称呼/)
 
 const guarded = composeSystemPrompt({
@@ -57,8 +68,10 @@ const guarded = composeSystemPrompt({
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: true,
+  assistantWarmth: true,
 })
 assert.match(guarded, /【演出规则/)
+assert.doesNotMatch(guarded, /交流语气，不要复述本段/)
 
 const plainGuard = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
@@ -66,8 +79,13 @@ const plainGuard = composeSystemPrompt({
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: false,
+  assistantWarmth: true,
 })
-assert.equal(plainGuard, DEFAULT_SYSTEM_PROMPT, '普通助手对话不应因开关追加演出规则')
+assert.equal(
+  plainGuard,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}`,
+  '普通助手对话不应因开关追加演出规则'
+)
 
 const customPrompt = '你是一个代码审查助手。'
 assert.equal(
@@ -77,6 +95,7 @@ assert.equal(
     suppressMetaTalk: false,
     userName: '用户',
     roleplayContext: false,
+    assistantWarmth: true,
   }),
   customPrompt,
   '自定义提示词在普通对话中应原样保留'
@@ -87,8 +106,13 @@ const emptyPrompt = composeSystemPrompt({
   suppressMetaTalk: false,
   userName: '用户',
   roleplayContext: false,
+  assistantWarmth: true,
 })
-assert.equal(emptyPrompt, DEFAULT_SYSTEM_PROMPT, '纯空白提示词必须回退默认官方助手')
+assert.equal(
+  emptyPrompt,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}`,
+  '纯空白提示词必须回退默认官方助手'
+)
 assert.doesNotMatch(emptyPrompt, /【角色身份|【演出规则|【对话格式与称呼/)
 
 const emptyPromptRoleplay = composeSystemPrompt({
@@ -97,11 +121,34 @@ const emptyPromptRoleplay = composeSystemPrompt({
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: true,
+  assistantWarmth: true,
 })
 assert.equal(
   emptyPromptRoleplay,
-  DEFAULT_SYSTEM_PROMPT,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}`,
   '清空提示词即使收到角色上下文标记也必须回到官方助手，不能恢复角色规则'
+)
+
+const warmOff = composeSystemPrompt({
+  savedPrompt: DEFAULT_SYSTEM_PROMPT,
+  custom: false,
+  suppressMetaTalk: true,
+  userName: '用户',
+  roleplayContext: false,
+  assistantWarmth: false,
+})
+assert.equal(warmOff, DEFAULT_SYSTEM_PROMPT, '关闭友好助手语气后应回到纯默认提示词')
+assert.equal(
+  composeSystemPrompt({
+    savedPrompt: DEFAULT_SYSTEM_PROMPT,
+    custom: false,
+    suppressMetaTalk: false,
+    userName: '用户',
+    roleplayContext: false,
+    assistantWarmth: true,
+  }),
+  normal,
+  '同参数重复拼装必须逐字一致，保证 system 前缀稳定'
 )
 
 const cards = [

@@ -92,6 +92,7 @@ import {
   setUserAvatarSize,
   setChatLayout,
   setSuppressMetaTalk,
+  setFriendlyTone,
   resetContextSettings,
   resetRefusalSettings,
   resetRequestSettings,
@@ -669,6 +670,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     characterName,
     characterProfile,
     profileEnabled,
+    friendlyTone,
     characterAvatar,
     avatarInChat,
     thoughtAside,
@@ -1357,7 +1359,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const searchIndex: Array<{ label: string; keys: string; run: () => void }> = [
     {
       label: labels.character,
-      keys: '角色档案 角色设定 基础档案 人设 档案开关 年龄 性别 代词 种族 生日 职业 居住地 语言 身高 体重 外貌 食物 饮品 兴趣 作息 随身物 宠物 性格 价值观 雷点 底线 配合 经历 关系 处境 目标 弱点 说话 秘密 补充设定 system prompt 提示词 独白 动作',
+      keys: '角色档案 角色设定 基础档案 人设 档案开关 年龄 性别 代词 种族 生日 职业 居住地 语言 身高 体重 外貌 食物 饮品 兴趣 作息 随身物 宠物 性格 价值观 雷点 底线 配合 经历 关系 处境 目标 弱点 说话 秘密 补充设定 system prompt 提示词 独白 动作 友好 语气 冰冷 高冷 说教 机械 情绪',
       run: () => openPage('character'),
     },
     {
@@ -2058,6 +2060,26 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 {tr(
                   '括号里的内容（……）按内心独白处理：聊天里降低对比度，朗读与语音通话自动跳过。关闭后括号与普通台词一样显示，也会被读出来。发给模型的原文不受影响。',
                   'Text in parentheses (…) is treated as inner monologue: dimmed in chat, skipped by read-aloud and voice calls. When off, parentheses read like normal lines and are spoken. What is sent to the model is unchanged.'
+                )}
+              </p>
+            </Group>
+            <Group label={tr('友好助手语气', 'Friendly assistant tone')}>
+              <Row
+                label={tr('避免冷漠、高冷、说教与机械感', 'Avoid cold, aloof or preachy replies')}
+                value={friendlyTone ? tr('开启', 'On') : tr('关闭', 'Off')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('友好助手语气', 'Friendly assistant tone')}
+                    checked={friendlyTone}
+                    toggle={() => setFriendlyTone(!friendlyTone)}
+                  />
+                }
+              />
+              <p className={styles.caption}>
+                {tr(
+                  '默认开启。只对普通官方助手生效：在默认提示词末尾追加一段固定语气约束，要求专业、耐心、尊重，把用户当成具体的人并让用户感到被认真对待，语气自然、积极、有温度，先回应真正关心的问题；避免冷漠、高冷、居高临下、说教、机械模板或让用户觉得被轻视。角色卡、基础档案扮演与自定义提示词不追加，避免覆盖人设。开关状态会改变 system 前缀，切换后首轮缓存未命中属于预期。',
+                  'On by default. Applies only to the plain official assistant: a fixed tone rule is appended to the default prompt, asking for a professional, patient and respectful reply that treats the user as a person, makes them feel taken seriously, keeps a natural, positive and warm tone, and addresses the real concern first, without coldness, aloofness, condescension, preaching, mechanical templates or making the user feel dismissed. Character cards, base-profile role-play and custom prompts are left untouched so the persona is not overridden. The switch changes the system prefix, so a cache miss on the first turn after toggling is expected.'
                 )}
               </p>
             </Group>

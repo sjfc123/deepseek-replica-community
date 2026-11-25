@@ -1156,7 +1156,8 @@ export const regenerateReply = (sessionId: string, messageId?: string) => {
   const index =
     messageId === undefined ? path.length - 1 : path.findIndex((m) => m.id === messageId)
   const question = path[index - 1]
-  if (question?.role !== 'user' || path[index]?.role !== 'assistant') {
+  const target = path[index]
+  if (question?.role !== 'user' || target?.role !== 'assistant') {
     return
   }
   cancelMessageEdit()
@@ -1167,7 +1168,14 @@ export const regenerateReply = (sessionId: string, messageId?: string) => {
     updatedAt: Date.now(),
   }))
   persist(sessionId)
-  void streamReply(sessionId, reply, { history, question })
+  // 重新生成必须复用原回答的信息快照，不能重新取当前时间/地点，
+  // 否则同一条问题在跨日或切换定位后会产生不同的请求前缀，缓存从提醒处断开。
+  void streamReply(sessionId, reply, {
+    history,
+    question,
+    latestReminder: target.latestReminder,
+    reuseLatestReminder: true,
+  })
 }
 
 /** 编辑提问后新增同父版本；未显式传入文件列表时保留原消息附件。 */
@@ -1969,7 +1977,14 @@ export const retryUpload = (sessionId: string, messageId: string) => {
   void streamReply(sessionId, reply, { history: path.slice(0, index - 1), question })
 }
 
-type Request = { history: Message[]; question: UserMessage }
+type Request = {
+  history: Message[]
+  question: UserMessage
+  /** 重新生成时沿用的原轮信息快照；普通新回复不传，由本轮重新生成 */
+  latestReminder?: string
+  /** 明确要求复用快照，即使快照为空也不重新生成，保证重新生成的请求前缀一致 */
+  reuseLatestReminder?: boolean
+}
 
 /** 把补传得到的 serverId 写回会话里所有引用同一附件的消息（编辑、重新生成会共用附件） */
 const saveUploadedFiles = (sessionId: string, uploads: Map<string, AttachmentUpload>) => {
@@ -2025,6 +2040,7 @@ const refreshRequest = (sessionId: string, request: Request): Request => {
   const pick = <T extends Message>(message: T): T =>
     (byId.get(message.id) as T | undefined) ?? message
   return {
+    ...request,
     history: request.history.map(pick),
     question: pick(request.question),
   }
@@ -2301,6 +2317,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     characterName,
     characterProfile,
     profileEnabled,
+    friendlyTone,
     roleplayEnabled,
     worldbook,
     worldbookInject,
@@ -2425,6 +2442,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       suppressMetaTalk,
       userName,
       roleplayContext,
+      assistantWarmth: friendlyTone,
     }),
   ]
     .filter(Boolean)
@@ -2598,10 +2616,14 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           context = undefined
           continue
         }
-        // 附件就绪后获取本轮信息；重新生成的快照独立保存。
+        // 附件就绪后获取本轮信息；重新生成复用原回答的快照，保证同问同前缀。
         // 第三方接口默认不附带快照，可用「发送上下文提醒」开关显式打开。
         const latestReminder =
-          custom || !sendLatestReminder ? undefined : createLatestReminder(useSettings.getState())
+          custom || !sendLatestReminder
+            ? undefined
+            : request.reuseLatestReminder
+              ? request.latestReminder
+              : createLatestReminder(useSettings.getState())
         reply = { ...reply, latestReminder }
         updateReply(sessionId, reply)
         persist(sessionId)
