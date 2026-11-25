@@ -418,6 +418,7 @@ export const en = {
   effortTitle: 'Reasoning effort',
   effortLongPressHint: 'Drag to adjust; tap outside the panel to close',
   effortLow: 'Low',
+  effortMedium: 'Medium',
   effortHigh: 'High',
   effortMax: 'Max',
   effortNote:

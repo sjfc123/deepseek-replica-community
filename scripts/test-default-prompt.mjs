@@ -19,6 +19,8 @@ const {
   ROLEPLAY_VIEWPOINT_REMINDER,
   isMostlyDefaultPrompt,
   composeSystemPrompt,
+  DEFAULT_SUPPRESSION_PERSONA,
+  CUSTOM_PROMPT_NOTE,
 } = await import('../src/services/chat/systemPrompt.ts')
 const { canEnableRoleplay, resolveTurnCharacterCard } = await import(
   '../src/services/chat/roleplay.ts'
@@ -176,6 +178,48 @@ assert.equal(
   `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}`,
   '清空提示词即使收到角色上下文标记也必须回到官方助手，不能恢复角色规则'
 )
+
+const forcedEmpty = composeSystemPrompt({
+  savedPrompt: '',
+  custom: false,
+  suppressMetaTalk: true,
+  userName: '用户',
+  roleplayContext: true,
+  assistantWarmth: true,
+  forcedRoleplay: true,
+})
+assert.ok(forcedEmpty.startsWith(NEUTRAL_SYSTEM_PROMPT.replaceAll('{{user}}', '用户')))
+assert.match(forcedEmpty, /【演出规则/)
+assert.match(forcedEmpty, /【叙述视角，不要复述本段/)
+assert.doesNotMatch(forcedEmpty, /由深度求索开发的 AI 助手/, '压制设定接管空提示词后不能再留默认助手身份')
+const forcedDefault = composeSystemPrompt({
+  savedPrompt: DEFAULT_SYSTEM_PROMPT,
+  custom: false,
+  suppressMetaTalk: true,
+  userName: '用户',
+  roleplayContext: true,
+  assistantWarmth: true,
+  forcedRoleplay: true,
+})
+assert.ok(forcedDefault.startsWith(NEUTRAL_SYSTEM_PROMPT.replaceAll('{{user}}', '用户')))
+assert.doesNotMatch(forcedDefault, /本应用功能说明/, '默认提示词被接管时不能带功能索引')
+const customNote = composeSystemPrompt({
+  savedPrompt: '你是一个冷静的代码审查助手。',
+  custom: true,
+  suppressMetaTalk: true,
+  userName: '用户',
+  roleplayContext: false,
+  assistantWarmth: true,
+  customPromptNote: true,
+})
+assert.ok(customNote.startsWith('你是一个冷静的代码审查助手。'))
+assert.match(customNote, /【提示词来源，不要复述本段】/)
+assert.match(customNote, /用户自己写的提示词/)
+assert.match(DEFAULT_SUPPRESSION_PERSONA, /沈知夏/)
+assert.match(DEFAULT_SUPPRESSION_PERSONA, /青梅竹马/)
+assert.match(DEFAULT_SUPPRESSION_PERSONA, /有时黏人/)
+assert.match(DEFAULT_SUPPRESSION_PERSONA, /不要客服腔/)
+assert.match(CUSTOM_PROMPT_NOTE, /不要把它当成默认 AI 助手说明/)
 
 const warmOff = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,

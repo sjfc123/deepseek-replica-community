@@ -21,6 +21,8 @@ const {
   buildSuggestionSceneContext,
   detectSuggestionPresence,
   filterPrematureSuggestions,
+  filterSuggestionFit,
+  hasSuggestionMix,
   parseReplySuggestions,
   pickFreshReplySuggestions,
   pickFreshSuggestions,
@@ -246,5 +248,55 @@ assert.match(
   }),
   /不能假设玩家看得见屋内陈设/
 )
+
+// 电话语境会持续多轮：最后一句不再是“听得到吗”，也不能把玩家拉回角色身边
+const phoneHistory = detectSuggestionPresence({
+  lastCharacterLine: '报纸啊……我没细看日期。',
+  lastPlayerLine: '老花镜底下的报纸是哪一天的？',
+  recentMessages: [
+    { role: 'assistant', content: '哥，你听得到吗？我这边信号有点怪。' },
+    { role: 'user', content: '知道了，你把窗再试试。' },
+    { role: 'assistant', content: '我不下楼，就在藤椅边等你。' },
+    { role: 'user', content: '你声音怎么听着有点虚？' },
+    { role: 'assistant', content: '没虚啊，就是闷的。' },
+  ],
+  castCount: 1,
+})
+assert.equal(phoneHistory.presence, 'remote', '前几轮的电话语境应延续到当前轮')
+
+const remoteCandidates = filterSuggestionFit(
+  [
+    { mode: 'speech', target: '林小满', intent: 'action', topic: '喘口气', text: '你站在那儿喘口气，别急着动。' },
+    { mode: 'aside', target: '林小满', intent: 'aside', topic: '电话停顿', text: '（我把手机贴紧耳朵，听见她那边的纸页响。）' },
+    { mode: 'speech', target: '林小满', intent: 'detail', topic: '报纸日期', text: '报纸上的日期是哪一天？' },
+  ],
+  'remote'
+)
+assert.equal(remoteCandidates.length, 2, '远程时“你站在那儿”必须被硬过滤')
+assert.equal(remoteCandidates.some((item) => item.text.includes('站那儿')), false)
+
+const repeated = [
+  { mode: 'speech', target: '林小满', intent: 'detail', topic: '报纸日期', text: '报纸上的日期是哪一天？' },
+  { mode: 'speech', target: '林小满', intent: 'action', topic: '报纸边角', text: '你把报纸边角掀起来看看。' },
+  { mode: 'speech', target: '林小满', intent: 'emotion', topic: '她的疲惫', text: '你声音都哑了，先歇一会儿。' },
+]
+assert.equal(hasSuggestionMix(repeated), false, '两条都落在报纸上时不能算合格批次')
+const mixed = pickFreshReplySuggestions(repeated, [], { presence: 'remote' })
+assert.equal(mixed.length, 2, '同一物件只能留一条，宁缺一条让上层重试')
+assert.equal(mixed.some((item) => item.text.includes('报纸边角')), false)
+
+const parsedTyped = parseReplySuggestions(
+  JSON.stringify([
+    { mode: 'speech', target: '林小满', intent: 'emotion', topic: '她的疲惫', text: '你声音都哑了，先别硬撑。' },
+    { mode: 'speech', target: '林小满', intent: 'detail', topic: '电话信号', text: '信号是不是又断了？' },
+    { mode: 'aside', target: '林小满', text: '（我停在路边，把手机换到另一只耳朵。）' },
+  ]),
+  ['林小满'],
+  '林小满'
+)
+assert.equal(parsedTyped[0].intent, 'emotion')
+assert.equal(parsedTyped[0].topic, '她的疲惫')
+assert.equal(parsedTyped[2].intent, 'aside', '旁白必须自动归入 aside')
+assert.equal(hasSuggestionMix(parsedTyped), true, '情绪 + 细节 + 旁白应算错开')
 
 console.log('suggestions regression: ok')

@@ -339,6 +339,36 @@ export const buildTurnMemoryText = (
 }
 
 /**
+ * 一轮对话拆成两张归属明确的记忆卡：玩家提问归「玩家本人」，角色回应归「角色本人」。
+ * 两张卡共享同一时间锚点与轮次；不把双方原话塞进同一段，避免注入时把谁说的搞混。
+ */
+export const buildTurnMemoryCards = (
+  question: string,
+  answer: string,
+  meta: { at?: number; turnIndex?: number; relationship?: string } = {}
+): Array<{ text: string; owner: MemoryOwner }> => {
+  const asked = question.trim()
+  const replied = answer.trim()
+  const head = meta.at
+    ? `【${formatMemoryStamp(meta.at)}${meta.turnIndex ? ` · 第${meta.turnIndex}轮` : ''}${meta.relationship ? ` · 关系：${meta.relationship}` : ''}】`
+    : ''
+  const cards: Array<{ text: string; owner: MemoryOwner }> = []
+  if (asked) {
+    cards.push({
+      text: [head, `玩家提问：${asked}`].filter(Boolean).join('\n'),
+      owner: 'user',
+    })
+  }
+  if (replied) {
+    cards.push({
+      text: [head, `角色回应：${replied}`].filter(Boolean).join('\n'),
+      owner: 'character',
+    })
+  }
+  return cards
+}
+
+/**
  * 重要场景 / 关键事实卡：从选中的对话里拆出一段独立记忆。
  * 保存时可在弹窗里继续删改，不强行截断；卡片仍挂到最后一轮消息上以跟随分支。
  * 场景卡不做“用户/角色”逐行解析，而是以场景叙述为主体，避免和完整回合卡重复。
@@ -765,27 +795,42 @@ export const buildRefinePrompt = (
 ) => {
   const existing =
     cards.length > 0
-      ? cards.map((card, index) => `${index + 1}. ${card.text.replace(/\n/g, ' / ')}`).join('\n')
+      ? cards
+          .map((card, index) => {
+            const owner = memoryOwnerLabel(getMemoryOwner(card))
+            return `${index + 1}. [${owner}] ${card.text.replace(/\n/g, ' / ')}`
+          })
+          .join('\n')
       : '（暂无）'
   return (
     `用户名字：${userName}\n\n【已有记忆】\n${existing}\n\n` +
-    `【最新一轮】\n用户：${question.trim()}\n角色：${answer.trim()}\n\n` +
-    '请把最新一轮并入已有记忆，输出合并后的记忆清单。' +
-    '保留关系阶段、称呼、承诺、共同经历和时间线；只压缩重复与寒暄，不要删掉具体事件。'
+    `【最新一轮】\n[玩家本人] 玩家提问：${question.trim()}\n[角色本人] 角色回应：${answer.trim()}\n\n` +
+    '请把最新一轮并入已有记忆，输出合并后的记忆清单。每行开头必须标归属：' +
+    '[玩家本人] 只写玩家自己的经历、喜好、说法和承诺；[角色本人] 只写角色自己的经历、反应和承诺；' +
+    '[共同经历] 只写双方一起经历、约定或关系变化。' +
+    '保留关系阶段、称呼、承诺、共同经历、核心场景和关键事实；只压缩重复与寒暄，不要删掉具体事件。'
   )
 }
 
 /** 提炼结果按行拆成卡片，过滤空行与序号 */
-export const parseRefinedCards = (text: string, limit = MEMORY_MAX_CARDS) =>
+export const parseRefinedCards = (
+  text: string,
+  limit = MEMORY_MAX_CARDS
+): Array<{ text: string; owner: MemoryOwner }> =>
   text
     .split(/\r?\n/)
-    .map((line) =>
-      line
+    .map((line) => {
+      const cleaned = line
         .replace(/^[\s\-•·*]+/, '')
         .replace(/^\d+[.、)]\s*/, '')
         .trim()
-    )
-    .filter((line) => line.length > 0 && !line.startsWith('【'))
+      const matched = /^(?:\[|【)\s*(玩家本人|角色本人|共同经历|共同)\s*(?:\]|】)\s*[：:|｜]?\s*/.exec(cleaned)
+      const owner: MemoryOwner =
+        matched?.[1] === '玩家本人' ? 'user' : matched?.[1] === '角色本人' ? 'character' : 'shared'
+      const body = matched ? cleaned.slice(matched[0].length).trim() : cleaned
+      return { text: body, owner }
+    })
+    .filter((line) => line.text.length > 0 && !/^【[^】]{1,10}】$/.test(line.text))
     .slice(0, limit)
 
 /** 新建一张卡片；调用方负责挂到具体消息上 */
@@ -821,26 +866,37 @@ export type ConversationMemoryDraft = {
 
 /**
  * 把当前分支的可见消息按“用户一句 + 角色一句”配对，生成完整回合记忆卡。
- * 不截断正文；时间锚点使用消息自己的时间，保存后仍按原来的先后顺序阅读。
- * 传入 pairAdjacent 时只配对原对话里真正相邻的用户消息与角色回复，避免手动多选时跨轮硬配。
+ * 角色池默认拆成两张：玩家提问一张、角色回应一张，各自带 owner；
+ * 普通池仍合成一张对话卡，避免开发问答被拆成两半。
  */
 export const buildConversationMemoryCards = (
   messages: Message[],
   startTurn = 0,
-  pairAdjacent?: (user: Message, assistant: Message) => boolean
+  pairAdjacent?: (user: Message, assistant: Message) => boolean,
+  options: { split?: boolean } = {}
 ): ConversationMemoryDraft[] => {
   const drafts: ConversationMemoryDraft[] = []
   let pendingUser: Message | null = null
   let turn = startTurn
   const push = (target: Message, question: string, answer: string) => {
-    const text = buildTurnMemoryText(question, answer, {
-      at: target.createdAt,
-      turnIndex: turn + 1,
-    })
+    if (!question.trim() && !answer.trim()) {
+      return
+    }
+    const meta = { at: target.createdAt, turnIndex: turn + 1 }
+    turn += 1
+    if (options.split) {
+      for (const part of buildTurnMemoryCards(question, answer, meta)) {
+        drafts.push({
+          messageId: target.id,
+          card: createMemoryCard(part.text, 'bulk', target.createdAt, { owner: part.owner }),
+        })
+      }
+      return
+    }
+    const text = buildTurnMemoryText(question, answer, meta)
     if (!text) {
       return
     }
-    turn += 1
     drafts.push({
       messageId: target.id,
       card: createMemoryCard(text, 'bulk', target.createdAt),

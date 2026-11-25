@@ -95,6 +95,8 @@ import {
   setUserAvatarSize,
   setChatLayout,
   setSuppressMetaTalk,
+  setSuppressionPersonaEnabled,
+  setSuppressionPersona,
   setFriendlyTone,
   resetContextSettings,
   resetRefusalSettings,
@@ -680,6 +682,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     memoryBadge,
     memoryInline,
     suppressMetaTalk,
+    suppressionPersonaEnabled,
+    suppressionPersona,
     chatLayout,
     characterAvatarSize,
     userAvatarSize,
@@ -2082,10 +2086,44 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <p className={styles.caption}>
                 {tr(
-                  '仅在启用角色卡或基础档案时生效：在请求的 system 末尾追加一段演出规则，不提及规则、不复述设定、不分析用户意图、不使用 AI 视角评述。提示词原文保持不变；普通助手对话不追加。',
-                  'Only applies when a character card or base profile is active: a short performance rule is appended to the request system, with no rule talk, setting restatement, intent analysis or AI-side commentary. The prompt text stays unchanged; plain assistant chats do not append it.'
+                  '开启后：有角色卡或基础档案时，在 system 末尾追加演出规则；提示词为空或是默认提示词时，直接进入基础角色扮演（内置大学青梅竹马）。关闭后，空/默认提示词回到普通 AI 助手，已有角色卡仍按自己的设定继续演。自定义提示词不受这个开关影响，只在末尾说明这是你写的提示词。',
+                  'When on: an active card or base profile gets the performance rule; an empty or default prompt enters basic roleplay with the built-in college childhood-friend preset. When off, empty/default prompts return to the plain assistant, while an existing card keeps roleplaying. Custom prompts are not overridden; they only get a short note that the text is user-authored.'
                 )}
               </p>
+              <Row
+                label={tr('自定义基础角色扮演预设', 'Custom basic roleplay preset')}
+                value={suppressionPersonaEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('自定义基础角色扮演预设', 'Custom basic roleplay preset')}
+                    checked={suppressionPersonaEnabled}
+                    toggle={() => setSuppressionPersonaEnabled(!suppressionPersonaEnabled)}
+                  />
+                }
+              />
+              <div className={styles.promptField}>
+                <textarea
+                  className={styles.promptInput}
+                  rows={7}
+                  value={suppressionPersona}
+                  disabled={!suppressionPersonaEnabled}
+                  placeholder={tr(
+                    '留空或关闭自定义时使用内置预设：大学时期的青梅竹马「沈知夏」。开启自定义并填写后，整段替换内置预设；关闭自定义立即回到内置预设，已写文本保留。',
+                    'Leave empty or turn custom off to use the built-in preset: college childhood friend “沈知夏”. Custom text replaces it while enabled; turning custom off returns to the built-in preset and keeps the text.'
+                  )}
+                  aria-label={tr('自定义基础角色扮演预设', 'Custom basic roleplay preset')}
+                  onChange={(event) => setSuppressionPersona(event.target.value)}
+                />
+                <div className={styles.promptMeta}>
+                  <span>
+                    {tr(
+                      '仅在压制设定开启、提示词为空或保持默认时生效。可以用 {{user}} 指代玩家；写清名字、关系、性格、说话方式和边界，不要写剧情线索或系统规则。',
+                      'Only applies when the stay-in-character option is on and the prompt is empty or default. Use {{user}} for the player; describe name, relationship, temperament, speech and boundaries, not plot clues or system rules.'
+                    )}
+                  </span>
+                </div>
+              </div>
             </Group>
             <Group label={tr('演出呈现', 'Presentation')}>
               <Row

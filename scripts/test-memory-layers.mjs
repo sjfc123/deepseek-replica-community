@@ -8,7 +8,10 @@
 import assert from 'node:assert/strict'
 import {
   buildImportantMemoryCards,
+  buildTurnMemoryCards,
+  buildConversationMemoryCards,
   createMemoryCard,
+  parseRefinedCards,
   formatMemoryBlock,
   getCharacterMemoryKind,
   getMemoryOwner,
@@ -18,6 +21,44 @@ import {
   selectMemoryCardsForInjection,
 } from '../src/services/chat/memory.ts'
 import { getMemorySpeech } from '../src/services/chat/memoryView.ts'
+
+const split = buildTurnMemoryCards('报纸是哪一天的？', '我没细看日期，眼镜位置不对。', {
+  at: 1,
+  turnIndex: 9,
+})
+assert.equal(split.length, 2)
+assert.equal(split[0].owner, 'user', '玩家提问必须标玩家本人')
+assert.match(split[0].text, /玩家提问/)
+assert.doesNotMatch(split[0].text, /角色回应/)
+assert.equal(split[1].owner, 'character', '角色回复必须标角色本人')
+assert.match(split[1].text, /角色回应/)
+assert.doesNotMatch(split[1].text, /玩家提问/)
+
+const turnMessages = [
+  { id: 'u1', role: 'user', content: '窗户还是打不开吗？', createdAt: 10, blocks: [] },
+  {
+    id: 'a1',
+    role: 'assistant',
+    content: '',
+    createdAt: 11,
+    blocks: [{ type: 'text', text: '打不开，跟焊死了一样。' }],
+  },
+]
+const splitDrafts = buildConversationMemoryCards(turnMessages, 0, undefined, { split: true })
+assert.equal(splitDrafts.length, 2, '整段保存角色对话也要拆成两张')
+assert.equal(getMemoryOwner(splitDrafts[0].card), 'user')
+assert.equal(getMemoryOwner(splitDrafts[1].card), 'character')
+const mergedDrafts = buildConversationMemoryCards(turnMessages.length ? turnMessages : [], 0)
+assert.equal(mergedDrafts.length, 1, '普通池不拆，仍按一轮一张')
+
+const refined = parseRefinedCards(
+  '[玩家本人] 玩家怕黑，睡觉要留一盏小灯。\n[角色本人] 角色答应下雨天会提前提醒带伞。\n[共同经历] 你们在旧屋雨夜一起修过窗。'
+)
+assert.deepEqual(
+  refined.map((item) => item.owner),
+  ['user', 'character', 'shared']
+)
+assert.match(refined[0].text, /怕黑/)
 
 const card = (id, text, createdAt, overrides = {}) => ({
   id,

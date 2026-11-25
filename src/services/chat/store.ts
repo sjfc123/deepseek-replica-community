@@ -25,7 +25,13 @@ import {
 } from '../attachments.js'
 import { MANY_IMAGES_COUNT, MANY_IMAGES_MAX_EDGE, MAX_IMAGE_EDGE } from '../imageUpload.js'
 import { parseCustomHeaders } from '../api/headers.js'
-import { composeSystemPrompt, ROLEPLAY_VIEWPOINT_REMINDER } from './systemPrompt.js'
+import {
+  composeSystemPrompt,
+  DEFAULT_SUPPRESSION_PERSONA,
+  DEFAULT_SUPPRESSION_PERSONA_NAME,
+  ROLEPLAY_VIEWPOINT_REMINDER,
+  SYSTEM_PROMPT,
+} from './systemPrompt.js'
 import {
   formatCharacterIdentity,
   formatCharacterProfile,
@@ -58,6 +64,7 @@ import {
   buildImportantMemoryCards,
   buildNormalMemoryCards,
   buildRefinePrompt,
+  buildTurnMemoryCards,
   buildTurnMemoryText,
   createMemoryCard,
   detectCodeBlock,
@@ -1695,7 +1702,10 @@ const refineMemories = async (
   const cards = activeMemoryCards(session, getVisibleMessages(session), 60, 'character')
     .filter(
       (entry) =>
-        entry.card.source !== 'manual' && entry.card.source !== 'bulk' && !entry.card.pinned
+        entry.card.source !== 'manual' &&
+        entry.card.source !== 'bulk' &&
+        !entry.card.pinned &&
+        !isCoreMemory(entry.card)
     )
     .map((entry) => entry.card)
     .slice(-30)
@@ -1734,19 +1744,25 @@ const refineMemories = async (
   if (lines.length === 0) {
     return
   }
-  const refined = lines.map((line) => createMemoryCard(line, 'refine'))
+  const refined = lines.map((line) =>
+    createMemoryCard(line.text, 'refine', undefined, {
+      owner: line.owner,
+    })
+  )
   updateSession(sessionId, (current) => ({
     ...current,
     messages: current.messages.map((message) => {
       if (!visibleIds.has(message.id)) {
         return message
       }
-      // 手写卡片、整段保存的完整卡、置顶卡和普通记忆都由用户自己维护，不参与角色提炼替换
+      // 手写卡、整段保存的完整卡、置顶卡、重要场景/关键事实和普通记忆都由用户自己维护，
+      // 自动提炼只能替换普通自动回合卡，不能把 scene/fact 一起标成 superseded。
       const archived = (message.memories ?? []).map((card) =>
         card.superseded ||
         card.source === 'manual' ||
         card.source === 'bulk' ||
         card.pinned ||
+        isCoreMemory(card) ||
         getMemoryPool(card) !== 'character'
           ? card
           : { ...card, superseded: true }
@@ -1919,27 +1935,31 @@ const recordTurnMemory = (
   const at = targetMessage?.createdAt ?? Date.now()
   const turnIndex = visible.filter((message) => message.role === 'assistant').length
   const relationship = session.scene?.relationship.trim() || ''
-  const text = buildTurnMemoryText(question, answer, {
+  const meta = {
     at,
     turnIndex: turnIndex > 0 ? turnIndex : undefined,
     relationship: relationship || undefined,
-  })
-  if (!text) {
-    return
   }
-  // 普通池的自动卡按“对话”保存；出现三连反引号时归入代码，后面的代码专卡会自动跳过。
-  const category = pool === 'normal' ? (detectCodeBlock(answer) ? 'code' : 'dialogue') : undefined
-  if (
-    !attachMemories(sessionId, target, [
-      createMemoryCard(text, 'auto', at, {
-        ...(pool ? { pool } : {}),
-        ...(category ? { category } : {}),
-        ...(pool === 'normal' && category === 'code'
-          ? { language: detectCodeLanguage(answer) }
-          : {}),
-      }),
-    ])
-  ) {
+  // 角色池把这一轮拆成玩家提问与角色回应两张，各自带归属；普通池仍是一张对话卡。
+  const cards =
+    pool === 'character'
+      ? buildTurnMemoryCards(question, answer, meta).map((part) =>
+          createMemoryCard(part.text, 'auto', at, { owner: part.owner })
+        )
+      : (() => {
+          const text = buildTurnMemoryText(question, answer, meta)
+          if (!text) {
+            return []
+          }
+          const category = detectCodeBlock(answer) ? 'code' : 'dialogue'
+          return [
+            createMemoryCard(text, 'auto', at, {
+              category,
+              ...(category === 'code' ? { language: detectCodeLanguage(answer) } : {}),
+            }),
+          ]
+        })()
+  if (!attachMemories(sessionId, target, cards)) {
     return
   }
   enforceMemoryLimit(sessionId, pool)
@@ -1958,9 +1978,9 @@ const recordTurnMemory = (
  */
 const usesCharacterMemory = (sessionId?: string) => {
   const settings = useSettings.getState()
-  if (!settings.systemPrompt.trim()) {
-    return false
-  }
+  const prompt = settings.systemPrompt.trim()
+  const promptEmpty = !prompt
+  const promptDefault = prompt === SYSTEM_PROMPT
   const session = sessionId ? getSession(sessionId) : null
   const card = resolveTurnCharacterCard(
     settings.characterCards,
@@ -1968,6 +1988,13 @@ const usesCharacterMemory = (sessionId?: string) => {
     settings.activeCharacterId,
     settings.roleplayEnabled
   )
+  // 空提示词或默认提示词 + 压制设定：没有角色卡也按基础角色扮演写角色记忆。
+  if (settings.suppressMetaTalk && (promptEmpty || (promptDefault && !card))) {
+    return true
+  }
+  if (promptEmpty) {
+    return false
+  }
   const displayName = resolveMemoryDisplayName({
     cardName: card?.name,
     characterName: settings.characterName,
@@ -2140,7 +2167,8 @@ export const saveMessagesAsMemory = (
         : buildConversationMemoryCards(
             picked,
             startTurn,
-            (user, assistant) => indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1
+            (user, assistant) => indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1,
+            { split: pool === 'character' }
           )
   const ownedDrafts = owner
     ? drafts.map((draft) => ({ ...draft, card: { ...draft.card, owner } }))
@@ -2641,6 +2669,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     sendLatestReminder,
     autoTitle,
     suppressMetaTalk,
+    suppressionPersonaEnabled,
+    suppressionPersona: storedSuppressionPersona,
     memoryMode,
     memoryLimit,
     memoryChars,
@@ -2665,26 +2695,33 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 表达提示词为空是用户主动清空：回到默认官方助手，并停用角色卡、档案与身份行。
   // 否则残留的角色身份会单独留在 system，默认助手会被带成冷淡角色。
   const promptEmpty = !systemPrompt.trim()
+  const promptIsDefault = !promptEmpty && systemPrompt.trim() === SYSTEM_PROMPT
   const sessionForMemory = getSession(sessionId)
   // 场景按会话取；旧会话没有快照就按空场景处理，不从全局设置补，避免旧物件跨新对话。
   const sessionScene = sessionForMemory?.scene
     ? normalizeScene(sessionForMemory.scene)
     : { ...EMPTY_SCENE }
   const visibleForRoleplay = sessionForMemory ? getVisibleMessages(sessionForMemory) : []
-  const activeCard = resolveTurnCharacterCard(
+  const resolvedCard = resolveTurnCharacterCard(
     characterCards,
     sessionForMemory,
     activeCharacterId,
     roleplayEnabled
   )
   // 会话已绑定人物时优先沿用该卡：关闭全局开关只影响新会话，不会中途换回系统人格。
-  // 提示词清空时角色层整体暂停，避免“官方助手文案被清掉、卡却还在演”的混合状态。
-  const roleplayActive = !promptEmpty && Boolean(activeCard)
+  // 提示词清空时角色层整体暂停；只有压制设定开启才改用内置/自定义基础角色扮演。
+  const activeCard = promptEmpty ? undefined : resolvedCard
+  const suppressionActive =
+    suppressMetaTalk && !activeCard && (promptEmpty || promptIsDefault)
+  const roleplayActive = suppressionActive || (!promptEmpty && Boolean(activeCard))
   // 记忆落池按显示名判断，不跟角色卡开关绑定：显示 AI / DeepSeek 走普通池，
   // 显示角色名（卡名或手写档案名）走角色池，避免普通问答被默认写成角色剧情。
-  const memoryPool: MemoryPool = promptEmpty
-    ? 'normal'
-    : memoryPoolForDisplayName(
+  // 压制设定接管空/默认提示词时，这一轮属于基础角色扮演，写角色记忆。
+  const memoryPool: MemoryPool = suppressionActive
+    ? 'character'
+    : promptEmpty
+      ? 'normal'
+      : memoryPoolForDisplayName(
         resolveMemoryDisplayName({
           cardName: activeCard?.name,
           characterName,
@@ -2766,6 +2803,12 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         userName,
       })
     : ''
+  // 压制设定打开且提示词为空/默认时：已填基础档案就沿用档案；档案为空则给内置青梅竹马。
+  // 自定义预设文本框非空且开关打开时，整段替换内置预设。
+  const suppressionPersona =
+    suppressionPersonaEnabled && storedSuppressionPersona.trim()
+      ? storedSuppressionPersona.trim()
+      : DEFAULT_SUPPRESSION_PERSONA
   // 档案关闭或为空时不读取整份档案，但仍保留姓名这一条身份展示；
   // 有角色卡时卡内已有姓名，不再重复补。
   const identitySystem =
@@ -2776,14 +2819,17 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         })
       : ''
   // 提示词清空时三种身份来源全部跳过，只保留默认官方助手。
-  const identityBlock = promptEmpty
-    ? ''
-    : activeCard
-      ? formatCharacterCard(activeCard, userName)
-      : profileSystem || identitySystem
+  const identityBlock = suppressionActive
+    ? profileSystem || suppressionPersona
+    : promptEmpty
+      ? ''
+      : activeCard
+        ? formatCharacterCard(activeCard, userName)
+        : profileSystem || identitySystem
   // 三种身份来源互斥：一张卡、完整档案或轻量身份行，不会同时拼进 system。
   // 只有角色上下文才把默认助手提示替换成中性角色基底，并追加演出/格式规则。
-  const roleplayContext = !promptEmpty && Boolean(activeCard || profileSystem || identitySystem)
+  const roleplayContext =
+    suppressionActive || (!promptEmpty && Boolean(activeCard || profileSystem || identitySystem))
   const baseSystem = [
     identityBlock,
     composeSystemPrompt({
@@ -2793,13 +2839,18 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       userName,
       roleplayContext,
       assistantWarmth: friendlyTone,
+      forcedRoleplay: suppressionActive,
+      customPromptNote:
+        suppressMetaTalk && !promptEmpty && !promptIsDefault && !roleplayContext,
     }),
   ]
     .filter(Boolean)
     .join('\n\n')
   // 统一替换占位符：手写提示词、角色卡字段、世界书与记忆都走这一处
   // 当前卡名优先，其次手写档案名；两者都空时用 AI 兜底，避免 {{char}} 原样漏进 system。
-  const promptCharName = resolveSystemCharacterName(activeCard?.name, characterName)
+  const promptCharName = suppressionActive
+    ? resolveSystemCharacterName(undefined, characterName || DEFAULT_SUPPRESSION_PERSONA_NAME)
+    : resolveSystemCharacterName(activeCard?.name, characterName)
   const baseSystemResolved = applyPlaceholders(baseSystem, {
     userName,
     charName: promptCharName,

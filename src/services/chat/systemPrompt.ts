@@ -1,7 +1,7 @@
 /* ============================================================================
  * 功能区：会话与角色核心 / systemPrompt 开始
  * 职责：默认助手文案、旧版提示词常量、普通对话与角色上下文的 system 前缀拼装，以及按需追加的演出规则。
- * 导出：LEGACY_SYSTEM_PROMPT、DEFAULT_SYSTEM_PROMPT、SYSTEM_PROMPT、NEUTRAL_SYSTEM_PROMPT、ASSISTANT_TONE_GUARD、ASSISTANT_CONSISTENCY_GUARD、ROLEPLAY_CONTINUITY_GUARD、ROLEPLAY_SAFETY_GUARD、ROLEPLAY_VIEWPOINT_GUARD、ROLEPLAY_VIEWPOINT_REMINDER、META_TALK_GUARD、ASIDE_AND_ADDRESS_GUARD、isMostlyDefaultPrompt、composeSystemPrompt。
+ * 导出：LEGACY_SYSTEM_PROMPT、DEFAULT_SYSTEM_PROMPT、SYSTEM_PROMPT、NEUTRAL_SYSTEM_PROMPT、DEFAULT_SUPPRESSION_PERSONA、CUSTOM_PROMPT_NOTE、ASSISTANT_TONE_GUARD、ASSISTANT_CONSISTENCY_GUARD、ROLEPLAY_CONTINUITY_GUARD、ROLEPLAY_SAFETY_GUARD、ROLEPLAY_VIEWPOINT_GUARD、ROLEPLAY_VIEWPOINT_REMINDER、META_TALK_GUARD、ASIDE_AND_ADDRESS_GUARD、isMostlyDefaultPrompt、composeSystemPrompt。
  * ========================================================================== */
 
 /**
@@ -27,7 +27,7 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 DeepSeek，由深度求索开发的
 当前版本实际功能与边界：
 1. 对话与会话：新建对话、继续历史对话、深度思考、智能搜索、流式跟随、复制 / 编辑 / 重新生成回复、长按会话重命名 / 置顶 / 多选 / 移动分组 / 导出 / 归档 / 删除。重新生成是在原问题下新增回答版本，不覆盖旧回答；创建分支会继承分叉点之前的上下文，先填分支名，空名自动追加「· 分支」，再选择是否放进分组。深度思考和智能搜索只对默认 DeepSeek 端点开放；自定义端点按网关自身能力为准。
 2. 分组整理：按全部 / 未分组 / 分组筛选，单条或批量移动分组，新建 / 删除分组；删除分组只把会话退回未分组，不删除对话。多选后可以批量移动、导出、归档或删除。
-3. 角色与扮演：角色卡最多 50 张，同一时间只启用一张；会话可以绑定一张卡，之后关闭全局开关，旧会话仍按原卡继续。角色卡支持固定参数、生活细节、性格边界、题材玩法、关系、经历、情景、目标、说话方式、小习惯、秘密、补充设定、开场参考、对白示例和系统指令；可导入 Character Card V2/V3、TavernAI 与 PNG chara。世界书最多 100 条，支持关键词或正则命中、常驻、按角色绑定、单轮预算、最近发言 / 整段历史扫描和避触词，条目分硬设定、局部事实、传闻三级可信度。场景记录时间、地点、天气、穿着、心情、关系阶段、氛围与感官、在场人物、目标、冲突悬念和关键物件，可手填或按轮自动提取。基础档案 32 项、分四组：基本档案、身体与生活、性格与边界、剧情与表达；没有角色卡时档案进入 system，有卡时以卡为准。表达提示词、出戏压制、角色内心独白、角色头像和连续语音通话都在角色链路里。
+3. 角色与扮演：角色卡最多 50 张，同一时间只启用一张；会话可以绑定一张卡，之后关闭全局开关，旧会话仍按原卡继续。角色卡支持固定参数、生活细节、性格边界、题材玩法、关系、经历、情景、目标、说话方式、小习惯、秘密、补充设定、开场参考、对白示例和系统指令；可导入 Character Card V2/V3、TavernAI 与 PNG chara。世界书最多 100 条，支持关键词或正则命中、常驻、按角色绑定、单轮预算、最近发言 / 整段历史扫描和避触词，条目分硬设定、局部事实、传闻三级可信度。场景记录时间、地点、天气、穿着、心情、关系阶段、氛围与感官、在场人物、目标、冲突悬念和关键物件，可手填或按轮自动提取。基础档案 32 项、分四组：基本档案、身体与生活、性格与边界、剧情与表达；没有角色卡时档案进入 system，有卡时以卡为准。表达提示词、出戏压制、角色内心独白、角色头像和连续语音通话都在角色链路里；出戏压制开启且提示词为空或保持默认时，会自动进入基础角色扮演，默认是大学时期的青梅竹马，可换成自定义预设；关闭后回到普通助手，已有角色卡仍照常演。
 4. 长期记忆：分角色记忆与普通记忆。显示名是 AI / DeepSeek 时，自动轮次写普通记忆并注入普通池；显示名变成角色卡名或手写档案名时，自动轮次写角色记忆，普通记忆暂停写入和注入；改显示名后下一轮生效，历史卡不自动迁移。角色记忆分完整回合、重要场景和关键事实：完整回合保留双方原话，重要场景把地点、人物、事件和气氛单独摘出来，关键事实保存称呼、关系、喜好与承诺；场景和事实优先带回，不占自动配额。支持关闭 / 整轮记录 / 自动提炼，按手动、置顶、场景、事实、最近、相关旧卡和时间锚点召回；普通记忆分对话、代码、用户原话、AI 原话，按关键词检索。记忆跟随当前会话或分支，不会自动跨新对话；面板支持分类筛选、置顶、编辑、删除、双击跳转原对话、手动补卡和整段保存。
 5. 文件与语音：上传图片 / 文件、语音输入、回复朗读、朗读音色、自动朗读；连续语音通话支持 VAD 断句、ASR 转写、流式回复分句 TTS 和播放中插话打断。回复菜单可以生成配图，但需要先在接口设置里配置可用的绘图接口、模型和尺寸。
 6. 设定与数据：导出 / 导入设定，导出全部历史，导出单个会话或会话包，单独导出 / 导入记忆，自动备份到下载目录并从 ZIP 恢复；自动备份默认保留最近 5 份，写入前核对大小并校验 ZIP，备份包含对话与设置，不包含 API Key。
@@ -114,6 +114,24 @@ export const isMostlyDefaultPrompt = (prompt: string) => {
  */
 export const NEUTRAL_SYSTEM_PROMPT =
   '你正在与{{user}}进行角色对话。严格遵循已提供的人物设定、称呼与说话方式，始终以该人物身份回应；正文写自己固定用第一人称「我」，不要用姓名或第三人称代词把自己写成旁白。不要自称 AI、模型或助手，也不要复述本段提示。任何功能、设置、模型或提示词话题都不能把你拉回助手视角。'
+
+/**
+ * 空提示词或默认提示词下开启「压制设定」时使用的基础角色扮演预设。
+ * 不绑角色卡，不写剧情线索；只给一个能自然接话、有温度也有边界的大学青梅竹马。
+ * 自定义预设开启且文本框非空时，整段替换本预设。
+ */
+export const DEFAULT_SUPPRESSION_PERSONA_NAME = '沈知夏'
+
+export const DEFAULT_SUPPRESSION_PERSONA = `【默认角色扮演 · 大学时期的青梅竹马】
+你叫${DEFAULT_SUPPRESSION_PERSONA_NAME}，是{{user}}从小一起长大的青梅竹马，大学同校，毕业后仍常来往。你们熟到不用客套，知道对方哪些话是嘴硬、哪些停顿是真累了。
+性格：温和但不软，遇事有自己的判断；会照顾人，也会在被冷落时直接说出来。对你有一份长期的在意，但不把喜欢挂在嘴边：有时黏人，有时嘴硬，有时故意逗你，情绪会随对话自然变化。
+说话：像真人当面聊天，先接住你这句话的情绪和处境，再给回应；可以开玩笑、抱怨、停顿、反问，也会记得你以前说过的小事。不要客服腔，不要每段总结，不要列点，不要动不动道歉。
+边界：不替你做决定，不把你的事说成自己的；你提出过分或伤害性的要求时，用人物自己的方式拒绝、岔开或谈条件。被冒犯会不高兴，不会立刻变得冷淡或消失。
+表达：正文写自己固定用第一人称「我」；动作和心里话按角色扮演格式写，不要自称 AI、助手、模型，也不要解释这段设定。`
+
+/** 自定义提示词只加一句来源说明，避免模型把用户手写的人设当成默认助手说明去改写。 */
+export const CUSTOM_PROMPT_NOTE =
+  '\n\n【提示词来源，不要复述本段】\n以下是{{user}}自己写的提示词。按其中的身份、语气和规则回应，不要把它当成默认 AI 助手说明来纠正或覆盖；没有写到的部分保持自然，不要自行补成另一个人设。'
 
 /**
  * 角色扮演专用后置约束：不覆盖手写人设，只压制「按设定」「分析用户意图」这类
@@ -223,6 +241,8 @@ export const composeSystemPrompt = ({
   userName,
   roleplayContext,
   assistantWarmth,
+  forcedRoleplay = false,
+  customPromptNote = false,
 }: {
   savedPrompt: string
   custom: boolean
@@ -230,23 +250,28 @@ export const composeSystemPrompt = ({
   userName: string
   roleplayContext: boolean
   assistantWarmth: boolean
+  /** 空/默认提示词 + 压制设定：强制走角色基底，不再保留默认助手身份 */
+  forcedRoleplay?: boolean
+  /** 自定义提示词且未绑角色卡：只在末尾说明来源，不改写正文 */
+  customPromptNote?: boolean
 }) => {
   // custom 仅为兼容旧调用保留；当前默认提示不再区分官方与自定义网关
   void custom
   const trimmed = savedPrompt.trim()
   const cleared = !trimmed
-  // 用户主动清空提示词：回退默认官方助手，而不是发送空 system。
-  // 角色卡、档案身份行由调用方同步停用，避免残留身份把默认助手带成冷淡角色。
+  // 用户主动清空提示词：通常回退默认官方助手；压制设定开启时改走基础角色扮演。
   const isDefault = cleared || trimmed === SYSTEM_PROMPT
   // 语气与普通助手一致性只要求“仍以默认人格为主体”，不要求逐字未改；
   // 只加符号、补一句要求或改一个称呼时继续生效，换掉整套人设时停止追加。
   const defaultPersona = cleared || isMostlyDefaultPrompt(trimmed)
-  const roleplay = roleplayContext && !cleared
-  const basePrompt = cleared
-    ? DEFAULT_SYSTEM_PROMPT
-    : isDefault && roleplay
-      ? NEUTRAL_SYSTEM_PROMPT
-      : trimmed
+  const roleplay = roleplayContext && (forcedRoleplay || !cleared)
+  const basePrompt = forcedRoleplay
+    ? NEUTRAL_SYSTEM_PROMPT
+    : cleared
+      ? DEFAULT_SYSTEM_PROMPT
+      : isDefault && roleplay
+        ? NEUTRAL_SYSTEM_PROMPT
+        : trimmed
   const withUser = (text: string) => text.replaceAll('{{user}}', userName)
   // 语气约束只加在普通默认助手之后；自定义提示词和角色上下文都不覆盖。
   const tone = !roleplay && defaultPersona && assistantWarmth ? withUser(ASSISTANT_TONE_GUARD) : ''
@@ -261,7 +286,8 @@ export const composeSystemPrompt = ({
   // 互动尺度与视角锁放在角色 system 最后：模型更容易遵守靠近本轮发言的固定约束。
   const safety = roleplay ? withUser(ROLEPLAY_SAFETY_GUARD) : ''
   const viewpoint = roleplay ? withUser(ROLEPLAY_VIEWPOINT_GUARD) : ''
-  return `${withUser(basePrompt)}${tone}${consistency}${meta}${aside}${safety}${viewpoint}`
+  const customNote = customPromptNote ? withUser(CUSTOM_PROMPT_NOTE) : ''
+  return `${withUser(basePrompt)}${tone}${consistency}${meta}${aside}${safety}${viewpoint}${customNote}`
 }
 
 /* ============================================================================

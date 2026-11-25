@@ -168,6 +168,10 @@ type Settings = {
   memoryInline: boolean
   /** 角色扮演时在 system 末尾追加强制约束，压制「按设定」「分析用户意图」这类元叙述 */
   suppressMetaTalk: boolean
+  /** 压制设定开启且提示词为空/默认时，用自定义预设替换内置大学青梅竹马 */
+  suppressionPersonaEnabled: boolean
+  /** 自定义基础角色扮演预设；只在内置预设被替换时生效 */
+  suppressionPersona: string
   /** 聊天区外观：卡片或气泡（气泡只换配色，结构一套） */
   chatLayout: ChatLayout
   /** 聊天区角色头像边长（px），20–36 */
@@ -277,6 +281,8 @@ const KEYS = {
   memoryBadge: 'replica:memory-badge',
   memoryInline: 'replica:memory-inline',
   suppressMetaTalk: 'replica:suppress-meta',
+  suppressionPersonaEnabled: 'replica:suppression-persona-enabled',
+  suppressionPersona: 'replica:suppression-persona',
   chatLayout: 'replica:chat-layout',
   characterAvatarSize: 'replica:character-avatar-size',
   userAvatarSize: 'replica:user-avatar-size',
@@ -688,6 +694,8 @@ export const useSettings = create<Settings>(() => ({
   memoryBadge: read(KEYS.memoryBadge) !== 'false',
   memoryInline: read(KEYS.memoryInline) !== 'false',
   suppressMetaTalk: read(KEYS.suppressMetaTalk) === 'true',
+  suppressionPersonaEnabled: read(KEYS.suppressionPersonaEnabled) === 'true',
+  suppressionPersona: read(KEYS.suppressionPersona) ?? '',
   chatLayout: initialChatLayout(),
   characterAvatarSize: initialAvatarSize('character'),
   userAvatarSize: initialAvatarSize('user'),
@@ -1447,6 +1455,19 @@ export const setSuppressMetaTalk = (suppressMetaTalk: boolean) => {
   useSettings.setState({ suppressMetaTalk })
 }
 
+/** 自定义压制预设开关：关闭后立刻回到内置的大学青梅竹马，不改已写文本 */
+export const setSuppressionPersonaEnabled = (suppressionPersonaEnabled: boolean) => {
+  write(KEYS.suppressionPersonaEnabled, String(suppressionPersonaEnabled))
+  useSettings.setState({ suppressionPersonaEnabled })
+}
+
+/** 自定义预设正文；清空后再开启自定义会继续用内置预设，不会变成空人设 */
+export const setSuppressionPersona = (suppressionPersona: string) => {
+  const trimmed = suppressionPersona.trim()
+  write(KEYS.suppressionPersona, trimmed ? suppressionPersona : null)
+  useSettings.setState({ suppressionPersona: trimmed ? suppressionPersona : '' })
+}
+
 /**
  * 提示词里 `{{user}}` 的替身：账号名字优先，填的是占位名或空则回退「用户」。
  * 只处理模板标记，手写的人名原样保留。
@@ -1487,6 +1508,8 @@ export const resetCharacterSettings = () => {
   setSystemPrompt(DEFAULT_SYSTEM_PROMPT)
   setCharacterName('')
   setSuppressMetaTalk(false)
+  setSuppressionPersonaEnabled(false)
+  setSuppressionPersona('')
   setFriendlyTone(true)
   clearCharacterProfile()
   setCharacterProfileEnabled(true)

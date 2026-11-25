@@ -399,6 +399,7 @@ export const zh = {
   effortTitle: '思考强度',
   effortLongPressHint: '拖动滑块调整；点击面板外任意位置关闭',
   effortLow: '低',
+  effortMedium: '中',
   effortHigh: '高',
   effortMax: '最高',
   effortNote: '强度越高，推理链越长，输出 Token 与耗时同步增加。仅 OpenAI 协议生效。',

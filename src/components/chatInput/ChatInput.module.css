@@ -1343,7 +1343,7 @@
   }
 }
 
-/* 长按深度思考打开的小胶囊：浮在按钮上方，光点与流星密度随强度变化 */
+/* 长按深度思考打开的小面板：只留滑块、刻度文字与关闭提示，不铺星空装饰 */
 .effortLayer {
   position: fixed;
   z-index: 1200;
@@ -1353,66 +1353,30 @@
 
 .effortPanel {
   position: fixed;
-  width: 240px;
-  margin-left: -120px;
+  width: 216px;
+  margin-left: -108px;
   box-sizing: border-box;
-  padding: 9px 14px 10px;
-  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 34%, transparent);
-  border-radius: 999px;
-  overflow: hidden;
-  color: #f3f6ff;
-  background:
-    radial-gradient(120% 180% at 16% 0%, rgb(88 118 214 / 26%), transparent 62%),
-    linear-gradient(150deg, #0c1222 0%, #131d33 58%, #0a0f1a 100%);
-  box-shadow:
-    0 14px 34px rgb(0 0 0 / 42%),
-    inset 0 1px 0 rgb(255 255 255 / 9%);
-  animation: effortPanelIn 0.2s cubic-bezier(0.22, 0.9, 0.3, 1);
+  padding: 10px 12px 9px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 12px;
+  color: #f0f3f8;
+  background: #16181d;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 38%);
+  animation: effortPanelIn 0.16s ease-out;
 }
 
-.effortPanel > :not(.effortSky) {
-  position: relative;
-  z-index: 1;
+.effortTitles {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
-.effortSky {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.effortStar {
-  position: absolute;
-  border-radius: 50%;
-  background: #eaf1ff;
-  box-shadow: 0 0 4px 1px rgb(176 204 255 / 60%);
-  animation: effortStarPulse 3.2s ease-in-out infinite;
-}
-
-.effortMeteor {
-  position: absolute;
-  width: 1.5px;
-  height: 1.5px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow:
-    0 0 4px 1px rgb(160 194 255 / 70%),
-    0 0 10px 2px rgb(92 135 255 / 30%);
-  animation: effortMeteorFall 2.3s linear infinite;
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 1px;
-    right: 1px;
-    width: 22px;
-    height: 1px;
-    transform: rotate(38deg);
-    transform-origin: right center;
-    background: linear-gradient(270deg, rgb(196 216 255 / 70%), transparent);
-  }
+.effortKicker {
+  color: rgb(255 255 255 / 46%);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .effortHead {
@@ -1443,7 +1407,30 @@
 
 .effortControl {
   position: relative;
-  margin-top: 3px;
+  margin-top: 5px;
+}
+
+.effortTicks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  padding: 0 1px;
+  color: rgb(255 255 255 / 34%);
+  font-size: 9px;
+  line-height: 12px;
+  pointer-events: none;
+}
+
+.effortTicks span[data-active] {
+  color: #dfe7ff;
+  font-weight: 600;
+}
+
+.effortHint {
+  margin: 6px 0 0;
+  color: rgb(255 255 255 / 42%);
+  font-size: 9px;
+  line-height: 1.35;
 }
 
 .effortTrack {
@@ -1526,41 +1513,5 @@
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-@keyframes effortStarPulse {
-  0%,
-  100% {
-    transform: scale(0.9);
-    filter: brightness(0.85);
-  }
-  50% {
-    transform: scale(1.25);
-    filter: brightness(1.15);
-  }
-}
-
-@keyframes effortMeteorFall {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0);
-  }
-  12% {
-    opacity: var(--meteor-alpha, 0.7);
-  }
-  72% {
-    opacity: var(--meteor-alpha, 0.7);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-96px, 62px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .effortStar,
-  .effortMeteor {
-    animation: none;
   }
 }

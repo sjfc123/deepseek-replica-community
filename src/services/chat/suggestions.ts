@@ -11,6 +11,8 @@ import { useSettings } from '../settings.js'
 import { useChatStore } from './store.js'
 import { getVisibleMessages } from './branches.js'
 import { findSessionCharacterCard } from './roleplay.js'
+import type { CharacterCard } from './roleplay.js'
+import { DEFAULT_SUPPRESSION_PERSONA_NAME, SYSTEM_PROMPT } from './systemPrompt.js'
 import {
   formatStoryClock,
   formatStorySuggestionContext,
@@ -24,6 +26,8 @@ import {
   buildSuggestionTranscript,
   detectSuggestionPresence,
   filterPrematureSuggestions,
+  filterSuggestionFit,
+  hasSuggestionMix,
   parseReplySuggestions,
   pickFreshReplySuggestions,
   resolvePresentCast,
@@ -86,6 +90,52 @@ const requestSuggestionText = async ({
   return text
 }
 
+/** 无实体卡的基础角色扮演：只提供建议生成需要的名字与语气参考，不参与请求装配。 */
+const createSuppressionSuggestionCard = (name: string): CharacterCard => ({
+  id: 'suppression-suggestion-persona',
+  name,
+  age: '',
+  gender: '',
+  pronouns: '她',
+  species: '',
+  height: '',
+  weight: '',
+  birthday: '',
+  occupation: '',
+  residence: '',
+  languages: '',
+  favoriteFoods: '',
+  dislikedFoods: '',
+  favoriteDrinks: '',
+  hobbies: '',
+  dailyRoutine: '',
+  possessions: '',
+  pet: '',
+  temperament: '温和但不软，会照顾人，有时黏人，有时嘴硬',
+  values: '',
+  petPeeves: '',
+  boundaries: '',
+  cooperation: '',
+  identity: '',
+  relationship: '大学时期就认识的青梅竹马',
+  style: '像真人当面聊天，先接住情绪和处境，不要客服腔',
+  tics: '',
+  greeting: '',
+  notes: '',
+  genre: '',
+  playStyle: 'immersive',
+  scenario: '',
+  systemDirective: '',
+  appearance: '',
+  background: '',
+  goal: '',
+  secret: '',
+  speechExamples: '',
+  createdAt: 0,
+  updatedAt: 0,
+  tags: [],
+})
+
 /** 对象版线索词过滤：保留 mode/target，只替换候选文本。 */
 const filterPrematureReplySuggestions = (
   candidates: ReplySuggestion[],
@@ -109,18 +159,27 @@ export const generateReplySuggestions = async ({
     throw new Error('会话尚未加载')
   }
   const settings = useSettings.getState()
-  const card = findSessionCharacterCard(settings.characterCards, session)
+  const prompt = settings.systemPrompt.trim()
+  const basicRoleplay =
+    settings.suppressMetaTalk && (!prompt || prompt === SYSTEM_PROMPT)
+  // 压制设定接管空/默认提示词时没有实体卡，这里补一张只用于读懂语气的轻量卡。
+  const card =
+    findSessionCharacterCard(settings.characterCards, session) ??
+    (basicRoleplay
+      ? createSuppressionSuggestionCard(settings.characterName.trim() || DEFAULT_SUPPRESSION_PERSONA_NAME)
+      : undefined)
   if (!card) {
     throw new Error('当前会话没有角色卡')
   }
   // 实际对话只看最近两轮，避免旧轮次把建议拉回已经过去的情节。
   const visible = getVisibleMessages(session)
-  const transcriptMessages = visible
+  const allMessages = visible
     .map((message) => ({ role: message.role, content: messageText(message).trim() }))
     .filter((message): message is { role: 'user' | 'assistant'; content: string } =>
       Boolean(message.content)
     )
-    .slice(-4)
+  const transcriptMessages = allMessages.slice(-4)
+  const presenceMessages = allMessages.slice(-20)
   const transcript = buildSuggestionTranscript(card.name, transcriptMessages)
   const lastCharacterLine =
     [...transcriptMessages].reverse().find((message) => message.role === 'assistant')?.content ??
@@ -131,6 +190,7 @@ export const generateReplySuggestions = async ({
   const { presence, reason } = detectSuggestionPresence({
     lastCharacterLine,
     lastPlayerLine,
+    recentMessages: presenceMessages,
     castCount: cast.length,
   })
   const clockText =
@@ -168,38 +228,44 @@ export const generateReplySuggestions = async ({
     thinking: { type: 'disabled' },
     temperature,
   })
-  const first = filterPrematureReplySuggestions(
-    parseReplySuggestions(
-      await requestSuggestionText({ body: makeBody(0.72), settings, signal }),
-      cast,
-      card.name
-    ),
-    blockedTerms
-  )
-  let picked = pickFreshReplySuggestions(first, previousText)
-  const asideGap =
-    presence === 'leaving' && picked.filter((item) => item.mode === 'aside').length < 2
-  if (picked.length < 3 || asideGap) {
-    // 数量不足、或在离开场景里旁白不够时重试一次，明确要求换开头、换方向、换说话对象，并补齐旁白。
-    const retryText = filterPrematureReplySuggestions(
+  const first = filterSuggestionFit(
+    filterPrematureReplySuggestions(
       parseReplySuggestions(
-        await requestSuggestionText({
-          body: {
-            ...makeBody(0.9),
-            messages: [
-              {
-                role: 'user',
-                content: `${ask}\n\n上一批结果${asideGap ? '缺少玩家侧旁白' : '重复或方向过于接近'}。请完全换三个切入点，不要复现上一批句式和开头；多角色场景要换一个说话对象。${asideGap ? '当前玩家正在离开，至少两条必须以“（”开头写玩家自己的动作或内心。' : ''}`,
-              },
-            ],
-          },
-          settings,
-          signal,
-        }),
+        await requestSuggestionText({ body: makeBody(0.72), settings, signal }),
         cast,
         card.name
       ),
       blockedTerms
+    ),
+    presence
+  )
+  let picked = pickFreshReplySuggestions(first, previousText, { presence })
+  const asideGap =
+    presence === 'leaving' && picked.filter((item) => item.mode === 'aside').length < 2
+  if (picked.length < 3 || asideGap || !hasSuggestionMix(picked)) {
+    // 数量不足、或在离开场景里旁白不够时重试一次，明确要求换开头、换方向、换说话对象，并补齐旁白。
+    const retryText = filterSuggestionFit(
+      filterPrematureReplySuggestions(
+        parseReplySuggestions(
+          await requestSuggestionText({
+            body: {
+              ...makeBody(0.9),
+              messages: [
+                {
+                  role: 'user',
+                  content: `${ask}\n\n上一批结果${asideGap ? '缺少玩家侧旁白' : '重复或方向过于接近'}。请完全换三个切入点：至少一条回她的情绪或身体，至少一条落到另一件具体东西，不要三条都在“报纸、眼镜、窗户”里打转，不要复现上一批句式和“先/别”开头；多角色场景要换一个说话对象。${asideGap ? '当前玩家正在离开，至少两条必须以“（”开头写玩家自己的动作或内心。' : ''}`,
+                },
+              ],
+            },
+            settings,
+            signal,
+          }),
+          cast,
+          card.name
+        ),
+        blockedTerms
+      ),
+      presence
     )
     const merged = [...picked, ...retryText]
     // 离开场景优先保留旁白，否则重试新增的两条旁白会在去重排序里被前三条对白挤掉。
@@ -210,11 +276,12 @@ export const generateReplySuggestions = async ({
             ...merged.filter((item) => item.mode !== 'aside'),
           ]
         : merged,
-      previousText
+      previousText,
+      { presence }
     )
   }
-  if (picked.length < 3) {
-    throw new Error('回复建议数量不足')
+  if (picked.length < 3 || !hasSuggestionMix(picked)) {
+    throw new Error('回复建议方向过于接近，请再试一次')
   }
   const list = picked.slice(0, 3)
   recentSuggestions.set(sessionId, list)

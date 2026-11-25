@@ -5,7 +5,6 @@
 
 import clsx from 'clsx'
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { create } from 'zustand'
 import { createPortal } from 'react-dom'
 import { android } from '../../app/android.js'
@@ -31,6 +30,7 @@ import {
   useChatStore,
   acknowledgeStoryClue,
 } from '../../services/chat/store.js'
+import { SYSTEM_PROMPT } from '../../services/chat/systemPrompt.js'
 import { generateReplySuggestions } from '../../services/chat/suggestions.js'
 import type { ReplySuggestion } from '../../services/chat/suggestions.js'
 import {
@@ -83,37 +83,6 @@ import { useTranslate } from '../../i18n/index.js'
 import styles from './ChatInput.module.css'
 
 const useVoiceMode = create<{ enabled: boolean }>(() => ({ enabled: false }))
-
-/** 思考强度面板的星点与流星位置：固定分布，避免每次打开重新洗牌 */
-const EFFORT_STARS = [
-  { left: 6, top: 16, size: 2, delay: 0.4 },
-  { left: 15, top: 68, size: 1, delay: 1.1 },
-  { left: 24, top: 26, size: 1, delay: 0.8 },
-  { left: 33, top: 74, size: 2, delay: 1.6 },
-  { left: 42, top: 14, size: 1, delay: 0.2 },
-  { left: 51, top: 58, size: 1, delay: 1.9 },
-  { left: 59, top: 30, size: 2, delay: 1.3 },
-  { left: 68, top: 78, size: 1, delay: 0.6 },
-  { left: 76, top: 20, size: 1, delay: 2.1 },
-  { left: 84, top: 62, size: 2, delay: 0.9 },
-  { left: 92, top: 34, size: 1, delay: 1.5 },
-  { left: 10, top: 46, size: 1, delay: 2.4 },
-  { left: 37, top: 50, size: 1, delay: 0.3 },
-  { left: 64, top: 48, size: 1, delay: 1.7 },
-  { left: 87, top: 84, size: 1, delay: 1.0 },
-  { left: 47, top: 86, size: 2, delay: 2.2 },
-  { left: 20, top: 88, size: 1, delay: 0.5 },
-  { left: 71, top: 8, size: 1, delay: 1.2 },
-] as const
-
-const EFFORT_METEORS = [
-  { left: '18%', top: '18%', duration: 2.4, delay: 0 },
-  { left: '48%', top: '8%', duration: 2.1, delay: 0.7 },
-  { left: '76%', top: '22%', duration: 2.6, delay: 1.4 },
-  { left: '32%', top: '42%', duration: 2.2, delay: 1.9 },
-  { left: '62%', top: '38%', duration: 2.5, delay: 2.4 },
-  { left: '88%', top: '48%', duration: 2.3, delay: 1.1 },
-] as const
 
 /** 输入框：自适应高度的文本框 + 文件 + 深度思考与智能搜索开关 + 语音输入 + 发送 / 停止 */
 /* -------------------- 功能区：聊天输入入口与语音浮层 开始 -------------------- */
@@ -191,7 +160,14 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const suggestionAbort = useRef<AbortController | null>(null)
   const session = useChatStore((state) => (sessionId ? state.sessionCache[sessionId] : undefined))
   const characterCards = useSettings((state) => state.characterCards)
+  const systemPrompt = useSettings((state) => state.systemPrompt)
+  const suppressMetaTalk = useSettings((state) => state.suppressMetaTalk)
   const activeCard = findSessionCharacterCard(characterCards, session)
+  // 压制设定接管空/默认提示词时，没有角色卡也属于基础角色扮演，建议入口照常可用。
+  const promptText = systemPrompt.trim()
+  const suppressionRoleplay =
+    suppressMetaTalk && !activeCard && (!promptText || promptText === SYSTEM_PROMPT)
+  const suggestionReady = Boolean(activeCard || suppressionRoleplay)
   const story = activeCard?.story
   const storyLocked = isStoryLocked(session)
   const storyClock =
@@ -561,6 +537,14 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     textareaRef.current?.focus({ preventScroll: true })
   }, [typing])
 
+  const dismissSuggestions = () => {
+    suggestionAbort.current?.abort()
+    suggestionAbort.current = null
+    setSuggestionOpen(false)
+    setSuggestions([])
+    setSuggestionLoading(false)
+  }
+
   const send = () => {
     if (useChatStore.getState().importingHistory || storyLocked || voice.status !== 'idle') {
       return
@@ -579,6 +563,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       ) {
         return
       }
+      dismissSuggestions()
       setShowAttachments(false)
       stopReadAloud()
       textareaRef.current?.blur()
@@ -591,6 +576,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     if (!ensureApiKey() || !sendMessage(sessionId)) {
       return
     }
+    dismissSuggestions()
     setShowAttachments(false)
     stopReadAloud()
     if (isMobile) {
@@ -601,7 +587,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   }
 
   const requestSuggestions = async () => {
-    if (!sessionId || suggestionLoading || storyLocked || !activeCard) {
+    if (!sessionId || suggestionLoading || storyLocked || !suggestionReady) {
       return
     }
     if (!ensureApiKey()) {
@@ -610,6 +596,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     suggestionAbort.current?.abort()
     const controller = new AbortController()
     suggestionAbort.current = controller
+    // 每次打开/换一批都从空列表开始；关闭面板时列表已清空，重开必须重新请求。
+    setSuggestions([])
     setSuggestionOpen(true)
     setSuggestionLoading(true)
     try {
@@ -624,6 +612,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     } catch (error) {
       if (!controller.signal.aborted) {
         setSuggestionOpen(false)
+        setSuggestions([])
         showToast(t('replySuggestionsFailed'))
       }
     } finally {
@@ -636,7 +625,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
 
   const chooseSuggestion = (value: string) => {
     setText(value)
-    setSuggestionOpen(false)
+    dismissSuggestions()
     focusComposer()
   }
 
@@ -665,7 +654,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           ) : null}
         </div>
       ) : null}
-      {suggestionOpen && activeCard && !storyLocked ? (
+      {suggestionOpen && suggestionReady && !storyLocked ? (
         <div className={styles.suggestions} data-drawer-gesture-ignore="">
           <div className={styles.suggestionHeader}>
             <span className={styles.suggestionTitle}>
@@ -691,7 +680,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                 tone="primary"
                 icon={<IconCloseOutline16 />}
                 aria-label={t('close')}
-                onClick={() => setSuggestionOpen(false)}
+                onClick={dismissSuggestions}
               />
             </span>
           </div>
@@ -932,7 +921,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         <div className={styles.functionRow}>
           {/* 深度思考 / 智能搜索开关，tooltip 在按钮上方 */}
           <div ref={togglesRef} className={styles.toggles}>
-            {sessionId && activeCard && !editingHere && !storyLocked ? (
+            {sessionId && suggestionReady && !editingHere && !storyLocked ? (
               <Tooltip content={t('replySuggestionsTooltip')}>
                 <button
                   type="button"
@@ -1256,53 +1245,19 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                 aria-label={t('effortTitle')}
                 onClick={(event) => event.stopPropagation()}
               >
-                <div className={styles.effortSky} aria-hidden="true">
-                  {EFFORT_STARS.map((star, index) => (
-                    <span
-                      key={`star-${index}`}
-                      className={styles.effortStar}
-                      style={{
-                        left: `${star.left}%`,
-                        top: `${star.top}%`,
-                        width: star.size,
-                        height: star.size,
-                        animationDelay: `${star.delay}s`,
-                        opacity:
-                          index < 2 + Math.round((effortValue / 100) * 5)
-                            ? 0.25 + (effortValue / 100) * 0.6
-                            : 0,
-                      }}
-                    />
-                  ))}
-                  {EFFORT_METEORS.map((meteor, index) => {
-                    const visible = index < 1 + Math.round((effortValue / 100) * 1)
-                    return (
-                      <span
-                        key={`meteor-${index}`}
-                        className={styles.effortMeteor}
-                        style={
-                          {
-                            left: meteor.left,
-                            top: meteor.top,
-                            animationDuration: `${meteor.duration - (effortValue / 100) * 0.7}s`,
-                            animationDelay: `${meteor.delay}s`,
-                            display: visible ? undefined : 'none',
-                            '--meteor-alpha': 0.3 + (effortValue / 100) * 0.7,
-                            filter: `brightness(${0.7 + (effortValue / 100) * 0.9})`,
-                          } as CSSProperties
-                        }
-                      />
-                    )
-                  })}
-                </div>
                 <header className={styles.effortHead}>
-                  <strong>{t('effortTitle')}</strong>
+                  <div className={styles.effortTitles}>
+                    <span className={styles.effortKicker}>{t('effortKicker')}</span>
+                    <strong>{t('effortTitle')}</strong>
+                  </div>
                   <span className={styles.effortValue}>
                     {effortValue <= 25
                       ? t('effortLow')
                       : effortValue >= 75
                         ? t('effortMax')
-                        : t('effortHigh')}
+                        : effortValue <= 55
+                          ? t('effortMedium')
+                          : t('effortHigh')}
                   </span>
                 </header>
                 <div className={styles.effortControl}>
@@ -1319,7 +1274,18 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                     aria-label={t('effortTitle')}
                     onChange={(event) => updateEffort(Number(event.target.value))}
                   />
+                  <div className={styles.effortTicks} aria-hidden="true">
+                    <span data-active={effortValue <= 25 ? '' : undefined}>{t('effortLow')}</span>
+                    <span data-active={effortValue > 25 && effortValue <= 55 ? '' : undefined}>
+                      {t('effortMedium')}
+                    </span>
+                    <span data-active={effortValue > 55 && effortValue < 75 ? '' : undefined}>
+                      {t('effortHigh')}
+                    </span>
+                    <span data-active={effortValue >= 75 ? '' : undefined}>{t('effortMax')}</span>
+                  </div>
                 </div>
+                <p className={styles.effortHint}>{t('effortLongPressHint')}</p>
               </section>
             </div>,
             document.body
