@@ -1,1 +1,0 @@
-"use strict";(globalThis.rspackChunkdeepseek_app_replica=globalThis.rspackChunkdeepseek_app_replica||[]).push([[5766],{54293(e,p,a){a.d(p,{createArchitectureServices:()=>r.S});var r=a(35569);a(62671)}}]);

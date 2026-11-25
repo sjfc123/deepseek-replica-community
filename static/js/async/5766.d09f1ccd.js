@@ -1,0 +1,1 @@
+"use strict";(globalThis.rspackChunkdeepsaga=globalThis.rspackChunkdeepsaga||[]).push([[5766],{54293(e,a,s){s.d(a,{createArchitectureServices:()=>r.S});var r=s(35569);s(62671)}}]);
