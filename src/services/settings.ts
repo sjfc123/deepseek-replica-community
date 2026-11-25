@@ -29,6 +29,7 @@ import {
   type SceneState,
   type WorldbookEntry,
 } from './chat/roleplay.js'
+import { ensureBuiltinCardAvatars } from './chat/builtinAvatars.js'
 import {
   emptyCharacterProfile,
   normalizeCharacterProfile,
@@ -297,6 +298,8 @@ const KEYS = {
   normalMemoryChars: 'replica:normal-memory-chars',
   characterCards: 'replica:character-cards',
   cardAvatars: 'replica:card-avatars',
+  /** 用户显式移除过的内置卡默认头像：下次启动不再补回，自定义头像不受影响 */
+  builtinCardAvatarsRemoved: 'replica:builtin-card-avatars-removed',
   /** 用户显式删除过的内置角色卡 id：启动时不再回填，体检清空则照常补回 */
   builtinCardsRemoved: 'replica:builtin-cards-removed',
   activeCharacterId: 'replica:active-character',
@@ -423,6 +426,12 @@ const readBuiltinRemoved = (): string[] => {
   return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : []
 }
 
+/** 用户移除过的内置默认头像；只影响默认值回填，不影响自定义头像 */
+const readBuiltinAvatarRemoved = (): string[] => {
+  const raw = readJson(KEYS.builtinCardAvatarsRemoved)
+  return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : []
+}
+
 /**
  * 读取本机角色卡，并按墓碑补齐缺失的内置卡。
  * 墓碑仅由用户删除动作写入：数据体检清空后仍会补回，用户主动删除则不再出现。
@@ -444,16 +453,24 @@ const initialCharacterCards = (): CharacterCard[] => {
  */
 const initialCardAvatars = (): Record<string, string> => {
   const raw = readJson(KEYS.cardAvatars)
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return {}
-  }
+  const stored =
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
   const result: Record<string, string> = {}
-  Object.entries(raw as Record<string, unknown>).forEach(([id, value]) => {
+  Object.entries(stored).forEach(([id, value]) => {
     if (isAvatarDataUrl(value)) {
       result[id] = value
     }
   })
-  return result
+  const cards = initialCharacterCards()
+  const seeded = ensureBuiltinCardAvatars(
+    result,
+    cards.map((card) => card.id),
+    readBuiltinAvatarRemoved()
+  )
+  if (seeded.added > 0) {
+    write(KEYS.cardAvatars, JSON.stringify(seeded.avatars))
+  }
+  return seeded.avatars
 }
 
 const initialActiveCharacterId = (): string | null => {
@@ -967,13 +984,25 @@ export const saveCharacterCard = (card: CharacterCard) => {
  */
 export const setCardAvatar = (cardId: string, avatar: string | null) => {
   const current = useSettings.getState().cardAvatars
-  const next =
-    avatar && isAvatarDataUrl(avatar)
-      ? { ...current, [cardId]: avatar }
-      : Object.fromEntries(Object.entries(current).filter(([id]) => id !== cardId))
+  const saved = avatar && isAvatarDataUrl(avatar) ? avatar : null
+  const next = saved
+    ? { ...current, [cardId]: saved }
+    : Object.fromEntries(Object.entries(current).filter(([id]) => id !== cardId))
   const payload = Object.keys(next).length > 0 ? JSON.stringify(next) : null
   if (!write(KEYS.cardAvatars, payload)) {
     return false
+  }
+  if (cardId.startsWith(BUILTIN_ID_PREFIX)) {
+    const removed = readBuiltinAvatarRemoved()
+    const nextRemoved = saved
+      ? removed.filter((id) => id !== cardId)
+      : [...new Set([...removed, cardId])]
+    if (JSON.stringify(nextRemoved) !== JSON.stringify(removed)) {
+      write(
+        KEYS.builtinCardAvatarsRemoved,
+        nextRemoved.length > 0 ? JSON.stringify(nextRemoved) : null
+      )
+    }
   }
   useSettings.setState({ cardAvatars: next })
   return true
@@ -1015,6 +1044,15 @@ export const restoreBuiltinCharacterCards = () => {
   }
   write(KEYS.builtinCardsRemoved, null)
   useSettings.setState({ characterCards: next })
+  const avatars = useSettings.getState().cardAvatars
+  const seeded = ensureBuiltinCardAvatars(
+    avatars,
+    next.map((card) => card.id),
+    readBuiltinAvatarRemoved()
+  )
+  if (seeded.added > 0 && write(KEYS.cardAvatars, JSON.stringify(seeded.avatars))) {
+    useSettings.setState({ cardAvatars: seeded.avatars })
+  }
   return added
 }
 
