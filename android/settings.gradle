@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'DeepSeekReplica'
+rootProject.name = 'DeepSaga'
 include ':app'
