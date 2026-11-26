@@ -150,6 +150,9 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
 
   const totals = report?.totals
   const hitRate = totals && totals.input > 0 ? (totals.cacheRead / totals.input) * 100 : 0
+  const cacheUnknown = Boolean(
+    report && report.requests > 0 && report.totals.cacheFieldMissing >= report.requests
+  )
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true">
@@ -246,10 +249,12 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
                   <>
                     <div className={styles.meterRow}>
                       <span>{t('缓存命中率', 'Cache hit rate')}</span>
-                      <strong>{hitRate.toFixed(1)}%</strong>
+                      <strong>
+                        {cacheUnknown ? t('字段缺失', 'Fields missing') : `${hitRate.toFixed(1)}%`}
+                      </strong>
                     </div>
                     <div className={styles.meter}>
-                      <span style={{ width: `${Math.min(100, hitRate)}%` }} />
+                      <span style={{ width: `${cacheUnknown ? 0 : Math.min(100, hitRate)}%` }} />
                     </div>
                     {cacheIssue ? (
                       <div
@@ -278,6 +283,14 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
                       </div>
                     ) : null}
                     <div className={styles.notes}>
+                      {cacheUnknown ? (
+                        <p>
+                          {t(
+                            '这组请求都没有返回缓存命中字段，命中率不可计算；这不等于真实 0 命中，也不代表系统提示词丢失。',
+                            'None of these requests returned cache fields, so the hit rate cannot be calculated. This is not a real 0% hit and does not mean the system prompt was lost.'
+                          )}
+                        </p>
+                      ) : null}
                       <p>
                         {t(
                           '输入总量 = 未命中 + 命中 + 写入缓存；总消耗 = 输入 + 输出。',

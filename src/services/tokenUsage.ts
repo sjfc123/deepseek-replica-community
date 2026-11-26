@@ -19,6 +19,8 @@ export type UsageTotals = {
   cacheMiss: number
   /** 写入缓存的输入 */
   cacheWrite: number
+  /** 上游明确没有返回缓存字段的请求数；用于区分“真实 0 命中”和“字段缺失” */
+  cacheFieldMissing: number
 }
 
 export type SessionUsageSummary = {
@@ -38,6 +40,7 @@ const emptyTotals = (): UsageTotals => ({
   cacheRead: 0,
   cacheMiss: 0,
   cacheWrite: 0,
+  cacheFieldMissing: 0,
 })
 
 const usageEntries = (message: AssistantMessage): MessageUsage[] => {
@@ -60,6 +63,9 @@ const addUsage = (totals: UsageTotals, usage: MessageUsage) => {
   totals.cacheRead += cacheRead
   totals.cacheMiss += cacheMiss
   totals.cacheWrite += cacheWrite
+  if (usage.cache_fields_present === false) {
+    totals.cacheFieldMissing += 1
+  }
 }
 
 /**

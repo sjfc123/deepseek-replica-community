@@ -83,7 +83,7 @@ system 分两条路径：
 
 `cacheDiagnostics.ts` 在每次带 `usage` 的请求结束后留一条本地样本，最多 80 条，键为 `replica:prompt-cache-samples`。样本只保存指纹、长度、布尔开关、计数、摘要指纹、逐条消息链指纹与 usage，不保存 system 正文、聊天内容、API Key 或完整端点地址。消息链按协议层最终 wire 的实际顺序逐条累积 hash（OpenAI Chat / Responses、Anthropic Messages、自定义端点各自转换后的结果），`requestHash` 覆盖整轮 messages；`messageChain` / `messageRoles` 用于定位“第几条开始不一致”。`scope` 由协议、官方/自定义、模型与端点哈希组成；`configHash` 由提示词、角色卡版本、档案、语气、世界书、记忆预算、压缩、模型、协议、思考/搜索、`safety_check`、请求开关与采样参数组成。
 
-缓存 usage 先归一化再入库：Chat Completions 依次读取 `prompt_tokens_details.cached_tokens`、顶层 `prompt_cache_hit_tokens`、`prompt_tokens - prompt_cache_miss_tokens`；Anthropic Messages 只强制要求 `input_tokens` 与 `output_tokens`，缓存字段缺失记 0 并写 `cache_fields_present=false`，不再整条丢弃 usage。命中率分母统一为未命中输入 + 缓存写入 + 缓存读取，输出 token 不计入分母。
+会话用量面板在全部请求都缺缓存字段时显示“字段缺失”，不把缺字段画成 0.0%；只要有一条请求带缓存字段，仍按实际命中计算。缓存 usage 先归一化再入库：Chat Completions 依次读取 `prompt_tokens_details.cached_tokens`、顶层 `prompt_cache_hit_tokens`、`prompt_tokens - prompt_cache_miss_tokens`；Anthropic Messages 只强制要求 `input_tokens` 与 `output_tokens`，缓存字段缺失记 0 并写 `cache_fields_present=false`，不再整条丢弃 usage。命中率分母统一为未命中输入 + 缓存写入 + 缓存读取，输出 token 不计入分母。
 
 诊断按同一会话、同一 `scope` 的连续样本比较：
 
