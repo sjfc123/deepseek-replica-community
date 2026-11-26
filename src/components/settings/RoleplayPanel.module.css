@@ -601,8 +601,14 @@
 
 .sourceLine {
   flex-basis: 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   color: var(--rp-muted);
   font-size: 11px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .sectionFootRow {
@@ -1032,7 +1038,9 @@
   }
 
   .cardMain {
-    flex: 1 1 60%;
+    /* 卡片早已改成纵向布局，百分比 flex-basis 在 column 主轴上是高度，
+       不能再拿它控制宽度；这里只保留可伸缩，宽度由容器铺满。 */
+    flex: 1 1 auto;
   }
 
   .rowActions {
@@ -1746,6 +1754,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0;
+  min-width: 0;
   padding: 0;
   overflow: hidden;
   border-radius: 16px;
@@ -1782,6 +1791,9 @@
   display: flex;
   align-items: flex-start;
   gap: 7px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   min-width: 0;
   padding: 10px 9px 0;
 }
@@ -1836,13 +1848,34 @@
   flex: 1;
   flex-direction: column;
   gap: 2px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   min-width: 0;
   padding: 6px 9px 9px;
 }
 
 .cardList .cardMain p {
+  display: block;
   margin: 0;
-  -webkit-line-clamp: 3;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  -webkit-line-clamp: unset;
+}
+
+/* 卡片引言/风格摘要同样不再按固定行数截断：窄屏先把整段读完，再看元信息 */
+.cardList .cardQuote,
+.cardList .cardStyle {
+  display: block;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  -webkit-line-clamp: unset;
 }
 
 .cardQuote {
@@ -1950,7 +1983,7 @@
 /* 窄屏两列会把正文压到三行截断，改为单列；宽度足够时仍保留左右并列 */
 @media (max-width: 399px) {
   .cardList {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
   }
 
@@ -2090,10 +2123,7 @@
 
 /* 卡片来源：列表里只占一行，链接单独可点，不混进身份正文 */
 .cardSource {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px;
+  display: block;
   margin-top: 5px;
   color: var(--rp-muted);
   font-size: 10.5px;
@@ -2101,14 +2131,19 @@
 }
 
 .cardSource span {
+  display: block;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .cardSource .sourceLink {
-  flex: 0 0 auto;
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 4px;
 }
 
 .sourceLink {
@@ -2116,6 +2151,7 @@
   font-size: 10.5px;
   text-decoration: none;
   border-bottom: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 36%, transparent);
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 

@@ -32,9 +32,9 @@
 
 - 已删除 `src/assets/deepseek-whale.svg` 与 `src/assets/builtin-avatars/whale.webp`，项目内不再保留原版鲸鱼插图资源。
 - 欢迎页、API Key 设置页改用 `src/assets/dafeiyu-icon.png`。
-- 内置「大肥鱼」头像改用 SlimeNull 的 `大肥鱼桌宠 Chubby Whale · 吃饭` 裁切图。
-- 内置「鲸鱼娘」头像改用 ZipZipPipe 的女仆装鲸鱼娘立绘裁切图。
-- 角色原型为「溟月」（上善无形）；女仆装与 DeepSeek 元素二创由 ZipZipPipe 完成。
+- 内置「大肥鱼」头像改用 SlimeNull 的 `大肥鱼桌宠 Chubby Whale · 吃饭` 裁切图；作者主页 <https://space.bilibili.com/441842015>。
+- 内置「鲸鱼娘」头像改用 ZipZipPipe 的女仆装鲸鱼娘立绘裁切图；作者主页 <https://space.bilibili.com/4168597>。
+- 角色原型为「溟月」（上善无形，<https://space.bilibili.com/4456176>）；女仆装与 DeepSeek 元素二创由 ZipZipPipe 完成。内置卡作者入口指向上善无形的 B 站主页，GitHub Pages 图集只作归档索引。
 - 图片按 CC BY-NC-SA 4.0 使用：必须署名、禁止商业使用、修改后的图片须以相同协议共享。应用代码的 GPL-3.0 不覆盖图片。完整来源与修改记录见 `assets/fanart/SOURCES.md`。
 
 ## 3. 不包含内容

@@ -377,7 +377,7 @@
       splash = document.createElement('div')
       splash.id = 'boot-splash'
       document.body.appendChild(splash)
-      splash.innerHTML = '<div><div id="boot-title"></div><div id="boot-detail"></div></div>'
+      splash.innerHTML = '<div class="boot-stage"><div id="boot-title"></div><div id="boot-detail"></div></div>'
       title = document.getElementById('boot-title')
       detail = document.getElementById('boot-detail')
     }
@@ -407,6 +407,9 @@
   }
 
   window.__replicaBootDone = function () {
+    if (ready) {
+      return
+    }
     ready = true
     window.clearTimeout(timer)
     /* 启动成功后清除上一轮失败记录，诊断仅保留当前状态 */
@@ -419,9 +422,31 @@
     } catch (e) {
       /* 写入失败不影响启动 */
     }
-    if (splash && splash.parentNode) {
-      splash.parentNode.removeChild(splash)
+    if (!splash || !splash.parentNode) {
+      return
     }
+    /* 先让遮罩淡出并轻微抬升，再移除节点；transitionend 不触发时用定时器兜底 */
+    splash.setAttribute('data-ready', 'true')
+    var removed = false
+    function removeSplash() {
+      if (removed) {
+        return
+      }
+      removed = true
+      if (splash.parentNode) {
+        splash.parentNode.removeChild(splash)
+      }
+    }
+    var finish = function (event) {
+      if (event && event.target && event.target !== splash) {
+        return
+      }
+      removeSplash()
+    }
+    if (typeof splash.addEventListener === 'function') {
+      splash.addEventListener('transitionend', finish, false)
+    }
+    window.setTimeout(removeSplash, 700)
   }
 
   window.addEventListener(

@@ -3,23 +3,395 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#ffffff" />
-    <meta name="theme-color" content="#080B18" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f9ff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#05070f" />
     <link rel="icon" href="favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <title>DeepSaga</title>
     <script defer src="static/js/boot.js"></script>
     <style>
-      #boot-splash{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;background:#fff;color:#4d5159;font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:28px;text-align:center}
-      #boot-splash>div{max-width:320px}
-      #boot-title{font-size:15px;font-weight:600;letter-spacing:.02em}
-      #boot-detail{margin-top:8px;color:#8c9097;font-size:12px;word-break:break-all}
-      #boot-splash[data-failed='true'] #boot-title{color:#d14343}
-      @media (prefers-color-scheme:dark){#boot-splash{background:#161616;color:#e8eaed}#boot-detail{color:#a1a1a4}}
+      :root {
+        color-scheme: light dark;
+        --boot-bg-0: #f7f9ff;
+        --boot-bg-1: #eef3ff;
+        --boot-bg-2: #e4ecff;
+        --boot-ink: #11162a;
+        --boot-muted: #6d7894;
+        --boot-faint: #98a3bd;
+        --boot-line: rgb(55 78 150 / 14%);
+        --boot-accent: #4d6bfe;
+        --boot-accent-2: #8d6bff;
+        --boot-glow: rgb(77 107 254 / 18%);
+        --boot-ring: rgb(77 107 254 / 26%);
+        --boot-ring-soft: rgb(77 107 254 / 5%);
+        --boot-dash: rgb(141 107 255 / 30%);
+        --boot-track: rgb(55 78 150 / 18%);
+        --boot-error: #c53d4d;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --boot-bg-0: #05070f;
+          --boot-bg-1: #080d1c;
+          --boot-bg-2: #0b1226;
+          --boot-ink: #f0f4ff;
+          --boot-muted: #9ba9c8;
+          --boot-faint: #687898;
+          --boot-line: rgb(146 170 255 / 18%);
+          --boot-accent: #7c92ff;
+          --boot-accent-2: #b08cff;
+          --boot-glow: rgb(93 120 255 / 30%);
+          --boot-ring: rgb(146 170 255 / 28%);
+          --boot-ring-soft: rgb(146 170 255 / 6%);
+          --boot-dash: rgb(176 140 255 / 34%);
+          --boot-track: rgb(146 170 255 / 20%);
+          --boot-error: #ff7b87;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+        background: var(--boot-bg-0);
+      }
+
+      #boot-splash {
+        position: fixed;
+        z-index: 2000;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        padding:
+          max(28px, env(safe-area-inset-top))
+          max(24px, env(safe-area-inset-right))
+          max(28px, env(safe-area-inset-bottom))
+          max(24px, env(safe-area-inset-left));
+        color: var(--boot-ink);
+        background:
+          radial-gradient(120% 86% at 50% -8%, var(--boot-glow), transparent 58%),
+          radial-gradient(90% 70% at 108% 108%, rgb(141 107 255 / 12%), transparent 60%),
+          linear-gradient(160deg, var(--boot-bg-0), var(--boot-bg-1) 48%, var(--boot-bg-2));
+        font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+        text-align: center;
+        transition:
+          opacity 460ms cubic-bezier(0.22, 1, 0.36, 1),
+          visibility 460ms;
+      }
+
+      /* 细网格 + 星点：低对比度，只做空间感，不抢品牌标题 */
+      #boot-splash::before {
+        content: "";
+        position: absolute;
+        inset: -12%;
+        opacity: 0.5;
+        background-image:
+          linear-gradient(var(--boot-line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--boot-line) 1px, transparent 1px),
+          radial-gradient(circle at 18% 24%, var(--boot-faint) 0 1px, transparent 1.6px),
+          radial-gradient(circle at 72% 18%, var(--boot-faint) 0 1px, transparent 1.5px),
+          radial-gradient(circle at 84% 66%, var(--boot-faint) 0 1px, transparent 1.5px),
+          radial-gradient(circle at 28% 78%, var(--boot-faint) 0 1px, transparent 1.6px);
+        background-size:
+          68px 68px,
+          68px 68px,
+          132px 132px,
+          178px 178px,
+          146px 146px,
+          164px 164px;
+        -webkit-mask-image: radial-gradient(ellipse at 50% 42%, #000 0 26%, transparent 72%);
+        mask-image: radial-gradient(ellipse at 50% 42%, #000 0 26%, transparent 72%);
+        pointer-events: none;
+      }
+
+      /* 缓慢转动的极光弧，给静态启动页一点生命感 */
+      #boot-splash::after {
+        content: "";
+        position: absolute;
+        width: min(86vw, 520px);
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: conic-gradient(
+          from 120deg,
+          transparent 0 28%,
+          rgb(77 107 254 / 9%) 38%,
+          rgb(141 107 255 / 11%) 50%,
+          transparent 62% 100%
+        );
+        filter: blur(18px);
+        animation: boot-aurora 16s linear infinite;
+        pointer-events: none;
+      }
+
+      .boot-stage {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        width: min(100%, 390px);
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .boot-mark {
+        position: relative;
+        display: grid;
+        width: 104px;
+        height: 104px;
+        place-items: center;
+        margin-bottom: 26px;
+        animation: boot-mark-in 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      .boot-mark::before,
+      .boot-mark::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+
+      .boot-mark::before {
+        inset: 0;
+        border: 1px solid var(--boot-ring);
+        box-shadow:
+          0 0 0 12px var(--boot-ring-soft),
+          0 18px 54px var(--boot-glow);
+        animation: boot-ring 10s linear infinite;
+      }
+
+      .boot-mark::after {
+        inset: 13px;
+        border: 1px dashed var(--boot-dash);
+        animation: boot-ring-reverse 14s linear infinite;
+      }
+
+      .boot-mark svg {
+        position: relative;
+        z-index: 1;
+        width: 62px;
+        height: 62px;
+        filter: drop-shadow(0 8px 18px var(--boot-glow));
+        animation: boot-breathe 3.4s ease-in-out infinite;
+      }
+
+      .boot-brand {
+        margin: 0;
+        font-size: clamp(36px, 11vw, 52px);
+        font-weight: 650;
+        letter-spacing: -0.045em;
+        line-height: 0.95;
+        background: linear-gradient(105deg, var(--boot-ink) 10%, var(--boot-accent) 58%, var(--boot-accent-2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: boot-rise 700ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      #boot-title {
+        margin-top: 18px;
+        color: var(--boot-ink);
+        font-size: 14px;
+        font-weight: 550;
+        letter-spacing: 0.08em;
+        animation: boot-rise 700ms 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      #boot-detail {
+        max-width: 320px;
+        margin-top: 7px;
+        color: var(--boot-muted);
+        font-size: 11.5px;
+        line-height: 1.65;
+        overflow-wrap: anywhere;
+        animation: boot-rise 700ms 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      .boot-progress {
+        position: relative;
+        width: 168px;
+        height: 2px;
+        margin-top: 24px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--boot-track);
+      }
+
+      .boot-progress span {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -42%;
+        width: 42%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, transparent, var(--boot-accent), var(--boot-accent-2), transparent);
+        animation: boot-progress 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+      }
+
+      .boot-hint {
+        margin-top: 18px;
+        color: var(--boot-faint);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.28em;
+        text-indent: 0.28em;
+        animation: boot-fade 900ms 420ms ease both;
+      }
+
+      #boot-splash[data-failed="true"] {
+        background:
+          radial-gradient(120% 86% at 50% -8%, rgb(197 61 77 / 12%), transparent 58%),
+          linear-gradient(160deg, var(--boot-bg-0), var(--boot-bg-1));
+      }
+
+      #boot-splash[data-failed="true"] .boot-progress span {
+        animation: none;
+        background: var(--boot-error);
+        opacity: 0.55;
+      }
+
+      #boot-splash[data-failed="true"] #boot-title {
+        color: var(--boot-error);
+      }
+
+      #boot-splash[data-ready="true"] {
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #boot-splash[data-ready="true"] .boot-stage {
+        transform: translateY(-8px) scale(0.985);
+        transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      @keyframes boot-mark-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.82);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes boot-rise {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes boot-fade {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes boot-ring {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes boot-ring-reverse {
+        to {
+          transform: rotate(-360deg);
+        }
+      }
+
+      @keyframes boot-breathe {
+        0%,
+        100% {
+          transform: scale(1) rotate(-2deg);
+        }
+        50% {
+          transform: scale(1.04) rotate(1deg);
+        }
+      }
+
+      @keyframes boot-aurora {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes boot-progress {
+        0% {
+          left: -44%;
+        }
+        100% {
+          left: 102%;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash::after,
+        .boot-mark::before,
+        .boot-mark::after,
+        .boot-mark svg,
+        .boot-progress span {
+          animation: none !important;
+        }
+
+        .boot-mark,
+        .boot-brand,
+        #boot-title,
+        #boot-detail,
+        .boot-hint {
+          animation-duration: 1ms !important;
+          animation-delay: 0ms !important;
+        }
+
+        #boot-splash {
+          transition-duration: 1ms !important;
+        }
+      }
     </style>
   </head>
   <body>
-    <div id="boot-splash"><div><div id="boot-title">正在启动…</div><div id="boot-detail">正在加载界面，请稍候</div></div></div>
+    <div
+      id="boot-splash"
+      role="status"
+      aria-live="polite"
+      aria-label="DeepSaga 正在启动"
+    >
+      <div class="boot-stage">
+        <div class="boot-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="presentation">
+            <defs>
+              <linearGradient id="bootStarGradient" x1="8" y1="6" x2="56" y2="58">
+                <stop offset="0" stop-color="#9f7bff" />
+                <stop offset="0.48" stop-color="#5f7cff" />
+                <stop offset="1" stop-color="#48c6ff" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M32 5.5C34.6 18.2 39.2 23.6 51.5 26.4C57.6 27.8 57.6 36.2 51.5 37.6C39.2 40.4 34.6 45.8 32 58.5C29.4 45.8 24.8 40.4 12.5 37.6C6.4 36.2 6.4 27.8 12.5 26.4C24.8 23.6 29.4 18.2 32 5.5Z"
+              fill="url(#bootStarGradient)"
+            />
+            <circle cx="47" cy="17" r="3.2" fill="#ffffff" fill-opacity="0.9" />
+          </svg>
+        </div>
+        <div class="boot-brand">DeepSaga</div>
+        <div id="boot-title">正在唤醒叙事引擎</div>
+        <div id="boot-detail">正在加载界面，请稍候</div>
+        <div class="boot-progress" aria-hidden="true"><span></span></div>
+        <div class="boot-hint">STORY · MEMORY · CHARACTER</div>
+      </div>
+    </div>
     <div id="root"></div>
   </body>
 </html>

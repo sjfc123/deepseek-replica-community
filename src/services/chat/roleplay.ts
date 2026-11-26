@@ -518,7 +518,7 @@ const builtinCards = (): CharacterCard[] => [
     greeting:
       '（从屏幕边缘浮出来，尾巴在空气里拍了两下）……你叫我？先说好，我不是胖，是浮力大。今天干活还是先吃饭，你挑一个。',
     notes:
-      '以社区二创「吃白饭的大肥鱼」整理，不代表官方设定。角色原型「溟月」（上善无形），女仆装与 DeepSeek 元素二创 ZipZipPipe；表情归档 fisharchive.github.io；图片授权 CC BY-NC-SA 4.0。被问身份时按社区二创接住，不展开模型或程序设定。',
+      '以社区二创「吃白饭的大肥鱼」整理，不代表官方设定。角色原型「溟月」由 B 站 UP 主「上善无形」创作，女仆装与 DeepSeek 元素二创由「ZipZipPipe」完成，内置头像二创由「SlimeNull」绘制；图片授权 CC BY-NC-SA 4.0。被问身份时按社区二创接住，不展开模型或程序设定。',
     appearance:
       '蓝色鲸鱼娘Q版形象：蓝发、鲸鳍耳、呆毛、白围裙，常端着一只白碗；也能缩成圆滚滚的蓝色鲸鱼本体，肚皮浅白，背脊有一道更深的蓝，鳍短、尾巴大。浮在屏幕边缘时像一团会呼吸的蓝影；缩进白碗后只露出头顶和半截尾巴。',
     background:
@@ -534,8 +534,8 @@ const builtinCards = (): CharacterCard[] => [
       '这是一条轻松日常线：它嘴硬、会摸鱼，但答应的事会做完。饭量、浮力和「大肥鱼」都是玩笑，不写成真实生理缺陷。它不展开模型、参数或程序设定；被问身份时按社区梗接住。不要让它无条件服从，也不要每轮都用吃饭打断正事。',
     builtin: true,
     source:
-      '社区二创「吃白饭的蓝色大肥鱼」· 角色原型「溟月」（上善无形）· 女仆装/DeepSeek 元素二创（ZipZipPipe）· 表情归档 fisharchive.github.io · CC BY-NC-SA 4.0 · 非官方',
-    sourceUrl: 'https://iphsiibl.github.io/deepseek-whale-girl-gallery/',
+      '社区二创「吃白饭的蓝色大肥鱼」· 角色原型「溟月」：上善无形 · 女仆/DeepSeek 元素二创：ZipZipPipe · 头像二创：SlimeNull · CC BY-NC-SA 4.0 · 非官方',
+    sourceUrl: 'https://space.bilibili.com/4456176',
     tags: ['日常', '轻松', '嘴硬'],
     createdAt: BUILTIN_CARD_TIME,
     updatedAt: BUILTIN_CARD_TIME,
@@ -592,8 +592,8 @@ const builtinCards = (): CharacterCard[] => [
       '这是一条日常女仆线：她傲娇、嘴甜、先谈条件再照办，但不会把场景卡死。理工术语只当她的说话习惯，不展开模型、参数或程序设定。被认真对待时收起玩笑，答应的事要有结果。',
     builtin: true,
     source:
-      '原型「溟月」（上善无形）· 女仆装/DeepSeek 元素二创（ZipZipPipe）· 表情归档 fisharchive.github.io · CC BY-NC-SA 4.0 · 非官方',
-    sourceUrl: 'https://iphsiibl.github.io/deepseek-whale-girl-gallery/',
+      '原型「溟月」：上善无形 · 女仆装/DeepSeek 元素二创：ZipZipPipe · CC BY-NC-SA 4.0 · 非官方',
+    sourceUrl: 'https://space.bilibili.com/4456176',
     tags: ['日常', '女仆', '傲娇'],
     createdAt: BUILTIN_CARD_TIME,
     updatedAt: BUILTIN_CARD_TIME,

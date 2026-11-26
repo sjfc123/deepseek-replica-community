@@ -7,6 +7,6 @@
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:windowBackground">#151517</item>
+        <item name="android:windowBackground">#05070F</item>
     </style>
 </resources>

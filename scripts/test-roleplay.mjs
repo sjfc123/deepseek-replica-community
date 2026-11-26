@@ -76,6 +76,24 @@ for (const id of ['builtin:dafeiyu', 'builtin:whale-girl', 'builtin:kei']) {
   const card = builtins.find((item) => item.id === id)
   assert.match(card.sourceUrl ?? '', /^https:\/\//, `${card.name}必须带可点击的来源链接`)
 }
+const dafeiyuCard = builtins.find((card) => card.id === 'builtin:dafeiyu')
+const whaleGirlCard = builtins.find((card) => card.id === 'builtin:whale-girl')
+assert.equal(
+  dafeiyuCard?.sourceUrl,
+  'https://space.bilibili.com/4456176',
+  '大肥鱼必须指向已核对的原创作者上善无形 B 站主页，不能再用图集整理页'
+)
+assert.equal(
+  whaleGirlCard?.sourceUrl,
+  'https://space.bilibili.com/4456176',
+  '鲸鱼娘必须指向已核对的原创作者上善无形 B 站主页，不能再用图集整理页'
+)
+assert.match(dafeiyuCard?.source ?? '', /SlimeNull/, '大肥鱼来源必须单独署名头像作者 SlimeNull')
+assert.doesNotMatch(
+  `${dafeiyuCard?.sourceUrl}${whaleGirlCard?.sourceUrl}`,
+  /iphsiibl\.github\.io/,
+  '内置卡作者入口不能继续用 GitHub 图集页'
+)
 assert.equal(
   normalizeSourceUrl('space.bilibili.com/1398337493'),
   'https://space.bilibili.com/1398337493',

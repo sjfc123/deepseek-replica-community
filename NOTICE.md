@@ -35,8 +35,8 @@ DeepChat 的 `LICENSE` 文件署名为 `Copyright (c) 2026 DeepSeek`。该署名
 - `DeepSaga` 是本衍生分支的展示名，不代表 DeepSeek、LiJiaHua1024 或赤石科技。
 - 启动图标为 DeepSaga 分支单独制作的星空图，不沿用上游蓝色鲸鱼标识。
 - 内置的大肥鱼、鲸鱼娘、猫娘等角色卡，是按社区讨论和二创语境整理的本地演示设定，不代表官方角色，也不代表社区原作者共同背书。
-- 内部「大肥鱼」插图使用 SlimeNull 的 `大肥鱼桌宠 Chubby Whale · 吃饭`，内置「大肥鱼」头像为该图裁切版本。角色原型为「溟月」，由 B 站 UP 主「上善无形」于 2025-06-25 创作；女仆装与 DeepSeek 元素二创由 B 站 UP 主「ZipZipPipe」于 2026-04-25 完成。
-- 内置「鲸鱼娘」头像使用 ZipZipPipe 的女仆装鲸鱼娘立绘裁切版本，角色原型同为「溟月」。
+- 内部「大肥鱼」插图使用 SlimeNull 的 `大肥鱼桌宠 Chubby Whale · 吃饭`（<https://space.bilibili.com/441842015>），内置「大肥鱼」头像为该图裁切版本。角色原型为「溟月」，由 B 站 UP 主「上善无形」于 2025-06-25 创作（<https://space.bilibili.com/4456176>）；女仆装与 DeepSeek 元素二创由 B 站 UP 主「ZipZipPipe」于 2026-04-25 完成（<https://space.bilibili.com/4168597>）。
+- 内置「鲸鱼娘」头像使用 ZipZipPipe 的女仆装鲸鱼娘立绘裁切版本，角色原型同为「溟月」。内置卡作者入口指向原型作者上善无形的 B 站主页；GitHub Pages 图集只作图片归档索引，不作为作者主页。
 - 上述图片按 **CC BY-NC-SA 4.0** 使用：必须署名、禁止商业使用、修改后的图片须以相同协议共享。原图、裁切记录与来源链接见 [assets/fanart/SOURCES.md](assets/fanart/SOURCES.md)。应用代码的 GPL-3.0 不覆盖这些图片。
 - 原版蓝色鲸鱼 SVG `src/assets/deepseek-whale.svg` 与旧头像 `src/assets/builtin-avatars/whale.webp` 已删除，项目内不再保留原版鲸鱼插图资源。
 - 角色卡头像和其他美术素材，如无特别说明，仅用于本地演示。权利人认为某份素材不适合随源码公开时，可通过 Issue 标题标注 `[RIGHTS]`，附具体文件、权利依据和联系方式；核实后移除或替换。

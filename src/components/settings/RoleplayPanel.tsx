@@ -65,6 +65,22 @@ import { showToast } from '../base/toastState.js'
 import { android, openExternalUrl, saveAndroidHistory } from '../../app/android.js'
 import styles from './RoleplayPanel.module.css'
 
+/** 已核对过的 B 站作者主页：只用于给链接显示真实署名，不改变链接本身 */
+const CARD_SOURCE_AUTHORS: Record<string, string> = {
+  '4456176': '上善无形',
+  '4168597': 'ZipZipPipe',
+  '441842015': 'SlimeNull',
+}
+
+const cardSourceLabel = (url: string | undefined) => {
+  const match = /^https:\/\/space\.bilibili\.com\/(\d+)/.exec(url ?? '')
+  if (!match) {
+    return '作者 / 作品页'
+  }
+  const author = CARD_SOURCE_AUTHORS[match[1]]
+  return author ? `${author}的 B 站主页` : 'B 站作者主页'
+}
+
 /** 示例模板：字段与角色卡一一对应，点击后整组填入，用户可继续修改 */
 /* -------------------- 功能区：示例卡与字段模板 开始 -------------------- */
 const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
@@ -1097,7 +1113,7 @@ export function RoleplayPanel() {
                     openCardSource(cardDraft.sourceUrl)
                   }}
                 >
-                  作者 / 作品页 ↗
+                  {cardSourceLabel(cardDraft.sourceUrl)} ↗
                 </a>
               ) : null}
             </span>
@@ -2048,7 +2064,7 @@ export function RoleplayPanel() {
                                 openCardSource(card.sourceUrl)
                               }}
                             >
-                              作者 / 作品页 ↗
+                              {cardSourceLabel(card.sourceUrl)} ↗
                             </a>
                           ) : null}
                         </div>
