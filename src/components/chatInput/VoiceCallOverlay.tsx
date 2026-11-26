@@ -62,6 +62,23 @@ export const VoiceCallOverlay = () => {
 
   useAndroidBackInterception(active)
 
+  // 通话期间锁住后台页面滚动：即使浮层边缘出现回弹，也不会把聊天内容拖出来。
+  useEffect(() => {
+    if (!active) {
+      return undefined
+    }
+    const body = document.body
+    const root = document.documentElement
+    const prevBodyOverflow = body.style.overflow
+    const prevRootOverflow = root.style.overflow
+    body.style.overflow = 'hidden'
+    root.style.overflow = 'hidden'
+    return () => {
+      body.style.overflow = prevBodyOverflow
+      root.style.overflow = prevRootOverflow
+    }
+  }, [active])
+
   useEffect(() => {
     const syncLevel = (level: number) => {
       centerRef.current?.style.setProperty('--orb-level', String(level))
