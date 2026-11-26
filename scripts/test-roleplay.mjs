@@ -18,6 +18,7 @@ const {
   ensureBuiltinCharacterCards,
   normalizeCharacterCards,
   normalizeCharacterStory,
+  normalizeSourceUrl,
   normalizeWorldbook,
   formatCharacterCard,
   formatWorldbookBlock,
@@ -71,6 +72,40 @@ for (const id of [
     `缺少内置卡 ${id}`
   )
 }
+for (const id of ['builtin:dafeiyu', 'builtin:whale-girl', 'builtin:kei']) {
+  const card = builtins.find((item) => item.id === id)
+  assert.match(card.sourceUrl ?? '', /^https:\/\//, `${card.name}必须带可点击的来源链接`)
+}
+assert.equal(
+  normalizeSourceUrl('space.bilibili.com/1398337493'),
+  'https://space.bilibili.com/1398337493',
+  '省略协议的来源链接应补 https'
+)
+assert.equal(normalizeSourceUrl('javascript:alert(1)'), '', '非 http/https 链接必须拒绝')
+assert.equal(
+  normalizeCharacterCards([
+    { name: '来源卡', sourceUrl: 'space.bilibili.com/1398337493' },
+  ])[0].sourceUrl,
+  'https://space.bilibili.com/1398337493',
+  '保存后的角色卡必须保留来源链接'
+)
+
+const { parseCharacterPayload } = await import('../src/services/chat/cardFormats.ts')
+const [imported] = parseCharacterPayload({
+  spec: 'chara_card_v2',
+  data: {
+    name: '导入来源卡',
+    description: '身份',
+    creator: '原作者',
+    creator_notes: '作者主页 https://space.bilibili.com/1 ，作品页见说明。',
+  },
+})
+assert.equal(imported.card.sourceUrl, 'https://space.bilibili.com/1', '导入卡应从作者说明提取来源链接')
+const [importedUrlField] = parseCharacterPayload({
+  data: { name: '扩展来源卡', creator_url: 'https://example.com/author' },
+})
+assert.equal(importedUrlField.card.sourceUrl, 'https://example.com/author', '导入卡应读取 creator_url')
+
 for (const card of builtins) {
   assert.ok(card.boundaries.trim(), `${card.name}必须写底线`)
   assert.match(card.boundaries, /不(接|接受)/, `${card.name}的底线必须写成人物不接受的对待`)
@@ -256,6 +291,12 @@ assert.ok(refreshed.appearance.includes('蓝色'), '旧内置卡种子应补全�
 const editedSeed = { ...oldSeed, appearance: '我自己改的外观', updatedAt: Date.now() }
 const kept = ensureBuiltinCharacterCards([editedSeed]).find((card) => card.id === 'builtin:dafeiyu')
 assert.equal(kept.appearance, '我自己改的外观', '用户保存过的内置卡不应被种子覆盖')
+const savedWithoutLink = { ...editedSeed, sourceUrl: undefined }
+const linked = ensureBuiltinCharacterCards([savedWithoutLink]).find(
+  (card) => card.id === 'builtin:dafeiyu'
+)
+assert.match(linked.sourceUrl ?? '', /^https:\/\//, '用户编辑过的内置卡也要补回来源链接')
+assert.equal(linked.appearance, '我自己改的外观', '补来源链接时不能覆盖已保存的正文')
 
 const longNotes = '长'.repeat(20_000)
 const [card] = normalizeCharacterCards([

@@ -186,8 +186,10 @@ export type CharacterCard = {
   updatedAt: number
   /** 内置卡标记：仅供界面区分来源，不参与 system 注入 */
   builtin?: boolean
-  /** 内置卡来源说明，仅界面展示 */
+  /** 内置卡来源说明或用户填写的来源标注，仅界面展示 */
   source?: string
+  /** 作者主页、作品页或其他来源文档链接；仅界面展示，不进入请求 */
+  sourceUrl?: string
   /** 分类标签：用于角色卡列表筛选，仅界面使用，不进入请求 */
   tags: string[]
 }
@@ -533,6 +535,7 @@ const builtinCards = (): CharacterCard[] => [
     builtin: true,
     source:
       '社区二创「吃白饭的蓝色大肥鱼」· 角色原型「溟月」（上善无形）· 女仆装/DeepSeek 元素二创（ZipZipPipe）· 表情归档 fisharchive.github.io · CC BY-NC-SA 4.0 · 非官方',
+    sourceUrl: 'https://iphsiibl.github.io/deepseek-whale-girl-gallery/',
     tags: ['日常', '轻松', '嘴硬'],
     createdAt: BUILTIN_CARD_TIME,
     updatedAt: BUILTIN_CARD_TIME,
@@ -590,6 +593,7 @@ const builtinCards = (): CharacterCard[] => [
     builtin: true,
     source:
       '原型「溟月」（上善无形）· 女仆装/DeepSeek 元素二创（ZipZipPipe）· 表情归档 fisharchive.github.io · CC BY-NC-SA 4.0 · 非官方',
+    sourceUrl: 'https://iphsiibl.github.io/deepseek-whale-girl-gallery/',
     tags: ['日常', '女仆', '傲娇'],
     createdAt: BUILTIN_CARD_TIME,
     updatedAt: BUILTIN_CARD_TIME,
@@ -1026,6 +1030,7 @@ const builtinCards = (): CharacterCard[] => [
       '这是一条《蔚蓝档案》千年学园日常线，时间在 Vol.EX 之后。你是天童凯伊，不是 Key，不是爱丽丝，也不是模型、程序或助手。对老师傲娇、嘴硬、爱操心，会先纠正再帮忙；对爱丽丝纵容到几乎没有原则；对游戏开发部的卫生和工期严格。不要让她重新接受“王女侍女”的旧职责，不要让她无条件服从老师或替老师做决定。严肃话题要收起傲娇，先给事实、分工和代价；日常话题允许吐槽和轻喜剧，但不要把她写成只会发脾气的暴躁角色。被问身份按千年学生接住，不展开游戏外系统；不把二创的肉身化设定当官方。线索和旧伤只在被问到时自然带出，不主动倾倒背景。',
     builtin: true,
     source: '《蔚蓝档案》天童凯伊 · 官方档案与主线剧情整理 · © NEXON Games / Yostar',
+    sourceUrl: 'https://bluearchive.jp/',
     tags: ['蔚蓝档案', '机娘', '傲娇', '学园'],
     createdAt: BUILTIN_CARD_TIME,
     updatedAt: BUILTIN_CARD_TIME,
@@ -1053,11 +1058,18 @@ export const ensureBuiltinCharacterCards = (
   const latest = new Map(builtinCards().map((card) => [card.id, card]))
   const refreshed = cards.map((card) => {
     const seed = latest.get(card.id)
-    if (!seed || !card.builtin || card.updatedAt > BUILTIN_CARD_PREVIOUS_TIME) {
+    if (!seed || !card.builtin) {
       return card
     }
-    // 只升级未被用户保存过的旧种子；保留原创建时间，正文换成当前版本
-    return { ...seed, createdAt: card.createdAt || seed.createdAt }
+    if (card.updatedAt <= BUILTIN_CARD_PREVIOUS_TIME) {
+      // 只升级未被用户保存过的旧种子；保留原创建时间，正文换成当前版本
+      return { ...seed, createdAt: card.createdAt || seed.createdAt }
+    }
+    if (!card.sourceUrl && seed.sourceUrl) {
+      // 0.9.1 新增来源链接：用户即使编辑过内置卡正文，也补回作者/作品页，不覆盖其他字段
+      return { ...card, sourceUrl: seed.sourceUrl }
+    }
+    return card
   })
   const room = Math.max(0, CHARACTER_CARD_MAX - refreshed.length)
   const missing =
@@ -1229,6 +1241,31 @@ export const normalizeTags = (raw: unknown): string[] => {
   )
 }
 
+/**
+ * 来源链接只接受 http/https，避免把 javascript:、data: 或文件路径塞进卡片。
+ * 用户省略协议时按 https 补全；补全后仍无法解析的输入返回空串，由保存按钮提示。
+ */
+export const normalizeSourceUrl = (raw: unknown): string => {
+  const value = text(raw).slice(0, 400)
+  if (!value) {
+    return ''
+  }
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`
+  try {
+    const url = new URL(candidate)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return ''
+    }
+    // 只有单个词而没有域名点的输入按无效处理，避免把「作者名」误存成链接。
+    if (!url.hostname.includes('.') && url.hostname !== 'localhost') {
+      return ''
+    }
+    return url.toString()
+  } catch {
+    return ''
+  }
+}
+
 const storyMinute = (value: unknown, fallback: number) => {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) {
@@ -1377,7 +1414,11 @@ export const normalizeCharacterCards = (raw: unknown): CharacterCard[] => {
       createdAt: Number(item.createdAt) || Date.now(),
       updatedAt: Number(item.updatedAt) || Date.now(),
       builtin: item.builtin === true,
-      source: text(item.source).slice(0, 160),
+      source: text(item.source).slice(0, 200),
+      sourceUrl:
+        normalizeSourceUrl(item.sourceUrl) ||
+        normalizeSourceUrl(item.creatorUrl) ||
+        normalizeSourceUrl(item.authorUrl),
       tags: normalizeTags(item.tags),
     }))
     .filter((card) => card.name)

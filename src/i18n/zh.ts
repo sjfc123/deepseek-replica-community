@@ -460,6 +460,7 @@ export const zh = {
   settingsLocaleZhCN: '简体中文',
   settingsLocaleEnUS: 'English',
   roleplayNeedName: '请先填写角色名字',
+  roleplaySourceUrlBad: '来源链接无效，只支持 http / https 地址',
   roleplayStorageFailed: '本地存储失败，请重试',
   roleplayCardSaved: '已保存角色卡「{name}」',
   roleplayIntroStarted: '已启用「{name}」并新建对话，开场白已发出',

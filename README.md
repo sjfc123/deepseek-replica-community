@@ -6,7 +6,7 @@ DeepSaga 是面向 Android 的本地角色扮演与对话客户端。本仓库�
 
 - **应用名**：`DeepSaga`
 - **包名 / namespace**：`io.github.sjfc123.deepsaga`
-- **当前源码版本**：`0.9.0`，versionCode `143`
+- **当前源码版本**：`0.9.1`，versionCode `144`
 - **启动图标**：深空星空底图与星座连线；安卓使用多密度 PNG 与自适应图标，网页使用独立 `favicon.png` 与 `apple-touch-icon.png`
 - **上游基础工程**：[LiJiaHua1024/deepseek-app-replica](https://github.com/LiJiaHua1024/deepseek-app-replica)，GPL-3.0
 - **部分功能来源**：[YanJiuWeiYuanHui/DeepChat](https://github.com/YanJiuWeiYuanHui/DeepChat) 1.1.3，MIT
@@ -21,7 +21,7 @@ DeepSaga 是独立衍生分支，不是 DeepSeek 官方客户端，不是上述�
 **自本项目最终版本源代码开源后，将不再进行更新。**
 
 - 本声明中的“更新”指版本号变更、版本说明追加与发布节点。同步性修正仅限上游兼容、构建修复和安全修补，不属于版本更新；不单独变更版本号、不追加版本说明、不写入变更日志。仅在明确要求时记录变更。
-- 最终版本标识为 `0.9.0`，versionCode `143`。
+- 当前版本标识为 `0.9.1`，versionCode `144`。
 - 不制定后续版本计划，不承诺适配新系统、新接口或新设备，不承诺修复已知缺陷。
 - 不处理常规 Issue，不合并 Pull Request，不提供功能定制、部署指导或使用咨询。
 - 仓库作者不提供商业级 SLA、技术支持、兼容性保证或法律合规背书。
@@ -114,6 +114,8 @@ cd android
 - 角色正文固定以第一人称「我」叙述自己的动作、感官和心理。第三人称代词只用于他人转述，禁止把角色写成第三人称旁白。
 - 支持角色卡搜索、分组、单卡收起、编辑器分组折叠和完成度提示。
 - 支持导入 Character Card V2/V3、TavernAI 与 PNG chara。
+- 每张卡可填写来源标注与作者 / 作品主页链接。链接只接受 `http` / `https`，仅用于卡片展示，不进入 `system`；找不到作者主页时填作品页或其他公开来源文档，不伪造作者主页。
+- 角色卡页固定显示「来源与导入声明」：二创、游戏、动漫、小说和他人原创设定的版权归原作者，导入前需确认使用与分享权限；商用、公开发布或再分发需另行取得授权。
 - 内置「大肥鱼」「鲸鱼娘」头像，以及欢迎页、API Key 设置页的大肥鱼插图，使用社区二创原图，不使用上游蓝色鲸鱼。角色原型为「溟月」（上善无形），女仆装与 DeepSeek 元素二创由 ZipZipPipe 完成；具体图片作者、文件与许可见 [assets/fanart/SOURCES.md](assets/fanart/SOURCES.md)。
 - 二创图片按 CC BY-NC-SA 4.0 使用：必须署名、禁止商业使用、修改后的图片须以相同协议共享。应用代码的 GPL-3.0 不覆盖这些图片。
 - 世界书最多 100 条，支持关键词或正则命中、常驻条目、按角色绑定、单轮预算、最近发言或整段历史扫描、避触词和三级可信度。
@@ -225,4 +227,5 @@ cd android
 
 - [NOTICE.md](NOTICE.md)：来源、商标、素材、许可证与品牌声明。
 - [SOURCE-BACKUP.md](SOURCE-BACKUP.md)：源码包内容、构建输入与交付边界。
+- [PERFORMANCE-AUDIT.md](PERFORMANCE-AUDIT.md)：WebView 长历史、桥接、状态锁与遮罩四类假死根因的代码级审计。
 - [SYSTEM-PROMPT-PIPELINE.md](SYSTEM-PROMPT-PIPELINE.md)：`system` 装配顺序、请求前缀与缓存边界。

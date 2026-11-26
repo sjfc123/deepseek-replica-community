@@ -5,8 +5,8 @@
 ## 1. 版本标识
 
 - 应用名：`DeepSaga`
-- 版本：`0.9.0`
-- versionCode：`143`
+- 版本：`0.9.1`
+- versionCode：`144`
 - 包名 / namespace：`io.github.sjfc123.deepsaga`
 - 最终版本状态：**自本项目最终版本源代码开源后，将不再进行更新。**
 - 本声明中的“更新”指版本号变更、版本说明追加与发布节点。同步性修正仅限上游兼容、构建修复和安全修补，不属于版本更新；不单独变更版本号、不追加版本说明、不写入变更日志。仅在明确要求时记录。
@@ -18,7 +18,7 @@
 - 前端源码：`src/`、`public/`、配置文件与 `package.json` / `pnpm-lock.yaml`
 - Android 源码：`android/`，含 Gradle 配置、Java 源码、资源与图标
 - 测试脚本：`scripts/`
-- 文档：`README.md`、`NOTICE.md`、`SOURCE-BACKUP.md`、`SYSTEM-PROMPT-PIPELINE.md`
+- 文档：`README.md`、`NOTICE.md`、`SOURCE-BACKUP.md`、`PERFORMANCE-AUDIT.md`、`SYSTEM-PROMPT-PIPELINE.md`
 - 许可证：`LICENSE`、`licenses/MIT-DeepSeek.txt`
 - 网页图标：`src/assets/favicon.png`、`src/assets/apple-touch-icon.png`、`src/assets/app-icon.png`
 - 安卓图标：`mipmap-*` 多密度 PNG、自适应背景层与前景层、`mipmap-anydpi-v26/ic_launcher.xml`
@@ -81,10 +81,10 @@ cd android
 
 发布或分发前，构建者必须核对：
 
-- `aapt2 dump badging`：包名 `io.github.sjfc123.deepsaga`、versionCode `143`、versionName `0.9.0`、application-label `DeepSaga`。
+- `aapt2 dump badging`：包名 `io.github.sjfc123.deepsaga`、versionCode `144`、versionName `0.9.1`、application-label `DeepSaga`。
 - 启动 Activity：`io.github.sjfc123.deepsaga.MainActivity`。
 - APK 内 `ic_launcher.png` 为星空图标，不是上游蓝色鲸鱼。
-- `dist/index.html` 标题为 `DeepSaga`，版本 meta 为 `0.9.0`。
+- `dist/index.html` 标题为 `DeepSaga`，版本 meta 为 `0.9.1`。
 - `dist/favicon.png` 与主脚本返回 HTTP 200。
 - `pnpm type`、`pnpm lint`、`pnpm build` 通过。
 - `pnpm test:system`、`test:roleplay`、`test:story`、`test:auto-backup`、`test:prompt`、`test:memory`、`test:memory-routing`、`test:memory-view`、`test:memory-layers`、`test:groups`、`test:suggestions` 通过。

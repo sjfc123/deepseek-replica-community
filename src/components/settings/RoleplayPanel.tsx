@@ -31,6 +31,7 @@ import {
   findSessionCharacterCard,
   newRoleplayId,
   normalizeKeywords,
+  normalizeSourceUrl,
   normalizeTags,
   readAvatarImage,
   sceneHasContent,
@@ -61,7 +62,7 @@ import {
   WORLDBOOK_BUDGET_MIN,
 } from '../../services/settings.js'
 import { showToast } from '../base/toastState.js'
-import { android, saveAndroidHistory } from '../../app/android.js'
+import { android, openExternalUrl, saveAndroidHistory } from '../../app/android.js'
 import styles from './RoleplayPanel.module.css'
 
 /** 示例模板：字段与角色卡一一对应，点击后整组填入，用户可继续修改 */
@@ -420,6 +421,8 @@ const emptyCard = (name = ''): CharacterCard => ({
   goal: '',
   secret: '',
   speechExamples: '',
+  source: '',
+  sourceUrl: '',
   tags: [],
   createdAt: Date.now(),
   updatedAt: Date.now(),
@@ -552,6 +555,7 @@ export function RoleplayPanel() {
     body: true,
     character: true,
     story: true,
+    source: false,
   })
   const [budgetDraft, setBudgetDraft] = useState(String(worldbookChars))
   const [cardImporting, setCardImporting] = useState(false)
@@ -730,6 +734,16 @@ export function RoleplayPanel() {
     setEntryDraft(null)
   }
 
+  /** 卡片来源链接：保存前与点击时都过一遍协议白名单，避免旧数据里的非法链接被执行 */
+  const openCardSource = (url: string | undefined) => {
+    const safe = normalizeSourceUrl(url)
+    if (!safe) {
+      showToast({ key: 'roleplaySourceUrlBad', type: 'error' })
+      return
+    }
+    openExternalUrl(safe)
+  }
+
   const saveCardDraft = () => {
     if (!cardDraft) {
       return
@@ -739,7 +753,19 @@ export function RoleplayPanel() {
       showToast({ key: 'roleplayNeedName', type: 'error' })
       return
     }
-    const saved = { ...cardDraft, name, tags: normalizeTags(tagDraft), updatedAt: Date.now() }
+    const sourceUrl = normalizeSourceUrl(cardDraft.sourceUrl)
+    if (cardDraft.sourceUrl?.trim() && !sourceUrl) {
+      showToast({ key: 'roleplaySourceUrlBad', type: 'error' })
+      return
+    }
+    const saved = {
+      ...cardDraft,
+      name,
+      source: cardDraft.source?.trim() || undefined,
+      sourceUrl: sourceUrl || undefined,
+      tags: normalizeTags(tagDraft),
+      updatedAt: Date.now(),
+    }
     if (!saveCharacterCard(saved)) {
       showToast({ key: 'roleplayStorageFailed', type: 'error' })
       return
@@ -780,7 +806,7 @@ export function RoleplayPanel() {
       id: newRoleplayId(),
       name: `${card.name} 副本`.slice(0, 30),
       builtin: false,
-      source: undefined,
+      // 副本仍沿用原卡来源，避免复制后丢失作者署名；需要脱离来源时由用户手动清空。
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }
@@ -1058,8 +1084,23 @@ export function RoleplayPanel() {
           <span className={styles.sourceLine}>
             字段支持 {'${char_name}'} 与 {'${user_name}'} 占位符，发送时替换为角色名和账户名。
           </span>
-          {cardDraft.builtin && cardDraft.source ? (
-            <span className={styles.sourceLine}>来源：{cardDraft.source}</span>
+          {cardDraft.source || cardDraft.sourceUrl ? (
+            <span className={styles.sourceLine}>
+              来源：{cardDraft.source || '未填写说明'}
+              {cardDraft.sourceUrl ? (
+                <a
+                  className={styles.sourceLink}
+                  href={cardDraft.sourceUrl}
+                  rel="noopener noreferrer"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    openCardSource(cardDraft.sourceUrl)
+                  }}
+                >
+                  作者 / 作品页 ↗
+                </a>
+              ) : null}
+            </span>
           ) : null}
         </div>
         <div className={styles.avatarEdit}>
@@ -1554,6 +1595,50 @@ export function RoleplayPanel() {
           </label>
             </>
           ) : null}
+
+          <div className={styles.fieldGroup}>
+            <button
+              type="button"
+              className={styles.fieldGroupToggle}
+              aria-expanded={cardSections.source}
+              onClick={() => toggleCardSection('source')}
+            >
+              <strong>来源与署名</strong>
+              <i>{cardSections.source ? '收起' : '展开'}</i>
+            </button>
+            <span>
+              二创、游戏、动漫或小说角色填写作者主页；找不到主页就填作品页或公开来源文档。链接只用于卡片展示，不进入请求。
+            </span>
+          </div>
+          {cardSections.source ? (
+            <>
+              <label className={styles.wide}>
+                <span>来源标注（可选）</span>
+                <input
+                  value={cardDraft.source ?? ''}
+                  maxLength={200}
+                  placeholder="例如：作者名 · 作品名 · 原创 / 二创 · 授权协议"
+                  onChange={(event) => setCardDraft({ ...cardDraft, source: event.target.value })}
+                />
+              </label>
+              <label className={styles.wide}>
+                <span>作者 / 作品主页链接（可选）</span>
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={cardDraft.sourceUrl ?? ''}
+                  maxLength={400}
+                  placeholder="https://space.bilibili.com/… 或作品页、来源文档"
+                  onChange={(event) =>
+                    setCardDraft({ ...cardDraft, sourceUrl: event.target.value })
+                  }
+                />
+              </label>
+              <div className={styles.sourceNote}>
+                导入他人设定前确认你有使用与分享权限；商用、公开发布或二次分发需另行取得授权。找不到作者主页时可填作品页，不要把无关页面写成作者主页。
+              </div>
+            </>
+          ) : null}
         </div>
         <div className={styles.editorActions}>
           <button
@@ -1770,6 +1855,15 @@ export function RoleplayPanel() {
           </span>
         </div>
 
+        <div className={styles.sourceNotice} role="note">
+          <strong>来源与导入声明</strong>
+          <p>
+            角色卡可能来自二创、游戏、动漫、小说或他人原创设定，版权与演绎授权归原作者。
+            导入前先确认你有使用和分享权限；商用、公开发布或再分发需另行取得授权。
+            卡片内的「作者 / 作品页」只用于标明来源，不代表作者背书；找不到作者主页时填作品页，来源不明的内容不要公开传播。
+          </p>
+        </div>
+
         <div className={styles.modeCard} data-on={roleplayOn}>
           <span className={styles.modeIcon} aria-hidden="true">
             {roleplayOn ? '扮' : activeCard ? '存' : '词'}
@@ -1939,6 +2033,24 @@ export function RoleplayPanel() {
                             <span key={tag}>{tag}</span>
                           ))}
                           {card.tags.length > 3 ? <span>+{card.tags.length - 3}</span> : null}
+                        </div>
+                      ) : null}
+                      {card.source || card.sourceUrl ? (
+                        <div className={styles.cardSource}>
+                          <span>{card.source ? `来源：${card.source}` : '来源未填写说明'}</span>
+                          {card.sourceUrl ? (
+                            <a
+                              className={styles.sourceLink}
+                              href={card.sourceUrl}
+                              rel="noopener noreferrer"
+                              onClick={(event) => {
+                                event.preventDefault()
+                                openCardSource(card.sourceUrl)
+                              }}
+                            >
+                              作者 / 作品页 ↗
+                            </a>
+                          ) : null}
                         </div>
                       ) : null}
                       <div className={styles.cardMeta}>

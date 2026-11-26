@@ -168,6 +168,9 @@
 /* 记忆选择：长按进入后，整行可点选；选中行只做轻量高亮，不改变原有排版 */
 .memorySelectRow {
   position: relative;
+  /* 长会话里只绘制视口附近的行；离屏行保留占位高度，避免一次性重排整棵消息树 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 180px;
 }
 
 [data-memory-selected='true'] {

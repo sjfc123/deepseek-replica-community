@@ -28,9 +28,14 @@ type MemorySpeech = {
   summary: string[]
 }
 
-const USER_LINE = /^\s*(?:用户|玩家|user)\s*[：:]\s*(.*)$/i
-const CHARACTER_LINE = /^\s*(?:角色|助手|AI|assistant)\s*[：:]\s*(.*)$/i
-const HEADER_LINE = /^\s*【[^】]*】\s*$/
+/**
+ * 自动记忆写入的是「玩家提问：」「角色回应：」，旧卡与手工卡可能只写「用户：」「角色：」。
+ * 两种都要认，且允许时间戳头与正文同处一行；否则发言筛选会把整轮卡全部归进摘要。
+ */
+const USER_LINE = /^\s*(?:用户|玩家|user)(?:提问|发言|说|问)?\s*[：:]\s*(.*)$/i
+const CHARACTER_LINE =
+  /^\s*(?:角色|助手|AI|assistant)(?:回应|回答|发言|说|答)?\s*[：:]\s*(.*)$/i
+const HEADER_PREFIX = /^\s*【[^】]*】\s*/
 
 const memoryPool = (card: MemoryCard) => (card.pool === 'normal' ? 'normal' : 'character')
 
@@ -45,31 +50,49 @@ export const sortMemoryEntries = (entries: MemoryListEntry[]): MemoryListEntry[]
 
 /**
  * 把一轮卡片拆成用户发言、角色发言和剧情摘要。
- * 自动角色卡按「用户：… / 角色：…」行拆分；提炼卡、手写概述归入摘要。
+ * 自动卡按「玩家提问：… / 角色回应：…」拆分，同时兼容旧卡的「用户：/ 角色：」；
+ * 同一条发言跨多行时，直到下一条发言前缀出现前都归当前发言。
  * 普通记忆没有前缀时按 category 兜底，避免用户原话 / AI 原话筛选失效。
  */
 export const getMemorySpeech = (card: MemoryCard): MemorySpeech => {
   const speech: MemorySpeech = { user: [], character: [], summary: [] }
+  // 自动卡带 owner：整张卡都属于该发言，后续无前缀行不能被当成剧情摘要。
+  let current: keyof MemorySpeech | null =
+    card.owner === 'user' || card.owner === 'character' ? card.owner : null
+  let continuation = false
   for (const line of card.text.split(/\r?\n/)) {
     const trimmed = line.trim()
-    if (!trimmed || HEADER_LINE.test(trimmed)) {
+    if (!trimmed) {
       continue
     }
-    const user = trimmed.match(USER_LINE)
+    // 时间戳头可能单独一行，也可能与「玩家提问/角色回应」挤在同一行。
+    const body = trimmed.replace(HEADER_PREFIX, '').trim()
+    if (!body) {
+      continue
+    }
+    const user = body.match(USER_LINE)
     if (user) {
+      current = 'user'
+      continuation = !user[1]
       if (user[1]) {
         speech.user.push(user[1])
       }
       continue
     }
-    const character = trimmed.match(CHARACTER_LINE)
+    const character = body.match(CHARACTER_LINE)
     if (character) {
+      current = 'character'
+      continuation = !character[1]
       if (character[1]) {
         speech.character.push(character[1])
       }
       continue
     }
-    speech.summary.push(trimmed)
+    const target: keyof MemorySpeech =
+      current && (card.owner === current || continuation) ? current : 'summary'
+    speech[target].push(body)
+    current = target
+    continuation = false
   }
   if (memoryPool(card) === 'normal' && speech.user.length === 0 && speech.character.length === 0) {
     if (card.category === 'user') {

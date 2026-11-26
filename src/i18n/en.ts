@@ -483,6 +483,7 @@ export const en = {
   settingsLocaleZhCN: 'Simplified Chinese',
   settingsLocaleEnUS: 'English',
   roleplayNeedName: 'Enter a character name first',
+  roleplaySourceUrlBad: 'Invalid source link. Only http / https addresses are allowed.',
   roleplayStorageFailed: 'Local storage failed. Try again.',
   roleplayCardSaved: 'Character card “{name}” saved',
   roleplayIntroStarted: '“{name}” is active; a new chat was created with the opener',

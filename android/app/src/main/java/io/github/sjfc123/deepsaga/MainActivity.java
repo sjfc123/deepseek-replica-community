@@ -734,6 +734,31 @@ public final class MainActivity extends Activity {
                 .putExtra("retryLabel", retryLabel)));
         }
 
+        /**
+         * 角色卡作者/作品链接：只放行 http/https，交给系统浏览器而不是在当前 WebView 内跳走。
+         * 返回 true 表示已受理；没有可用浏览器时返回 false，由网页端决定是否新开标签页。
+         */
+        @JavascriptInterface
+        public boolean openExternalUrl(String url) {
+            try {
+                Uri uri = Uri.parse(url);
+                String scheme = uri.getScheme();
+                if (!"https".equals(scheme) && !"http".equals(scheme)) {
+                    return false;
+                }
+                runOnUiThread(() -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                    } catch (Exception ignored) {
+                        // 设备没有可处理链接的浏览器时保持当前页面，不把 WebView 跳到错误页。
+                    }
+                });
+                return true;
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
+
         @JavascriptInterface
         public String readApiKey() { return keys.read(); }
 

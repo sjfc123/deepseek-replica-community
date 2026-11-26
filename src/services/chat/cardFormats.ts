@@ -10,6 +10,7 @@ import {
   findWorldbookKind,
   newRoleplayId,
   normalizeKeywords,
+  normalizeSourceUrl,
   normalizeTags,
   normalizeCharacterStory,
   WORLDBOOK_WEIGHT_DEFAULT,
@@ -184,6 +185,30 @@ const toCard = (source: unknown): CharacterCard | null => {
     .filter(Boolean)
     .join('\n')
   const creator = firstText(data.creator, outer.creator)
+  const extensions = record(data.extensions) ?? record(outer.extensions)
+  // 标准卡没有统一的作者链接字段：优先读常见扩展键，其次从作者说明里提取第一条 http(s) 链接。
+  const creatorUrl = firstText(
+    data.creator_url,
+    outer.creator_url,
+    data.creatorUrl,
+    outer.creatorUrl,
+    data.author_url,
+    outer.author_url,
+    data.authorUrl,
+    outer.authorUrl,
+    data.source_url,
+    outer.source_url,
+    data.sourceUrl,
+    outer.sourceUrl,
+    data.homepage,
+    outer.homepage,
+    extensions?.creator_url,
+    extensions?.creatorUrl,
+    extensions?.author_url,
+    extensions?.authorUrl
+  )
+  const notesUrl = creatorNotes.match(/https?:\/\/[^\s"'<>）)，。；、\]】]+/i)?.[0] ?? ''
+  const creatorAsUrl = /^https?:\/\//i.test(creator) ? creator : ''
   return {
     id: newRoleplayId(),
     name,
@@ -252,7 +277,8 @@ const toCard = (source: unknown): CharacterCard | null => {
     tags: normalizeTags(data.tags ?? outer.tags),
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    source: `导入 · ${creator || '外部角色卡'}`.slice(0, 160),
+    source: `导入 · ${creator || '外部角色卡'}`.slice(0, 200),
+    sourceUrl: normalizeSourceUrl(creatorUrl || notesUrl || creatorAsUrl),
   }
 }
 

@@ -52,6 +52,52 @@ assert.equal(memoryTextForView(plainUser, 'user'), '喜欢喝冰美式')
 const plainAi = card({ text: '建议先备份再改配置', pool: 'normal', category: 'ai' })
 assert.deepEqual(getMemorySpeech(plainAi).character, ['建议先备份再改配置'])
 
+// 自动整轮卡实际写入的是「玩家提问 / 角色回应」，且用户卡与角色卡各自带 owner；
+// 旧测试只覆盖「用户 / 角色」，曾导致两个发言筛选都显示空列表。
+const autoUser = card({
+  owner: 'user',
+  text: '【2026-11-26 周四 07:40 · 第1轮】\n玩家提问：\n你好\n【2026-11-26 周四 07:41 · 第2轮】玩家提问：这么多年不见你还是如初',
+})
+const autoCharacter = card({
+  owner: 'character',
+  text: '【2026-11-26 周四 07:41 · 第2轮】\n角色回应：\n*把橘子塞回你怀里*\n这么多年不见？\n\n*顿了段，还是笑了*\n行吧，就当久别重逢。',
+})
+assert.deepEqual(getMemorySpeech(autoUser).user, ['你好', '这么多年不见你还是如初'])
+assert.deepEqual(getMemorySpeech(autoUser).summary, [])
+assert.deepEqual(getMemorySpeech(autoCharacter).character, [
+  '*把橘子塞回你怀里*',
+  '这么多年不见？',
+  '*顿了段，还是笑了*',
+  '行吧，就当久别重逢。',
+])
+assert.deepEqual(getMemorySpeech(autoCharacter).summary, [])
+assert.equal(memoryTextForView(autoUser, 'user'), '你好\n这么多年不见你还是如初')
+assert.equal(
+  memoryTextForView(autoCharacter, 'character'),
+  '*把橘子塞回你怀里*\n这么多年不见？\n*顿了段，还是笑了*\n行吧，就当久别重逢。'
+)
+const autoList = [
+  { messageId: 'auto-user', card: autoUser },
+  { messageId: 'auto-character', card: autoCharacter },
+]
+for (const [speech, expected] of [
+  ['user', 'auto-user'],
+  ['character', 'auto-character'],
+]) {
+  assert.deepEqual(
+    filterMemoryEntries(autoList, {
+      pool: 'character',
+      status: 'all',
+      speech,
+      time: 'all',
+      query: '',
+      now: 100,
+    }).map((entry) => entry.messageId),
+    [expected],
+    `自动整轮卡必须命中「${speech}」筛选`
+  )
+}
+
 const list = [
   { messageId: 'a', card: card({ id: 'u', text: '用户：蓝色\n角色：红色', createdAt: 5 }) },
   { messageId: 'b', card: card({ id: 'c', text: '角色：只记角色', createdAt: 10 }) },

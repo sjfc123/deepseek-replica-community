@@ -21,6 +21,8 @@ type AndroidBridge = {
     errorLabel: string,
     retryLabel: string
   ) => void
+  /** 交给系统浏览器打开 http/https 链接；旧包没有此方法 */
+  openExternalUrl?: (url: string) => boolean
   readApiKey: () => string | null
   writeApiKey: (value: string | null) => boolean
   readChatConfig: () => string | null
@@ -77,6 +79,24 @@ type AndroidBridge = {
 }
 
 export const android = (window as Window & { DeepSeekAndroid?: AndroidBridge }).DeepSeekAndroid
+
+/**
+ * 角色卡来源链接统一出口：Android 交给系统浏览器，网页端新开标签页。
+ * 原生桥接只接受 http/https；调用方仍应先经过 normalizeSourceUrl。
+ */
+export const openExternalUrl = (url: string) => {
+  const device = android
+  if (device?.openExternalUrl) {
+    try {
+      if (device.openExternalUrl(url)) {
+        return
+      }
+    } catch {
+      // 旧包或浏览器无可用 Activity 时落到网页端兜底。
+    }
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
 
 export const writeAndroidBlob = async (blob: Blob, append: (base64: string) => boolean) => {
   const chunkSize = 32768

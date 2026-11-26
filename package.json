@@ -1,6 +1,6 @@
 {
   "name": "deepsaga",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "DeepSaga：基于 DeepSeek App Replica 与 DeepChat 部分功能移植的 Android 角色扮演客户端；仓库保存源码，编译、签名与分发由操作者自行承担。",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -12,7 +12,7 @@
     "lint": "oxlint src rspack.config.ts",
     "format": "oxfmt --write .",
     "test:system": "node --experimental-strip-types scripts/test-system-prompt.mjs",
-    "test:roleplay": "node --experimental-strip-types scripts/test-roleplay.mjs",
+    "test:roleplay": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-roleplay.mjs",
     "test:story": "node --experimental-strip-types scripts/test-story.mjs",
     "test:auto-backup": "node --experimental-strip-types scripts/test-auto-backup.mjs",
     "test:prompt": "node --experimental-strip-types scripts/test-default-prompt.mjs",
