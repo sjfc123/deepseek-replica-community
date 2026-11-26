@@ -55,7 +55,7 @@ import {
   type MemoryTimeFilter,
 } from '../../services/chat/memoryView.js'
 import type { Session } from '../../services/chat/types.js'
-import { useSettings } from '../../services/settings.js'
+import { resolveUserName, useSettings } from '../../services/settings.js'
 import { closeMemoryPanel } from './memoryPanelState.js'
 import styles from './MemoryPanel.module.css'
 
@@ -159,15 +159,19 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     ? findActiveCharacterCard(characterCards, activeCharacterId)
     : undefined
   const displayCard = sessionCard ?? activeCard
+  const resolvedCharacterName = resolveMemoryDisplayName({
+    cardName: displayCard?.name,
+    characterName,
+    custom: false,
+  })
   const characterMemoryActive =
     Boolean(systemPrompt.trim()) &&
-    memoryPoolForDisplayName(
-      resolveMemoryDisplayName({
-        cardName: displayCard?.name,
-        characterName,
-        custom: false,
-      })
-    ) === 'character'
+    memoryPoolForDisplayName(resolvedCharacterName) === 'character'
+  // 旧卡没有 speaker 字段时，用当前玩家名与角色名补上归属，不再统一显示「用户」。
+  const memoryNames = {
+    user: resolveUserName(),
+    character: characterMemoryActive ? resolvedCharacterName : '',
+  }
   const [draft, setDraft] = useState('')
   const [draftKind, setDraftKind] = useState<NormalMemoryKind | 'auto'>('auto')
   const [draftCharacterKind, setDraftCharacterKind] =
@@ -470,7 +474,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                 ? ` · 场景 ${sceneCount} · 事实 ${factCount}`
                 : ''}
               {pool === 'character' && (ownerCounts.character > 0 || ownerCounts.user > 0)
-                ? ` · 角色本人 ${ownerCounts.character} · 玩家本人 ${ownerCounts.user}`
+                ? ` · ${memoryOwnerLabel('character', memoryNames)} ${ownerCounts.character} · ${memoryOwnerLabel('user', memoryNames)} ${ownerCounts.user}`
                 : ''}
               {manualCount > 0 ? ` · 当前手动 ${manualCount}` : ''}
               {pinnedCount > 0 ? ` · 当前置顶 ${pinnedCount}` : ''}
@@ -684,6 +688,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             <>
               {filtered.slice(0, shown).map(({ card, messageId }) => {
                 const visibleText = memoryTextForView(card, speech)
+                const owner = getMemoryOwner(card)
                 const speechParts = getMemorySpeech(card)
                 const hasBothSpeeches =
                   speechParts.user.length > 0 && speechParts.character.length > 0
@@ -724,9 +729,9 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                           {card.superseded ? ' · 已归档' : ''}
                         </span>
                         {card.pool === 'character' &&
-                        (card.source === 'manual' || getMemoryOwner(card) !== 'shared') ? (
-                          <span className={styles.ownerTag} data-owner={getMemoryOwner(card)}>
-                            {memoryOwnerLabel(getMemoryOwner(card))}
+                        (card.source === 'manual' || owner !== 'shared') ? (
+                          <span className={styles.ownerTag} data-owner={owner}>
+                            {card.speaker || memoryOwnerLabel(owner, memoryNames)}
                           </span>
                         ) : null}
                         {card.trigger ? (

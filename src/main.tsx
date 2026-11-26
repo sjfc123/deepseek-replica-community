@@ -47,10 +47,9 @@ createRoot(document.getElementById('root') as HTMLElement).render(
   </CrashScreen>
 )
 requestAnimationFrame(() => {
-  ;(
-    window as Window & { __replicaReady?: boolean; __replicaBootDone?: () => void }
-  ).__replicaReady = true
-  ;(window as Window & { __replicaBootDone?: () => void }).__replicaBootDone?.()
+  // 只标记脚本已执行；遮罩等 App 真正画出会话后再由 App 调用 __replicaBootDone，
+  // 否则 React 尚未提交首屏就淡出，会先露出空白再弹出对话，形成一次闪白。
+  ;(window as Window & { __replicaReady?: boolean }).__replicaReady = true
 })
 
 /* ============================================================================

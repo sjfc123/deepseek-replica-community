@@ -157,6 +157,8 @@ export const App = () => {
   const saveErrors = useChatStore((state) => state.sessionSaveErrors)
   const saveError = Object.values(saveErrors).some(Boolean)
   const importingHistory = useChatStore((state) => state.importingHistory)
+  const chatReady = useChatStore((state) => state.ready)
+  const chatInitError = useChatStore((state) => state.initError)
   const frameRef = useMobileViewport(isMobile && !android && !needsApiKey)
   const drawerGesture = useAndroidDrawerGesture(
     frameRef,
@@ -351,6 +353,23 @@ export const App = () => {
       ensureApiKey()
     }
   }, [])
+
+  useEffect(() => {
+    // 等会话首屏（或 API Key 页 / 初始化错误页）真正提交并完成两帧绘制后再收启动遮罩。
+    if (!needsApiKey && !chatReady && !chatInitError) {
+      return
+    }
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
+        ;(window as Window & { __replicaBootDone?: () => void }).__replicaBootDone?.()
+      })
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+    }
+  }, [chatInitError, chatReady, needsApiKey])
 
   useEffect(() => {
     if (!android) {

@@ -1687,6 +1687,33 @@ const notifyMemoryAdded = (sessionId: string, kind: 'turn' | 'refine' | 'manual'
   window.dispatchEvent(new CustomEvent('replica:memory-added', { detail: { kind, count } }))
 }
 
+/**
+ * 记忆正文的说话人名字：玩家用账号名，角色优先用当前会话卡名；
+ * 两者都没有时回退到内置青梅竹马或「玩家 / 角色」，避免长期记忆继续写泛称「用户」。
+ */
+const memoryNames = (sessionId: string): { userName: string; characterName: string } => {
+  const settings = useSettings.getState()
+  const session = getSession(sessionId)
+  const card = resolveTurnCharacterCard(
+    settings.characterCards,
+    session,
+    settings.activeCharacterId,
+    settings.roleplayEnabled
+  )
+  const displayName = resolveMemoryDisplayName({
+    cardName: card?.name,
+    characterName: settings.characterName,
+    custom: Boolean(settings.chatConfig.endpoint),
+  })
+  return {
+    userName: resolveUserName(),
+    characterName:
+      memoryPoolForDisplayName(displayName) === 'character'
+        ? displayName
+        : DEFAULT_SUPPRESSION_PERSONA_NAME,
+  }
+}
+
 /** 一轮结束后用模型把记忆合并重写；失败就保留整轮记录，不影响聊天 */
 const refineMemories = async (
   sessionId: string,
@@ -1715,6 +1742,7 @@ const refineMemories = async (
     .map((entry) => entry.card)
     .slice(-30)
   let text = ''
+  const names = memoryNames(sessionId)
   try {
     const events = streamChatMessage(
       chatConfig,
@@ -1726,7 +1754,13 @@ const refineMemories = async (
         messages: [
           {
             role: 'user',
-            content: buildRefinePrompt(cards, question, answer, resolveUserName()),
+            content: buildRefinePrompt(
+              cards,
+              question,
+              answer,
+              names.userName,
+              names.characterName
+            ),
           },
         ],
         thinking: { type: 'disabled' },
@@ -1946,10 +1980,14 @@ const recordTurnMemory = (
     relationship: relationship || undefined,
   }
   // 角色池把这一轮拆成玩家提问与角色回应两张，各自带归属；普通池仍是一张对话卡。
+  const names = memoryNames(sessionId)
   const cards =
     pool === 'character'
-      ? buildTurnMemoryCards(question, answer, meta).map((part) =>
-          createMemoryCard(part.text, 'auto', at, { owner: part.owner })
+      ? buildTurnMemoryCards(question, answer, { ...meta, ...names }).map((part) =>
+          createMemoryCard(part.text, 'auto', at, {
+            owner: part.owner,
+            speaker: part.speaker,
+          })
         )
       : (() => {
           const text = buildTurnMemoryText(question, answer, meta)
@@ -2173,7 +2211,7 @@ export const saveMessagesAsMemory = (
             picked,
             startTurn,
             (user, assistant) => indexById.get(assistant.id) === (indexById.get(user.id) ?? -2) + 1,
-            { split: pool === 'character' }
+            { split: pool === 'character', ...memoryNames(sessionId) }
           )
   const ownedDrafts = owner
     ? drafts.map((draft) => ({ ...draft, card: { ...draft.card, owner } }))

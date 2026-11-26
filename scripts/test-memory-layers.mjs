@@ -34,6 +34,24 @@ assert.equal(split[1].owner, 'character', '角色回复必须标角色本人')
 assert.match(split[1].text, /角色回应/)
 assert.doesNotMatch(split[1].text, /玩家提问/)
 
+// 有名字时，自动记忆不再写「用户 / 玩家提问」，而是写成具体说话人，并保存 speaker 供面板显示。
+const named = buildTurnMemoryCards('今天去哪？', '去旧屋看看。', {
+  at: 2,
+  userName: '林默',
+  characterName: '凯伊',
+})
+assert.match(named[0].text, /林默：今天去哪？/)
+assert.doesNotMatch(named[0].text, /用户：|玩家提问/)
+assert.equal(named[0].speaker, '林默')
+assert.match(named[1].text, /凯伊：去旧屋看看。/)
+assert.equal(named[1].speaker, '凯伊')
+const sameName = buildTurnMemoryCards('你是谁？', '我是凯伊。', {
+  userName: '凯伊',
+  characterName: '凯伊',
+})
+assert.match(sameName[0].text, /凯伊（玩家）：你是谁？/)
+assert.match(sameName[1].text, /凯伊（角色）：我是凯伊。/)
+
 const turnMessages = [
   { id: 'u1', role: 'user', content: '窗户还是打不开吗？', createdAt: 10, blocks: [] },
   {
@@ -160,9 +178,19 @@ assert.equal(getMemoryOwner(ownedManual), 'character')
 assert.equal(memoryOwnerLabel('character'), '角色本人')
 assert.equal(memoryOwnerLabel('user'), '玩家本人')
 assert.equal(memoryOwnerLabel('shared'), '共同经历')
+assert.equal(memoryOwnerLabel('user', { user: '林默' }), '林默')
+assert.equal(memoryOwnerLabel('character', { character: '凯伊' }), '凯伊')
+assert.equal(memoryOwnerLabel('user', { user: '用户' }), '玩家本人')
 assert.equal(getMemoryOwner(card('legacy', '旧卡', 1)), 'shared', '旧卡默认共同经历')
 const ownedBlock = formatMemoryBlock([ownedManual], 1, MEMORY_MAX_CHARS)
 assert.match(ownedBlock, /（角色本人）/)
+const namedBlock = formatMemoryBlock(
+  [createMemoryCard('我怕黑，睡觉要留灯。', 'auto', 60, { owner: 'user', speaker: '林默' })],
+  1,
+  MEMORY_MAX_CHARS
+)
+assert.match(namedBlock, /（林默）/)
+assert.doesNotMatch(namedBlock, /（玩家本人）/)
 assert.match(ownedBlock, /（回忆触发：关灯、走廊、睡觉）/)
 assert.match(ownedBlock, /（可主动提起）/)
 assert.match(ownedBlock, /标了「角色本人」/)

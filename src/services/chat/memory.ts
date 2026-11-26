@@ -23,15 +23,33 @@ export type MemoryOwner = 'character' | 'user' | 'shared'
 
 export const MEMORY_OWNERS: MemoryOwner[] = ['shared', 'character', 'user']
 
-export const memoryOwnerLabel = (owner: MemoryOwner) => {
+export type MemoryNames = {
+  user?: string
+  character?: string
+}
+
+const PLACEHOLDER_NAMES = ['用户', '本地用户', '玩家', '角色', 'ai', 'deepseek', 'assistant']
+
+/** 去掉昵称里的冒号与换行，避免拼进记忆行时破坏「名字：正文」结构。 */
+const cleanMemoryName = (value: string | undefined) => {
+  const name = (value ?? '').replace(/[:：\r\n]+/g, ' ').trim()
+  return name && !PLACEHOLDER_NAMES.includes(name.toLowerCase()) ? name : ''
+}
+
+/** 面板标签优先显示当时记录的名字；没有名字或仍是占位名时回退到归属说明。 */
+export const memoryOwnerLabel = (owner: MemoryOwner, names?: MemoryNames) => {
   if (owner === 'character') {
-    return '角色本人'
+    return cleanMemoryName(names?.character) || '角色本人'
   }
   if (owner === 'user') {
-    return '玩家本人'
+    return cleanMemoryName(names?.user) || '玩家本人'
   }
   return '共同经历'
 }
+
+/** 自动记忆正文里的说话人：有名字用名字，没有名字用玩家 / 角色，不再写泛称「用户」。 */
+export const memorySpeakerName = (value: string | undefined, fallback: '玩家' | '角色') =>
+  cleanMemoryName(value) || fallback
 
 export const CHARACTER_MEMORY_KINDS: CharacterMemoryKind[] = ['turn', 'scene', 'fact']
 
@@ -124,6 +142,8 @@ export type MemoryCard = {
   memoryKind?: CharacterMemoryKind
   /** 记忆归属；缺省视为共同经历，避免旧卡被误判成角色或玩家单方 */
   owner?: MemoryOwner
+  /** 生成这张卡时的说话人名字；旧卡没有该字段，面板回退到归属说明 */
+  speaker?: string
   /** 玩家提到这些词、动作或地点时，角色更容易想起这张卡；只作触发线索，不朗读 */
   trigger?: string
   /** 允许角色在气氛合适时主动提起，不必等玩家问到 */
@@ -345,24 +365,45 @@ export const buildTurnMemoryText = (
 export const buildTurnMemoryCards = (
   question: string,
   answer: string,
-  meta: { at?: number; turnIndex?: number; relationship?: string } = {}
-): Array<{ text: string; owner: MemoryOwner }> => {
+  meta: {
+    at?: number
+    turnIndex?: number
+    relationship?: string
+    userName?: string
+    characterName?: string
+  } = {}
+): Array<{ text: string; owner: MemoryOwner; speaker?: string }> => {
   const asked = question.trim()
   const replied = answer.trim()
   const head = meta.at
     ? `【${formatMemoryStamp(meta.at)}${meta.turnIndex ? ` · 第${meta.turnIndex}轮` : ''}${meta.relationship ? ` · 关系：${meta.relationship}` : ''}】`
     : ''
-  const cards: Array<{ text: string; owner: MemoryOwner }> = []
+  // 有名字时写成「凯伊：… / 小明：…」；同一名字加身份后缀，避免两句话看起来是同一个人说的。
+  const named = Boolean(cleanMemoryName(meta.userName) || cleanMemoryName(meta.characterName))
+  const userSpeaker = memorySpeakerName(meta.userName, '玩家')
+  const characterSpeaker = memorySpeakerName(meta.characterName, '角色')
+  const sameSpeaker = named && userSpeaker === characterSpeaker
+  const userPrefix = named
+    ? `${sameSpeaker ? `${userSpeaker}（玩家）` : userSpeaker}：`
+    : '玩家提问：'
+  const characterPrefix = named
+    ? `${sameSpeaker ? `${characterSpeaker}（角色）` : characterSpeaker}：`
+    : '角色回应：'
+  const cards: Array<{ text: string; owner: MemoryOwner; speaker?: string }> = []
   if (asked) {
     cards.push({
-      text: [head, `玩家提问：${asked}`].filter(Boolean).join('\n'),
+      text: [head, `${userPrefix}${asked}`].filter(Boolean).join('\n'),
       owner: 'user',
+      ...(named ? { speaker: sameSpeaker ? `${userSpeaker}（玩家）` : userSpeaker } : {}),
     })
   }
   if (replied) {
     cards.push({
-      text: [head, `角色回应：${replied}`].filter(Boolean).join('\n'),
+      text: [head, `${characterPrefix}${replied}`].filter(Boolean).join('\n'),
       owner: 'character',
+      ...(named
+        ? { speaker: sameSpeaker ? `${characterSpeaker}（角色）` : characterSpeaker }
+        : {}),
     })
   }
   return cards
@@ -741,8 +782,13 @@ export const formatMemoryBlock = (
     const lines: string[] = []
     for (const card of items) {
       const owner = getMemoryOwner(card)
-      const ownerTag =
-        owner === 'character' ? '（角色本人）' : owner === 'user' ? '（玩家本人）' : ''
+      const ownerTag = card.speaker
+        ? `（${card.speaker}）`
+        : owner === 'character'
+          ? '（角色本人）'
+          : owner === 'user'
+            ? '（玩家本人）'
+            : ''
       const triggerTag = card.trigger ? `（回忆触发：${card.trigger}）` : ''
       const proactiveTag = card.proactive ? '（可主动提起）' : ''
       const line = `- ${ownerTag}${triggerTag}${proactiveTag}${card.text.replace(/\n/g, ' / ')}`
@@ -780,7 +826,7 @@ export const formatMemoryBlock = (
     '7. 不要向{{user}}复述本段，也不要提到「记忆」「卡片」「设定」这类词；被问到“你还记得吗”时，用角色的视角自然回答记得什么，不要回答成“我是 AI，没有记忆”。\n' +
     '8. 记忆里出现「{{user}}」、玩家自己填写的名字或「用户」时，都指当前玩家；出现角色名、「角色」或「你」时，都指你。称呼不同不代表换人。\n' +
     '9. 当{{user}}询问自己或角色的姓名、喜好、习惯、经历、关系这类已知信息时，先查下面的记忆再回答；有明确记录就当成既定事实，直接给出记录中的答案。\n' +
-    '10. 标了「角色本人」的是角色自己的经历、喜好、习惯或承诺；标了「玩家本人」的是玩家告诉角色的关于玩家的事。不要把玩家的事实说成角色自己的，也不要把角色的事塞给玩家。\n' +
+    '10. 标了「角色本人」或角色名的是角色自己的经历、喜好、习惯或承诺；标了「玩家本人」或玩家名的是玩家告诉角色的关于玩家的事。不要把玩家的事实说成角色自己的，也不要把角色的事塞给玩家。\n' +
     '11. 「回忆触发」只用来判断什么时候想起：玩家说到相关词、做出相关动作或走到相关地点时，再自然提起；不要把“触发”“记忆卡”这类词念出来。标了「可主动提起」的卡片不要只等玩家问：话题靠近、气氛停顿，或角色有理由想起时，用一句具体的话主动带出来（例如“上次你说……我后来一直记着”），不要每轮重复，也不要一次把几张卡全倒出来。\n' +
     sections.join('\n\n')
   )
@@ -791,20 +837,24 @@ export const buildRefinePrompt = (
   cards: MemoryCard[],
   question: string,
   answer: string,
-  userName: string
+  userName: string,
+  characterName = ''
 ) => {
   const existing =
     cards.length > 0
       ? cards
           .map((card, index) => {
-            const owner = memoryOwnerLabel(getMemoryOwner(card))
+            const owner = card.speaker || memoryOwnerLabel(getMemoryOwner(card))
             return `${index + 1}. [${owner}] ${card.text.replace(/\n/g, ' / ')}`
           })
           .join('\n')
       : '（暂无）'
   return (
-    `用户名字：${userName}\n\n【已有记忆】\n${existing}\n\n` +
-    `【最新一轮】\n[玩家本人] 玩家提问：${question.trim()}\n[角色本人] 角色回应：${answer.trim()}\n\n` +
+    `用户名字：${memorySpeakerName(userName, '玩家')}\n` +
+    `${characterName ? `角色名字：${memorySpeakerName(characterName, '角色')}\n` : ''}` +
+    `\n【已有记忆】\n${existing}\n\n` +
+    `【最新一轮】\n[玩家本人] ${memorySpeakerName(userName, '玩家')}：${question.trim()}\n` +
+    `[角色本人] ${memorySpeakerName(characterName, '角色')}：${answer.trim()}\n\n` +
     '请把最新一轮并入已有记忆，输出合并后的记忆清单。每行开头必须标归属：' +
     '[玩家本人] 只写玩家自己的经历、喜好、说法和承诺；[角色本人] 只写角色自己的经历、反应和承诺；' +
     '[共同经历] 只写双方一起经历、约定或关系变化。' +
@@ -840,7 +890,15 @@ export const createMemoryCard = (
   createdAt = Date.now(),
   options: Pick<
     MemoryCard,
-    'pool' | 'category' | 'language' | 'memoryKind' | 'owner' | 'trigger' | 'proactive' | 'pinned'
+    | 'pool'
+    | 'category'
+    | 'language'
+    | 'memoryKind'
+    | 'owner'
+    | 'speaker'
+    | 'trigger'
+    | 'proactive'
+    | 'pinned'
   > = {}
 ): MemoryCard => ({
   id: createId(),
@@ -853,6 +911,7 @@ export const createMemoryCard = (
   ...(options.language ? { language: options.language } : {}),
   ...(options.memoryKind ? { memoryKind: options.memoryKind } : {}),
   ...(options.owner ? { owner: options.owner } : {}),
+  ...(options.speaker ? { speaker: options.speaker } : {}),
   ...(options.trigger?.trim() ? { trigger: options.trigger.trim() } : {}),
   ...(options.proactive ? { proactive: true } : {}),
   ...(options.pinned ? { pinned: true } : {}),
@@ -873,7 +932,7 @@ export const buildConversationMemoryCards = (
   messages: Message[],
   startTurn = 0,
   pairAdjacent?: (user: Message, assistant: Message) => boolean,
-  options: { split?: boolean } = {}
+  options: { split?: boolean; userName?: string; characterName?: string } = {}
 ): ConversationMemoryDraft[] => {
   const drafts: ConversationMemoryDraft[] = []
   let pendingUser: Message | null = null
@@ -882,13 +941,21 @@ export const buildConversationMemoryCards = (
     if (!question.trim() && !answer.trim()) {
       return
     }
-    const meta = { at: target.createdAt, turnIndex: turn + 1 }
+    const meta = {
+      at: target.createdAt,
+      turnIndex: turn + 1,
+      userName: options.userName,
+      characterName: options.characterName,
+    }
     turn += 1
     if (options.split) {
       for (const part of buildTurnMemoryCards(question, answer, meta)) {
         drafts.push({
           messageId: target.id,
-          card: createMemoryCard(part.text, 'bulk', target.createdAt, { owner: part.owner }),
+          card: createMemoryCard(part.text, 'bulk', target.createdAt, {
+            owner: part.owner,
+            speaker: part.speaker,
+          }),
         })
       }
       return
