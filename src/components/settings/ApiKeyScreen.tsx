@@ -5,7 +5,7 @@
  * ========================================================================== */
 
 import { useState } from 'react'
-import whale from '../../assets/deepseek-whale.svg'
+import fatFishIcon from '../../assets/dafeiyu-icon.png'
 import { useTranslate } from '../../i18n/index.js'
 import { AdvancedApiDialog } from './AdvancedApiSettings.js'
 import advancedStyles from './AdvancedApiSettings.module.css'
@@ -26,7 +26,7 @@ export const ApiKeyScreen = () => {
           void form.submit()
         }}
       >
-        <img className={styles.whale} src={whale} alt="" />
+        <img className={styles.fatFish} src={fatFishIcon} alt="" />
         <h1>{t('apiKeyStart')}</h1>
         <input
           aria-label="DeepSeek API Key"

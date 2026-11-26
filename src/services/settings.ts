@@ -471,7 +471,7 @@ const initialCardAvatars = (): Record<string, string> => {
     cards.map((card) => card.id),
     readBuiltinAvatarRemoved()
   )
-  if (seeded.added > 0) {
+  if (seeded.added > 0 || seeded.replaced > 0) {
     write(KEYS.cardAvatars, JSON.stringify(seeded.avatars))
   }
   return seeded.avatars
@@ -1056,7 +1056,7 @@ export const restoreBuiltinCharacterCards = () => {
     next.map((card) => card.id),
     readBuiltinAvatarRemoved()
   )
-  if (seeded.added > 0 && write(KEYS.cardAvatars, JSON.stringify(seeded.avatars))) {
+  if ((seeded.added > 0 || seeded.replaced > 0) && write(KEYS.cardAvatars, JSON.stringify(seeded.avatars))) {
     useSettings.setState({ cardAvatars: seeded.avatars })
   }
   return added

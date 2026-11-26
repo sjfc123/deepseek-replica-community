@@ -7,12 +7,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
 import { android } from '../../app/android.js'
-import whale from '../../assets/deepseek-whale.svg'
+import fatFishIcon from '../../assets/dafeiyu-icon.png'
 import { getPeakHint } from '../../services/peak.js'
 import { selectSession, useChatStore } from '../../services/chat/store.js'
 import { useSettings } from '../../services/settings.js'
 import {
-  useAndroidColdStartGreeting,
   useAndroidWelcomeMessages,
   useTranslate,
   type TranslationKey,
@@ -27,25 +26,28 @@ import styles from './Welcome.module.css'
 
 let coldStartGreetingPending = true
 
-const WHALE_RANDOM_LINES = [
-  'whaleLinePhase1',
-  'whaleLinePhase2',
-  'whaleLinePhase3',
-  'whaleLineTease1',
-  'whaleLineTease2',
-  'whaleLineTease3',
-  'whaleLineTease4',
-  'whaleLineTease5',
-  'whaleLineTease6',
-  'whaleLineTease7',
+const FAT_FISH_RANDOM_LINES = [
+  'fatFishLinePhase1',
+  'fatFishLinePhase2',
+  'fatFishLinePhase3',
+  'fatFishLineTease1',
+  'fatFishLineTease2',
+  'fatFishLineTease3',
+  'fatFishLineTease4',
+  'fatFishLineTease5',
+  'fatFishLineTease6',
+  'fatFishLineTease7',
+  'fatFishLineTease8',
+  'fatFishLineTease9',
+  'fatFishLineTease10',
 ] as const satisfies readonly TranslationKey[]
 
 /** 一轮台词播完后的短暂冷却；冷却结束重新洗牌，不从“永久静音”状态卡住 */
-const WHALE_CYCLE_COOLDOWN_MS = 360
+const FAT_FISH_CYCLE_COOLDOWN_MS = 360
 
 /** 随机牌堆：每张台词一轮只出现一次，用完再重新洗牌 */
-const shuffleWhaleDeck = (exclude: number) => {
-  const deck = WHALE_RANDOM_LINES.map((_, index) => index)
+const shuffleFatFishDeck = (exclude: number) => {
+  const deck = FAT_FISH_RANDOM_LINES.map((_, index) => index)
   for (let i = deck.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1))
     const swap = deck[i]
@@ -69,16 +71,15 @@ export const Welcome = () => {
   const archivedSessions = useSettings((state) => state.archivedSessions)
   const apiKey = useSettings((state) => state.apiKey)
   const chatConfig = useSettings((state) => state.chatConfig)
-  const coldStartGreeting = useAndroidColdStartGreeting()
   const androidMessages = useAndroidWelcomeMessages()
   const [coldStart] = useState(coldStartGreetingPending)
   const [peak, setPeak] = useState(() => getPeakHint().peak)
   const [manualGreeting, setManualGreeting] = useState(false)
-  const whaleDeck = useRef<number[]>([])
-  const whaleDeckPos = useRef(0)
-  const whaleCooldownUntil = useRef(0)
-  const whaleFirstClick = useRef(true)
-  const whaleLastLine = useRef(-1)
+  const fatFishDeck = useRef<number[]>([])
+  const fatFishDeckPos = useRef(0)
+  const fatFishCooldownUntil = useRef(0)
+  const fatFishFirstClick = useRef(true)
+  const fatFishLastLine = useRef(-1)
   const [greeting, setGreeting] = useState(() => {
     if (!android) {
       return t('welcomeMessageChat250808')
@@ -116,57 +117,57 @@ export const Welcome = () => {
     }
   }, [])
 
-  const handleWhaleClick = () => {
+  const handleFatFishClick = () => {
     const now = Date.now()
     setManualGreeting(true)
-    if (whaleFirstClick.current) {
-      whaleFirstClick.current = false
-      setGreeting(coldStartGreeting)
+    if (fatFishFirstClick.current) {
+      fatFishFirstClick.current = false
+      setGreeting(t('fatFishLineFirst'))
       return
     }
-    if (whaleDeckPos.current >= whaleDeck.current.length) {
-      if (now < whaleCooldownUntil.current) {
+    if (fatFishDeckPos.current >= fatFishDeck.current.length) {
+      if (now < fatFishCooldownUntil.current) {
         // 冷却期只限制“重新洗牌”，不吞掉点击：快速点击仍然继续换一句
-        let index = Math.floor(Math.random() * WHALE_RANDOM_LINES.length)
-        if (index === whaleLastLine.current) {
+        let index = Math.floor(Math.random() * FAT_FISH_RANDOM_LINES.length)
+        if (index === fatFishLastLine.current) {
           index =
-            (index + 1 + Math.floor(Math.random() * (WHALE_RANDOM_LINES.length - 1))) %
-            WHALE_RANDOM_LINES.length
+            (index + 1 + Math.floor(Math.random() * (FAT_FISH_RANDOM_LINES.length - 1))) %
+            FAT_FISH_RANDOM_LINES.length
         }
-        whaleLastLine.current = index
+        fatFishLastLine.current = index
         setGreeting(
-          t(WHALE_RANDOM_LINES[index], {
+          t(FAT_FISH_RANDOM_LINES[index], {
             phase: t(peak ? 'peakHoursShort' : 'offpeakHoursShort'),
           })
         )
         return
       }
-      whaleDeck.current = shuffleWhaleDeck(whaleLastLine.current)
-      whaleDeckPos.current = 0
+      fatFishDeck.current = shuffleFatFishDeck(fatFishLastLine.current)
+      fatFishDeckPos.current = 0
     }
-    const pointer = whaleDeckPos.current
-    let index = whaleDeck.current[pointer]
+    const pointer = fatFishDeckPos.current
+    let index = fatFishDeck.current[pointer]
     // 牌堆相邻两张不重复；单次点击也一定换成另一句
-    if (index === whaleLastLine.current) {
-      const alternate = whaleDeck.current.findIndex(
-        (line, position) => position >= pointer && line !== whaleLastLine.current
+    if (index === fatFishLastLine.current) {
+      const alternate = fatFishDeck.current.findIndex(
+        (line, position) => position >= pointer && line !== fatFishLastLine.current
       )
       if (alternate >= 0) {
-        const swap = whaleDeck.current[alternate]
-        whaleDeck.current[alternate] = whaleDeck.current[pointer]
-        whaleDeck.current[pointer] = swap
+        const swap = fatFishDeck.current[alternate]
+        fatFishDeck.current[alternate] = fatFishDeck.current[pointer]
+        fatFishDeck.current[pointer] = swap
         index = swap
       }
     }
-    whaleDeckPos.current = pointer + 1
-    whaleLastLine.current = index
+    fatFishDeckPos.current = pointer + 1
+    fatFishLastLine.current = index
     setGreeting(
-      t(WHALE_RANDOM_LINES[index], {
+      t(FAT_FISH_RANDOM_LINES[index], {
         phase: t(peak ? 'peakHoursShort' : 'offpeakHoursShort'),
       })
     )
-    if (whaleDeckPos.current >= whaleDeck.current.length) {
-      whaleCooldownUntil.current = now + WHALE_CYCLE_COOLDOWN_MS
+    if (fatFishDeckPos.current >= fatFishDeck.current.length) {
+      fatFishCooldownUntil.current = now + FAT_FISH_CYCLE_COOLDOWN_MS
     }
   }
 
@@ -202,12 +203,12 @@ export const Welcome = () => {
           {android ? (
             <button
               type="button"
-              className={styles.whaleButton}
-              aria-label={t('whaleInteraction')}
-              title={t('whaleInteraction')}
-              onClick={handleWhaleClick}
+              className={styles.fatFishButton}
+              aria-label={t('fatFishInteraction')}
+              title={t('fatFishInteraction')}
+              onClick={handleFatFishClick}
             >
-              <img src={whale} alt="" />
+              <img src={fatFishIcon} alt="" />
             </button>
           ) : null}
           {android ? (

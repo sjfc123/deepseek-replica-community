@@ -95,6 +95,7 @@ export const createConfig = ({
       },
       { test: /\.(woff2?|ttf)$/, type: 'asset/resource' },
       { test: /\.svg$/, type: 'asset/resource' },
+      { test: /\.(png|webp|jpg|jpeg)$/, type: 'asset/resource' },
     ],
   },
   plugins: [

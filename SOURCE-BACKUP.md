@@ -22,8 +22,20 @@
 - 许可证：`LICENSE`、`licenses/MIT-DeepSeek.txt`
 - 网页图标：`src/assets/favicon.png`、`src/assets/apple-touch-icon.png`、`src/assets/app-icon.png`
 - 安卓图标：`mipmap-*` 多密度 PNG、自适应背景层与前景层、`mipmap-anydpi-v26/ic_launcher.xml`
+- 内部插图：`src/assets/dafeiyu-icon.png`
+- 内置角色头像：`src/assets/builtin-avatars/dafeiyu.webp`、`src/assets/builtin-avatars/whale-girl.webp`
+- 二创原图与署名：`assets/fanart/dafeiyu-eat.jpg`、`assets/fanart/whalegirl-full.jpg`、`assets/fanart/SOURCES.md`
 
 包内文件清单以 ZIP 实际内容为准。源码包注释记录构建时的 Git 提交号，用于核对来源。
+
+### 2.1 二创素材变更
+
+- 已删除 `src/assets/deepseek-whale.svg` 与 `src/assets/builtin-avatars/whale.webp`，项目内不再保留原版鲸鱼插图资源。
+- 欢迎页、API Key 设置页改用 `src/assets/dafeiyu-icon.png`。
+- 内置「大肥鱼」头像改用 SlimeNull 的 `大肥鱼桌宠 Chubby Whale · 吃饭` 裁切图。
+- 内置「鲸鱼娘」头像改用 ZipZipPipe 的女仆装鲸鱼娘立绘裁切图。
+- 角色原型为「溟月」（上善无形）；女仆装与 DeepSeek 元素二创由 ZipZipPipe 完成。
+- 图片按 CC BY-NC-SA 4.0 使用：必须署名、禁止商业使用、修改后的图片须以相同协议共享。应用代码的 GPL-3.0 不覆盖图片。完整来源与修改记录见 `assets/fanart/SOURCES.md`。
 
 ## 3. 不包含内容
 
