@@ -17,6 +17,7 @@ import type {
   SessionFile,
   SessionIndexEntry,
 } from './format.js'
+import { createSessionIntegrity } from './integrity.js'
 
 /** 返回图片原件在 ZIP 里的条目名；无原件或非图片附件返回 null，仅导出元数据。 */
 export type ExportImage = (file: { id: string; name: string; isImage: boolean }) => string | null
@@ -268,7 +269,7 @@ export const toSessionFile = (
     }
   })
   const current = getVisibleMessages(session).at(-1)
-  return {
+  const file: Omit<SessionFile, 'integrity'> = {
     id: session.id,
     title: session.title || null,
     pinned,
@@ -278,6 +279,8 @@ export const toSessionFile = (
     updated_at: iso(session.updatedAt),
     messages,
   }
+  // 摘要写在会话 JSON 内，导入时即使 JSON 仍可解析，也能识别消息截断或正文改写。
+  return { ...file, integrity: createSessionIntegrity(file) }
 }
 
 export const toIndexEntry = (file: SessionFile): SessionIndexEntry => ({

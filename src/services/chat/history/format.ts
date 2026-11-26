@@ -12,6 +12,8 @@
  * - 可空字段用 null 表示；可选字段允许缺省。
  */
 
+import type { SessionIntegrity } from './integrity.js'
+
 /** 2026-11-11T02:33:23.270Z */
 export type Iso8601Utc = string
 
@@ -41,6 +43,8 @@ export type SessionFile = {
   updated_at: Iso8601Utc
   /** 消息树，分支靠 parent_id */
   messages: ChatMessage[]
+  /** 本应用导出的会话完整性摘要；旧版归档没有该字段，导入时跳过比对。 */
+  integrity?: SessionIntegrity
 }
 
 export type ChatRole = 'USER' | 'ASSISTANT'

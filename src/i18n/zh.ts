@@ -277,6 +277,8 @@ export const zh = {
   backupSessionEntry: '压缩包条目损坏',
   backupSessionIncomplete: '对话结构不完整',
   backupSessionDuplicate: '会话 ID 重复',
+  backupSessionIntegrityCount: '消息数量与导出记录不一致',
+  backupSessionIntegrityDigest: '消息内容与导出校验值不一致',
   autoBackupDone: '自动备份完成：{count} 个对话，文件已校验并保存在下载目录',
   autoBackupFailed: '自动备份失败，下载目录不会留下不完整文件',
   settingsLocalePreference: '语言',

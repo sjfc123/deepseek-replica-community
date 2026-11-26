@@ -1127,6 +1127,58 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
   assert.equal(partialRes.skipped[0].reason, 'backupSessionJson')
   assert.equal(useChatStore.getState().sessions.length, 3)
 
+  // JSON 合法但消息数量被截断：完整性摘要应报 count，而不是当成正常会话合并。
+  const archiveBytes = new Uint8Array(await zipBlob.arrayBuffer())
+  const mutateSession = (mutator) => {
+    const files = unzipSync(archiveBytes)
+    const doc = JSON.parse(new TextDecoder().decode(files['chat_sessions/s-same.json']))
+    assert.ok(doc.integrity, '新导出的会话必须写入完整性摘要')
+    mutator(doc)
+    files['chat_sessions/s-same.json'] = strToU8(JSON.stringify(doc))
+    return new Blob([zipSync(files)], { type: 'application/zip' })
+  }
+
+  const truncatedRes = await importHistory(
+    makeFile(
+      mutateSession((doc) => {
+        doc.messages.pop()
+      })
+    ),
+    undefined,
+    'merge'
+  )
+  assert.equal(truncatedRes.skipped.length, 1)
+  assert.equal(truncatedRes.skipped[0].id, 's-same')
+  assert.equal(truncatedRes.skipped[0].title, '无变更会话')
+  assert.equal(truncatedRes.skipped[0].reason, 'backupSessionIntegrityCount')
+
+  // JSON 合法但正文被改写：摘要应报 digest，并保留其余会话正常导入。
+  const rewrittenRes = await importHistory(
+    makeFile(
+      mutateSession((doc) => {
+        doc.messages[0].fragments[0].content = '被改写的问题'
+      })
+    ),
+    undefined,
+    'merge'
+  )
+  assert.equal(rewrittenRes.skipped.length, 1)
+  assert.equal(rewrittenRes.skipped[0].id, 's-same')
+  assert.equal(rewrittenRes.skipped[0].reason, 'backupSessionIntegrityDigest')
+
+  // 旧版归档没有 integrity 字段：不能因为无法校验就拒绝导入。
+  const legacyRes = await importHistory(
+    makeFile(
+      mutateSession((doc) => {
+        delete doc.integrity
+      })
+    ),
+    undefined,
+    'merge'
+  )
+  assert.equal(legacyRes.skipped.length, 0)
+  assert.equal(legacyRes.unchanged, 3)
+
   // 清空全部记录同时清空置顶列表
   await clearHistory()
   assert.equal(useChatStore.getState().sessions.length, 0)

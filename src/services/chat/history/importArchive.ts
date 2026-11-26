@@ -11,6 +11,7 @@ import type { SessionIndexEntry } from './format.js'
 import { INDEX_PATH, MANIFEST_PATH, USER_PATH, parseSessionPath } from './paths.js'
 import { checkManifest, readSessionFile, readSessionIndex } from './schema.js'
 import { toLocalSession } from './toLocal.js'
+import { verifySessionIntegrity } from './integrity.js'
 import {
   ArchiveError,
   isZipFile,
@@ -306,6 +307,19 @@ export const importArchive = async (
         let local: ReturnType<typeof toLocalSession>
         try {
           parsed = readSessionFile(value)
+          // 先比对导出时写入的消息数量与摘要，能识别 JSON 合法但内容被截断/改写的会话。
+          if (parsed.integrity) {
+            const check = verifySessionIntegrity(value, parsed.integrity)
+            if (check !== 'ok') {
+              recordIssue(
+                path,
+                sessionId,
+                parsed.title,
+                check === 'count' ? 'backupSessionIntegrityCount' : 'backupSessionIntegrityDigest'
+              )
+              continue
+            }
+          }
           local = toLocalSession(parsed)
         } catch (error) {
           recordIssue(path, sessionId, titleOf(value), sessionReason(error))

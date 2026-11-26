@@ -14,6 +14,7 @@ import {
   type SessionFile,
   type SessionIndexEntry,
 } from './format.js'
+import type { SessionIntegrity } from './integrity.js'
 
 /**
  * 按格式定义校验，返回只含已定义字段的新对象：容器与元数据严格校验，无法解析的内容片段丢弃。
@@ -209,10 +210,40 @@ const fragment: Read<Fragment | null> = (value) => {
 }
 
 export type ParsedMessage = Omit<ChatMessage, 'inserted_at'> & { createdAt: number }
-export type ParsedSessionFile = Omit<SessionFile, 'inserted_at' | 'updated_at' | 'messages'> & {
+export type ParsedSessionFile = Omit<
+  SessionFile,
+  'inserted_at' | 'updated_at' | 'messages' | 'integrity'
+> & {
   createdAt: number
   updatedAt: number
   messages: ParsedMessage[]
+  /** 旧版归档没有摘要，保留 null 以便导入侧只做结构和分支校验。 */
+  integrity: SessionIntegrity | null
+}
+
+/** 完整性摘要属于本应用扩展字段；存在时严格校验，缺失时按旧格式处理。 */
+const integrity: Read<SessionIntegrity | null> = (value) => {
+  if (value === undefined) {
+    return null
+  }
+  const item = record(value)
+  if (count(item.version) !== 1) {
+    return invalid()
+  }
+  if (string(item.algorithm) !== 'fnv1a32x2') {
+    return invalid()
+  }
+  const messageCount = count(item.message_count)
+  const digest = string(item.digest)
+  if (!/^[0-9a-f]{16}$/.test(digest)) {
+    return invalid()
+  }
+  return {
+    version: 1,
+    algorithm: 'fnv1a32x2',
+    message_count: messageCount,
+    digest,
+  }
 }
 
 const parentId = nullable(count)
@@ -281,6 +312,7 @@ export const readSessionFile: Read<ParsedSessionFile> = (value) => {
     createdAt: timestamp(item.inserted_at),
     updatedAt: timestamp(item.updated_at),
     messages: list(message)(item.messages),
+    integrity: integrity(item.integrity),
   }
 }
 

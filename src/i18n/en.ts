@@ -292,6 +292,8 @@ export const en = {
   backupSessionEntry: 'ZIP entry is corrupted',
   backupSessionIncomplete: 'Chat structure is incomplete',
   backupSessionDuplicate: 'Duplicate chat ID',
+  backupSessionIntegrityCount: 'Message count does not match the export record',
+  backupSessionIntegrityDigest: 'Message content does not match the export checksum',
   autoBackupDone: 'Auto backup complete: {count} chats, verified and saved to Downloads',
   autoBackupFailed: 'Auto backup failed; no incomplete file was left in Downloads',
   settingsLocalePreference: 'Language',

@@ -23,6 +23,9 @@ const {
 } = await import('../src/services/dataRevision.ts')
 const { readArchive } = await import('../src/services/chat/history/zipReader.ts')
 const { writeArchive } = await import('../src/services/chat/history/zipWriter.ts')
+const { createSessionIntegrity, verifySessionIntegrity } = await import(
+  '../src/services/chat/history/integrity.ts'
+)
 
 assert.equal(currentDataRevision(), 0)
 assert.equal(readBackupRevision(), 0)
@@ -40,6 +43,30 @@ flushDataRevision()
 assert.equal(readBackupRevision(), 2)
 assert.equal(currentDataRevision(), 3)
 assert.equal(memory.get('replica:data-revision'), '3')
+
+// 会话完整性摘要：JSON 合法但消息被截断或内容被改写时，必须能分出 count / digest 两种原因。
+const payload = {
+  id: 'integrity-session',
+  title: '完整性测试',
+  messages: [
+    { id: 1, role: 'USER', content: '原始提问' },
+    { id: 2, role: 'ASSISTANT', content: '原始回答' },
+  ],
+}
+const integrity = createSessionIntegrity(payload)
+assert.equal(integrity.version, 1)
+assert.equal(integrity.algorithm, 'fnv1a32x2')
+assert.equal(integrity.message_count, 2)
+assert.match(integrity.digest, /^[0-9a-f]{16}$/)
+assert.equal(verifySessionIntegrity(payload, integrity), 'ok')
+assert.equal(verifySessionIntegrity({ ...payload, integrity }, integrity), 'ok')
+
+const truncated = { ...payload, messages: payload.messages.slice(0, 1) }
+assert.equal(verifySessionIntegrity(truncated, integrity), 'count')
+
+const rewritten = structuredClone(payload)
+rewritten.messages[1].content = '被改写的内容'
+assert.equal(verifySessionIntegrity(rewritten, integrity), 'digest')
 
 const blobs = [
   { name: 'a.txt', blob: new Blob([strToU8('alpha')]) },
