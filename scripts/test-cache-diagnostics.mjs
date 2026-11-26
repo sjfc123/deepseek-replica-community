@@ -17,6 +17,7 @@ const {
   readPromptCacheSamples,
 } = await import('../src/services/chat/cacheDiagnostics.ts')
 const { compareVersions } = await import('../src/services/updateCheck.ts')
+const { DEFAULT_SYSTEM_PROMPT } = await import('../src/services/chat/systemPrompt.ts')
 
 const audit = (text) => auditSystemText(text)
 const base = {
@@ -69,7 +70,17 @@ const clean = audit('【角色身份】\n姓名：凯伊\n固定规则')
 assert.equal(clean.dynamicMarkers.length, 0, '正常 system 不应出现动态标记')
 assert.equal(clean.unresolvedPlaceholders.length, 0, '正常 system 不应留下占位符')
 assert.deepEqual(
-  audit('【长期记忆】\n今天下雨\nlatest_reminder').dynamicMarkers,
+  audit(DEFAULT_SYSTEM_PROMPT).dynamicMarkers,
+  [],
+  '默认提示词提到 latest_reminder 功能时不应被当成动态块'
+)
+assert.deepEqual(
+  audit('【本轮叙述视角】固定第一人称').dynamicMarkers,
+  [],
+  '本轮视角提醒只应出现在 turnContext，不能被误判为 system 动态块'
+)
+assert.deepEqual(
+  audit('【长期记忆】\n今天下雨\n【latest_reminder】\n当前地点：毕节').dynamicMarkers,
   ['记忆块', 'latest_reminder'],
   '动态块应被识别'
 )

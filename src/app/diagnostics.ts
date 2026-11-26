@@ -775,13 +775,6 @@ export const collectDiagnosticReport = async () => {
       detail: `有 ${rendering.dialogs} 个弹层打开，但 body 未锁定滚动，背景可能跟着滚动`,
     })
   }
-  if (rendering.dialogs === 0 && rendering.bodyOverflow === 'hidden') {
-    findings.push({
-      level: 'warning',
-      area: '滚动锁',
-      detail: '没有弹层，但 body.overflow 仍是 hidden；关闭弹窗时可能漏掉滚动锁恢复',
-    })
-  }
 
   if (jsMemory) {
     const ratio = jsMemory.usedJSHeapSize / Math.max(1, jsMemory.jsHeapSizeLimit)

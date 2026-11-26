@@ -38,7 +38,11 @@ const DYNAMIC_MARKERS: Array<{ label: string; test: (text: string) => boolean }>
   { label: '记忆块', test: (text) => /【(?:长期记忆|角色记忆|普通记忆|记忆片段)/.test(text) },
   { label: '场景块', test: (text) => text.includes('眼下是这样的') },
   { label: '世界书块', test: (text) => text.includes('这些背景你本来就知道') },
-  { label: 'latest_reminder', test: (text) => text.includes('latest_reminder') },
+  {
+    label: 'latest_reminder',
+    // 默认提示词的功能说明也会提到 latest_reminder；只认块标记或字段行，避免正常文本误报
+    test: (text) => /(?:^|\n)\s*(?:【latest_reminder】|\[latest_reminder\]|latest_reminder\s*[:：])/i.test(text),
+  },
   { label: '上下文摘要', test: (text) => text.includes('较早的对话摘要（历史资料）') },
 ]
 
