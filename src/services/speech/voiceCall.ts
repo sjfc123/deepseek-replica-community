@@ -835,6 +835,25 @@ export const ensureMicrophonePermission = (): Promise<boolean> => {
     .catch(() => false)
 }
 
+/**
+ * 点击通话后先把整页通话界面挂出来，麦克风授权在页面内完成。
+ * 只写展示状态，不创建采集会话；授权通过后由 startVoiceCall 接管，拒绝时由调用方关闭。
+ */
+export const prepareVoiceCall = (sessionId: string | null) => {
+  useVoiceCall.setState({
+    active: true,
+    sessionId,
+    phase: 'listening',
+    micReady: 'pending',
+    muted: false,
+    speechDetected: false,
+    level: 0,
+    userText: '',
+    assistantText: '',
+    error: null,
+  })
+}
+
 export const startVoiceCall = (sessionId: string | null) => {
   if (typeof window !== 'undefined' && !window.isSecureContext) {
     useVoiceCall.setState({

@@ -18,9 +18,12 @@ import { IconButton } from '../base/IconButton.js'
 import { showToast, useToast } from '../base/toastState.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
 import {
+  endVoiceCall,
   ensureMicrophonePermission,
+  prepareVoiceCall,
   primeVoiceCallAudio,
   startVoiceCall,
+  useVoiceCall,
 } from '../../services/speech/voiceCall.js'
 import { openMobileSider, toggleMobileSider, useMobileSider } from '../sider/mobileSiderState.js'
 import styles from './MobileHeader.module.css'
@@ -85,18 +88,31 @@ export const MobileHeader = ({
             setCallPending(true)
             // 必须在点击手势里先把播放上下文建好；等授权回来再建会被系统判成非用户触发。
             primeVoiceCallAudio()
-            showToast('正在请求麦克风授权…')
+            // 先挂出通话页，授权提示出现在通话页之上，而不是停在聊天页干等。
+            prepareVoiceCall(activeId ?? null)
             void ensureMicrophonePermission()
               .then((allowed) => {
                 if (!allowed) {
-                  showToast('麦克风不可用：请检查系统录音权限后重试')
+                  if (useVoiceCall.getState().active) {
+                    endVoiceCall()
+                    showToast('麦克风不可用：请检查系统录音权限后重试')
+                  }
+                  return
+                }
+                // 用户在授权期间已关闭通话页时不再启动采集。
+                if (!useVoiceCall.getState().active) {
                   return
                 }
                 // 没有活动会话也允许直接开麦；首条转写会新建会话，标题取这段内容。
                 startVoiceCall(activeId ?? null)
               })
               .catch((error: unknown) => {
-                showToast(`打开通话失败：${error instanceof Error ? error.message : String(error)}`)
+                if (useVoiceCall.getState().active) {
+                  endVoiceCall()
+                  showToast(
+                    `打开通话失败：${error instanceof Error ? error.message : String(error)}`,
+                  )
+                }
               })
               .finally(() => setCallPending(false))
           }}

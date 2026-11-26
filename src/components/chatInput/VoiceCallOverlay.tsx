@@ -128,7 +128,9 @@ export const VoiceCallOverlay = () => {
   const busy = phase === 'transcribing' || phase === 'thinking' || phase === 'speaking'
   const statusLabel = error
     ? error
-    : phase === 'muted'
+    : micReady === 'pending'
+      ? '正在准备麦克风…'
+      : phase === 'muted'
       ? '已静音'
       : phase === 'transcribing'
         ? '正在听写…'
