@@ -13,11 +13,15 @@ const {
   auditSystemText,
   clearPromptCacheSamples,
   diagnosePromptCache,
+  fingerprintRequestMessages,
+  fingerprintWireRequest,
   recordPromptCacheSample,
   readPromptCacheSamples,
 } = await import('../src/services/chat/cacheDiagnostics.ts')
 const { compareVersions } = await import('../src/services/updateCheck.ts')
 const { DEFAULT_SYSTEM_PROMPT } = await import('../src/services/chat/systemPrompt.ts')
+const { readOpenAIFrame } = await import('../src/services/api/openaiChat.ts')
+const { readMessageEvent } = await import('../src/services/api/parseEvent.ts')
 
 const audit = (text) => auditSystemText(text)
 const base = {
@@ -34,6 +38,10 @@ const base = {
   latestReminderChars: 40,
   messageCount: 8,
   historyTurns: 3,
+  messageChain: ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8'],
+  messageRoles: ['latest_reminder', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant', 'user'],
+  requestHash: 'request-a',
+  chainTruncated: false,
   compacted: false,
   contextSummaryHash: '',
   contextSummaryChars: 0,
@@ -50,6 +58,7 @@ const sample = (overrides = {}) => ({
     cache_creation_input_tokens: 0,
     cache_read_input_tokens: 0,
     output_tokens: 10,
+    cache_fields_present: true,
     ...(overrides.usage ?? {}),
   },
 })
@@ -132,10 +141,11 @@ recordPromptCacheSample(
     contextSummaryChars: 900,
   })
 )
-assert.equal(
-  diagnosePromptCache(readPromptCacheSamples(), 's1'),
-  null,
-  '首次压缩后的低命中属于预期重建，不应误报'
+const firstCompaction = diagnosePromptCache(readPromptCacheSamples(), 's1')
+assert.equal(firstCompaction?.level, 'warning', '首次压缩后的低命中要说明原因，但不能冒充静态前缀污染')
+assert.ok(
+  firstCompaction?.evidence.some((item) => item.includes('首次插入上下文摘要')),
+  '首次压缩要给出重建原因'
 )
 recordPromptCacheSample(
   rate(0, 10_000, {
@@ -169,20 +179,101 @@ assert.equal(changed?.area, '提示词前缀', '同配置下 system 改写应报
 assert.equal(changed?.level, 'problem', '前缀污染应报问题')
 
 clearPromptCacheSamples()
+recordPromptCacheSample(rate(8000, 10_000, { messageChain: ['a1', 'a2', 'a3'], messageRoles: ['latest_reminder', 'user', 'assistant'], requestHash: 'r1' }))
+recordPromptCacheSample(
+  rate(0, 10_000, {
+    messageChain: ['x1', 'a2', 'a3', 'a4'],
+    messageRoles: ['latest_reminder', 'user', 'assistant', 'user'],
+    requestHash: 'r2',
+  })
+)
+const drifted = diagnosePromptCache(readPromptCacheSamples(), 's1')
+assert.equal(drifted?.level, 'problem', '历史前缀被改写且骤降时应报问题')
+assert.ok(
+  drifted?.causes.some((cause) => cause.includes('历史前缀从第 1 条')),
+  '要指出具体前缀断点'
+)
+
+clearPromptCacheSamples()
 recordPromptCacheSample(
   sample({
     custom: true,
-    usage: { input_tokens: 5000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 8 },
+    usage: { input_tokens: 5000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 8, cache_fields_present: false },
   })
 )
 recordPromptCacheSample(
   sample({
     custom: true,
-    usage: { input_tokens: 5100, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 8 },
+    usage: { input_tokens: 5100, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 8, cache_fields_present: false },
   })
 )
 const gateway = diagnosePromptCache(readPromptCacheSamples(), 's1')
 assert.equal(gateway?.level, 'warning', '自定义网关缺少缓存字段时只应提醒，不能判定提示词丢失')
+
+const fp1 = fingerprintRequestMessages([
+  { role: 'user', content: '第一轮' },
+  { role: 'assistant', content: [{ type: 'text', text: '回答' }] },
+])
+const fp2 = fingerprintRequestMessages([
+  { role: 'user', content: '第一轮' },
+  { role: 'assistant', content: [{ type: 'text', text: '回答' }] },
+  { role: 'user', content: '第二轮' },
+])
+assert.deepEqual(fp2.messageChain.slice(0, 2), fp1.messageChain, '追加新消息不应改变历史前缀指纹')
+assert.notEqual(fp2.requestHash, fp1.requestHash, '新增消息应改变整轮请求指纹')
+const fp3 = fingerprintRequestMessages([
+  { role: 'user', content: '第一轮被改写' },
+  { role: 'assistant', content: [{ type: 'text', text: '回答' }] },
+])
+assert.notEqual(fp3.messageChain[0], fp1.messageChain[0], '首条 user 改写必须能被发现')
+const wire = fingerprintWireRequest({
+  model: 'deepseek-chat',
+  messages: [
+    { role: 'system', content: '稳定系统提示' },
+    { role: 'user', content: '问题' },
+    { role: 'assistant', content: '回答' },
+    { role: 'user', content: '追问' },
+  ],
+})
+assert.equal(wire?.messageCount, 4, 'wire 指纹应读取最终 messages')
+const wireNoReminder = fingerprintWireRequest({
+  model: 'deepseek-chat',
+  messages: [
+    { role: 'system', content: '稳定系统提示' },
+    { role: 'user', content: '问题' },
+  ],
+})
+assert.deepEqual(
+  wireNoReminder?.messageChain.slice(0, 1),
+  wire?.messageChain.slice(0, 1),
+  '最终请求体才是诊断依据'
+)
+
+const deepseekUsage = readOpenAIFrame('chat', {
+  choices: [{ delta: {} }],
+  usage: { prompt_tokens: 100, completion_tokens: 1, prompt_cache_hit_tokens: 80 },
+}).usage
+assert.equal(deepseekUsage?.cache_read_input_tokens, 80, '顶层 prompt_cache_hit_tokens 必须被识别')
+assert.equal(deepseekUsage?.input_tokens, 20, '缓存命中要从输入总量中扣除，避免重复计算')
+assert.equal(deepseekUsage?.cache_fields_present, true, '顶层缓存字段应标记为存在')
+
+const noCacheFields = readOpenAIFrame('chat', {
+  choices: [{ delta: {} }],
+  usage: { prompt_tokens: 50, completion_tokens: 1 },
+}).usage
+assert.equal(noCacheFields?.input_tokens, 50, '缺失缓存字段时仍要保留输入总量')
+assert.equal(noCacheFields?.cache_fields_present, false, '缺失缓存字段不能冒充真实 0 命中')
+
+const anthropicMissing = readMessageEvent({
+  type: 'message_delta',
+  delta: { stop_reason: 'end_turn' },
+  usage: { input_tokens: 70, output_tokens: 2 },
+})
+assert.equal(anthropicMissing?.type, 'message_delta', '缓存字段缺失不能导致整条 usage 事件被丢弃')
+if (anthropicMissing?.type === 'message_delta') {
+  assert.equal(anthropicMissing.usage?.input_tokens, 70, 'Anthropic 缺字段时仍要保留输入')
+  assert.equal(anthropicMissing.usage?.cache_fields_present, false, 'Anthropic 缺字段要标记为缺失')
+}
 
 assert.equal(compareVersions('0.9.2', '0.9.1'), 1, '更高版本应识别为可更新')
 assert.equal(compareVersions('v0.9.1', '0.9.1'), 0, 'v 前缀不影响版本比较')

@@ -138,6 +138,8 @@ import { createLatestReminder } from './latestReminder.js'
 import {
   auditSystemText,
   buildPromptConfigFingerprint,
+  fingerprintRequestMessages,
+  fingerprintWireRequest,
   hashPromptText,
   recordPromptCacheSample,
   type SystemAudit,
@@ -2976,6 +2978,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         contextSummaryChars: number
         latestReminderHash: string
         latestReminderChars: number
+        messageChain: string[]
+        messageRoles: string[]
+        requestHash: string
+        chainTruncated: boolean
       }
     | undefined
   const settleLocal = (
@@ -3196,14 +3202,15 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           turnContext
         )
         includeContextSummary(messages, context.summary)
+        const requestFingerprint = fingerprintRequestMessages(messages)
         cacheAttemptMeta = {
-          messageCount: messages.length,
           historyTurns: Math.max(0, messages.filter((message) => message.role === 'user').length - 1),
           compacted: Boolean(context.summary),
           contextSummaryHash: context.summary ? hashPromptText(context.summary) : '',
           contextSummaryChars: context.summary?.length ?? 0,
           latestReminderHash: latestReminder ? hashPromptText(latestReminder) : '',
           latestReminderChars: latestReminder?.length ?? 0,
+          ...requestFingerprint,
         }
         estimatedInput =
           context.tokens +
@@ -3231,7 +3238,12 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             : {}),
           ...(autoTitle && titleRequests.has(controller) ? { title: { enabled: true } } : {}),
         }
-        const events = streamChatMessage(chatConfig, apiKey, body, signal, extraHeaders)
+        const events = streamChatMessage(chatConfig, apiKey, body, signal, extraHeaders, (wireBody) => {
+          const wireFingerprint = fingerprintWireRequest(wireBody)
+          if (wireFingerprint && cacheAttemptMeta) {
+            cacheAttemptMeta = { ...cacheAttemptMeta, ...wireFingerprint }
+          }
+        })
         const blockIndexes = new Map<number, number>()
         for await (const event of events) {
           receivedContent ||= event.type === 'content_block_start'

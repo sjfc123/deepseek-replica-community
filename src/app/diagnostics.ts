@@ -806,7 +806,9 @@ export const collectDiagnosticReport = async () => {
           latest.turnContextChars
         } 字、latest_reminder ${latest.latestReminderChars} 字；消息 ${
           latest.messageCount
-        } 条，历史 ${latest.historyTurns} 轮，压缩=${latest.compacted ? '是' : '否'}`
+        } 条，历史 ${latest.historyTurns} 轮，前缀链 ${
+          latest.messageChain?.length ?? 0
+        } 条，请求指纹 ${latest.requestHash || '无'}，压缩=${latest.compacted ? '是' : '否'}`
       : '还没有请求样本；先完成一次带 usage 的回复后再看',
   })
   facts.push({
@@ -815,7 +817,9 @@ export const collectDiagnosticReport = async () => {
       latest && promptStatus.latestRate !== null
         ? `最新 ${(promptStatus.latestRate * 100).toFixed(1)}%，平均 ${(
             (promptStatus.averageRate ?? 0) * 100
-          ).toFixed(1)}%，样本 ${promptStatus.samples} 条；scope=${latest.scope}`
+          ).toFixed(1)}%，样本 ${promptStatus.samples} 条；缓存字段=${
+            latest.usage.cache_fields_present === false ? '缺失' : '有'
+          }；scope=${latest.scope}`
         : '暂无缓存样本',
   })
   const promptConfig = useSettings.getState()

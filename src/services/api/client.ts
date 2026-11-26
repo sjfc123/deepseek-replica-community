@@ -373,17 +373,18 @@ export const streamChatMessage = (
   apiKey: string,
   body: CreateMessageRequest,
   signal: AbortSignal,
-  customHeaders: Record<string, string> = {}
+  customHeaders: Record<string, string> = {},
+  onWireBody?: (wireBody: unknown) => void
 ) => {
   const headers = JSON.stringify(customHeaders)
   if (config.endpoint) {
-    return streamCompatibleMessage(config, body, signal, false, headers)
+    return streamCompatibleMessage(config, body, signal, false, headers, onWireBody)
   }
   if (config.format === 'messages') {
     return streamMessage(apiKey, body, signal)
   }
   const endpoint = `${API_ORIGIN}${CHAT_API_PATHS[config.format]}`
-  return streamCompatibleMessage({ ...config, endpoint, apiKey }, body, signal, true, headers)
+  return streamCompatibleMessage({ ...config, endpoint, apiKey }, body, signal, true, headers, onWireBody)
 }
 
 /** 原生传回的是 JSON 字符串；解析失败按没有自定义头处理 */
@@ -408,20 +409,23 @@ async function* streamCompatibleMessage(
   body: CreateMessageRequest,
   signal: AbortSignal,
   deepSeek: boolean,
-  headers: string
+  headers: string,
+  onWireBody?: (wireBody: unknown) => void
 ): AsyncGenerator<MessageStreamEvent> {
   const { endpoint, format, apiKey } = config
   const extraHeaders = parseHeadersJson(headers)
-  const serialize = (requestBody: CreateMessageRequest) =>
-    JSON.stringify(
-      format === 'messages'
-        ? customMessagesRequest(requestBody)
-        : openAIRequest(format, requestBody, deepSeek)
-    )
+  const buildRequest = (requestBody: CreateMessageRequest) =>
+    format === 'messages'
+      ? customMessagesRequest(requestBody)
+      : openAIRequest(format, requestBody, deepSeek)
+  const serialize = (requestBody: CreateMessageRequest) => JSON.stringify(buildRequest(requestBody))
   signal.throwIfAborted()
+  const wireBody = buildRequest(body)
+  const serializedBody = JSON.stringify(wireBody)
+  onWireBody?.(wireBody)
   const native =
     android && !deepSeek
-      ? openAndroidChat(android, config, serialize(body), signal, headers)
+      ? openAndroidChat(android, config, serializedBody, signal, headers)
       : undefined
   try {
     const send = (requestBody: CreateMessageRequest) =>

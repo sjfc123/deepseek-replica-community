@@ -8,6 +8,10 @@ import type { MessageUsage } from '../api/types.js'
 
 export const PROMPT_CACHE_STORAGE_KEY = 'replica:prompt-cache-samples'
 const MAX_SAMPLES = 80
+/** 消息链只在最近两条样本保留：诊断只比较相邻两轮，旧样本不再占存储。 */
+const KEEP_CHAIN_SAMPLES = 2
+/** 单条样本最多逐条比对的 messages 数；超出后仍保留整轮 requestHash，但不无限膨胀数组。 */
+const MAX_CHAIN_MESSAGES = 512
 const LOW_RATE = 0.12
 const HEALTHY_RATE = 0.4
 
@@ -23,6 +27,118 @@ export const hashPromptText = (text: string): string => {
   return `${(left >>> 0).toString(16).padStart(8, '0')}${(right >>> 0)
     .toString(16)
     .padStart(8, '0')}`
+}
+
+export type RequestFingerprint = {
+  messageChain: string[]
+  messageRoles: string[]
+  requestHash: string
+  chainTruncated: boolean
+  messageCount: number
+}
+
+/**
+ * 给实际要发的 messages 建逐条累计指纹。`system` 只是前缀的一小段，
+ * 历史 user/assistant 任何一条被改写、删除或重排都要能在断点处定位。
+ */
+export const fingerprintRequestMessages = (
+  messages: readonly { role: string; content: unknown }[]
+): RequestFingerprint => {
+  let chain = hashPromptText('replica:request-prefix:v1')
+  const messageChain: string[] = []
+  const messageRoles: string[] = []
+  for (const message of messages) {
+    chain = hashPromptText(`${chain}\n${message.role}\n${JSON.stringify(message.content)}`)
+    if (messageChain.length < MAX_CHAIN_MESSAGES) {
+      messageChain.push(chain)
+      messageRoles.push(message.role)
+    }
+  }
+  return {
+    messageChain,
+    messageRoles,
+    requestHash: chain,
+    chainTruncated: messages.length > MAX_CHAIN_MESSAGES,
+    messageCount: messages.length,
+  }
+}
+
+/**
+ * 直接对协议层最终请求对象建指纹。不同协议会删掉 latest_reminder、
+ * 把内容块压成文本或把 system 搬到 instructions；只有看最终 wire 才能避免
+ * 把“本地消息变了但实际请求没变”误报成前缀断点。
+ */
+export const fingerprintWireRequest = (body: unknown): RequestFingerprint | null => {
+  if (typeof body !== 'object' || body === null) {
+    return null
+  }
+  try {
+    const payload = body as Record<string, unknown>
+    const wire: { role: string; content: unknown }[] = []
+    if (typeof payload.instructions === 'string' && payload.instructions.trim()) {
+      wire.push({ role: 'system', content: payload.instructions })
+    }
+    const list = Array.isArray(payload.messages)
+      ? payload.messages
+      : Array.isArray(payload.input)
+        ? payload.input
+        : []
+    for (const item of list) {
+      if (typeof item !== 'object' || item === null) {
+        continue
+      }
+      wire.push({
+        role: typeof item.role === 'string' ? item.role : String(item.type ?? 'unknown'),
+        content: item,
+      })
+    }
+    return fingerprintRequestMessages(wire)
+  } catch {
+    return null
+  }
+}
+
+type PrefixDrift = {
+  index: number
+  role: string
+  previousRole: string
+  previousLength: number
+  currentLength: number
+  shortened: boolean
+}
+
+/** 同一会话、同一配置下，找当前请求与上一轮请求最早不一致的历史消息。 */
+const findPrefixDrift = (
+  previous: PromptCacheSample,
+  current: PromptCacheSample
+): PrefixDrift | null => {
+  if (!previous.messageChain?.length || !current.messageChain?.length) {
+    return null
+  }
+  const shared = Math.min(previous.messageChain.length, current.messageChain.length)
+  for (let index = 0; index < shared; index += 1) {
+    if (previous.messageChain[index] !== current.messageChain[index]) {
+      return {
+        index,
+        role: current.messageRoles?.[index] ?? 'unknown',
+        previousRole: previous.messageRoles?.[index] ?? 'unknown',
+        previousLength: previous.messageChain.length,
+        currentLength: current.messageChain.length,
+        shortened: false,
+      }
+    }
+  }
+  if (current.messageChain.length < previous.messageChain.length) {
+    return {
+      index: current.messageChain.length,
+      role: '窗口末尾',
+      previousRole: previous.messageRoles?.[current.messageChain.length] ?? 'unknown',
+      previousLength: previous.messageChain.length,
+      currentLength: current.messageChain.length,
+      shortened: true,
+    }
+  }
+  return null
 }
 
 export type SystemAudit = {
@@ -86,6 +202,14 @@ export type PromptCacheSample = {
   latestReminderChars: number
   messageCount: number
   historyTurns: number
+  /** 逐条消息的累计前缀指纹；用于确认历史段是否被改写，不记录正文。旧样本可缺省 */
+  messageChain?: string[]
+  /** 与 messageChain 对齐的角色名，只用于定位断点 */
+  messageRoles?: string[]
+  /** 整轮请求的最终指纹；只比对，不落正文 */
+  requestHash?: string
+  /** 消息数超过逐条比对上限；前 MAX_CHAIN_MESSAGES 条仍可比较 */
+  chainTruncated?: boolean
   compacted: boolean
   /** 本轮插进首条 user 的摘要指纹；连续压缩时用它判断摘要是否又改写 */
   contextSummaryHash: string
@@ -94,7 +218,11 @@ export type PromptCacheSample = {
   search: boolean
   usage: Pick<
     MessageUsage,
-    'input_tokens' | 'cache_creation_input_tokens' | 'cache_read_input_tokens' | 'output_tokens'
+    | 'input_tokens'
+    | 'cache_creation_input_tokens'
+    | 'cache_read_input_tokens'
+    | 'output_tokens'
+    | 'cache_fields_present'
   >
   cacheRate: number
 }
@@ -145,7 +273,12 @@ export const recordPromptCacheSample = (input: PromptCacheSampleInput): void => 
   }
   try {
     const samples = [...readAll(), sample].slice(-MAX_SAMPLES)
-    localStorage.setItem(PROMPT_CACHE_STORAGE_KEY, JSON.stringify(samples))
+    const cutoff = samples.length - KEEP_CHAIN_SAMPLES
+    // 旧样本去掉大数组后再写回，避免每次回复都把几十条完整链重复序列化。
+    const stored = samples.map((item, index) =>
+      index < cutoff ? { ...item, messageChain: [], messageRoles: [] } : item
+    )
+    localStorage.setItem(PROMPT_CACHE_STORAGE_KEY, JSON.stringify(stored))
   } catch {
     // 存储已满或隐私模式不可写时放弃记录，不影响请求
   }
@@ -224,16 +357,18 @@ export const diagnosePromptCache = (
   const cacheRead = Math.max(0, last.usage.cache_read_input_tokens)
   const cacheWrite = Math.max(0, last.usage.cache_creation_input_tokens)
   const hasCacheSignal = cacheRead > 0 || cacheWrite > 0
-  if (!hasCacheSignal && low && last.custom) {
+  // 旧样本没有该标记：有命中就视为已知，避免升级后把历史样本全当成未知。
+  const cacheFieldsPresent = last.usage.cache_fields_present ?? hasCacheSignal
+  if (!cacheFieldsPresent && low) {
     return {
       level: 'warning',
       area: '缓存命中',
-      detail: '当前接口没有返回命中或缓存写入字段，无法判断是前缀失效还是网关不支持。',
+      detail: '上游没有返回缓存命中字段，无法判断是前缀失效还是接口不支持。',
       causes: [
-        '自定义网关可能只返回 prompt_tokens，没有 prompt_tokens_details.cached_tokens',
+        '接口可能只返回 prompt_tokens，没有 prompt_tokens_details.cached_tokens 或 prompt_cache_hit_tokens',
         '部分网关会吞掉或改名缓存字段，需在网关日志确认 usage',
       ],
-      evidence: [`最近请求输入 ${lastTotal} tokens，命中 0，写入 0`, sampleLabel(last, usable.length - 1)],
+      evidence: [`最近请求输入 ${lastTotal} tokens，命中字段缺失`, sampleLabel(last, usable.length - 1)],
       rate: 0,
       samples: usable.length,
     }
@@ -271,10 +406,16 @@ export const diagnosePromptCache = (
   const lowHistory = recent.filter(
     (item) => item.cacheRate < LOW_RATE && item.historyTurns >= 1 && item.configHash === last.configHash
   )
+  const previousSample = usable[usable.length - 2]
+  const sameConfig = previousSample?.configHash === last.configHash
+  const prefixDrift = sameConfig ? findPrefixDrift(previousSample, last) : null
   const shouldReport =
     low &&
-    expectedReasons.length === 0 &&
-    (lowStreak.length >= 3 || (previousHealthy && lowHistory.length >= 1))
+    last.historyTurns >= 1 &&
+    (lowStreak.length >= 2 ||
+      (previousHealthy && lowHistory.length >= 1) ||
+      Boolean(prefixDrift) ||
+      continuousCompaction)
 
   if (!shouldReport) {
     return null
@@ -286,11 +427,38 @@ export const diagnosePromptCache = (
     '检查上游网关是否支持前缀缓存；部分网关命中率恒为 0，不代表系统提示词丢失',
     '如果只有首条回复低、后续恢复，通常是网关冷启动或缓存写入延迟，不必改提示词',
   ]
-  if (continuousCompaction) {
-    causes.unshift('连续两轮都在改写上下文摘要，摘要位于首条 user 消息，历史前缀每轮都从该段重建；需降低自动压缩频率或增大上下文预算')
+  if (prefixDrift) {
+    const position = `第 ${prefixDrift.index + 1} 条（${prefixDrift.role}）`
+    causes.unshift(
+      prefixDrift.shortened
+        ? `历史窗口从${position}处缩短，上一轮之后的消息被删除或窗口起点前移，缓存只能命中缩短后的旧前缀`
+        : `历史前缀从${position}开始与上一轮不同，缓存从该位置之后全部失效`
+    )
+    if (prefixDrift.index <= 1) {
+      causes.unshift(
+        '断点在开头：历史窗口起点前移、首条 user 被摘要改写或分支切换都会让缓存从第 0 个 token 后失效'
+      )
+    } else if (prefixDrift.role === 'user' && last.compacted) {
+      causes.unshift(
+        '断点在 user：上下文摘要可能被写入首条 user；摘要变化会连带改写后续全部历史'
+      )
+    } else if (prefixDrift.role === 'assistant') {
+      causes.unshift(
+        '断点在 assistant：历史回复回放时被规范化、截断或重新生成，与上一轮实际发送的内容不一致'
+      )
+    }
   }
+  if (continuousCompaction) {
+    causes.unshift(
+      '连续两轮都在改写上下文摘要，摘要位于首条 user 消息，历史前缀每轮都从该段重建；需降低自动压缩频率或增大上下文预算'
+    )
+  }
+  // 只有“已经解释得通的重建”（首次压缩、配置刚切换）降为提醒；
+  // 连续压缩、出现前缀断点或从健康值骤降仍然按问题报。
+  const expectedOnly =
+    !prefixDrift && !continuousCompaction && expectedReasons.length > 0 && !previousHealthy
   return {
-    level: 'problem',
+    level: expectedOnly ? 'warning' : 'problem',
     area: '缓存命中',
     detail:
       previousHealthy
@@ -301,6 +469,11 @@ export const diagnosePromptCache = (
       sampleLabel(last, usable.length - 1),
       `最近 ${recent.length} 轮命中率：${recent.map((item) => percent(item.cacheRate)).join(' / ')}`,
       `system ${last.systemChars} 字，turnContext ${last.turnContextChars} 字，历史 ${last.historyTurns} 轮`,
+      prefixDrift
+        ? `前缀断点：第 ${prefixDrift.index + 1} 条 ${prefixDrift.previousRole}→${prefixDrift.role}，上一轮 ${prefixDrift.previousLength} 条，本轮 ${prefixDrift.currentLength} 条`
+        : last.chainTruncated || previousSample?.chainTruncated
+          ? `前缀连续性：前 ${MAX_CHAIN_MESSAGES} 条与上一轮一致（超出上限未逐条比对）`
+          : '前缀连续性：与上一轮一致',
       `上下文摘要 ${last.contextSummaryChars} 字，摘要指纹 ${last.contextSummaryHash || '无'}`,
       `输入 ${lastTotal} tokens，命中 ${cacheRead}，写入 ${cacheWrite}`,
       ...expectedReasons,

@@ -81,17 +81,30 @@ system 分两条路径：
 
 ## 运行期前缀审计与缓存诊断
 
-`cacheDiagnostics.ts` 在每次带 `usage` 的请求结束后留一条本地样本，最多 80 条，键为 `replica:prompt-cache-samples`。样本只保存指纹、长度、布尔开关、计数、摘要指纹与 usage，不保存 system 正文、聊天内容、API Key 或完整端点地址。`scope` 由协议、官方/自定义、模型与端点哈希组成；`configHash` 由提示词、角色卡版本、档案、语气、世界书、记忆预算、压缩、模型、协议、思考/搜索、`safety_check`、请求开关与采样参数组成。
+`cacheDiagnostics.ts` 在每次带 `usage` 的请求结束后留一条本地样本，最多 80 条，键为 `replica:prompt-cache-samples`。样本只保存指纹、长度、布尔开关、计数、摘要指纹、逐条消息链指纹与 usage，不保存 system 正文、聊天内容、API Key 或完整端点地址。消息链按协议层最终 wire 的实际顺序逐条累积 hash（OpenAI Chat / Responses、Anthropic Messages、自定义端点各自转换后的结果），`requestHash` 覆盖整轮 messages；`messageChain` / `messageRoles` 用于定位“第几条开始不一致”。`scope` 由协议、官方/自定义、模型与端点哈希组成；`configHash` 由提示词、角色卡版本、档案、语气、世界书、记忆预算、压缩、模型、协议、思考/搜索、`safety_check`、请求开关与采样参数组成。
+
+缓存 usage 先归一化再入库：Chat Completions 依次读取 `prompt_tokens_details.cached_tokens`、顶层 `prompt_cache_hit_tokens`、`prompt_tokens - prompt_cache_miss_tokens`；Anthropic Messages 只强制要求 `input_tokens` 与 `output_tokens`，缓存字段缺失记 0 并写 `cache_fields_present=false`，不再整条丢弃 usage。命中率分母统一为未命中输入 + 缓存写入 + 缓存读取，输出 token 不计入分母。
 
 诊断按同一会话、同一 `scope` 的连续样本比较：
 
 - **正常**：`system` 指纹不变、相同配置下历史递增而命中稳定，不产生任何卡片。
 - **静态前缀污染**：相同 `configHash` 下 `system` 指纹变化，或 `system` 中出现记忆、场景、世界书、`latest_reminder`、摘要标记与未替换 `{{user}}` / `{{char}}`，直接报问题。这里不依赖命中率，因为前缀已经确定被改写。
-- **连续低命中 / 骤降**：最近三轮低于 12%，或此前健康（≥40%）后突然跌到低值，报问题并列出历史编辑、开关切换、提醒插入、网关不支持、冷启动等可能原因。
-- **连续压缩**：第一次压缩把摘要插入首条 user 时视为预期重建；连续两轮摘要指纹都变化时，说明每轮都在改写首条 user 前缀，必须报问题并建议降低压缩频率或增大上下文预算。
-- **不误报**：会话首轮、`configHash` 刚变化、第一次压缩、`historyTurns` 为 0 不报警；自定义网关完全没有命中/写入字段时只报“无法判断”，不把 0 命中当成提示词丢失。
+- **连续低命中 / 骤降**：同一配置下连续两轮低于 12%，或此前健康（≥40%）后突然跌到低值，报问题并列出可能原因。
+- **前缀断点**：同一配置下把当前 `messageChain` 与上一轮逐条比较，找到最早不一致的位置。断点在开头（第 0–1 条）说明窗口起点前移或首条 user 被摘要改写；断点在 user 说明摘要或历史提问被编辑；断点在 assistant 说明历史回复回放、截断或重新生成后与上一轮发送内容不同；当前消息数少于上一轮且共同前缀一致时，标记为窗口末尾缩短。
+- **连续压缩**：第一次压缩把摘要插入首条 user 时降为提醒并说明预期重建；连续两轮摘要指纹都变化时，说明每轮都在改写首条 user 前缀，必须报问题并建议降低压缩频率或增大上下文预算。
+- **不误报**：会话首轮、`configHash` 刚变化、`historyTurns` 为 0 不报警；接口完全没有返回缓存字段（`cache_fields_present=false`）时只报“无法判断”，不把 0 命中当成提示词丢失。旧样本没有该标记时，以“是否出现过命中/写入”兜底判断。
 
 会话用量面板只在 `diagnosePromptCache()` 返回结果时渲染异常卡，正常命中不占位。设置页“运行诊断并保存日志”额外记录 `system` 静态/动态分层、最新缓存命中与平均命中、同配置下指纹是否稳定、摘要与提醒长度、渲染溢出、事件循环、帧间隔、JS 堆与数据完整性。
+
+## 与官方 Harness、赤石科技公开仓库的对照
+
+对 DeepSeek 官方刚开源的 `deepseek-ai/deepseek-harness`（HEAD `4b399c39`，`dsh 0.2.3-alpha.2`）、赤石科技 `KAIROSLLL/dsh-users-open-source`（HEAD `ae00ba7`）和 `LWX2026-git/dsh-float`（HEAD `c468027`）做了三方代码对照：
+
+- 官方 Harness 不靠显式 `cache_control`，而是稳定前缀、确定性序列化、覆盖 system/tools/每条历史的完整 `prefixDigest`、provider 原生 replay 元数据和 usage 字段保真。`context.ts` 合并请求级 system 与历史开头连续 system，不支持中途 system 的模型才包成 `<system-reminder>`。
+- `stream.ts` 只在 `cacheRead > 0` / `cacheWrite > 0` 时输出缓存字段，保留“字段缺失”和“真实 0”的区别；`token-meter` 把 cacheRead/cacheWrite 计入输入总量。
+- 赤石科技两个仓库都不参与模型消息拼装：`dsh-users-open-source` 是本机回环测速与打开目录插件，README 明确不消耗 token、不发模型请求；`dsh-float` 是基于 Edge WebView2 的 DSH 客户端外壳，没有独立模型协议实现。它们只能证明第三方客户端通常直接继承官方行为，不能提供缓存实现层面的参照。
+- 本轮对 DeepSaga 实际找到并修掉的差异是：OpenAI 兼容解析只读 `prompt_tokens_details.cached_tokens`，漏掉 DeepSeek 顶层 `prompt_cache_hit_tokens`；Anthropic 兼容解析要求四个缓存字段全为数字，少一个就把整条 usage 丢掉。两处都会把真实命中读成 0 或干脆没有样本。
+- 仍保留的结构差异是：摘要插在首条 user、预算裁剪会前移窗口起点、历史 assistant 不回放 thinking。前两项已通过逐条消息链断点直接定位；thinking 在 DeepSeek Chat 中的回传规则随是否携带 `tools` 和是否处于同一轮工具链而变，公开文档对“下一个用户轮次是否保留”存在版本差异；本轮没有把它当作已证实的缓存修复项，继续用真实 usage 样本验证。
 
 ## 改变请求前缀但未改变 system 的情况
 
@@ -111,7 +124,7 @@ system 分两条路径：
 ## 验证方式
 
 - `pnpm test:prompt`：断言默认提示是普通 DeepSeek AI 助手、普通对话不追加演出/括号规则、角色上下文改用中性基底、清空提示词回退默认官方助手、自定义提示原样保留、单卡开关必须有有效卡、会话绑定卡优先。
-- `pnpm test:cache`：断言静态 `system` 审计能识别动态块与未替换占位符；正常命中不报警；首轮、配置刚切换、首次压缩不误报；连续三轮低命中、从健康值骤降、同配置 `system` 指纹变化、连续压缩改写摘要要报警；自定义网关缺缓存字段只提醒；版本比较忽略 `v` 前缀且预发布后缀不参与数字比较。
+- `pnpm test:cache`：断言静态 `system` 审计能识别动态块与未替换占位符；正常命中不报警；首轮、配置刚切换不误报；首次压缩降为提醒；连续两轮低命中、从健康值骤降、同配置 `system` 指纹变化、前缀断点、连续压缩改写摘要要报警；接口缺缓存字段只提醒；顶层 `prompt_cache_hit_tokens` 能回退读取且不重复计入输入；消息链追加不改历史指纹、首条 user 改写能被发现；版本比较忽略 `v` 前缀且预发布后缀不参与数字比较。
 - `pnpm test:system`：断言角色卡前缀逐字稳定、开场白始终存在、Chat 的 system 位于首条、Responses 的 system 位于 `instructions`、空 system 不生成 system 消息。
 - `pnpm test:memory-layers`：断言旧卡默认整轮、场景/事实可独立成卡、场景摘录只保存编辑后的正文、注入按“重要场景 → 关键事实 → 对话经历”分段、旧场景不被最近卡挤掉、核心记忆不参与自动淘汰。
 - `pnpm test:roleplay`：断言八张内置卡、补充设定不截断、情景/系统指令/对白示例进入 system、会话绑定优先于全局开关、世界书避触与整段历史扫描、场景新字段解析、会话场景不读全局旧场景、底线不得写成内容禁令，以及基础档案 32 字段归一化、空字段、固定参数顺序、占位符替换、system 稳定性、档案开关注入门槛与规则逐字一致。

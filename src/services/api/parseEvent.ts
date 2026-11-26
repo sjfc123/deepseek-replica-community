@@ -7,6 +7,7 @@
 import type {
   ContentBlockDelta,
   MessageStreamEvent,
+  MessageUsage,
   OutputBlockStart,
   TextCitation,
 } from './types.js'
@@ -171,11 +172,33 @@ const readDelta = (value: unknown): ContentBlockDelta | null => {
   }
 }
 
-const isUsage = (value: unknown) =>
-  isRecord(value) &&
-  ['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens'].every(
-    (key) => typeof value[key] === 'number' && Number.isFinite(value[key])
-  )
+/** 缓存字段允许缺失：部分兼容接口只回 input/output，不能把缺失当成真实 0 命中。 */
+const readUsage = (value: unknown): MessageUsage | undefined => {
+  if (!isRecord(value)) {
+    return undefined
+  }
+  const input = value.input_tokens
+  const output = value.output_tokens
+  if (
+    typeof input !== 'number' ||
+    !Number.isFinite(input) ||
+    typeof output !== 'number' ||
+    !Number.isFinite(output)
+  ) {
+    return undefined
+  }
+  const present =
+    ['cache_creation_input_tokens', 'cache_read_input_tokens'].some(
+      (key) => typeof value[key] === 'number' && Number.isFinite(value[key])
+    )
+  return {
+    input_tokens: input,
+    cache_creation_input_tokens: present ? Number(value.cache_creation_input_tokens ?? 0) : 0,
+    cache_read_input_tokens: present ? Number(value.cache_read_input_tokens ?? 0) : 0,
+    output_tokens: output,
+    cache_fields_present: present,
+  }
+}
 
 /** 未识别或无法安全消费的事件静默丢弃，不影响后续有效内容与正常结束。 */
 export const readMessageEvent = (value: unknown): MessageStreamEvent | null => {
@@ -191,7 +214,7 @@ export const readMessageEvent = (value: unknown): MessageStreamEvent | null => {
         ...value,
         message: {
           ...value.message,
-          usage: isUsage(value.message.usage) ? value.message.usage : undefined,
+          usage: readUsage(value.message.usage),
         },
       } as MessageStreamEvent
     case 'content_block_start': {
@@ -232,7 +255,7 @@ export const readMessageEvent = (value: unknown): MessageStreamEvent | null => {
           stop_reason: stopReason,
           title: isOptionalString(value.delta.title) ? value.delta.title : undefined,
         },
-        usage: isUsage(value.usage) ? value.usage : undefined,
+        usage: readUsage(value.usage),
       } as MessageStreamEvent
     }
     case 'message_stop':

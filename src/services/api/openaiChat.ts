@@ -121,15 +121,28 @@ const openAIUsage = (value: unknown, format: OpenAIFormat): MessageUsage | undef
   const output = format === 'chat' ? usage.completion_tokens : usage.output_tokens
   const details = format === 'chat' ? usage.prompt_tokens_details : usage.input_tokens_details
   const cached = record(details).cached_tokens
+  const hitTop = usage.prompt_cache_hit_tokens
+  const missTop = usage.prompt_cache_miss_tokens
   if (typeof input !== 'number' || typeof output !== 'number') {
     return
   }
-  const cache = typeof cached === 'number' ? cached : 0
+  // DeepSeek 同时在顶层给 prompt_cache_hit_tokens；只读嵌套字段会在部分网关漏掉命中。
+  const cache =
+    typeof cached === 'number'
+      ? cached
+      : typeof hitTop === 'number'
+        ? hitTop
+        : typeof missTop === 'number'
+          ? Math.max(0, input - missTop)
+          : 0
+  const present =
+    typeof cached === 'number' || typeof hitTop === 'number' || typeof missTop === 'number'
   return {
     input_tokens: Math.max(0, input - cache),
     cache_creation_input_tokens: 0,
     cache_read_input_tokens: cache,
     output_tokens: output,
+    cache_fields_present: present,
   }
 }
 
