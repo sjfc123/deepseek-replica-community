@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：侧栏与会话管理 / AndroidContentSearch 开始
+ * 功能区：视图与交互 / AndroidContentSearch
  * 职责：AndroidContentSearch 组件，负责该组件的渲染、状态与交互出口。
- * 导出：AndroidContentSearch。
+ * 分区：01 类型、常量与模块依赖；02 功能实现（AndroidContentSearch）
+ * 关联：依赖 components/base/icons、components/sider/AndroidContentSearch.module、components/sider/mobileSiderState、i18n/index 等 7 个模块；
+ *    被 components/sider/Sider 引用。
+ * 导出：AndroidContentSearch
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -19,6 +23,7 @@ import { IconChevronRightOutline14, IconSearchOutline16 } from '../base/icons.js
 import { closeDrawerSearch, closeOverlaySider, useMobileSider } from './mobileSiderState.js'
 import styles from './AndroidContentSearch.module.css'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const ROW_HEIGHT = 74
 const ROW_OVERSCAN = 10
 const SEARCH_DEBOUNCE_MS = 160
@@ -109,6 +114,7 @@ const renderSnippet = (snippet: string, highlights: HighlightRange[]): ReactNode
   return nodes
 }
 
+/* ---- 02 功能实现（AndroidContentSearch） ---- */
 export const AndroidContentSearch = memo(function AndroidContentSearch() {
   const t = useTranslate()
   const locale = useSettings((state) => state.locale)

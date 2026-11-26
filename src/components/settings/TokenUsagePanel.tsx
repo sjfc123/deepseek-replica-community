@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：设置页 / TokenUsagePanel 开始
+ * 功能区：视图与交互 / TokenUsagePanel
  * 职责：按会话汇总输入/输出 token、缓存命中与请求体积；缓存未命中时说明前缀变化和重试边界。
- * 导出：TokenUsagePanel。
+ * 分区：01 类型、常量与模块依赖；02 类型、契约与依赖；03 类型、常量与模块依赖（2）；04 对外入口与收尾
+ * 关联：依赖 components/settings/TokenUsagePanel.module、services/chat/cacheDiagnostics、services/chat/db、services/chat/types 等 6 个模块；
+ *    被 components/settings/AndroidSettings 引用。
+ * 导出：TokenUsagePanel
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useMemo, useState } from 'react'
@@ -16,6 +20,9 @@ import {
 } from '../../services/chat/cacheDiagnostics.js'
 import styles from './TokenUsagePanel.module.css'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
+/* ---- 02 类型、契约与依赖 ---- */
+/* ---- 03 类型、常量与模块依赖（2） ---- */
 type Props = {
   open: boolean
   onClose: () => void
@@ -35,6 +42,7 @@ const formatDate = (value: number, locale: string) =>
     day: '2-digit',
   }).format(new Date(value))
 
+/* ---- 04 对外入口与收尾 ---- */
 /** 会话级 Token 统计：只汇总接口返回的 usage，不把本地估算混进结果 */
 export const TokenUsagePanel = ({ open, onClose }: Props) => {
   const locale = useSettings((state) => state.locale)

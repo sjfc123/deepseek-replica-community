@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：附件与文件预览 / AndroidImageViewer 开始
+ * 功能区：视图与交互 / AndroidImageViewer
  * 职责：AndroidImageViewer 组件，负责该组件的渲染、状态与交互出口。
- * 导出：AndroidImageViewer。
+ * 分区：01 类型、常量与模块依赖；02 类型、契约与依赖；03 类型、常量与模块依赖（2）；04 对外入口与收尾
+ * 关联：依赖 app/android、app/useAndroidBackInterception、components/base/Button、components/base/icons 等 8 个模块；
+ *    被 components/chatInput/ChatInput、components/messages/MessageFile 引用。
+ * 导出：AndroidImageViewer
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
@@ -37,6 +41,9 @@ import {
 import styles from './AndroidImageViewer.module.css'
 import { usePreviewZoom } from './usePreviewZoom.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
+/* ---- 02 类型、契约与依赖 ---- */
+/* ---- 03 类型、常量与模块依赖（2） ---- */
 const handles = [
   { x: -1, y: -1 },
   { x: 0, y: -1 },
@@ -64,6 +71,7 @@ const CropIcon = () => (
   </svg>
 )
 
+/* ---- 04 对外入口与收尾 ---- */
 export const AndroidImageViewer = ({
   blob,
   name,

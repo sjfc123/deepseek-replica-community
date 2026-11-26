@@ -1,13 +1,19 @@
 /* ============================================================================
- * 功能区：历史归档 / importOffMainThread 开始
- * 职责：importOffMainThread 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：ImportRequest、ImportResponse、importOffMainThread。
+ * 功能区：历史归档 / importOffMainThread · 历史导入调度
+ * 职责：历史导入调度：Worker 与主线程两条执行路径。
+ * 分区：01 类型、契约与依赖；02 核心实现：ImportResponse、runInWorker、importOffMainThread；
+ *    03 对外入口与收尾
+ * 关联：依赖 i18n/index、services/chat/history/errors、services/chat/history/importArchive；
+ *    被 services/chat/backup、services/chat/history/import.worker 引用。
+ * 导出：ImportRequest、ImportResponse、importOffMainThread
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import type { TranslationKey } from '../../../i18n/index.js'
 import { BackupError } from './errors.js'
 import type { ArchiveProgress, ImportArchiveResult, ImportMode } from './importArchive.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type { ImportArchiveResult, ImportMode } from './importArchive.js'
 
 export type ImportRequest = { file: File; importId: string; mode: ImportMode }
@@ -18,6 +24,7 @@ export type ImportResponse =
   | { type: 'done'; result: ImportArchiveResult }
   | { type: 'error'; key?: TranslationKey; message: string }
 
+/* ---- 02 核心实现：ImportResponse、runInWorker、importOffMainThread ---- */
 const runInWorker = (request: ImportRequest, onProgress: (progress: ArchiveProgress) => void) =>
   new Promise<ImportArchiveResult | undefined>((resolve, reject) => {
     let worker: Worker
@@ -86,6 +93,7 @@ const runInWorker = (request: ImportRequest, onProgress: (progress: ArchiveProgr
     })
   })
 
+/* ---- 03 对外入口与收尾 ---- */
 export const importOffMainThread = async (
   file: File,
   importId: string,

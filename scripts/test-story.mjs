@@ -1,6 +1,16 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-story · 剧情推进
+ * 职责：剧情推进：阶段、截止、bad_end、线索与独白密度。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/chat/roleplay、services/chat/story；由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /**
  * 限时推理卡回归：虚拟时钟、阶段注入、结局标记与会话锁定。
  */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 
 const {
@@ -95,6 +105,7 @@ assert.match(builtinStory.clues[0].behavior, /句号|问号|标点/)
 assert.ok(builtinStory.clues[0].chain.length >= 3)
 assert.ok(builtinStory.clues[0].triggers.includes('标点'))
 assert.ok(builtinStory.clues[1].foreshadow.includes('左手腕'))
+/* ---- 02 验证场景 ---- */
 assert.equal(storyTurnNumber(builtinStory, { ...start, storyClockMinute: 1200 }), 0)
 assert.equal(storyTurnNumber(builtinStory, { ...start, storyClockMinute: 1210 }), 1)
 assert.equal(storyTurnNumber(builtinStory, { ...start, storyClockMinute: 1321 }), 13)
@@ -175,6 +186,7 @@ assert.equal(
 assert.match(
   limitStoryAsides('门我开一条缝了\n（他应该没发现）', story, anomalySession, [
     '上一轮正文',
+/* ---- 03 断言与清理 ---- */
     '这一轮正文',
   ]),
   /（他应该没发现）/,

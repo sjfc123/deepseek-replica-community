@@ -1,14 +1,21 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / suggestionsContext 开始
+ * 功能区：会话与角色核心 / suggestionsContext · 回复建议的纯文本装配
  * 职责：回复建议的纯文本装配：场景快照、在场人物、玩家站位、身份边界与去重。
- * 导出：SUGGESTION_SYSTEM、ReplySuggestion、buildSuggestionCardContext、
- *       buildSuggestionCastContext、buildSuggestionSceneContext、
- *       detectSuggestionPresence、buildSuggestionTranscript、buildSuggestionAsk、
- *       filterPrematureSuggestions、pickFreshSuggestions、pickFreshReplySuggestions。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 读取与解析（detectSuggestionPresence、buildSuggestionSceneContext、buildSuggestionTranscript…）；
+ *    03 计算与判定（buildSuggestionAsk、normalizeAside、suggestionIntents…）；
+ *    04 读取与解析（parseReplySuggestions、suggestionFingerprint、suggestionSimilarity…）；
+ *    05 状态与视图（openingKey、suggestionTopicKey、filterSuggestionFit…）；
+ *    06 功能实现（pickFreshReplySuggestions）
+ * 关联：依赖 services/chat/roleplay；
+ *    被 scripts/test-suggestions、services/chat/suggestions 引用。
+ * 导出：ReplySuggestionMode、ReplySuggestionIntent、ReplySuggestion、SuggestionPresence、SUGGESTION_SYSTEM、buildSuggestionCardContext、resolvePresentCast、buildSuggestionCastContext、detectSuggestionPresence、buildSuggestionSceneContext、buildSuggestionTranscript、buildSuggestionAsk 等 18 项
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import type { CharacterCard, SceneState } from './roleplay.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 建议的呈现方式：玩家说出口的话，或玩家侧括号动作/旁白 */
 export type ReplySuggestionMode = 'speech' | 'aside'
 
@@ -136,6 +143,7 @@ const characterPhonePattern =
 /** 角色挽留不算把人往外推：“你别走”与“你走吧”方向相反，不能用同一组关键词判。 */
 const characterKeepsPattern = /别走|不要走|别离开|留下|别出去|别回去/
 
+/* ---- 02 读取与解析（detectSuggestionPresence、buildSuggestionSceneContext、buildSuggestionTranscript…） ---- */
 /**
  * 判断玩家此刻的站位。优先看玩家最近几轮自己说的位置/行动，
  * 其次看角色最后一句有没有把玩家往外推，再看电话/赶路语境。
@@ -273,6 +281,7 @@ export const buildSuggestionTranscript = (
     .map((message) => `${message.role === 'user' ? '玩家' : cardName}：${message.content}`)
     .join('\n')
 
+/* ---- 03 计算与判定（buildSuggestionAsk、normalizeAside、suggestionIntents…） ---- */
 /** 可单独回归的完整提问，确保身份约束、场景站位与去重规则不会在后续改动中丢失。 */
 export const buildSuggestionAsk = ({
   card,
@@ -437,6 +446,7 @@ const toReplySuggestion = (
   }
 }
 
+/* ---- 04 读取与解析（parseReplySuggestions、suggestionFingerprint、suggestionSimilarity…） ---- */
 /** 从模型输出里取建议；支持对象数组、字符串数组、编号列表与代码块。 */
 export const parseReplySuggestions = (
   raw: string,
@@ -471,7 +481,7 @@ export const parseReplySuggestions = (
         }
       }
     } catch {
-      // JSON 不完整时继续按行解析
+      // JSON 主体不完整时保留已解析行，剩余内容交给后续增量。
     }
   }
   const lines = cleaned
@@ -580,6 +590,7 @@ const sceneObjectsOf = (text: string) => {
   const matches = text.match(sceneObjectPattern) ?? []
   return new Set(matches.map((item) => (item === '老花镜' ? '眼镜' : item === '窗台' || item === '窗' ? '窗户' : item)))
 }
+/* ---- 05 状态与视图（openingKey、suggestionTopicKey、filterSuggestionFit…） ---- */
 /** 开头指令词相同就算同一句式：“先……”“别……”“你先把……”。 */
 const openingKey = (text: string) => {
   const stripped = text.replace(/^[（(]\s*/, '')
@@ -626,6 +637,7 @@ export const hasSuggestionMix = (items: ReplySuggestion[]) => {
   return intents.size >= 2 && hasFeeling && !allAction && !allDetail && topics.size >= 2
 }
 
+/* ---- 06 功能实现（pickFreshReplySuggestions） ---- */
 /**
  * 带 mode/target 的去重版本。除了文本相似度，还要保证方向、主题和句式错开：
  * 三条都在“报纸日期”或都用“先……”开头时，宁可少一条让上层重试，也不硬凑满三条。

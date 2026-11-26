@@ -1,4 +1,15 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-cache-diagnostics · 缓存诊断
+ * 职责：缓存诊断：字段缺失、命中率、重建与报告导出。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/api/openaiChat、services/api/parseEvent、services/chat/cacheDiagnostics、services/chat/systemPrompt 等 6 个模块；
+ *    由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /* 缓存前缀诊断回归：正常命中不报警；首轮、配置切换、网关无字段不误报；连续低命中与静态段改写要报警。 */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 
 const storage = new Map()
@@ -131,6 +142,7 @@ assert.equal(
   diagnosePromptCache(readPromptCacheSamples(), 's1'),
   null,
   '配置刚切换后的低命中属于重建，不应误报'
+/* ---- 02 验证场景 ---- */
 )
 
 clearPromptCacheSamples()
@@ -241,6 +253,7 @@ const wireNoReminder = fingerprintWireRequest({
   model: 'deepseek-chat',
   messages: [
     { role: 'system', content: '稳定系统提示' },
+/* ---- 03 断言与清理 ---- */
     { role: 'user', content: '问题' },
   ],
 })

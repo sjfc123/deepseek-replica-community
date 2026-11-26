@@ -1,11 +1,17 @@
 /* ============================================================================
- * 功能区：语音链路 / recorder 开始
- * 职责：recorder 服务实现，负责语音朗读、录音采集或连续通话链路中的该子能力。
- * 导出：SAMPLE_RATE、MAX_SECONDS、Recording、startRecording、encodeWav。
+ * 功能区：语音采集与朗读 / recorder · 录音采集
+ * 职责：录音采集：麦克风权限、PCM 缓冲、最长时长与 WAV 编码。
+ * 分区：01 类型、契约与依赖；02 核心实现：startAndroidRecording、startRecording、encodeWav；
+ *    03 对外入口与收尾
+ * 关联：依赖 app/android；
+ *    被 components/chatInput/useVoiceInput、services/speech/voiceCall 引用。
+ * 导出：SAMPLE_RATE、MAX_SECONDS、Recording、startRecording、encodeWav
+ * 边界：只处理麦克风、PCM、TTS 排程与通话语音状态；不渲染聊天正文，不修改会话数据。
  * ========================================================================== */
 
 import { android } from '../../app/android.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /**
  * 录音并编码为 ASR 接受的 WAV（单声道、16-bit PCM、16kHz）。
  *
@@ -73,6 +79,7 @@ const startAndroidRecording = async (
   }
 }
 
+/* ---- 02 核心实现：startAndroidRecording、startRecording、encodeWav ---- */
 /** 开始录音；到达时长上限时调用 onLimit，由调用方决定何时 stop */
 export const startRecording = async (onLimit: () => void): Promise<Recording> => {
   if (android) {
@@ -100,7 +107,7 @@ export const startRecording = async (onLimit: () => void): Promise<Recording> =>
       try {
         node?.disconnect()
       } catch {
-        // 继续释放其余资源。
+        // 单个资源释放失败时继续释放其余资源，最终统一抛出首个错误。
       }
     }
     for (const track of stream.getTracks()) {
@@ -154,6 +161,7 @@ export const startRecording = async (onLimit: () => void): Promise<Recording> =>
   }
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 export const encodeWav = (
   chunks: Float32Array[],
   length: number,

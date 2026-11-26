@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / backup 开始
- * 职责：backup 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：ImportHistoryResult、exportHistory、importHistory、formatImportResult、clearHistory。
+ * 功能区：会话与角色核心 / backup · 历史导出导入
+ * 职责：历史导出导入：会话打包、ZIP 进度、导入结果汇总与清空；不负责自动备份节流。
+ * 分区：01 类型、契约与依赖；02 核心实现：importHistory、formatImportResult、clearHistory；
+ *    03 对外入口与收尾
+ * 关联：依赖 i18n/index、services/chat/backupName、services/chat/db、services/chat/history/errors 等 10 个模块；
+ *    被 scripts/test-history-merge、components/settings/AndroidSettings、services/chat/autoBackup 引用。
+ * 导出：ImportHistoryResult、ExportProgress、exportHistory、importHistory、formatImportResult、clearHistory、BackupError
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { autoBackupFileName } from './backupName.js'
@@ -13,6 +18,7 @@ import { mergeHistory, replaceHistory, useChatStore } from './store.js'
 import type { Session } from './types.js'
 
 export { BackupError } from './history/errors.js'
+/* ---- 01 类型、契约与依赖 ---- */
 export type { ImportIssue } from './history/importArchive.js'
 export type { ImportMode } from './history/importArchive.js'
 
@@ -112,6 +118,7 @@ export const exportHistory = (
     return { name: backupFileName(now), blob, count }
   })
 
+/* ---- 02 核心实现：importHistory、formatImportResult、clearHistory ---- */
 /** 确认导入后调用：支持合并（默认）或覆盖。先校验 ZIP 并写入暂存，通过后再提交。 */
 export const importHistory = (
   file: File,
@@ -172,6 +179,7 @@ export const importHistory = (
     return { mode: 'replace', count, skipped }
   })
 
+/* ---- 03 对外入口与收尾 ---- */
 export const formatImportResult = (result: ImportHistoryResult): TranslationMessage => {
   if (result.mode === 'replace') {
     return {

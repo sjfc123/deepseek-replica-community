@@ -1,7 +1,14 @@
 /* ============================================================================
- * 功能区：消息渲染 / AndroidTextSelection 开始
+ * 功能区：视图与交互 / AndroidTextSelection
  * 职责：AndroidTextSelection 组件，负责该组件的渲染、状态与交互出口。
- * 导出：AndroidTextSelection。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 读取与解析（getAllSelectedClientRects、findBlockScope、getSegmentElement…）；
+ *    03 读取与解析（resolveOffsetGeometric、resolveOffsetAtPoint、countTrailingNewlines…）；
+ *    04 功能实现（AndroidTextSelection）
+ * 关联：依赖 app/android、app/useAndroidBackInterception、components/base/icons、components/base/toastState 等 7 个模块；
+ *    被 components/messages/AssistantMessage、components/messages/UserMessage 引用。
+ * 导出：AndroidTextSelection
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
@@ -15,6 +22,7 @@ import { copyText } from '../../utils/clipboard.js'
 import { IconCopyOutline16, IconSelectAllOutline16 } from '../base/icons.js'
 import styles from './AndroidTextSelection.module.css'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 type TextSegment = {
   kind: 'text'
   node: Text
@@ -188,6 +196,7 @@ const getSubRangeRects = (
   return [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5)
 }
 
+/* ---- 02 读取与解析（getAllSelectedClientRects、findBlockScope、getSegmentElement…） ---- */
 const getAllSelectedClientRects = (
   segments: SelectionSegment[],
   start: number,
@@ -311,6 +320,7 @@ const caretOffsetInSegments = (
   return null
 }
 
+/* ---- 03 读取与解析（resolveOffsetGeometric、resolveOffsetAtPoint、countTrailingNewlines…） ---- */
 const resolveOffsetGeometric = (
   segments: SelectionSegment[],
   totalLength: number,
@@ -511,6 +521,7 @@ const extractTextForRange = (segments: SelectionSegment[], start: number, end: n
   return parts.join('')
 }
 
+/* ---- 04 功能实现（AndroidTextSelection） ---- */
 /**
  * 自由选词/字符级选择浮层：
  * 以真实文本节点 Range 几何为基准，提供可拖拽水滴手柄与浮动操作栏（复制 / 全选）。

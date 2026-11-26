@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：视图与交互 / AndroidImageViewer · 安卓图片查看器视觉层
+ * 职责：安卓图片查看器视觉层：全屏画布、缩放、工具栏与安全区。
+ * 分区：01 变量、容器与主体布局；02 变量、容器与基础布局；03 状态与交互；04 断点与主题兼容
+ * 关联：使用方 components/files/AndroidImageViewer；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
+/* ---- 01 变量、容器与主体布局 ---- */
 .dialog {
   --image-toolbar: #20242b;
   position: fixed;
@@ -40,6 +50,7 @@
   }
 }
 
+/* ---- 02 变量、容器与基础布局 ---- */
 .previewSurface {
   position: absolute;
   inset: 0;
@@ -91,6 +102,7 @@
 .close {
   display: inline-flex;
   align-items: center;
+/* ---- 03 状态与交互 ---- */
   justify-content: center;
   gap: 8px;
   min-height: 44px;
@@ -203,6 +215,7 @@
 
 .controls .confirm {
   flex: 1;
+/* ---- 04 断点与主题兼容 ---- */
   height: 44px;
 }
 

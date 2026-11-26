@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / describe 开始
- * 职责：describe 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：Notice、describeReply。
+ * 功能区：会话与角色核心 / describe · 回复状态文案
+ * 职责：回复状态文案：把错误、停止、内容拦截与完成状态转成统一提示。
+ * 分区：01 类型、契约与依赖；02 核心实现：Notice、getTemplateText、describeReply
+ * 关联：依赖 i18n/index、services/api/errors、services/chat/types、services/settings；
+ *    被 components/messages/AssistantMessage、services/chat/history/toArchive、services/speech/voiceCall 引用。
+ * 导出：Notice、describeReply
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { isTranslationKey, translate } from '../../i18n/index.js'
@@ -9,6 +13,7 @@ import { classifyStatus } from '../api/errors.js'
 import { useSettings } from '../settings.js'
 import type { AssistantMessage } from './types.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type Notice = {
   text: string
   /** 模板答复使用正文样式；其余统一为红色错误提示。 */
@@ -22,6 +27,7 @@ const getTemplateText = (reply: AssistantMessage) =>
     .map((block) => (block.type === 'text' && block.isTemplate ? block.text : ''))
     .join('')
 
+/* ---- 02 核心实现：Notice、getTemplateText、describeReply ---- */
 /** 回复出错或未正常结束时展示的提示 */
 export const describeReply = (reply: AssistantMessage): Notice | null => {
   if (reply.status === 'error' && reply.error) {

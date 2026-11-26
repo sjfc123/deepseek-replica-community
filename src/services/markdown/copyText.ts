@@ -1,12 +1,18 @@
 /* ============================================================================
- * 功能区：Markdown 解析 / copyText 开始
- * 职责：copyText 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
- * 导出：formatAndroidCopyText。
+ * 功能区：Markdown 渲染 / copyText · Android 复制文本
+ * 职责：Android 复制文本：把 Markdown 引用、代码与链接转换成可粘贴纯文本。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：serializeBlock、serializeBlocks、formatAndroidCopyText；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/markdown/parse；被 components/messages/AssistantMessage 引用。
+ * 导出：formatAndroidCopyText
+ * 边界：只处理 Markdown/公式/图表解析与渲染资源；不读取聊天状态，不写数据库。
  * ========================================================================== */
 
 import type { BlockContent, DefinitionContent, List, PhrasingContent, RootContent } from 'mdast'
 import { toMdAst } from './parse.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const serializeInline = (nodes: PhrasingContent[]): string => {
   const parts: string[] = []
   for (const node of nodes) {
@@ -44,6 +50,7 @@ const serializeInline = (nodes: PhrasingContent[]): string => {
   return parts.join('')
 }
 
+/* ---- 02 核心实现：serializeBlock、serializeBlocks、formatAndroidCopyText ---- */
 const serializeList = (list: List, depth: number): string =>
   list.children
     .map((item, index) => {
@@ -112,6 +119,7 @@ const serializeBlock = (node: RootContent | BlockContent | DefinitionContent): s
   }
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 const serializeBlocks = (nodes: Array<RootContent | BlockContent | DefinitionContent>): string =>
   nodes
     .map(serializeBlock)

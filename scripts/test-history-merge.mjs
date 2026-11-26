@@ -1,3 +1,14 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-history-merge · 历史合并
+ * 职责：历史合并：分支匹配、冲突、置顶分组与本地回退。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 i18n/en、i18n/zh、services/chat/backup、services/chat/branches 等 13 个模块；
+ *    由 pnpm 脚本直接执行。
+ * 导出：dbState、resetDbMock、resetDbMetrics、loadSessionSummaries、loadSession、saveSession、renameSession、deleteSession、saveFiles、loadFile、stagingWriter、beginStaging、reportStorageError
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { registerHooks } from 'node:module'
@@ -544,6 +555,7 @@ test('3. 导入更早的旧备份时不会覆盖本地新对话，当前分支�
       assistantMsg('a1', 'u1', 1500, [{ type: 'text', text: '你好！' }]),
     ],
   })
+/* ---- 02 验证场景 ---- */
 
   const res = mergeSessions(local, olderBackup)
   assert.equal(res.changed, false)
@@ -994,6 +1006,7 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
     rootMessageId: 'u1',
     messages: [
       userMsg('u1', null, 1000, '不变', { selectedChildId: 'a1' }),
+/* ---- 03 断言与清理 ---- */
       assistantMsg('a1', 'u1', 1500, [{ type: 'text', text: '一样' }]),
     ],
   }

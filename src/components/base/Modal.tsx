@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：基础 UI / Modal 开始
+ * 功能区：视图与交互 / Modal
  * 职责：Modal 组件，负责该组件的渲染、状态与交互出口。
- * 导出：Modal。
+ * 分区：01 类型、契约与依赖；02 核心实现：openModals、Modal；03 对外入口与收尾
+ * 关联：依赖 app/useAndroidBackInterception、components/base/IconButton、components/base/Modal.module、components/base/icons 等 5 个模块；
+ *    被 components/chatInput/ChatInput、components/settings/AdvancedApiSettings 引用。
+ * 导出：Modal
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -13,9 +17,12 @@ import { IconCloseOutline16 } from './icons.js'
 import { IconButton } from './IconButton.js'
 import styles from './Modal.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 当前打开的弹窗，后打开的在末尾；叠放时 Esc 只关闭最上层 */
 const openModals: object[] = []
 
+/* ---- 02 核心实现：openModals、Modal ---- */
+/* ---- 03 对外入口与收尾 ---- */
 /** 遮罩 + 居中卡片，Esc / 点遮罩关闭 */
 export const Modal = ({
   title,

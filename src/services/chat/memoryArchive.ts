@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / memoryArchive 开始
- * 职责：memoryArchive 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：MemoryArchiveFile、MemoryExportResult、MemoryExportOptions、MemoryImportResult、exportMemory、MemoryImportMode 等 7 个导出。
+ * 功能区：会话与角色核心 / memoryArchive · 记忆导入导出
+ * 职责：记忆导入导出：按范围打包、解析与合并记忆卡，保留归属与开关。
+ * 分区：01 类型、常量与模块依赖；02 读取与解析（readme、exportMemory、parseArchive）；
+ *    03 写入与状态变更（mergeCards、importMemory）
+ * 关联：依赖 services/chat/db、services/chat/memory、services/chat/store、services/chat/types 等 7 个模块；
+ *    被 components/settings/AndroidSettings 引用。
+ * 导出：MemoryArchiveFile、MemoryExportResult、MemoryExportOptions、MemoryImportResult、exportMemory、MemoryImportMode、importMemory
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
@@ -14,6 +19,7 @@ import { getMemoryPool } from './memory.js'
 import { useChatStore } from './store.js'
 import type { Message, Session } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /**
  * 记忆归档：把各会话里的长期记忆卡片单独打包，便于换机或备份到别处。
  * 只含卡片本身与所属位置，不含对话正文、附件与 API Key。
@@ -112,6 +118,7 @@ const buildArchive = async (sessions: Session[], options?: MemoryExportOptions) 
   return { archived, total }
 }
 
+/* ---- 02 读取与解析（readme、exportMemory、parseArchive） ---- */
 const readme = (cards: number, sessions: number) => `DeepSaga 记忆归档
 =================================
 
@@ -219,6 +226,7 @@ const parseArchive = async (file: File): Promise<MemoryArchiveFile> => {
   return archive as MemoryArchiveFile
 }
 
+/* ---- 03 写入与状态变更（mergeCards、importMemory） ---- */
 const mergeCards = (existing: MemoryCard[], incoming: MemoryCard[]) => {
   const known = new Set(existing.map((card) => card.id))
   const added = incoming.filter((card) => card.id && !known.has(card.id))

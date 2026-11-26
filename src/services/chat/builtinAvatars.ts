@@ -1,8 +1,14 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / builtinAvatars 开始
+ * 功能区：会话与角色核心 / builtinAvatars
  * 职责：内置角色卡的默认头像数据；只用于补齐本机头像表，不进入 system 或对话。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：LEGACY_AVATAR_DIGESTS、digestAvatar、ensureBuiltinCardAvatars
+ * 关联：无内部依赖；被 scripts/test-roleplay、services/settings 引用。
+ * 导出：BUILTIN_CARD_AVATARS、BUILTIN_CARD_AVATAR_IDS、ensureBuiltinCardAvatars
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /**
  * 内置头像以 256px WebP data URL 内嵌，避免应用启动时依赖网络或异步解码。
  * 大肥鱼、鲸鱼娘头像使用社区二创图，来源与许可见 assets/fanart/SOURCES.md。
@@ -31,6 +37,7 @@ const LEGACY_AVATAR_DIGESTS: Record<string, string> = {
   'builtin:whale-girl': '80bc734e',
 }
 
+/* ---- 02 核心实现：LEGACY_AVATAR_DIGESTS、digestAvatar、ensureBuiltinCardAvatars ---- */
 /** FNV-1a 32 位摘要，只用于识别旧内置头像，避免把整段 base64 留在代码里 */
 const digestAvatar = (value: string): string => {
   let hash = 0x811c9dc5
@@ -74,5 +81,3 @@ export const ensureBuiltinCardAvatars = (
   }
   return { avatars: next, added, replaced }
 }
-
-/* -------------------- 功能区：会话与角色核心 / builtinAvatars 结束 -------------------- */

@@ -1,7 +1,18 @@
+/* ============================================================================
+ * 功能区：视图与交互 / ReplyArea · 回复区视觉层
+ * 职责：回复区视觉层：正文排版、代码块、表格、引用与流式尾部；解析结果由 Markdown 层提供。
+ * 分区：01 变量、容器与主体布局；02 安卓间距与思考色；03 状态与交互；04 断点与主题兼容
+ * 关联：使用方 components/messages/ReplyArea；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
+/* ---- 01 变量、容器与主体布局 ---- */
 .area {
   margin-bottom: 10px;
 }
 
+/* ---- 02 安卓间距与思考色 ---- */
 [data-android] .area {
   --android-thinking-text: var(--dsw-alias-label-tertiary);
   --android-thinking-dot: var(--dsw-alias-label-caption);
@@ -176,6 +187,7 @@
 }
 
 .disclosure[data-open='true'] .steps {
+/* ---- 03 状态与交互 ---- */
   opacity: 1;
 }
 
@@ -386,6 +398,7 @@
 
 .intro {
   display: inline-block;
+/* ---- 04 断点与主题兼容 ---- */
   margin-right: 6px;
   font-variant: tabular-nums;
 }

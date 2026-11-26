@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：消息渲染 / UserMessage 开始
+ * 功能区：视图与交互 / UserMessage
  * 职责：UserMessage 组件，负责该组件的渲染、状态与交互出口。
- * 导出：UserMessage。
+ * 分区：01 实现：UserMessage
+ * 关联：依赖 app/android、app/viewport、components/base/Button、components/base/IconButton 等 22 个模块；
+ *    被 components/messages/MessageList 引用。
+ * 导出：UserMessage
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useTranslate } from '../../i18n/index.js'
@@ -39,6 +43,7 @@ import { MessageFile } from './MessageFile.js'
 import { CopyButton } from './CopyButton.js'
 import styles from './UserMessage.module.css'
 
+/* ---- 01 实现：UserMessage ---- */
 export const UserMessage = memo(function UserMessage({
   sessionId,
   message,

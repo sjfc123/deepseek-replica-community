@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / autoBackup 开始
- * 职责：autoBackup 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：AutoBackupStatus、AutoBackupMeta、readAutoBackupMeta、AutoBackupFailure、AutoBackupResult、readAutoBackupStatus 等 9 个导出。
+ * 功能区：会话与角色核心 / autoBackup · 自动备份
+ * 职责：自动备份：元数据读取、命名去重、ZIP 写入、完整性校验与调度；只写下载目录，不修改会话数据。
+ * 分区：01 类型、常量与模块依赖；02 功能实现（performAutoBackup）；
+ *    03 状态与视图（inFlight、runAutoBackup、maybeAutoBackup…）；
+ *    04 状态与视图（startAutoBackupScheduler）
+ * 关联：依赖 app/android、services/chat/backup、services/chat/store、services/dataRevision 等 6 个模块；
+ *    被 app/App、components/settings/AndroidSettings 引用。
+ * 导出：AutoBackupStatus、AutoBackupMeta、readAutoBackupMeta、AutoBackupFailure、AutoBackupResult、readAutoBackupStatus、runAutoBackup、maybeAutoBackup、startAutoBackupScheduler
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { readBlobBuffer } from '../../utils/blob.js'
@@ -15,6 +21,7 @@ import {
 } from '../dataRevision.js'
 import { exportHistory } from './backup.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 自动备份写入公共下载目录，卸载重装后仍可找到；本模块仅记录本机上次备份时间 */
 const LAST_KEY = 'replica:auto-backup-at'
 /** 上一次成功备份的指纹，设置页用来展示「已校验」 */
@@ -117,6 +124,7 @@ export const readAutoBackupStatus = (): AutoBackupStatus | null => {
   }
 }
 
+/* ---- 02 功能实现（performAutoBackup） ---- */
 /**
  * 立刻导出一次到下载目录。导出会遍历全部会话，和手动导出共用同一个串行队列，
  * 因此不会与用户正在进行的导入/导出互相打断。
@@ -189,7 +197,7 @@ const performAutoBackup = async (options: { notify?: boolean } = {}): Promise<Au
   try {
     localStorage.setItem(LAST_KEY, String(Date.now()))
   } catch {
-    // 存储不可用时仅失去节流时间戳。
+    // 存储不可用时只丢失节流时间戳，备份本身仍按调用链执行。
   }
   target.pruneAutoBackups?.(KEEP)
   try {
@@ -220,6 +228,7 @@ const performAutoBackup = async (options: { notify?: boolean } = {}): Promise<Au
   return result
 }
 
+/* ---- 03 状态与视图（inFlight、runAutoBackup、maybeAutoBackup…） ---- */
 /** 同一时间只允许一次备份；自动与手动撞车时共用同一次执行，避免同秒发布两份文件 */
 let inFlight: Promise<AutoBackupResult> | null = null
 
@@ -282,6 +291,7 @@ export const maybeAutoBackup = () => {
   }
 }
 
+/* ---- 04 状态与视图（startAutoBackupScheduler） ---- */
 /**
  * 自动备份调度：启动时先检查一次，之后每 10 分钟检查、回到前台再检查。
  * 真正是否写盘仍由 maybeAutoBackup 按设置间隔判断，不会重复备份。
@@ -293,7 +303,7 @@ export const startAutoBackupScheduler = () => {
   run()
   const timer = window.setInterval(run, 5 * 60 * 1000)
   // 原生壳在 onPause 里回调这个函数：退到后台前若已到期就先写一次，
-  // 页面随后被系统冻结也不会丢这一轮数据。
+  // 先把本轮数据写入持久层，页面随后被系统冻结也不会丢失。
   const lifecycle = window as Window & { __replicaLifecyclePause?: () => void }
   lifecycle.__replicaLifecyclePause = run
   const onVisible = () => {

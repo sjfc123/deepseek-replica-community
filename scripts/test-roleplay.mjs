@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-roleplay · 角色扮演
+ * 职责：角色扮演：内置卡、情景与指令、世界书、场景、档案与身份名。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/chat/builtinAvatars、services/chat/cardFormats、services/chat/characterProfile、services/chat/roleplay；
+ *    由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /**
  * 角色扮演层回归：
  * 1. 内置卡数量、八张卡的基础配置完整度、旧种子刷新与默认头像；
@@ -9,6 +19,7 @@
  * 7. 基础档案归一化、计数与 system 装配；
  * 8. 档案关闭后的身份名行与 system 名字解析。
  */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
@@ -345,6 +356,7 @@ const [unlimited] = normalizeCharacterCards([{ name: '长设定', ...longFields 
 for (const [key, value] of Object.entries(longFields)) {
   assert.equal(unlimited[key].length, value.length, `${key} 不能再被归一化截断`)
 }
+/* ---- 02 验证场景 ---- */
 const [coreLimited] = normalizeCharacterCards([
   { name: '名'.repeat(60), age: '龄'.repeat(120), gender: '别'.repeat(80) },
 ])
@@ -632,6 +644,7 @@ const fixedProfileSystem = formatCharacterProfile({
 })
 for (const label of [
   '年龄：24 岁',
+/* ---- 03 断言与清理 ---- */
   '性别：女性',
   '第三人称代词：她',
   '种族：人类',

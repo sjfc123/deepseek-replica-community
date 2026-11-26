@@ -1,12 +1,18 @@
 /* ============================================================================
- * 功能区：历史归档 / zipReader 开始
- * 职责：zipReader 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：ArchiveError、isZipFile、ArchiveEntry、readEntry、skipEntry。
+ * 功能区：历史归档 / zipReader · ZIP 读取
+ * 职责：ZIP 读取：条目遍历、CRC 与大小限制、跳过损坏项与流式读取。
+ * 分区：01 类型、常量与模块依赖；02 类型与契约（ArchiveEntry、ArchiveReadOptions）；
+ *    03 读取与解析（readEntry、skipEntry）；04 功能实现（skipEntry）
+ * 关联：依赖 utils/blob；
+ *    被 scripts/test-data-management、services/chat/history/importArchive、services/chat/officeText 引用。
+ * 导出：ArchiveError、isZipFile、ArchiveEntry、ArchiveReadOptions、readEntry、skipEntry
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import { Inflate, inflateSync } from 'fflate'
 import { readBlobBuffer } from '../../../utils/blob.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const READ_CHUNK_BYTES = 256 * 1024
 const READ_AHEAD_BYTES = 2 * 1024 * 1024
 // 控制每轮同步解压的工作量；输出交给调用方保存后才继续读取。
@@ -132,6 +138,7 @@ type Entry = {
   offset: number
 }
 
+/* ---- 02 类型与契约（ArchiveEntry、ArchiveReadOptions） ---- */
 const readDirectory = async (
   fileSize: number,
   readBytes: ReadBytes
@@ -202,7 +209,7 @@ const readDirectory = async (
     }
     const name = await readBytes(offset + cursor + 46, nameLength)
     const path = decodePath(name, flags)
-    // 目录和同名文件也不能互相覆盖。
+    // 目录与同名文件视为冲突，写入前必须拒绝，防止覆盖已有条目。
     const identity = path.endsWith('/') ? path.slice(0, -1) : path
     if (paths.has(identity) || (path.endsWith('/') && entrySize !== 0)) {
       invalid()
@@ -284,6 +291,7 @@ export type ArchiveEntry = {
   stream: AsyncIterable<Uint8Array>
 }
 
+/* ---- 03 读取与解析（readEntry、skipEntry） ---- */
 /** 宽松读取：单个条目的本地头或 CRC 损坏时跳过该条目，继续读取后续条目。 */
 export type ArchiveReadOptions = {
   continueOnEntryError?: boolean
@@ -432,11 +440,12 @@ export const readEntry = async (
   return new Blob([...parts, ...chunks], { type: imageType(header) })
 }
 
+/* ---- 04 功能实现（skipEntry） ---- */
 /** 不需要的条目也要读完，以校验大小与 CRC。 */
 export const skipEntry = async (entry: ArchiveEntry): Promise<void> => {
   const reader = entry.stream[Symbol.asyncIterator]()
   while (!(await reader.next()).done) {
-    // 丢弃数据。
+    // 条目声明的大小或 CRC 与数据不符时丢弃该条目，防止把损坏内容交给上层。
   }
 }
 

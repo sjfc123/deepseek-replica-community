@@ -1,6 +1,11 @@
 /* ============================================================================
- * 功能区：消息渲染 / MessageList 开始
+ * 功能区：视图与交互 / MessageList · 消息列表
  * 职责：消息列表：分支渲染、虚拟滚动、选择模式与底部操作条。
+ * 分区：01 类型、常量与模块依赖；02 列表派生与重试标识；03 消息列表渲染与交互
+ * 关联：依赖 app/android、app/viewport、components/base/toastState、components/messages/AssistantMessage 等 21 个模块；
+ *    被 components/session/SessionView 引用。
+ * 导出：MessageList
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -59,7 +64,8 @@ import type { Message } from '../../services/chat/types.js'
  * 会话共用可重试的附件上传失败入口，覆盖当前提问与历史消息中的附件。
  * 点击后按失败的回答重新补传附件并请求。
  */
-/* -------------------- 功能区：列表派生与重试标识 开始 -------------------- */
+/* ---- 01 类型、常量与模块依赖 ---- */
+/* ---- 02 列表派生与重试标识 ---- */
 const getUploadRetryId = (messages: Message[], streaming: boolean) => {
   const last = messages.at(-1)
   return !streaming &&
@@ -85,9 +91,8 @@ const SEARCH_JUMP_TOP_OFFSET = 10
 const SEARCH_JUMP_SETTLE_MS = 650
 const SEARCH_HIGHLIGHT_MS = 1800
 
-/* -------------------- 功能区：列表派生与重试标识 结束 -------------------- */
 
-/* -------------------- 功能区：消息列表渲染与交互 开始 -------------------- */
+/* ---- 03 消息列表渲染与交互 ---- */
 export const MessageList = ({
   session,
   streaming,
@@ -1177,7 +1182,6 @@ export const MessageList = ({
     </ScrollToBottomContext.Provider>
   )
 }
-/* -------------------- 功能区：消息列表渲染与交互 结束 -------------------- */
 
 /* ============================================================================
  * 功能区：消息渲染 / MessageList 结束

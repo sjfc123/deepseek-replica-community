@@ -1,13 +1,18 @@
 /* ============================================================================
- * 功能区：消息渲染 / useReplyView 开始
+ * 功能区：视图与交互 / useReplyView · 回复视图 Hook
  * 职责：回复视图 Hook：管理折叠、展开与可见内容。
- * 导出：useReplyView。
+ * 分区：01 类型、契约与依赖
+ * 关联：依赖 services/chat/types、services/chat/view；
+ *    被 components/messages/AssistantMessage 引用。
+ * 导出：useReplyView
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useMemo, useState } from 'react'
 import type { AssistantMessage } from '../../services/chat/types.js'
 import { buildReplyView, type Source } from '../../services/chat/view.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const sameSource = (a: Source, b: Source) =>
   a.url === b.url &&
   a.title === b.title &&

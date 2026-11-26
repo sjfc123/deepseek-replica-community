@@ -1,12 +1,17 @@
 /* ============================================================================
- * 功能区：长期记忆界面 / MemoryChip 开始
+ * 功能区：视图与交互 / MemoryChip
  * 职责：MemoryChip 组件，负责该组件的渲染、状态与交互出口。
- * 导出：MemoryChip。
+ * 分区：01 实现：MemoryChip
+ * 关联：依赖 components/memory/MemoryChip.module；
+ *    被 components/messages/AssistantMessage、components/session/MobileHeader、components/session/SessionView 引用。
+ * 导出：MemoryChip
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
 import styles from './MemoryChip.module.css'
 
+/* ---- 01 实现：MemoryChip ---- */
 /**
  * 记忆胶囊：顶栏入口与消息内标记共用。
  * header 变体带描边与数量，inline 变体更小，仅显示该回复关联的记忆条数。

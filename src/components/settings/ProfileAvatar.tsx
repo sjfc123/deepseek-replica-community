@@ -1,11 +1,16 @@
 /* ============================================================================
- * 功能区：设置页 / ProfileAvatar 开始
+ * 功能区：视图与交互 / ProfileAvatar
  * 职责：ProfileAvatar 组件，负责该组件的渲染、状态与交互出口。
- * 导出：ProfileIcon、ProfileAvatar。
+ * 分区：01 类型、契约与依赖
+ * 关联：依赖 components/settings/AccountProfile.module；
+ *    被 components/settings/AndroidSettings、components/settings/ProfileEditor、components/sider/Sider 引用。
+ * 导出：ProfileIcon、ProfileAvatar
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import styles from './AccountProfile.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export const ProfileIcon = () => (
   <svg
     width="18"

@@ -1,9 +1,15 @@
 /* ============================================================================
- * 功能区：本地服务 / peak 开始
+ * 功能区：本地服务 / peak · 峰谷时段
  * 职责：峰谷时段：按本地时钟判断高峰/空闲并生成提示。
- * 导出：PeakHint、getPeakHint。
+ * 分区：01 类型、契约与依赖；02 核心实现：durationLabel、nextWorkdayPeak、getPeakHint；
+ *    03 对外入口与收尾
+ * 关联：无内部依赖；
+ *    被 components/session/PeakWindowHint、components/session/Welcome 引用。
+ * 导出：PeakHint、getPeakHint
+ * 边界：只处理本机存储、设置、迁移与数据版本；不实现界面控件，不直接请求模型。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /**
  * DeepSeek API 峰谷时段。
  *
@@ -96,6 +102,7 @@ const weekdayOf = (year: number, month: number, day: number) =>
 const beijingTime = (year: number, month: number, day: number, minuteOfDay: number) =>
   Date.UTC(year, month - 1, day, 0, minuteOfDay) - BEIJING_OFFSET_MS
 
+/* ---- 02 核心实现：durationLabel、nextWorkdayPeak、getPeakHint ---- */
 const holidayOf = (year: number, month: number, day: number) => {
   const key = dateKey(year, month, day)
   if (year === 2026) {
@@ -168,6 +175,7 @@ const nextWorkdayPeak = (year: number, month: number, day: number, includeToday:
   return undefined
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 export const getPeakHint = (now = new Date()): PeakHint => {
   const today = beijingParts(now)
   const minuteOfDay = today.hour * 60 + today.minute

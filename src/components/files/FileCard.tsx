@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：附件与文件预览 / FileCard 开始
+ * 功能区：视图与交互 / FileCard
  * 职责：FileCard 组件，负责该组件的渲染、状态与交互出口。
- * 导出：FileCard。
+ * 分区：01 实现：FileCard
+ * 关联：依赖 components/base/icons、components/files/FileCard.module、components/files/FileIcon、i18n/index 等 5 个模块；
+ *    被 components/chatInput/DraftAttachments、components/messages/MessageFile 引用。
+ * 导出：FileCard
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -12,6 +16,7 @@ import { IconCloseFill14, IconRefreshOutline16 } from '../base/icons.js'
 import { FileIcon } from './FileIcon.js'
 import styles from './FileCard.module.css'
 
+/* ---- 01 实现：FileCard ---- */
 /**
  * 文档文件卡片：图标 + 文件名 + 「扩展名 大小」或状态文案。
  * 输入框内失败时描边和说明标红；可重试时显示刷新图标，不可重试时常显红色删除按钮。

@@ -1,3 +1,12 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-memory-layers · 记忆分层
+ * 职责：记忆分层：普通池/角色池、配额、注入顺序与旧卡迁移。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/chat/memory、services/chat/memoryView；由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /**
  * 角色记忆分层回归：
  * 1. 旧卡默认是完整回合；重要场景 / 关键事实可独立成卡；
@@ -5,6 +14,7 @@
  * 3. 场景与事实不参与自动配额淘汰，并优先进入注入；
  * 4. 注入块按“重要场景 → 关键事实 → 对话经历”分段，避免模型混读。
  */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 import {
   buildImportantMemoryCards,
@@ -103,6 +113,7 @@ const messages = [
     content: '今晚下雨了。',
     createdAt: 10,
   },
+/* ---- 02 验证场景 ---- */
   {
     id: 'a1',
     role: 'assistant',
@@ -191,6 +202,7 @@ const namedBlock = formatMemoryBlock(
 )
 assert.match(namedBlock, /（林默）/)
 assert.doesNotMatch(namedBlock, /（玩家本人）/)
+/* ---- 03 断言与清理 ---- */
 assert.match(ownedBlock, /（回忆触发：关灯、走廊、睡觉）/)
 assert.match(ownedBlock, /（可主动提起）/)
 assert.match(ownedBlock, /标了「角色本人」/)

@@ -1,12 +1,17 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / Spectrum 开始
+ * 功能区：视图与交互 / Spectrum
  * 职责：Spectrum 组件，负责该组件的渲染、状态与交互出口。
- * 导出：Spectrum。
+ * 分区：01 类型、契约与依赖；02 核心实现：Spectrum、Range、buildRanges；03 对外入口与收尾
+ * 关联：依赖 components/chatInput/Spectrum.module；
+ *    被 components/chatInput/ChatInput 引用。
+ * 导出：Spectrum
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useRef, useState } from 'react'
 import styles from './Spectrum.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 与设计稿一致：2px 宽、3px 间距，静止 5px，最高 36px */
 const BAR_WIDTH = 2
 const BAR_GAP = 3
@@ -23,6 +28,7 @@ const DB_CEIL = -25
 /** 人声高频能量自然衰减，按倍频程补偿，避免右侧常年贴底 */
 const TILT_DB_PER_OCTAVE = 4
 
+/* ---- 02 核心实现：Spectrum、Range、buildRanges ---- */
 /**
  * 录音中的实时频谱：从左到右依次是低频到高频，按对数分段。
  * 每帧直接改 transform，不触发 React 渲染。
@@ -37,7 +43,7 @@ export const Spectrum = ({
   const rootRef = useRef<HTMLDivElement>(null)
   const [count, setCount] = useState(0)
 
-  // 按容器宽度决定柱数
+  // 按容器宽度决定柱数，窄屏减少采样列
   useEffect(() => {
     const root = rootRef.current
     if (!root) {
@@ -133,6 +139,7 @@ export const Spectrum = ({
   )
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 type Range = { from: number; to: number; center: number }
 
 /** 把 [FREQ_LOW, FREQ_HIGH] 按对数切成 n 段，返回每段的 bin 区间及中心位置（以 bin 为单位） */

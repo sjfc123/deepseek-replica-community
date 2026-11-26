@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：视图与交互 / MemoryPanel · 长期记忆面板视觉层
+ * 职责：长期记忆面板视觉层：双分类卡片、筛选、编辑表单、配额进度、窄屏与主题兼容；类名由 MemoryPanel.tsx 引用。
+ * 分区：01 变量、容器与基础布局；02 顶部状态；03 筛选 + 搜索；04 删除与清空确认；05 分类记忆面板；06 展开补卡折叠；
+ *    07 输入框独占一行；08 手动补卡选项；09 窄屏
+ * 关联：使用方 components/memory/MemoryPanel；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -9,6 +19,7 @@
   animation: memory-fade 160ms ease-out;
 }
 
+/* ---- 01 变量、容器与基础布局 ---- */
 .card {
   display: flex;
   flex-direction: column;
@@ -335,6 +346,7 @@
   }
 }
 
+/* ---- 02 顶部状态 ---- */
 /* 顶部状态：模式、配额进度、上限说明 */
 .usage {
   margin: 10px 18px 0;
@@ -490,6 +502,7 @@
   }
 }
 
+/* ---- 03 筛选 + 搜索 ---- */
 /* 筛选 + 搜索 */
 .toolbar {
   padding: 8px 18px 0;
@@ -629,6 +642,7 @@ body[data-ds-dark-theme] .injectLine {
   background: rgb(255 255 255 / 6%);
 }
 
+/* ---- 04 删除与清空确认 ---- */
 /* 删除/清空确认：跟应用弹窗同一套配色，不再走系统 confirm */
 .confirmBackdrop {
   position: fixed;
@@ -714,6 +728,7 @@ body[data-ds-dark-theme] .injectLine {
   color: #fff;
 }
 
+/* ---- 05 分类记忆面板 ---- */
 /* 0.8.71 分类记忆面板：顶部标题与底部补卡区固定，中间卡片列表独立滚动 */
 .card {
   --memory-surface: var(--settings-card, var(--ds-bg-elevated, #fff));
@@ -1022,6 +1037,7 @@ body[data-ds-dark-theme] .injectLine {
   word-break: break-word;
 }
 
+/* ---- 06 展开补卡折叠 ---- */
 /* 展开补卡时把列表与筛选收起，优先把完整表单露出来；收起后立即恢复原布局 */
 .card[data-adding='true'] {
   height: auto;
@@ -1102,6 +1118,7 @@ body[data-ds-dark-theme] .injectLine {
   }
 }
 
+/* ---- 07 输入框独占一行 ---- */
 /* 输入框独占一行，添加按钮放到下一行右侧，避免窄屏按钮压住输入框边框 */
 .addActions {
   display: flex;
@@ -1169,6 +1186,7 @@ body[data-ds-dark-theme] .injectLine {
   }
 }
 
+/* ---- 08 手动补卡选项 ---- */
 /* 手动补卡的归属、触发和主动回忆选项：和类型行分开，避免一排按钮挤在一起 */
 .addOptions {
   display: flex;
@@ -1356,6 +1374,7 @@ body[data-ds-dark-theme] .confirm section {
   color: #e9ecf2;
 }
 
+/* ---- 09 窄屏 ---- */
 /* 窄屏：双分类卡片与卡片头不挤压文字 */
 .poolTabs > button strong,
 .poolTabs > button small,

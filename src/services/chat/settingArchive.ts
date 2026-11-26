@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / settingArchive 开始
- * 职责：settingArchive 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：SETTING_ARCHIVE_FORMAT、SETTING_ARCHIVE_VERSION、SettingArchive、SettingArchiveInput、SettingArchiveErrorCode、SettingArchiveError 等 13 个导出。
+ * 功能区：会话与角色核心 / settingArchive · 设定存档
+ * 职责：设定存档：角色卡、档案、头像、世界书与场景的构建、解析与应用；不导入聊天历史。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：parseSettingArchive、SettingArchiveResult、applySettingArchive；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/chat/characterProfile、services/chat/roleplay；
+ *    被 components/settings/AndroidSettings 引用。
+ * 导出：SETTING_ARCHIVE_FORMAT、SETTING_ARCHIVE_VERSION、SettingArchive、SettingArchiveInput、SettingArchiveErrorCode、SettingArchiveError、settingArchiveName、buildSettingArchive、parseSettingArchive、SettingArchiveResult、applySettingArchive
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import {
@@ -20,6 +26,7 @@ import {
   type CharacterProfile,
 } from './characterProfile.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /**
  * 设定存档：把基础档案、角色卡、卡头像、世界书与场景打成一个 JSON 文件。
  * 与记忆归档分离——设定属于模板，换机或分享设定时单独迁移，不随对话导出。
@@ -103,6 +110,7 @@ const pickAvatars = (raw: unknown): Record<string, string> => {
   return result
 }
 
+/* ---- 02 核心实现：parseSettingArchive、SettingArchiveResult、applySettingArchive ---- */
 /** 解析并归一化外部存档；结构与版本不符时抛错，由调用方给出对应提示 */
 export const parseSettingArchive = (raw: string): SettingArchive => {
   let value: unknown
@@ -150,6 +158,7 @@ export type SettingArchiveResult = {
   profile: boolean
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /**
  * 合并导入：同 id 覆盖，新条目按剩余名额追加，超出上限的部分跳过并计数。
  * 逐条调用设置层的保存接口，保证内存状态与本地存储同时更新。

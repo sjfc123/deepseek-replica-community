@@ -1,9 +1,14 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / tokenTables 开始
- * 职责：tokenTables 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：HAN1_BITMAP_B64、EN_BIGRAM_B64、HAN2_BLOOM_B64、HAN34_BLOOM_B64。
+ * 功能区：会话与角色核心 / tokenTables · Token 估算表
+ * 职责：Token 估算表：内置汉字位图、英文 bigram 与 Bloom 数据；只读常量。
+ * 分区：01 类型、契约与依赖；02 核心实现：EN_BIGRAM_B64、HAN2_BLOOM_B64、HAN34_BLOOM_B64；
+ *    03 对外入口与收尾
+ * 关联：无内部依赖；被 services/chat/tokenEstimator 引用。
+ * 导出：HAN1_BITMAP_B64、EN_BIGRAM_B64、HAN2_BLOOM_B64、HAN34_BLOOM_B64
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /**
  * 从 DeepSeek V4 官方词表离线压缩的紧凑特征表（总原始体积 15.6 KB）：
  * - HAN1_BITMAP_B64: 0x4E00–0x9FA5 常用单汉字精确 1-bit 位图（5,246 字，2,613 B）
@@ -55,6 +60,7 @@ export const EN_BIGRAM_B64 =
   '/7/+Tyx5VNnkcVaeTf///8ckeRSd51FEnkf//r9GBEEQkebRXz9PE/kU9f///P/vf2SyRwAAEPz3+13b33Vtntd//a5G' +
   'BAEQmWZQRSACHfkORIRBDA=='
 
+/* ---- 02 核心实现：EN_BIGRAM_B64、HAN2_BLOOM_B64、HAN34_BLOOM_B64 ---- */
 export const HAN2_BLOOM_B64 =
   'bfuusDCddmuYBwir2rzelDOynKH9rsz40U9d2CPufeAU7+sypEjubK/W9ZR//cM5u/xPcZhZZ/P2NL4kAXva95TUC2aF' +
   '/Wfji9s3M+/DbtyWvlh0mz55ywCm8uLO/LeZUyV7SUJRvyeS4+jKrg+81nw+UZ+5SOFTL/tmpE5eAb3jpwuC3PicO7p2' +
@@ -191,6 +197,7 @@ export const HAN2_BLOOM_B64 =
   'of5t4QODMBgFpD0867ddhT38ebW+oN/aanhuvVaYR11djFAhg98Uu+a/Dd2djjdN072X+kKvpy5za0+e/R05WSLvk+UZ' +
   '3rJjtp4bnKBau2li+FZA0JixefZv1tcSSPBZKwkzrj8C4lc7MitW'
 
+/* ---- 03 对外入口与收尾 ---- */
 export const HAN34_BLOOM_B64 =
   'Jn50g+chQZj49waLJ8J8Qaw2CEKv5ad2fPUeYdWw1gohnB6YtBllRUd1S8R2vF0vkTzxGb7sKo7Hktv8EAdUJetz/XA+' +
   'rVd7nX+b3Ej1iOpehA07M2DQwLfhmj3tN5bEznraig9GocnxOqJ5j+HaMhTycR39D79/MfjWa7SUdnX+nfTfsKA45jNO' +

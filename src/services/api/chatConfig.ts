@@ -1,9 +1,15 @@
 /* ============================================================================
- * 功能区：模型接口 / chatConfig 开始
- * 职责：chatConfig 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
- * 导出：DEFAULT_CHAT_MODEL、CHAT_API_FORMATS、ChatApiFormat、ChatConfig、CHAT_API_PATHS、DEFAULT_CHAT_CONFIG 等 9 个导出。
+ * 功能区：模型接口 / chatConfig · 聊天接口配置
+ * 职责：聊天接口配置：定义 API 格式、端点路径、默认模型与配置归一化；读取本机配置并解析最终请求地址，不发起网络请求。
+ * 分区：01 类型、契约与依赖；02 核心实现：chatBaseUrl、resolveChatEndpoint、readChatConfig；
+ *    03 对外入口与收尾
+ * 关联：无内部依赖；
+ *    被 scripts/test-context-compaction、components/settings/AdvancedApiSettings、services/api/client、services/api/openaiChat 等 9 个模块 引用。
+ * 导出：DEFAULT_CHAT_MODEL、CHAT_API_FORMATS、ChatApiFormat、ChatConfig、CHAT_API_PATHS、DEFAULT_CHAT_CONFIG、chatBaseUrl、resolveChatEndpoint、readChatConfig
+ * 边界：只处理 HTTP 协议、请求头、流式帧与错误归一化；不维护会话状态、不渲染视图、不写业务数据库。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 export const DEFAULT_CHAT_MODEL = 'deepseek-flash'
 
 export const CHAT_API_FORMATS = {
@@ -60,6 +66,7 @@ const parseChatEndpoint = (value: string) => {
   return null
 }
 
+/* ---- 02 核心实现：chatBaseUrl、resolveChatEndpoint、readChatConfig ---- */
 export const chatBaseUrl = (value: string, format: ChatApiFormat) => {
   const endpoint = parseChatEndpoint(value.trim())
   if (!endpoint) {
@@ -95,6 +102,7 @@ export const resolveChatEndpoint = (
   return url.href
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 export const readChatConfig = (stored: string | null): ChatConfig => {
   try {
     const value = JSON.parse(stored ?? 'null') as Partial<ChatConfig> | null

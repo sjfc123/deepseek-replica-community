@@ -1,11 +1,18 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / voiceMaskShader 开始
+ * 功能区：视图与交互 / voiceMaskShader · 语音遮罩着色器
  * 职责：语音遮罩着色器：WebGL 波纹与音量驱动的片元计算。
- * 导出：VoiceTouchPoint、VoiceMaskFrame、VoiceMaskRenderer、createVoiceMaskRenderer。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 写入与状态变更（smoothFactor、computeArcRadius、targetFlowSpeed…）；
+ *    03 写入与状态变更（createVoiceMaskRenderer）
+ * 关联：依赖 components/messages/spring；
+ *    被 components/chatInput/AndroidVoiceOverlay、components/chatInput/useHoldToTalk 引用。
+ * 导出：VoiceTouchPoint、VoiceMaskFrame、VoiceMaskRenderer、createVoiceMaskRenderer
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { stepCriticallyDampedSpring, type SpringState } from '../messages/spring.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /**
  * 复刻官方 com.deepseek.chat v2.8.0 的 res/raw/voice_mask.agsl 着色器（兼容 WebGL 1.0 / GLSL ES 1.00）。
  * 绘制底部弧形波纹光幕、随手指移动的高斯光晕与圆柱绕流焦散，并在上滑取消时平滑过渡为警示红。
@@ -174,6 +181,7 @@ void main() {
 }
 `
 
+/* ---- 02 写入与状态变更（smoothFactor、computeArcRadius、targetFlowSpeed…） ---- */
 export type VoiceTouchPoint = { x: number; y: number }
 
 export type VoiceMaskFrame = {
@@ -252,6 +260,7 @@ export type VoiceMaskRenderer = {
   destroy: () => void
 }
 
+/* ---- 03 写入与状态变更（createVoiceMaskRenderer） ---- */
 export const createVoiceMaskRenderer = (canvas: HTMLCanvasElement): VoiceMaskRenderer | null => {
   const gl = canvas.getContext('webgl', {
     alpha: true,

@@ -1,13 +1,18 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / useHoldToTalk 开始
+ * 功能区：视图与交互 / useHoldToTalk · 按住说话 Hook
  * 职责：按住说话 Hook：处理触摸、取消阈值与录音收尾。
- * 导出：useHoldToTalk。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/chatInput/useVoiceInput、components/chatInput/voiceMaskShader；
+ *    被 components/chatInput/ChatInput 引用。
+ * 导出：useHoldToTalk
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import type { useVoiceInput } from './useVoiceInput.js'
 import type { VoiceTouchPoint } from './voiceMaskShader.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type Hold = {
   pointer: number
   startY: number
@@ -17,6 +22,7 @@ type Hold = {
   canceling: boolean
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 export const useHoldToTalk = (
   voice: ReturnType<typeof useVoiceInput>,
   beforeStart: () => boolean

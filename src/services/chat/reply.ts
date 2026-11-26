@@ -1,7 +1,14 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / reply 开始
- * 职责：reply 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：applyEvent、settleReply、getReplyText、getContextRounds、toRequestMessages、getThinkingSeconds。
+ * 功能区：会话与角色核心 / reply · 流式回复归并
+ * 职责：流式回复归并：事件块追加、工具/思考/正文分流、轮次与耗时统计；不写数据库。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 读取与解析（allowsRefusedContext、settleReply、getReplyText…）；
+ *    03 读取与解析（getContextRounds、attachTurnContext、toRequestMessages…）；
+ *    04 读取与解析（getThinkingSeconds）
+ * 关联：依赖 services/api/types、services/chat/types、services/settings；
+ *    被 services/chat/context、services/chat/customAttachments、services/chat/store、services/speech/voiceCall 引用。
+ * 导出：applyEvent、settleReply、getReplyText、getContextRounds、toRequestMessages、getThinkingSeconds
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import type {
@@ -23,6 +30,7 @@ import type {
   UserMessage,
 } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /**
  * 文件按 Files API 的 file_id（附件的 serverId）引用：图片用 image 块，其余用 document 块。
  * 发送前 streamReply 会先补齐 serverId；仍为 null 的是本地没有原件的附件，不进入请求。
@@ -144,6 +152,7 @@ export const applyEvent = (
   }
 }
 
+/* ---- 02 读取与解析（allowsRefusedContext、settleReply、getReplyText…） ---- */
 /** 被拒轮次是否回到上下文：默认沿用原版丢弃策略，开关打开后允许重新参考 */
 const allowsRefusedContext = () => useSettings.getState().allowRefusedContext
 
@@ -264,6 +273,7 @@ const toAssistantParam = ({
   }
 }
 
+/* ---- 03 读取与解析（getContextRounds、attachTurnContext、toRequestMessages…） ---- */
 /** 历史中会进入请求上下文的轮次：提问后紧跟可用回答的才保留 */
 export const getContextRounds = (history: Message[]): [UserMessage, AssistantMessage][] => {
   const rounds: [UserMessage, AssistantMessage][] = []
@@ -346,6 +356,7 @@ export const toRequestMessages = (
   return messages
 }
 
+/* ---- 04 读取与解析（getThinkingSeconds） ---- */
 /** 思考用时（秒），至少 1 秒 */
 export const getThinkingSeconds = (startedAt: number, endedAt: number) =>
   Math.max(1, Math.round((endedAt - startedAt) / 1000))

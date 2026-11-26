@@ -1,3 +1,12 @@
+/* ============================================================================
+ * 功能区：视图与交互 / AndroidSearchPanel · 安卓搜索面板视觉层
+ * 职责：安卓搜索面板视觉层：输入、结果列表、来源卡与空状态。
+ * 分区：01 变量、容器与基础布局；02 搜索结果弹层样式
+ * 关联：使用方 components/search/AndroidSearchPanel；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 .overlay {
   position: fixed;
   z-index: 800;
@@ -11,6 +20,7 @@
   pointer-events: auto;
 }
 
+/* ---- 01 变量、容器与基础布局 ---- */
 .scrim {
   position: absolute;
   inset: 0;
@@ -250,6 +260,7 @@ body[data-ds-dark-theme] .sheet {
   }
 }
 
+/* ---- 02 搜索结果弹层样式 ---- */
 /* 与官方 ChatSearchResultDialog / AppModalDialog 一致：>= 840dp 切换为居中圆角弹窗 */
 .overlay[data-layout='dialog'] {
   align-items: center;

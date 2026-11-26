@@ -1,11 +1,16 @@
 /* ============================================================================
- * 功能区：本地服务 / imageUpload 开始
+ * 功能区：本地服务 / imageUpload · 图片上传预处理
  * 职责：图片上传预处理：尺寸上限、压缩、格式识别与多图预算。
- * 导出：MAX_IMAGE_EDGE、MANY_IMAGES_MAX_EDGE、MANY_IMAGES_COUNT、APP_DOWNSAMPLE_PIXELS、UploadedImage、prepareImageUpload。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 utils/blob；
+ *    被 components/files/imageCrop、services/attachments、services/chat/customAttachments、services/chat/store 等 5 个模块 引用。
+ * 导出：MAX_IMAGE_EDGE、MANY_IMAGES_MAX_EDGE、MANY_IMAGES_COUNT、APP_DOWNSAMPLE_PIXELS、UploadedImage、prepareImageUpload
+ * 边界：只处理本机存储、设置、迁移与数据版本；不实现界面控件，不直接请求模型。
  * ========================================================================== */
 
 import { readBlobBuffer } from '../utils/blob.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 公开 API 的单边上限。对话请求包含至少 15 张图片时使用较小的上限。 */
 export const MAX_IMAGE_EDGE = 8192
 export const MANY_IMAGES_MAX_EDGE = 4096
@@ -27,6 +32,7 @@ const isJpegOrPng = async (file: File) => {
   )
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 export const prepareImageUpload = async (
   file: File,
   signal: AbortSignal,

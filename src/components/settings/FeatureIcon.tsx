@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：设置页 / FeatureIcon 开始
+ * 功能区：视图与交互 / FeatureIcon
  * 职责：FeatureIcon 组件，负责该组件的渲染、状态与交互出口。
- * 导出：FeatureIcon。
+ * 分区：01 核心实现：FALLBACK、hash、FeatureIcon；02 类型、契约与依赖；03 对外入口与收尾
+ * 关联：无内部依赖；
+ *    被 components/session/Welcome、components/settings/AndroidSettings 引用。
+ * 导出：FeatureIcon
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import {
@@ -82,6 +86,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+/* ---- 01 核心实现：FALLBACK、hash、FeatureIcon ---- */
+/* ---- 02 类型、契约与依赖 ---- */
 /**
  * 设置行的功能图标。
  * 按中英文标签匹配语义图标，未匹配的标签使用稳定哈希落到不同图形，
@@ -243,6 +249,7 @@ const BY_LABEL: Record<string, LucideIcon> = {
   'Follow author': Heart,
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /** 未命中的标签：用标签长度与字符码稳定散列到一组互不相同的备选图标 */
 const FALLBACK: LucideIcon[] = [
   BarChart3,

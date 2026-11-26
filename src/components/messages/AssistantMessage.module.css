@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：视图与交互 / AssistantMessage · 助手消息视觉层
+ * 职责：助手消息视觉层：正文、思考、工具步骤、引用、操作条与流式状态；不承载消息数据。
+ * 分区：01 变量、容器与基础布局；02 动作斜体；03 重新生成操作；04 气泡布局；05 安卓编辑框；06 深色编辑框；
+ *    07 回复下方的记忆胶囊；08 长回复折叠
+ * 关联：使用方 components/messages/AssistantMessage；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 .message {
   position: relative;
   display: flex;
@@ -13,6 +23,7 @@
   }
 }
 
+/* ---- 01 变量、容器与基础布局 ---- */
 .searchHighlighted {
   z-index: 0;
 }
@@ -59,6 +70,7 @@
   }
 }
 
+/* ---- 02 动作斜体 ---- */
 /* 角色扮演里 *动作* 会渲染成 em：弱化成旁白，正文对白才抢视线 */
 .message :global(.ds-assistant-message-main-content) em {
   color: var(--ds-button-text-tertiary, #8c9097);
@@ -234,6 +246,7 @@
   margin-left: auto;
 }
 
+/* ---- 03 重新生成操作 ---- */
 /* 重新生成按钮单独靠右 */
 .rightActions {
   display: flex;
@@ -286,6 +299,7 @@
   color: #e5e5e5;
 }
 
+/* ---- 04 气泡布局 ---- */
 /* 气泡布局：助手正文包成左侧气泡，操作按钮仍留在气泡外 */
 :global([data-chat-layout='wechat']) .message .selectableContent,
 :global([data-chat-layout='blue']) .message .selectableContent {
@@ -355,6 +369,7 @@
   margin: 6px 0 10px;
 }
 
+/* ---- 05 安卓编辑框 ---- */
 /* 安卓上编辑框跟着气泡收窄，输入区多往下长，不再整行横着铺满 */
 [data-android] .editor {
   width: min(100%, calc(100% - 56px));
@@ -408,6 +423,7 @@
   color: inherit;
 }
 
+/* ---- 06 深色编辑框 ---- */
 /* 深色主题下编辑框跟随暗色卡片，避免纯白底配浅色字看不清 */
 :global([data-ds-dark-theme]) .editorInput {
   border-color: #3a3d44;
@@ -509,6 +525,7 @@
 }
 
 
+/* ---- 07 回复下方的记忆胶囊 ---- */
 /* 回复下方的记忆胶囊：与正文左对齐，弱于操作栏 */
 .memoryRow {
   display: flex;
@@ -546,6 +563,7 @@
   }
 }
 
+/* ---- 08 长回复折叠 ---- */
 /* 长回复折叠：限高 + 底部渐隐，展开后恢复完整高度 */
 .answerBody[data-collapsed] {
   max-height: 320px;

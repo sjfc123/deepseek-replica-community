@@ -1,11 +1,19 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / tokenEstimator 开始
- * 职责：tokenEstimator 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：estimateTextTokens。
+ * 功能区：会话与角色核心 / tokenEstimator · Token 估算
+ * 职责：Token 估算：中英文字符、汉字与表情分桶匹配，输出近似 token 数；不发请求。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 计算与判定（punctSymUnitLength、isFrequentBindingPunct、isUniformSpan…）；
+ *    03 计算与判定（estimateCjkRun、estimateLetterWord、isCommonThreeAsciiPunct）；
+ *    04 计算与判定（estimatePunctBlock、estimateWhitespaceBlock、estimateTextTokens）；
+ *    05 计算与判定（estimateTextTokens）
+ * 关联：依赖 services/chat/tokenTables；被 services/chat/context 引用。
+ * 导出：estimateTextTokens
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { EN_BIGRAM_B64, HAN1_BITMAP_B64, HAN2_BLOOM_B64, HAN34_BLOOM_B64 } from './tokenTables.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const HAN_START = 0x4e00
 const HAN_END = 0x9fa5
 const HAN2_HASHES = 5
@@ -136,6 +144,7 @@ const isEmojiSurrogateAt = (text: string, index: number, limit: number): boolean
   return cp >= 0x1f000 && cp <= 0x1faff
 }
 
+/* ---- 02 计算与判定（punctSymUnitLength、isFrequentBindingPunct、isUniformSpan…） ---- */
 const punctSymUnitLength = (text: string, index: number, limit: number): number => {
   const c = text.charCodeAt(index)
   if (isBmpPunctOrSym(c)) {
@@ -248,6 +257,7 @@ const estimateAsciiWord = (enBg: Uint8Array, text: string, start: number, end: n
   return subCost
 }
 
+/* ---- 03 计算与判定（estimateCjkRun、estimateLetterWord、isCommonThreeAsciiPunct） ---- */
 const estimateCjkRun = (tables: Tables, text: string, start: number, end: number): number => {
   const { han1, bf2, bf34 } = tables
   let total = 0
@@ -305,7 +315,7 @@ const estimateCjkRun = (tables: Tables, text: string, start: number, end: number
           k = sameEnd
           continue
         }
-        // 4 → 3 → 2 → 1 最长词匹配
+        // 从 4 字到 1 字依次尝试最长词匹配，命中后立即消费该片段。
         if (
           k + 4 <= hanEnd &&
           isCommonHan(han1, text.charCodeAt(k + 1)) &&
@@ -395,6 +405,7 @@ const isCommonThreeAsciiPunct = (text: string, start: number): boolean => {
   )
 }
 
+/* ---- 04 计算与判定（estimatePunctBlock、estimateWhitespaceBlock、estimateTextTokens） ---- */
 const estimatePunctBlock = (
   text: string,
   coreStart: number,
@@ -507,6 +518,7 @@ const estimateWhitespaceBlock = (text: string, start: number, end: number): numb
   return Math.ceil(len / 48)
 }
 
+/* ---- 05 计算与判定（estimateTextTokens） ---- */
 /**
  * 拟合 DeepSeek V4 三阶段 Pre-Tokenizer 与 BPE 合并规律的轻量级单趟估算器。
  * 支持指定前缀截断位置 end，全程零子串切片分配，O(n) 扫描。
@@ -535,7 +547,7 @@ export const estimateTextTokens = (text: string, end = text.length): number => {
       continue
     }
 
-    // Stage 2: 连续汉字与日文假名段
+    // 第二阶段按连续汉字与日文假名分段，逐段估算后再与英文结果合并。
     if (isCjkStage2(c)) {
       let next = index + 1
       while (next < limit && isCjkStage2(text.charCodeAt(next))) {

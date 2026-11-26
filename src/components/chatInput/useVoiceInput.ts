@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / useVoiceInput 开始
+ * 功能区：视图与交互 / useVoiceInput · 语音输入 Hook
  * 职责：语音输入 Hook：录音、上传、转写与状态机。
- * 导出：VoiceInputStatus、useVoiceInput。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 app/android、components/base/toastState、i18n/index、services/api/speech 等 6 个模块；
+ *    被 components/chatInput/ChatInput、components/chatInput/VoiceButton、components/chatInput/useHoldToTalk 引用。
+ * 导出：VoiceInputStatus、useVoiceInput
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -12,6 +16,7 @@ import { useSettings } from '../../services/settings.js'
 import { android } from '../../app/android.js'
 import { showToast } from '../base/toastState.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type VoiceInputStatus = 'idle' | 'recording' | 'transcribing'
 
 /**
@@ -32,6 +37,7 @@ const describeRecordingError = (error: unknown): TranslationMessage => {
   return { key: 'voiceInputFailed' }
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 /**
  * 语音输入（oneshot）：点击开始录音，再次点击结束并转写，结果交给 onText 填入输入框。
  * 转写中再次点击取消。录满 120 秒自动结束。

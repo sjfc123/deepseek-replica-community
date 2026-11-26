@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：会话主视图 / SessionView 开始
+ * 功能区：视图与交互 / SessionView
  * 职责：SessionView 组件，负责该组件的渲染、状态与交互出口。
- * 导出：SessionView。
+ * 分区：01 实现：SessionView
+ * 关联：依赖 app/android、app/viewport、components/chatInput/ChatInput、components/memory/MemoryChip 等 13 个模块；
+ *    被 app/App 引用。
+ * 导出：SessionView
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -20,6 +24,7 @@ import { MemoryChip } from '../memory/MemoryChip.js'
 import { MobileHeader } from './MobileHeader.js'
 import styles from './SessionView.module.css'
 
+/* ---- 01 实现：SessionView ---- */
 /** 会话页：标题栏（移动端为顶栏）+ 消息列表，输入框吸底 */
 export const SessionView = memo(function SessionView({
   session,

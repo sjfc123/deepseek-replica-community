@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：基础 UI / Menu 开始
+ * 功能区：视图与交互 / Menu
  * 职责：Menu 组件，负责该组件的渲染、状态与交互出口。
- * 导出：MenuOption、Menu。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/base/Menu.module、components/base/anchored；
+ *    被 components/messages/AssistantMessage、components/messages/UserMessage、components/sider/SessionItem 引用。
+ * 导出：MenuOption、Menu
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -10,6 +14,7 @@ import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDismiss } from './anchored.js'
 import styles from './Menu.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type MenuOption = {
   key: string
   label: string
@@ -20,6 +25,7 @@ export type MenuOption = {
   onSelect: () => void
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 /** 点击触发，向下展开；点外部或 Esc 关闭 */
 export const Menu = ({
   options,

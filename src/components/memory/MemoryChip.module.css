@@ -1,4 +1,14 @@
+/* ============================================================================
+ * 功能区：视图与交互 / MemoryChip · MemoryChip 的视觉实现
+ * 职责：MemoryChip 的视觉实现：容器、布局、状态、动画、断点与主题兼容；类名由同名组件的 styles.* 引用。
+ * 分区：01 变量、容器与主体布局；02 状态与交互；03 断点与主题兼容
+ * 关联：使用方 components/memory/MemoryChip；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 /* 记忆胶囊：顶栏入口（header）与消息内标记（inline） */
+/* ---- 01 变量、容器与主体布局 ---- */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -35,6 +45,7 @@
 }
 
 .count {
+/* ---- 02 状态与交互 ---- */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -94,6 +105,7 @@
   }
 }
 
+/* ---- 03 断点与主题兼容 ---- */
 @media (prefers-reduced-motion: reduce) {
   .chip[data-pulse] {
     animation: none;

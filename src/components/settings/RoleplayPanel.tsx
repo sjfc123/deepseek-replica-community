@@ -1,8 +1,12 @@
 /* ============================================================================
- * 功能区：设置页 / RoleplayPanel 开始
+ * 功能区：视图与交互 / RoleplayPanel · 角色卡、世界书与场景面板
  * 职责：角色卡、世界书与场景面板：单卡启停、卡片编辑、导入导出、条目注入与模板。
- * 分区：示例卡与字段模板；空数据结构与完整度；状态绑定与派生筛选；卡片/世界书操作；
- *       角色卡编辑器；世界书条目行；面板主渲染。可调上限与字段表来自 roleplay.ts，不在组件内复制。
+ * 分区：01 示例卡与字段模板；02 空数据结构与字段完整度；03 状态绑定、派生数据与筛选；04 卡片、世界书与导入导出操作；05 角色卡编辑器；
+ *    06 世界书条目行渲染；07 示例应用与面板主渲染
+ * 关联：依赖 app/android、components/base/toastState、components/settings/RoleplayPanel.module、services/chat/branches 等 8 个模块；
+ *    被 components/settings/AndroidSettings 引用。
+ * 导出：RoleplayPanel
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -84,7 +88,7 @@ const cardSourceLabel = (url: string | undefined) => {
 }
 
 /** 示例模板：字段与角色卡一一对应，点击后整组填入，用户可继续修改 */
-/* -------------------- 功能区：示例卡与字段模板 开始 -------------------- */
+/* ---- 01 示例卡与字段模板 ---- */
 const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
   {
     label: '旧城邻里',
@@ -396,9 +400,8 @@ const CARD_EXAMPLES: Array<{ label: string; card: Partial<CharacterCard> }> = [
   },
 ]
 
-/* -------------------- 功能区：示例卡与字段模板 结束 -------------------- */
 
-/* -------------------- 功能区：空数据结构与字段完整度 开始 -------------------- */
+/* ---- 02 空数据结构与字段完整度 ---- */
 const emptyCard = (name = ''): CharacterCard => ({
   id: newRoleplayId(),
   name,
@@ -525,9 +528,8 @@ const formatDate = (value: number) =>
       })
     : '尚未填写'
 
-/* -------------------- 功能区：空数据结构与字段完整度 结束 -------------------- */
 
-/* -------------------- 功能区：状态绑定、派生数据与筛选 开始 -------------------- */
+/* ---- 03 状态绑定、派生数据与筛选 ---- */
 export function RoleplayPanel() {
   const cards = useSettings((state) => state.characterCards)
   const activeCharacterId = useSettings((state) => state.activeCharacterId)
@@ -736,9 +738,8 @@ export function RoleplayPanel() {
     setBudgetDraft(String(worldbookChars))
   }, [worldbookChars])
 
-  /* -------------------- 功能区：状态绑定、派生数据与筛选 结束 -------------------- */
 
-  /* -------------------- 功能区：卡片、世界书与导入导出操作 开始 -------------------- */
+/* ---- 04 卡片、世界书与导入导出操作 ---- */
   const applyBudget = (value: number) => {
     const next = Math.min(WORLDBOOK_BUDGET_MAX, Math.max(WORLDBOOK_BUDGET_MIN, Math.round(value)))
     setWorldbookChars(next)
@@ -1084,9 +1085,8 @@ export function RoleplayPanel() {
    * 角色卡编辑器：编辑现有卡时渲染在卡片原位置，新建卡时渲染在列表上方。
    * 头部提供头像上传与八套示例，字段留空则不参与注入。
    */
-  /* -------------------- 功能区：卡片、世界书与导入导出操作 结束 -------------------- */
 
-  /* -------------------- 功能区：角色卡编辑器 开始 -------------------- */
+/* ---- 05 角色卡编辑器 ---- */
   const renderCardEditor = () => {
     if (!cardDraft) {
       return null
@@ -1693,9 +1693,8 @@ export function RoleplayPanel() {
     showToast({ key: 'roleplayExampleApplied', params: { name: label } })
   }
 
-  /* -------------------- 功能区：角色卡编辑器 结束 -------------------- */
 
-  /* -------------------- 功能区：世界书条目行渲染 开始 -------------------- */
+/* ---- 06 世界书条目行渲染 ---- */
   const renderEntryRow = (entry: WorldbookEntry) => (
     <article key={entry.id} className={styles.entryRow} data-off={!entry.enabled}>
       <div className={styles.entryHead}>
@@ -1752,9 +1751,8 @@ export function RoleplayPanel() {
       </div>
     </article>
   )
-  /* -------------------- 功能区：世界书条目行渲染 结束 -------------------- */
 
-  /* -------------------- 功能区：示例应用与面板主渲染 开始 -------------------- */
+/* ---- 07 示例应用与面板主渲染 ---- */
   return (
     <div className={styles.panel}>
       <section className={styles.hero}>
@@ -2767,7 +2765,6 @@ export function RoleplayPanel() {
     </div>
   )
 }
-/* -------------------- 功能区：示例应用与面板主渲染 结束 -------------------- */
 
 /* ============================================================================
  * 功能区：设置页 / RoleplayPanel 结束

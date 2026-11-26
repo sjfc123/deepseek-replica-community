@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：应用外壳 / theme 开始
+ * 功能区：应用外壳 / theme · 主题系统
  * 职责：主题系统：解析深浅色偏好、写入主题变量并应用强调色与间距。
- * 导出：Theme、useTheme、setupTheme。
+ * 分区：01 类型、契约与依赖；02 核心实现：appliedTheme、syncTheme、setupTheme；03 对外入口与收尾
+ * 关联：依赖 app/android、services/settings；
+ *    被 components/markdown/MermaidDiagram、main 引用。
+ * 导出：Theme、useTheme、setupTheme
+ * 边界：只处理应用装配、生命周期、导航与全局视图；不实现聊天协议、持久化与业务算法。
  * ========================================================================== */
 
 import { useSyncExternalStore } from 'react'
@@ -14,6 +18,7 @@ import {
 } from '../services/settings.js'
 import { android } from './android.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type Theme = 'light' | 'dark'
 
 const query = window.matchMedia('(prefers-color-scheme: dark)')
@@ -64,6 +69,7 @@ const applyTheme = (theme: Theme) => {
   }, 0)
 }
 
+/* ---- 02 核心实现：appliedTheme、syncTheme、setupTheme ---- */
 /**
  * 主题色只覆盖强调色变量；深浅底色仍由 light / dark 两套样式控制，
  * 因此该组色值需同时满足浅色与深色背景的可读性，不再按模式拆成两套。
@@ -118,6 +124,7 @@ const applyAppearance = () => {
 
 let appliedTheme: Theme | null = null
 
+/* ---- 03 对外入口与收尾 ---- */
 const syncTheme = () => {
   const theme = resolveTheme(useSettings.getState().themePreference, getOsTheme())
   if (theme !== appliedTheme) {

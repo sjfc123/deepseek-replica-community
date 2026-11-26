@@ -1,11 +1,15 @@
 /* ============================================================================
- * 功能区：Markdown 视图 / useThrottleMarkdownRender 开始
+ * 功能区：视图与交互 / useThrottleMarkdownRender
  * 职责：Markdown 节流渲染 Hook：控制流式内容的渲染频率与取消。
- * 导出：useThrottleMarkdownRender。
+ * 分区：01 类型、契约与依赖
+ * 关联：无内部依赖；被 components/markdown/Markdown 引用。
+ * 导出：useThrottleMarkdownRender
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useRef, useState } from 'react'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 两次更新的最长间隔 */
 const MAX_WAIT = 2000
 /** 上次渲染耗时的倍数，过了这段时间才允许下次更新 */

@@ -1,16 +1,20 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / story 开始
+ * 功能区：会话与角色核心 / story
  * 职责：限时推理角色卡的虚拟时钟、阶段注入、结局标记、线索链与会话锁定。
- * 导出：STORY_END_MARKERS、advanceStoryClock、createStoryState、detectStoryEnd、
- *       formatStoryClock、formatStoryRemaining、formatStoryTurnBlock、
- *       isStoryLocked、limitStoryAsides、storyPhaseOf、stripStoryMarkers、
- *       storyTurnNumber、formatStorySuggestionContext、matchStoryClueQuestion、
- *       confirmStoryClueFromQuestion。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 读取与解析（normalizeClueProbe、matchStoryClueQuestion、confirmStoryClueFromQuestion…）；
+ *    03 读取与解析（limitStoryAsides、createStoryState、isStoryLocked…）；
+ *    04 状态与视图（formatStoryTurnBlock）
+ * 关联：依赖 services/chat/roleplay、services/chat/types；
+ *    被 scripts/test-story、scripts/test-suggestions、components/chatInput/ChatInput、services/chat/store 等 5 个模块 引用。
+ * 导出：STORY_END_MARKERS、StoryPhase、formatStoryClock、formatStoryRemaining、storyCluesUntil、currentStoryClue、storyClueKey、storyTurnNumber、formatStorySuggestionContext、matchStoryClueQuestion、confirmStoryClueFromQuestion、futureStoryClueTerms 等 20 项
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import type { CharacterStory, CharacterStoryClue } from './roleplay.js'
 import type { Session } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 export const STORY_END_MARKERS = {
   bad: '[[STORY_END:BAD]]',
   good: '[[STORY_END:GOOD]]',
@@ -153,6 +157,7 @@ export const formatStorySuggestionContext = (
   return lines.join('\n')
 }
 
+/* ---- 02 读取与解析（normalizeClueProbe、matchStoryClueQuestion、confirmStoryClueFromQuestion…） ---- */
 const normalizeClueProbe = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
 
 /**
@@ -246,8 +251,9 @@ export const storyPhaseOf = (story: CharacterStory, minute: number): StoryPhase 
   return minute > story.normalUntilMinute ? 'anomaly' : 'normal'
 }
 
+/* ---- 03 读取与解析（limitStoryAsides、createStoryState、isStoryLocked…） ---- */
 /**
- * 内心独白的硬上限：提示词只能降低概率，这里按最近两轮兜底。
+ * 内心独白的硬上限：提示词只能降低概率，这里按最近两轮执行硬性剔除。
  * 最近两条回复只要有一条独白，本轮就全部剔除；同一条独白在最近三轮出现过也剔除。
  * 允许保留时最多保留一条，避免一轮里连续写两三句心理分析。
  */
@@ -304,7 +310,7 @@ export const isStoryLocked = (session: Session | null | undefined) =>
 
 /**
  * 每轮只推进 stepMinutes，最多推到 00:00；跨过本人阶段时落在 22:01，确保异变从第一分钟开始。
- * 到达截止的这一轮仍允许模型输出最后一幕，由结束标记或落库兜底改成 bad_end。
+ * 到达截止的这一轮仍允许模型输出最后一幕，缺少结束标记时落库改为 bad_end。
  */
 export const advanceStoryClock = (
   story: CharacterStory,
@@ -332,6 +338,7 @@ export const detectStoryEnd = (text: string): 'bad' | 'good' | null => {
 /** 结束标记只给前端判定，不进正文，也不留给模型下一轮复读。 */
 export const stripStoryMarkers = (text: string) => text.replace(END_PATTERN, '').trimEnd()
 
+/* ---- 04 状态与视图（formatStoryTurnBlock） ---- */
 /**
  * 本轮追加的剧情时钟与阶段约束。
  * 放在用户消息末尾而不是 system，避免每轮变化打断缓存前缀。

@@ -1,9 +1,14 @@
 /* ============================================================================
- * 功能区：基础 UI / AndroidIcons 开始
+ * 功能区：视图与交互 / AndroidIcons
  * 职责：AndroidIcons 组件，负责该组件的渲染、状态与交互出口。
- * 导出：AndroidSound、AndroidCircle、AndroidAttachment。
+ * 分区：01 类型、契约与依赖；02 核心实现：AndroidSound、AndroidCircle、AndroidAttachment
+ * 关联：无内部依赖；
+ *    被 components/chatInput/AndroidAttachments、components/chatInput/ChatInput、components/session/MobileHeader 引用。
+ * 导出：AndroidSound、AndroidCircle、AndroidAttachment
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 export const AndroidSound = ({ muted }: { muted: boolean }) => (
   <svg
     width="22"
@@ -50,6 +55,7 @@ export const AndroidCircle = ({ icon }: { icon: 'add' | 'close' | 'voice' | 'key
   </svg>
 )
 
+/* ---- 02 核心实现：AndroidSound、AndroidCircle、AndroidAttachment ---- */
 export const AndroidAttachment = ({ kind }: { kind: 'camera' | 'gallery' | 'files' }) => (
   <svg
     width="20"

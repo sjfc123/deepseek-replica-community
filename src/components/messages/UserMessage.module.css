@@ -1,3 +1,12 @@
+/* ============================================================================
+ * 功能区：视图与交互 / UserMessage
+ * 职责：UserMessage 的视觉实现：容器、布局、状态、动画、断点与主题兼容；类名由同名组件的 styles.* 引用。
+ * 分区：01 变量、容器与基础布局；02 断点与窄屏适配；03 玩家消息里的括号独白；04 气泡布局
+ * 关联：使用方 components/messages/UserMessage；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 .container {
   display: flex;
   animation: message-rise 280ms cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -14,6 +23,7 @@
   }
 }
 
+/* ---- 01 变量、容器与基础布局 ---- */
 [data-android] .container {
   contain: style;
   padding-bottom: 10.37px;
@@ -31,6 +41,7 @@
   pointer-events: none;
 }
 
+/* ---- 02 断点与窄屏适配 ---- */
 @media (prefers-reduced-motion: reduce) {
   [data-android] .container,
   [data-android] .files,
@@ -159,6 +170,7 @@
   vertical-align: top;
 }
 
+/* ---- 03 玩家消息里的括号独白 ---- */
 /* 玩家消息里的括号独白：与助手侧的置灰规则一致，气泡底上改用半透明 + 斜体保证对比度 */
 .bubbleAside {
   opacity: 0.62;
@@ -253,6 +265,7 @@
   margin: 6px 10px 10px;
 }
 
+/* ---- 04 气泡布局 ---- */
 /* 气泡布局：用户气泡收窄一点，右下角补一个小尖角 */
 :global([data-chat-layout='wechat']) .bubble,
 :global([data-chat-layout='blue']) .bubble {

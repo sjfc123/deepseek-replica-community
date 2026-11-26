@@ -1,9 +1,20 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-data-management · 数据管理
+ * 职责：数据管理：导出导入、清理、版本迁移与存储异常。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/chat/history/integrity、services/chat/history/zipReader、services/chat/history/zipWriter、services/dataRevision；
+ *    由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /**
  * 数据管理回归：
  * 1. 自动备份的数据版本只在真实写入时前进，备份基线不会把导出期间的新数据吞掉；
  * 2. ZIP 写入按内容字节报告进度，最终值与总字节一致；
  * 3. 单个条目 CRC 损坏时宽松读取会跳过该条目，继续返回后续正常条目。
  */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 import { strToU8, zipSync } from 'fflate'
 
@@ -51,6 +62,7 @@ const payload = {
   messages: [
     { id: 1, role: 'USER', content: '原始提问' },
     { id: 2, role: 'ASSISTANT', content: '原始回答' },
+/* ---- 02 验证场景 ---- */
   ],
 }
 const integrity = createSessionIntegrity(payload)
@@ -96,6 +108,7 @@ const offset = broken.findIndex(
 )
 assert.ok(offset > 0)
 broken[offset] ^= 0xff
+/* ---- 03 断言与清理 ---- */
 
 const recovered = []
 const entryErrors = []

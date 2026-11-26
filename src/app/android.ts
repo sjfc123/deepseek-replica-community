@@ -1,11 +1,18 @@
 /* ============================================================================
- * 功能区：应用外壳 / android 开始
+ * 功能区：应用外壳 / android · Android 桥接
  * 职责：Android 桥接：封装原生 JavaScript 接口并为网页环境提供空实现。
- * 导出：android、writeAndroidBlob、saveAndroidHistory、saveAndroidImage。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：writeAndroidBlob、saveAndroidHistory、saveAndroidImage；
+ *    03 对外入口与收尾
+ * 关联：依赖 utils/blob；
+ *    被 app/App、app/diagnostics、app/openAndroidPage、app/theme 等 35 个模块 引用。
+ * 导出：android、openExternalUrl、writeAndroidBlob、saveAndroidHistory、saveAndroidImage
+ * 边界：只封装 Android 桥接能力与 WebView 参数；不实现业务规则。
  * ========================================================================== */
 
 import { readBlobChunks } from '../utils/blob.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type AndroidBridge = {
   statusInset: () => number
   buttonNavigationInset: () => number
@@ -78,6 +85,7 @@ type AndroidBridge = {
   ) => void
 }
 
+/* ---- 02 核心实现：writeAndroidBlob、saveAndroidHistory、saveAndroidImage ---- */
 export const android = (window as Window & { DeepSeekAndroid?: AndroidBridge }).DeepSeekAndroid
 
 /**
@@ -92,7 +100,7 @@ export const openExternalUrl = (url: string) => {
         return
       }
     } catch {
-      // 旧包或浏览器无可用 Activity 时落到网页端兜底。
+      // 旧包或浏览器没有可用 Activity 时走网页端路径。
     }
   }
   window.open(url, '_blank', 'noopener,noreferrer')
@@ -155,6 +163,7 @@ export const saveAndroidHistory = async (name: string, blob: Blob): Promise<bool
   }
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 export const saveAndroidImage = async (name: string, blob: Blob) => {
   const device = android
   if (!device?.beginImageSave(name, blob.type)) {

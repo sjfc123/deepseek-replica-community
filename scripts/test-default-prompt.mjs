@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-default-prompt · 默认提示词
+ * 职责：默认提示词：静态前缀、角色压制、空提示词与官方身份。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/chat/roleplay、services/chat/systemPrompt；
+ *    由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /**
  * 默认提示词与角色上下文回归：
  * 1. 默认提示词是普通 DeepSeek AI 助手，不含预置人设，但带应用功能索引；
@@ -5,6 +15,7 @@
  * 3. 清空提示词回退默认官方助手，自定义提示词不被改写；
  * 4. 角色扮演开关必须依附一张有效角色卡，不能多卡同时生效。
  */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 
 const {
@@ -127,6 +138,7 @@ const plainGuard = composeSystemPrompt({
   roleplayContext: false,
   assistantWarmth: true,
 })
+/* ---- 02 验证场景 ---- */
 assert.equal(
   plainGuard,
   `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}`,
@@ -234,6 +246,7 @@ assert.equal(
   normal,
   '同参数重复拼装必须逐字一致，保证 system 前缀稳定'
 )
+/* ---- 03 断言与清理 ---- */
 
 assert.equal(isMostlyDefaultPrompt(DEFAULT_SYSTEM_PROMPT), true, '默认提示词应识别为默认人格')
 assert.equal(

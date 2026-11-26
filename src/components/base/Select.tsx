@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：基础 UI / Select 开始
+ * 功能区：视图与交互 / Select
  * 职责：Select 组件，负责该组件的渲染、状态与交互出口。
- * 导出：SelectOption、Select。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/base/Select.module、components/base/anchored、components/base/icons；
+ *    被 components/settings/AdvancedApiSettings 引用。
+ * 导出：SelectOption、Select
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -11,8 +15,10 @@ import { useAnchoredPosition, useDismiss } from './anchored.js'
 import { IconCheckOutline16, IconChevronDownOutline14 } from './icons.js'
 import styles from './Select.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type SelectOption<T extends string> = { value: T; label: string; lang?: string }
 
+/* ---- 02 对外入口与收尾 ---- */
 /**
  * 胶囊形选择器：触发器高 36px、圆角 18px、浅灰底，下拉菜单选中项右侧打勾；
  * 点外部或 Esc 关闭。value 不匹配任何选项时触发器显示 placeholder。

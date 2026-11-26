@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：基础 UI / anchored 开始
+ * 功能区：视图与交互 / anchored · 锚点定位 Hook
  * 职责：锚点定位 Hook：测量触发元素并计算弹层方向与偏移。
- * 导出：VIEWPORT_PADDING、Side、Align、AnchoredPosition、AnchoredOptions、useAnchoredPosition 等 8 个导出。
+ * 分区：01 类型、常量与模块依赖；02 状态与视图（useAnchoredPosition）；
+ *    03 状态与视图（useDismiss、useDelayedOpen）；04 状态与视图（useDelayedOpen）
+ * 关联：无内部依赖；
+ *    被 components/base/Menu、components/base/Select、components/base/Tooltip、components/search/HoverCard 引用。
+ * 导出：VIEWPORT_PADDING、Side、Align、AnchoredPosition、AnchoredOptions、useAnchoredPosition、useDismiss、useDelayedOpen
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import {
@@ -14,6 +19,7 @@ import {
   type RefObject,
 } from 'react'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 浮层与视口边缘的最小间距 */
 export const VIEWPORT_PADDING = 8
 
@@ -86,6 +92,7 @@ const resolveSide = (spaceAbove: number, spaceBelow: number, preferred: Side, ne
   return spaceAbove > spaceBelow ? 'top' : 'bottom'
 }
 
+/* ---- 02 状态与视图（useAnchoredPosition） ---- */
 /**
  * 相对触发元素给浮层定位。浮层挂在 body 上并用 position: fixed 按视口坐标摆放，
  * 因此需要在挂载后测量自身尺寸：未测量到之前位置为 null。
@@ -238,6 +245,7 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
   return { anchorRef, floatingRef, position }
 }
 
+/* ---- 03 状态与视图（useDismiss、useDelayedOpen） ---- */
 /** 点击浮层与触发元素之外、或按 Esc 时关闭 */
 export const useDismiss = (
   open: boolean,
@@ -279,6 +287,7 @@ export const useDismiss = (
   }, [open, captureEscape])
 }
 
+/* ---- 04 状态与视图（useDelayedOpen） ---- */
 /** 悬停类浮层的进出延迟：同一时间只有一个待执行的切换 */
 export const useDelayedOpen = () => {
   const [open, setOpen] = useState(false)

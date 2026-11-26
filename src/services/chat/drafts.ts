@@ -1,7 +1,16 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / drafts 开始
- * 职责：drafts 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：DraftAttachment、DraftFilePayload、ActiveMessageEdit、EMPTY_DRAFT、editDraftKey、useDrafts 等 25 个导出。
+ * 功能区：会话与角色核心 / drafts · 草稿状态
+ * 职责：草稿状态：会话草稿、编辑草稿、附件与持久化；隐私模式下只保留内存态。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 写入与状态变更（updateActiveEdit、setDraftText、setEditDraftText…）；
+ *    03 写入与状态变更（addEditFiles、retryAttachmentInList、retryDraftAttachment…）；
+ *    04 写入与状态变更（prepareDraftMessage、removeAttachmentFromList、removeDraftAttachment…）；
+ *    05 写入与状态变更（cancelMessageEdit、clearSentEdit、clearSentDraft…）；
+ *    06 写入与状态变更（clearAllDrafts）
+ * 关联：依赖 i18n/index、services/attachments、services/chat/db、services/chat/types 等 5 个模块；
+ *    被 scripts/test-context-compaction、scripts/test-history-merge、components/chatInput/AndroidDraftAttachments、components/chatInput/ChatInput 等 9 个模块 引用。
+ * 导出：DraftAttachment、DraftFilePayload、ActiveMessageEdit、EMPTY_DRAFT、editDraftKey、useDrafts、getDraft、getEditDraftText、setDraftText、setEditDraftText、addDraftFiles、addEditFiles 等 25 项
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { create } from 'zustand'
@@ -18,6 +27,7 @@ import {
 import { loadFile } from './db.js'
 import type { FileAttachment, UserMessage } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 export type DraftAttachment = {
   /** 本地标识，也是 IndexedDB 原件与上传任务的 key */
   id: string
@@ -79,7 +89,7 @@ const readStoredDrafts = (): Map<string | null, Draft> => {
       }
     }
   } catch {
-    // 隐私模式或存储被禁用时按没有草稿处理
+    // 隐私模式或存储被禁用时不读取草稿，界面按空草稿启动。
   }
   return drafts
 }
@@ -100,7 +110,7 @@ const persistDraftText = (sessionId: string | null, text: string) => {
           window.localStorage.removeItem(key)
         }
       } catch {
-        // 持久化失败时保留内存中的草稿状态
+        // 持久化失败不回滚内存草稿，用户当前输入仍可继续编辑。
       }
     }, 400)
   )
@@ -136,6 +146,7 @@ const updateDraft = (sessionId: string | null, update: (draft: Draft) => Draft) 
     return { drafts }
   })
 
+/* ---- 02 写入与状态变更（updateActiveEdit、setDraftText、setEditDraftText…） ---- */
 const updateActiveEdit = (update: (editing: ActiveMessageEdit) => ActiveMessageEdit) =>
   useDrafts.setState((state) => {
     if (!state.editing) {
@@ -235,6 +246,7 @@ export const addDraftFiles = (
     updateDraft(sessionId, (draft) => ({ ...draft, attachments: [...draft.attachments, ...added] }))
   )
 
+/* ---- 03 写入与状态变更（addEditFiles、retryAttachmentInList、retryDraftAttachment…） ---- */
 export const addEditFiles = (
   files: File[],
   apiKey: string | null,
@@ -338,6 +350,7 @@ export const replaceEditImage = (
   )
 }
 
+/* ---- 04 写入与状态变更（prepareDraftMessage、removeAttachmentFromList、removeDraftAttachment…） ---- */
 /** 发送按钮和实际提交共用规则：有内容，且全部新附件已上传成功。 */
 export const prepareDraftMessage = (
   draft: Pick<Draft, 'text' | 'attachments'>,
@@ -499,6 +512,7 @@ export const startMessageEdit = (sessionId: string, message: UserMessage) => {
   }
 }
 
+/* ---- 05 写入与状态变更（cancelMessageEdit、clearSentEdit、clearSentDraft…） ---- */
 /** 退出修改而不发送：按消息保留未发送的文字修改，丢弃本轮对附件的增删改。 */
 export const cancelMessageEdit = () => {
   const active = useDrafts.getState().editing
@@ -565,6 +579,7 @@ export const clearDraft = (sessionId: string | null) => {
   })
 }
 
+/* ---- 06 写入与状态变更（clearAllDrafts） ---- */
 export const clearAllDrafts = () => {
   const state = useDrafts.getState()
   for (const draft of state.drafts.values()) {

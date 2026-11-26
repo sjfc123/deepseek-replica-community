@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：历史归档 / toArchive 开始
- * 职责：toArchive 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：ExportImage、toSessionFile、toIndexEntry。
+ * 功能区：历史归档 / toArchive · 本地会话转归档
+ * 职责：本地会话转归档：消息、分支、图片与索引项序列化。
+ * 分区：01 类型、常量与模块依赖；02 功能实现（assistantFragments、replyStatus）；
+ *    03 功能实现（contextTokens、numberMessages、toSessionFile…）；
+ *    04 功能实现（toIndexEntry）
+ * 关联：依赖 services/api/types、services/chat/branches、services/chat/describe、services/chat/history/errors 等 7 个模块；
+ *    被 scripts/test-context-compaction、scripts/test-history-merge、services/chat/history/exportArchive 引用。
+ * 导出：ExportImage、toSessionFile、toIndexEntry
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import type { ServerToolUseBlock } from '../../api/types.js'
@@ -19,6 +25,7 @@ import type {
 } from './format.js'
 import { createSessionIntegrity } from './integrity.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 返回图片原件在 ZIP 里的条目名；无原件或非图片附件返回 null，仅导出元数据。 */
 export type ExportImage = (file: { id: string; name: string; isImage: boolean }) => string | null
 
@@ -123,6 +130,7 @@ const toolFragment = (tool: ServerToolUseBlock, result: ReplyBlock | undefined):
   ]
 }
 
+/* ---- 02 功能实现（assistantFragments、replyStatus） ---- */
 /**
  * 内容块按顺序转换为片段：相邻同类正文合并，服务端模板保留 TEMPLATE_RESPONSE；
  * 引用改由正文外的来源表示，不写入标记；
@@ -204,6 +212,7 @@ const replyStatus = ({ status, stopReason }: AssistantMessage): ChatMessageStatu
   }
 }
 
+/* ---- 03 功能实现（contextTokens、numberMessages、toSessionFile…） ---- */
 /** 最近一次请求的输入（含缓存）与输出之和。归档要求非负安全整数，无有效用量时写 0。 */
 const contextTokens = ({ usage }: AssistantMessage) => {
   const total = usage
@@ -283,6 +292,7 @@ export const toSessionFile = (
   return { ...file, integrity: createSessionIntegrity(file) }
 }
 
+/* ---- 04 功能实现（toIndexEntry） ---- */
 export const toIndexEntry = (file: SessionFile): SessionIndexEntry => ({
   id: file.id,
   title: file.title,

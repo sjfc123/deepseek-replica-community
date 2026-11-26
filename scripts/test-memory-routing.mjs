@@ -1,10 +1,20 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-memory-routing · 记忆路由
+ * 职责：记忆路由：角色名、卡绑定、普通池与归属。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/chat/memoryRouting；由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /**
  * 记忆分池回归：
  * 1. 空名、AI、DeepSeek 及其大小写/空白变体只进普通池；
- * 2. 任意真实角色名进角色池，不做“有卡就角色”的额外兜底；
+ * 2. 任意真实角色名进入角色池，不按“有卡就角色”额外归类；
  * 3. 显示名解析顺序固定为角色卡名 > 手写档案名 > 端点默认名；
  * 4. 自动写入、注入和面板保存共用同一判定。
  */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
@@ -25,6 +35,7 @@ assert.equal(
   '小夜',
   '角色卡名优先'
 )
+/* ---- 02 验证场景 ---- */
 assert.equal(
   resolveMemoryDisplayName({ cardName: '   ', characterName: ' 韩寒 ', custom: false }),
   '韩寒',
@@ -49,6 +60,7 @@ assert.match(
   '自动记忆必须把最终池传给 recordTurnMemory'
 )
 assert.match(store, /const characterMemoryActive = memoryPool === 'character'/)
+/* ---- 03 断言与清理 ---- */
 assert.match(store, /const normalCards =[\s\S]{0,260}?characterMemoryActive/)
 
 const panel = readFileSync(new URL('src/components/memory/MemoryPanel.tsx', root), 'utf8')

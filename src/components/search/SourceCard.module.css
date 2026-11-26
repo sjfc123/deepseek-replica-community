@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：视图与交互 / SourceCard · SourceCard 的视觉实现
+ * 职责：SourceCard 的视觉实现：容器、布局、状态、动画、断点与主题兼容；类名由同名组件的 styles.* 引用。
+ * 分区：01 变量、容器与主体布局；02 状态与交互；03 断点与主题兼容
+ * 关联：使用方 components/search/SourceCard；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
+/* ---- 01 变量、容器与主体布局 ---- */
 .anchor {
   text-decoration: none;
 }
@@ -22,6 +32,7 @@
   height: 18px;
 }
 
+/* ---- 02 状态与交互 ---- */
 .siteName {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -51,6 +62,7 @@
   line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+/* ---- 03 断点与主题兼容 ---- */
 }
 
 .snippet {

@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：国际化 / index 开始
+ * 功能区：国际化文案 / index · 国际化运行时
  * 职责：国际化运行时：语言检测、偏好持久化、翻译函数与订阅。
- * 导出：TranslationKey、TranslationParams、TranslationMessage、LinkedMessage、isTranslationKey、useAndroidWelcomeMessages、translate、useTranslate 等 7 个导出。
+ * 分区：01 类型、契约与依赖
+ * 关联：依赖 i18n/en、i18n/zh、services/settings；
+ *    被 app/App、app/openAndroidPage、components/base/Modal、components/base/Toast 等 55 个模块 引用。
+ * 导出：TranslationKey、TranslationParams、TranslationMessage、LinkedMessage、isTranslationKey、useAndroidWelcomeMessages、useTranslate、translate
+ * 边界：只维护文案表、语言选择与插值函数；不包含业务分支与网络副作用。
  * ========================================================================== */
 
 import { useSettings } from '../services/settings.js'
@@ -14,6 +18,7 @@ import {
   zh,
 } from './zh.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type TranslationKey = keyof typeof zh
 export type TranslationParams = Record<string, string | number>
 export type TranslationMessage = { key: TranslationKey; params?: TranslationParams }

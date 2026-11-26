@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：视图与交互 / AndroidAttachments
+ * 职责：AndroidAttachments 的视觉实现：容器、布局、状态、动画、断点与主题兼容；类名由同名组件的 styles.* 引用。
+ * 分区：01 变量、容器与主体布局；02 状态与交互；03 断点与主题兼容
+ * 关联：使用方 components/chatInput/AndroidAttachments；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
+/* ---- 01 变量、容器与主体布局 ---- */
 .panel {
   display: grid;
   grid-template-rows: 0fr;
@@ -53,6 +63,7 @@
 
   img {
     display: block;
+/* ---- 02 状态与交互 ---- */
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -140,6 +151,7 @@ body[data-ds-dark-theme] .actions button:active {
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
+/* ---- 03 断点与主题兼容 ---- */
 @media (prefers-reduced-motion: reduce) {
   .panel {
     transition: none;

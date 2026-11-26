@@ -1,12 +1,17 @@
 /* ============================================================================
- * 功能区：基础 UI / toastState 开始
+ * 功能区：视图与交互 / toastState · 轻提示状态
  * 职责：轻提示状态：创建、排队与自动关闭 Toast。
- * 导出：useToast、showToast。
+ * 分区：01 类型、契约与依赖
+ * 关联：依赖 i18n/index；
+ *    被 app/App、components/base/Toast、components/chatInput/AndroidAttachments、components/chatInput/ChatInput 等 18 个模块 引用。
+ * 导出：useToast、showToast
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { create } from 'zustand'
 import type { LinkedMessage } from '../../i18n/index.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 轻提示：同一时间只显示一条，新的替换旧的，到时自动消失；文案在渲染时按当前语言翻译 */
 type ToastState = { id: number; message: LinkedMessage | string | null; duration: number }
 

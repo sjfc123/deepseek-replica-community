@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：消息渲染 / MessageFile 开始
+ * 功能区：视图与交互 / MessageFile
  * 职责：MessageFile 组件，负责该组件的渲染、状态与交互出口。
- * 导出：MessageFile。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 app/android、components/base/Tooltip、components/base/icons、components/files/AndroidImageViewer 等 14 个模块；
+ *    被 components/messages/UserMessage 引用。
+ * 导出：MessageFile
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -21,6 +25,7 @@ import { FileCard } from '../files/FileCard.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
 import styles from './MessageFile.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type FileSource = { blob: Blob; url: string }
 
 /** 原件从 IndexedDB 读出并生成本地地址；undefined 表示加载中，null 表示原件缺失。 */
@@ -55,6 +60,7 @@ const useUploadState = (file: FileAttachment) =>
     return task?.status === 'uploading' || task?.status === 'error' ? task : null
   })
 
+/* ---- 02 对外入口与收尾 ---- */
 /**
  * 消息里的附件：
  * - 图片：纯图片显示 120×120 缩略图，与文件混排时为 64×64；上传中显示 loading 蒙层，

@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-android-onboarding · 安卓首次启动与引导
+ * 职责：安卓首次启动与引导：权限、欢迎页、设置入口与状态持久化。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 无；由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
@@ -146,6 +156,7 @@ const layout = (selector) => `(() => {
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
   return {
+/* ---- 02 验证场景 ---- */
     height: height,
     frameHeight: document.querySelector('[data-drawer-open], #root > main').getBoundingClientRect().height,
     visible: rect.width > 0 && rect.height > 0 && rect.top >= top
@@ -269,6 +280,7 @@ try {
   await evaluate(openSidebar)
   await until('The open sidebar should move the conversation to the right', () =>
     evaluate(`(() => {
+/* ---- 03 断言与清理 ---- */
       const frame = document.querySelector('[data-drawer-open=true]');
       if (!frame) return false;
       const drawer = frame.querySelector('[data-android-drawer]').getBoundingClientRect();

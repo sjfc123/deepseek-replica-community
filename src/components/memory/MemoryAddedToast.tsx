@@ -1,13 +1,18 @@
 /* ============================================================================
- * 功能区：长期记忆界面 / MemoryAddedToast 开始
+ * 功能区：视图与交互 / MemoryAddedToast
  * 职责：MemoryAddedToast 组件，负责该组件的渲染、状态与交互出口。
- * 导出：MemoryAddedToast。
+ * 分区：01 类型、契约与依赖；02 核心实现：Payload、LABELS、MemoryAddedToast
+ * 关联：依赖 components/memory/MemoryAddedToast.module、components/memory/memoryPanelState；
+ *    被 app/App 引用。
+ * 导出：MemoryAddedToast
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useState } from 'react'
 import styles from './MemoryAddedToast.module.css'
 import { useMemoryPanel } from './memoryPanelState.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type Kind = 'turn' | 'refine' | 'manual'
 type Payload = { kind: Kind; count: number }
 
@@ -17,6 +22,7 @@ const LABELS: Record<Kind, string> = {
   manual: '已添加一条长期记忆',
 }
 
+/* ---- 02 核心实现：Payload、LABELS、MemoryAddedToast ---- */
 /**
  * 记忆写入的即时反馈：卡片真正挂上去后才由 store 派发事件，
  * 挂在页面顶部，两秒多自动淡出，不打断聊天。

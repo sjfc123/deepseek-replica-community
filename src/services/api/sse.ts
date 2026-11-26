@@ -1,9 +1,13 @@
 /* ============================================================================
- * 功能区：模型接口 / sse 开始
- * 职责：sse 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
- * 导出：ServerSentEvent、ServerSentEventDecoder。
+ * 功能区：模型接口 / sse · SSE 字节流解码
+ * 职责：SSE 字节流解码：按行缓存、处理 CRLF、多行 data 与事件边界，向上游输出 ServerSentEvent。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：无内部依赖；被 services/api/client 引用。
+ * 导出：ServerSentEvent、ServerSentEventDecoder
+ * 边界：只处理 HTTP 协议、请求头、流式帧与错误归一化；不维护会话状态、不渲染视图、不写业务数据库。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /**
  * SSE（text/event-stream）解析，按 WHATWG 规范实现：
  * https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation
@@ -23,6 +27,7 @@ export type ServerSentEvent = {
 
 const LINE_BREAK = /\r\n|\r|\n/g
 
+/* ---- 02 对外入口与收尾 ---- */
 export class ServerSentEventDecoder {
   private buffer = ''
   private data = ''

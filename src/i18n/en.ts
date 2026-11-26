@@ -1,16 +1,21 @@
 /* ============================================================================
- * 功能区：国际化 / en 开始
+ * 功能区：国际化文案 / en · 英文文案字典
  * 职责：英文文案字典：维护界面与错误所需英文文本。
- * 导出：androidWelcomeMessages、en。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 i18n/zh；被 scripts/test-history-merge、i18n/index 引用。
+ * 导出：androidWelcomeMessages、en
+ * 边界：只维护文案表、语言选择与插值函数；不包含业务分支与网络副作用。
  * ========================================================================== */
 
 import type { zh } from './zh.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export const androidWelcomeMessages = [
   "Hello, let's start chatting",
   'Hi. What can I do for you?',
 ] as const
 
+/* ---- 02 对外入口与收尾 ---- */
 export const en = {
   peakWelcomeMessage: 'Peak hours. Higher load may slow responses.',
   offpeakWelcomeMessage: 'Off-peak hours. Lower load suits longer conversations.',

@@ -1,13 +1,18 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / pdfSummary 开始
- * 职责：pdfSummary 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：summarizePdfPages。
+ * 功能区：会话与角色核心 / pdfSummary · PDF 分页摘要
+ * 职责：PDF 分页摘要：按页分批、限流、临时文件清理与摘要合并。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 services/api/client、services/api/errors、utils/blob；
+ *    被 scripts/test-context-compaction、services/chat/contextSummary 引用。
+ * 导出：summarizePdfPages
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { readBlobBuffer } from '../../utils/blob.js'
 import { ApiError, deleteFile, uploadFile } from '../api/client.js'
 import { isContextOverflow } from '../api/errors.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const PDF_BATCH_PAGES = 32
 const CLEANUP_TIMEOUT_MS = 4_000
 
@@ -18,12 +23,13 @@ const discardChunk = async (apiKey: string, id: string) => {
   try {
     await deleteFile(apiKey, id, controller.signal)
   } catch {
-    // 清理失败不影响已经完成的摘要。
+    // 临时附件清理失败只记录日志，已经生成的摘要仍然有效。
   } finally {
     clearTimeout(timer)
   }
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 export const summarizePdfPages = async ({
   original,
   name,

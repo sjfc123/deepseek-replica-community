@@ -1,9 +1,17 @@
 /* ============================================================================
- * 功能区：模型接口 / types 开始
- * 职责：types 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
- * 导出：ChatModel、TextCitation、TextBlock、ThinkingBlock、ServerToolKind、ServerToolInput 等 36 个导出。
+ * 功能区：模型接口 / types · API 协议类型契约
+ * 职责：API 协议类型契约：消息块、工具、引用、用量与请求体字段；只定义结构，不实现序列化。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 类型与契约（WebFetchToolResultError、WebFetchToolResultBlock、ServerToolBlock…）；
+ *    03 类型与契约（CreateMessageRequest、StopReason、StopDetails…）；
+ *    04 类型与契约（ApiErrorBody）
+ * 关联：无内部依赖；
+ *    被 services/api/client、services/api/openaiChat、services/api/parseEvent、services/attachments 等 15 个模块 引用。
+ * 导出：ChatModel、TextCitation、TextBlock、ThinkingBlock、ServerToolKind、ServerToolInput、ServerToolUseBlock、WebSearchResult、WebSearchToolResultError、WebSearchToolResultBlock、WebFetchResult、WebFetchToolResultError 等 36 项
+ * 边界：只处理 HTTP 协议、请求头、流式帧与错误归一化；不维护会话状态、不渲染视图、不写业务数据库。
  * ========================================================================== */
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /**
  * Messages API（Anthropic 兼容格式）协议类型，只取本应用用到的部分。
  * 文档：https://api-docs.deepseek.com/zh-cn/api/create-message
@@ -104,6 +112,7 @@ export type WebFetchResult = {
   published_at: string | null
 }
 
+/* ---- 02 类型与契约（WebFetchToolResultError、WebFetchToolResultBlock、ServerToolBlock…） ---- */
 export type WebFetchToolResultError = {
   type: 'web_fetch_tool_result_error'
   /** url_not_accessible 抓取失败；url_not_allowed 被拦截；unavailable 服务异常或未完成就结束 */
@@ -187,6 +196,7 @@ export type DeepseekReadUrlTool = {
   name: 'deepseek_read_url'
 }
 
+/* ---- 03 类型与契约（CreateMessageRequest、StopReason、StopDetails…） ---- */
 export type CreateMessageRequest = {
   model: ChatModel
   max_tokens: number
@@ -272,6 +282,7 @@ export type FileObject = {
   mime_type: string
 }
 
+/* ---- 04 类型与契约（ApiErrorBody） ---- */
 /** 非 2xx 响应体；流中出现只含 error 的无名 data 帧时同样按此解析 */
 export type ApiErrorBody = {
   error: {

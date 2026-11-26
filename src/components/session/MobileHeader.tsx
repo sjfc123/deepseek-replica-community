@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：会话主视图 / MobileHeader 开始
+ * 功能区：视图与交互 / MobileHeader
  * 职责：MobileHeader 组件，负责该组件的渲染、状态与交互出口。
- * 导出：MobileHeader。
+ * 分区：01 实现：MobileHeader
+ * 关联：依赖 app/android、app/viewport、components/base/AndroidIcons、components/base/IconButton 等 15 个模块；
+ *    被 app/App、components/session/SessionView、components/session/Welcome 引用。
+ * 导出：MobileHeader
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useState } from 'react'
@@ -28,6 +32,7 @@ import {
 import { openMobileSider, toggleMobileSider, useMobileSider } from '../sider/mobileSiderState.js'
 import styles from './MobileHeader.module.css'
 
+/* ---- 01 实现：MobileHeader ---- */
 /** 移动端顶栏：左侧菜单打开或切换侧边栏；会话页再显示标题与开启新对话 */
 export const MobileHeader = ({
   title,

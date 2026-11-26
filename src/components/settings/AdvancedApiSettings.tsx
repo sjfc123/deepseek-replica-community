@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：设置页 / AdvancedApiSettings 开始
+ * 功能区：视图与交互 / AdvancedApiSettings
  * 职责：AdvancedApiSettings 组件，负责该组件的渲染、状态与交互出口。
- * 导出：AdvancedApiDialog、AdvancedApiSettings。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/base/Button、components/base/Modal、components/base/Select、components/settings/AdvancedApiSettings.module 等 7 个模块；
+ *    被 components/settings/AndroidSettings、components/settings/ApiKeyScreen 引用。
+ * 导出：AdvancedApiDialog、AdvancedApiSettings
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useState } from 'react'
@@ -20,6 +24,7 @@ import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import styles from './AdvancedApiSettings.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const formats = (Object.keys(CHAT_API_FORMATS) as ChatApiFormat[]).map((value) => ({
   value,
   label: CHAT_API_FORMATS[value],
@@ -46,6 +51,7 @@ export const AdvancedApiDialog = ({ onClose }: { onClose: () => void }) => {
   )
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 export const AdvancedApiSettings = ({ onSave }: { onSave: () => void }) => {
   const t = useTranslate()
   const [saved] = useState(() => useSettings.getState().chatConfig)

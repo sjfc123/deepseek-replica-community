@@ -1,9 +1,13 @@
 /* ============================================================================
- * 功能区：国际化 / zh 开始
+ * 功能区：国际化文案 / zh · 中文文案字典
  * 职责：中文文案字典：维护界面与错误所需中文文本。
- * 导出：androidWelcomeMessages、zh。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：无内部依赖；被 scripts/test-history-merge、i18n/en、i18n/index 引用。
+ * 导出：androidWelcomeMessages、zh
+ * 边界：只维护文案表、语言选择与插值函数；不包含业务分支与网络副作用。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 export const androidWelcomeMessages = [
   '你好，有什么我能帮你的吗？',
   '你好，请输入消息开始对话。',
@@ -11,6 +15,7 @@ export const androidWelcomeMessages = [
   '嗨！今天想聊些什么？',
 ] as const
 
+/* ---- 02 对外入口与收尾 ---- */
 export const zh = {
   welcomeMessageChat250808: '今天有什么可以帮到你？',
   welcomeRecentChats: '最近对话',

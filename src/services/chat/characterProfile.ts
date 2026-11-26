@@ -1,6 +1,14 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / characterProfile 开始
+ * 功能区：会话与角色核心 / characterProfile · 角色基础档案
  * 职责：角色基础档案：32 项字段归一化、装配与轻量身份行。
+ * 分区：01 类型、常量与模块依赖；02 常量与配置（CHARACTER_PROFILE_FIELDS）；
+ *    03 常量与配置（PROFILE_KEYS、CHARACTER_PROFILE_EN）；
+ *    04 状态与视图（clean、normalizeCharacterProfile、emptyCharacterProfile…）；
+ *    05 读取与解析（resolveSystemCharacterName）
+ * 关联：无内部依赖；
+ *    被 scripts/test-roleplay、components/settings/AndroidSettings、services/chat/settingArchive、services/chat/store 等 5 个模块 引用。
+ * 导出：PROFILE_FIXED_FACTS_RULE、PROFILE_VIEWPOINT_RULE、PROFILE_COOPERATION_RULE、PROFILE_BOUNDARY_RULE、PROFILE_IDENTITY_RULE、CharacterProfile、CharacterProfileFieldKey、CharacterProfileGroupKey、CharacterProfileField、CharacterProfileGroup、CHARACTER_PROFILE_GROUPS、CHARACTER_PROFILE_FIELDS 等 21 项
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 /**
@@ -9,6 +17,7 @@
  * 档案开关关闭时不进入 system，只保留文本，由表达提示词独立承担行为约束。
  */
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 与 roleplay.ts 的卡片规则保持一致；回归测试会逐字比较，避免两套装配漂移 */
 export const PROFILE_FIXED_FACTS_RULE =
   '年龄、性别、第三人称代词、种族、身高、体重、生日、职业、居住地和语言是固定事实；除非剧情明确经过时间或身体变化，不要改动，也不要临时补出相反设定。第三人称代词只说明别人怎么转述这个角色，不改变正文第一人称自称。'
@@ -127,6 +136,7 @@ export const CHARACTER_PROFILE_GROUPS: CharacterProfileGroup[] = [
   },
 ]
 
+/* ---- 02 常量与配置（CHARACTER_PROFILE_FIELDS） ---- */
 /** 字段顺序就是装配顺序：先固定参数，再生活质感，再性格边界，最后剧情 */
 export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
   {
@@ -415,6 +425,7 @@ export const CHARACTER_PROFILE_FIELDS: CharacterProfileField[] = [
   },
 ]
 
+/* ---- 03 常量与配置（PROFILE_KEYS、CHARACTER_PROFILE_EN） ---- */
 const PROFILE_KEYS = CHARACTER_PROFILE_FIELDS.map((field) => field.key)
 
 /** 英文界面用的字段文案；中文表单以 CHARACTER_PROFILE_FIELDS 为准 */
@@ -612,6 +623,7 @@ export const CHARACTER_PROFILE_EN: Record<
   },
 }
 
+/* ---- 04 状态与视图（clean、normalizeCharacterProfile、emptyCharacterProfile…） ---- */
 const clean = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
 
 /** 外部存档或旧数据进入设置前统一裁剪；只保留已知字段，避免脏键写回 */
@@ -726,7 +738,8 @@ export const formatCharacterIdentity = ({
     .join('\n')
 }
 
-/** system 里实际使用的角色名：当前卡优先，其次手写档案名，最后用 AI 兜底 */
+/* ---- 05 读取与解析（resolveSystemCharacterName） ---- */
+/** system 里实际使用的角色名：当前卡优先，其次手写档案名，最后使用 AI 生成名 */
 export const resolveSystemCharacterName = (cardName: string | undefined, profileName: string) =>
   cardName?.trim() || profileName.trim() || 'AI'
 

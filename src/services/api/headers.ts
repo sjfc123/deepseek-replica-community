@@ -1,9 +1,13 @@
 /* ============================================================================
- * 功能区：模型接口 / headers 开始
- * 职责：headers 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
- * 导出：parseCustomHeaders、hasCustomHeaders。
+ * 功能区：模型接口 / headers · 自定义请求头
+ * 职责：自定义请求头：校验名称与值、过滤禁用头并生成请求头对象，不拼接协议体。
+ * 分区：01 类型、契约与依赖；02 核心实现：collect、parseCustomHeaders、hasCustomHeaders
+ * 关联：无内部依赖；被 components/settings/AndroidSettings、services/chat/store 引用。
+ * 导出：parseCustomHeaders、hasCustomHeaders
+ * 边界：只处理 HTTP 协议、请求头、流式帧与错误归一化；不维护会话状态、不渲染视图、不写业务数据库。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /**
  * 自定义请求头：DeepChat 的「自定义请求头」支持 JSON 对象或每行 `Key: Value`。
  * 统一解析为 Record，供 fetch 与原生传输使用；非法条目直接丢弃，不阻断请求。
@@ -29,6 +33,7 @@ const collect = (pairs: [unknown, unknown][]) => {
   return headers
 }
 
+/* ---- 02 核心实现：collect、parseCustomHeaders、hasCustomHeaders ---- */
 export const parseCustomHeaders = (raw: string): Record<string, string> => {
   const text = raw.trim()
   if (!text) {

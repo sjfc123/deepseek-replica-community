@@ -1,3 +1,14 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-content-search · 会话搜索
+ * 职责：会话搜索：标题、正文、思考、分支、高亮、取消与损坏节点。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/chat/branches、services/chat/contentSearch、services/chat/store；
+ *    由 pnpm 脚本直接执行。
+ * 导出：dbState、resetDbMock、seedSession、loadSessionSummaries、loadSession、scanSessions、saveSession、renameSession、deleteSession、saveFiles、loadFile、beginStaging、stagingWriter、reportStorageError
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { registerHooks } from 'node:module'
@@ -174,6 +185,7 @@ test('1. 标题、用户消息、助手正文与思考内容按官方规则匹�
   }
 
   const hits = searchSessionContent(session, 'EQUATION')
+/* ---- 02 验证场景 ---- */
   assert.equal(hits.length, 4)
   assert.deepEqual(
     hits.map((h) =>
@@ -232,7 +244,7 @@ test('3. 覆盖非当前激活分支并标出 1/3、2/3、3/3 版本号，过滤
       userMsg('u2-old', 'a1', 2500, 'Follow-up equation on branch one'),
       assistantMsg('a2', 'u1', 3000, [{ type: 'text', text: 'Check equation version two' }]),
       assistantMsg('a3', 'u1', 4000, [{ type: 'text', text: 'Final equation version three' }]),
-      // 孤立损坏节点
+      // 孤立或父链损坏的节点不进入结果，避免把断链消息渲染成正常会话。
       userMsg('orphan', 'missing-parent', 4500, 'Orphan equation should be skipped'),
     ],
   }
@@ -320,6 +332,7 @@ test('6. 全库搜索优先使用内存缓存、跳过已缓存 ID 并在取消�
   const sDisk = {
     id: 's-disk',
     title: '磁盘分支会话',
+/* ---- 03 断言与清理 ---- */
     createdAt: 1000,
     updatedAt: 6000,
     rootMessageId: 'du1',
@@ -352,7 +365,7 @@ test('6. 全库搜索优先使用内存缓存、跳过已缓存 ID 并在取消�
   assert.equal(results[2].kind, 'message')
   assert.equal(results[2].branchLabel, '1/2')
 
-  // 取消信号生效
+  // 取消信号已生效时停止后续读取，并把结果标记为已取消而不是失败。
   const aborted = new AbortController()
   aborted.abort()
   assert.deepEqual(await searchLocalHistory('targetword', summaries, {}, aborted.signal), [])

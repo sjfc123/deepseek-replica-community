@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：历史归档 / toLocal 开始
- * 职责：toLocal 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：LocalSession、toLocalSession。
+ * 功能区：历史归档 / toLocal · 归档转本地
+ * 职责：归档转本地：把归档会话还原为本地 Session 与消息。
+ * 分区：01 类型、常量与模块依赖；02 功能实现（toBlocks、replyStatus、toAssistant）；
+ *    03 功能实现（toAssistant、buildTree、toLocalSession）；04 功能实现（toLocalSession）
+ * 关联：依赖 services/api/types、services/chat/history/errors、services/chat/history/format、services/chat/history/paths 等 6 个模块；
+ *    被 scripts/test-history-merge、services/chat/history/importArchive 引用。
+ * 导出：LocalSession、toLocalSession
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import type {
@@ -23,6 +28,7 @@ import type { ChatMessage, FileEntry, Fragment } from './format.js'
 import { sessionFilesDir } from './paths.js'
 import type { ParsedMessage, ParsedSessionFile } from './schema.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 export type LocalSession = {
   session: Session
   /** 本会话目录下应存在的图片：ZIP 条目名 → 文件 ID */
@@ -111,6 +117,7 @@ const unavailable: WebFetchToolResultBlock['content'] = {
   error_code: 'unavailable',
 }
 
+/* ---- 02 功能实现（toBlocks、replyStatus、toAssistant） ---- */
 /**
  * 片段一次性转换为正式内容块，展示、请求和导出共用：
  * - 普通搜索与边想边搜共用 TOOL_SEARCH，以同一回复是否有打开 / 查找网页来区分；
@@ -231,6 +238,7 @@ const replyStatus: Record<ChatMessage['status'], ReplyStatus> = {
   WIP: 'stopped',
 }
 
+/* ---- 03 功能实现（toAssistant、buildTree、toLocalSession） ---- */
 const toAssistant = (message: ParsedMessage): AssistantMessage => {
   const id = String(message.id)
   const blocks = toBlocks(message.fragments, id)
@@ -296,6 +304,7 @@ const buildTree = (file: ParsedSessionFile): Pick<Session, 'messages' | 'rootMes
   return { messages, rootMessageId: current.id }
 }
 
+/* ---- 04 功能实现（toLocalSession） ---- */
 /** 转换单个会话，并列出本会话目录下需要从 ZIP 读取的图片。 */
 export const toLocalSession = (file: ParsedSessionFile): LocalSession => {
   const session: Session = {

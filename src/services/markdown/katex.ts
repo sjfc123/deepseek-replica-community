@@ -1,9 +1,13 @@
 /* ============================================================================
- * 功能区：Markdown 解析 / katex 开始
- * 职责：katex 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
- * 导出：Katex、ensureKatex。
+ * 功能区：Markdown 渲染 / katex · KaTeX 资源
+ * 职责：KaTeX 资源：按需加载样式与字体并暴露渲染器。
+ * 分区：01 类型、契约与依赖
+ * 关联：无内部依赖；被 components/markdown/MathFormula、main 引用。
+ * 导出：Katex、ensureKatex
+ * 边界：只处理 Markdown/公式/图表解析与渲染资源；不读取聊天状态，不写数据库。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type Katex = typeof import('katex').default
 
 let katex: Katex | null = null

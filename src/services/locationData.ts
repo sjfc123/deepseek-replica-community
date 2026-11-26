@@ -1,9 +1,14 @@
 /* ============================================================================
- * 功能区：本地服务 / locationData 开始
+ * 功能区：本地服务 / locationData · 行政区数据
  * 职责：行政区数据：省市坐标与本地生活提示所需的静态表。
- * 导出：provinceNames、cityNames、regionCodes、regionNameOverrides。
+ * 分区：01 类型、契约与依赖；02 核心实现：cityNames、regionCodes、regionNameOverrides；
+ *    03 对外入口与收尾
+ * 关联：无内部依赖；被 services/location 引用。
+ * 导出：provinceNames、cityNames、regionCodes、regionNameOverrides
+ * 边界：只处理本机存储、设置、迁移与数据版本；不实现界面控件，不直接请求模型。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 export const provinceNames: Record<string, string> = {
   '110000': '北京市',
   '120000': '天津市',
@@ -41,6 +46,7 @@ export const provinceNames: Record<string, string> = {
   '820000': '澳门特别行政区',
 }
 
+/* ---- 02 核心实现：cityNames、regionCodes、regionNameOverrides ---- */
 export const cityNames: Record<string, string> = {
   '110100': '北京市',
   '120100': '天津市',
@@ -436,6 +442,7 @@ export const cityNames: Record<string, string> = {
   '712800': '连江县',
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 export const regionCodes: string[] =
   'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'.split(
     ' '

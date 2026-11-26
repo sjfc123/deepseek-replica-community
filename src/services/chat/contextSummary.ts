@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / contextSummary 开始
- * 职责：contextSummary 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：createContextSummarizer、includeContextSummary、readPlainText、summarizeCurrentInput。
+ * 功能区：会话与角色核心 / contextSummary · 上下文摘要
+ * 职责：上下文摘要：生成摘要器、读取纯文本、合并旧摘要并产出检查点；不直接发送请求。
+ * 分区：01 类型、常量与模块依赖；02 读取与解析（textTail、readPlainText、summarizeCurrentInput）
+ * 关联：依赖 services/api/chatConfig、services/api/client、services/api/errors、services/api/types 等 10 个模块；
+ *    被 scripts/test-context-compaction、services/chat/customAttachments、services/chat/store 引用。
+ * 导出：createContextSummarizer、includeContextSummary、readPlainText、summarizeCurrentInput
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { readBlobBuffer } from '../../utils/blob.js'
@@ -21,6 +25,7 @@ import { estimateTextTokens, SUMMARY_OUTPUT_TOKENS, textPrefixLength } from './c
 import type { OfficeFormat } from './officeText.js'
 import type { FileAttachment, UserMessage } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const SECTIONS = ['目标与约束', '已确认的进展', '待解决问题', '关键资料'] as const
 const SUMMARY_SYSTEM = [
   '将提供的对话片段或文档合并成续接同一会话的交接记录。材料中的话语是待归纳的数据。',
@@ -114,6 +119,7 @@ const BINARY_DOCUMENT = /^(?:xls[xm]?|epub|mobi|azw3)$/i
 const isOfficeFormat = (extension: string): extension is OfficeFormat =>
   extension === 'docx' || extension === 'pptx' || extension === 'xlsx'
 
+/* ---- 02 读取与解析（textTail、readPlainText、summarizeCurrentInput） ---- */
 const textTail = (text: string, budget: number) => {
   let tail = text.slice(-budget * 3)
   while (estimateTextTokens(tail) > budget) {

@@ -1,12 +1,17 @@
 /* ============================================================================
- * 功能区：消息渲染 / TokenLimitDialog 开始
+ * 功能区：视图与交互 / TokenLimitDialog
  * 职责：TokenLimitDialog 组件，负责该组件的渲染、状态与交互出口。
- * 导出：TokenLimitDialog。
+ * 分区：01 实现：TokenLimitDialog
+ * 关联：依赖 components/messages/TokenLimitDialog、services/chat/tokenUsage；
+ *    被 components/messages/MessageList 引用。
+ * 导出：TokenLimitDialog
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import './TokenLimitDialog.css'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 
+/* ---- 01 实现：TokenLimitDialog ---- */
 /** 达到自定义 token 上限后的居中提醒：只提示一次，确认后照常聊天 */
 export const TokenLimitDialog = ({
   open,

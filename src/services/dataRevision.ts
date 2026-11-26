@@ -1,9 +1,15 @@
 /* ============================================================================
- * 功能区：本机数据 / dataRevision 开始
+ * 功能区：本地服务 / dataRevision
  * 职责：记录本机数据的逻辑版本，供自动备份判断「备份后是否真的产生新数据」。
- * 导出：currentDataRevision、markDataChanged、readBackupRevision、markBackupRevision、flushDataRevision。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：markDataChanged、readBackupRevision、markBackupRevision
+ * 关联：无内部依赖；
+ *    被 scripts/test-data-management、services/chat/autoBackup、services/chat/store、services/settings 引用。
+ * 导出：currentDataRevision、flushDataRevision、markDataChanged、readBackupRevision、markBackupRevision
+ * 边界：只处理本机存储、设置、迁移与数据版本；不实现界面控件，不直接请求模型。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 当前数据版本；每次会话、记忆或设置真正落盘时递增。 */
 const REVISION_KEY = 'replica:data-revision'
 /** 上一次完整备份使用的数据版本；只有它变化才需要重新写盘。 */
@@ -45,6 +51,7 @@ const scheduleFlush = () => {
   }, 300)
 }
 
+/* ---- 02 核心实现：markDataChanged、readBackupRevision、markBackupRevision ---- */
 export const flushDataRevision = () => {
   if (pending === null) {
     return

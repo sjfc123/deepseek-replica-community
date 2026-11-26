@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / latestReminder 开始
- * 职责：latestReminder 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：createLatestReminder。
+ * 功能区：会话与角色核心 / latestReminder · 当前轮提醒
+ * 职责：当前轮提醒：日期、地点与最新用户要求拼成请求尾部提醒，不进入静态 system。
+ * 分区：01 类型、契约与依赖
+ * 关联：依赖 i18n/index、services/location、services/settings、utils/format；
+ *    被 services/chat/store 引用。
+ * 导出：createLatestReminder
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { getRegionName, provinces, type UserLocation } from '../location.js'
@@ -9,6 +13,7 @@ import type { Locale } from '../settings.js'
 import { formatDate } from '../../utils/format.js'
 import { translate } from '../../i18n/index.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const locationName = (location: UserLocation | null, locale: Locale): string => {
   if (!location) {
     return ''

@@ -1,9 +1,14 @@
 /* ============================================================================
- * 功能区：通用工具 / id 开始
+ * 功能区：公共工具 / id · 标识生成
  * 职责：标识生成：创建会话、消息与本地记录所需的唯一 ID。
- * 导出：createId。
+ * 分区：01 实现：createId
+ * 关联：无内部依赖；
+ *    被 services/chat/db、services/chat/drafts、services/chat/history/mergeSessions、services/chat/memory 等 7 个模块 引用。
+ * 导出：createId
+ * 边界：只提供纯函数与浏览器能力封装；不读取应用状态，不产生网络请求。
  * ========================================================================== */
 
+/* ---- 01 实现：createId ---- */
 export const createId = () =>
   typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()

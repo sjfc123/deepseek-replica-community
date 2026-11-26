@@ -1,12 +1,18 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / officeText 开始
- * 职责：officeText 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：OfficeFormat、readOfficeText。
+ * 功能区：会话与角色核心 / officeText · Office 文档读取
+ * 职责：Office 文档读取：docx/xlsx/pptx 解包与文本抽取，输出纯文本供附件上下文使用。
+ * 分区：01 类型、常量与模块依赖；02 功能实现（partRelationships、relationships、requiredPart…）；
+ *    03 读取与解析（cellText、readOfficeText）；04 读取与解析（readOfficeText）
+ * 关联：依赖 services/chat/history/zipReader；
+ *    被 scripts/test-context-compaction、services/chat/contextSummary、services/chat/customAttachments 引用。
+ * 导出：OfficeFormat、readOfficeText
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { SaxesParser } from 'saxes'
 import { readArchive } from './history/zipReader.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 export type OfficeFormat = 'docx' | 'pptx' | 'xlsx'
 
 const MAX_XML_BYTES = 48 * 1024 * 1024
@@ -118,6 +124,7 @@ function* paragraphs(node: Xml): Generator<string> {
   }
 }
 
+/* ---- 02 功能实现（partRelationships、relationships、requiredPart…） ---- */
 const partRelationships = (part: string) => {
   const slash = part.lastIndexOf('/')
   return part.slice(0, slash + 1) + '_rels/' + part.slice(slash + 1) + '.rels'
@@ -187,6 +194,7 @@ function* presentationText(parts: Map<string, string>, path: string): Generator<
   }
 }
 
+/* ---- 03 读取与解析（cellText、readOfficeText） ---- */
 const cellText = (cell: Xml, shared: string[]) => {
   const reference = cell.attributes.get('r')
   const type = cell.attributes.get('t')
@@ -261,6 +269,7 @@ function* spreadsheetText(parts: Map<string, string>, path: string): Generator<s
   }
 }
 
+/* ---- 04 读取与解析（readOfficeText） ---- */
 export const readOfficeText = async (format: OfficeFormat, blob: Blob, signal: AbortSignal) => {
   const prefix = pathPrefix[format]
   const select = (path: string) =>

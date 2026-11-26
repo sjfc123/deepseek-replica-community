@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：设置页 / ApiKeyField 开始
+ * 功能区：视图与交互 / ApiKeyField
  * 职责：ApiKeyField 组件，负责该组件的渲染、状态与交互出口。
- * 导出：useApiKeyEditor、ApiKeyField、ApiKeyConfirm。
+ * 分区：01 类型、契约与依赖；02 核心实现：ApiKeyEditor、ApiKeyField、ApiKeyConfirm；03 对外入口与收尾
+ * 关联：依赖 app/viewport、components/base/IconButton、components/base/icons、components/settings/Settings.module 等 7 个模块；
+ *    被 components/settings/AndroidSettings 引用。
+ * 导出：useApiKeyEditor、ApiKeyField、ApiKeyConfirm
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useState } from 'react'
@@ -13,6 +17,7 @@ import { useApiKeyForm } from './useApiKeyForm.js'
 import { useTranslate } from '../../i18n/index.js'
 import styles from './Settings.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** API Key 的编辑状态：输入框与移动端底部的「确定」按钮共用 */
 export const useApiKeyEditor = () => {
   const apiKey = useSettings((state) => state.apiKey)
@@ -23,6 +28,7 @@ export const useApiKeyEditor = () => {
 
 type ApiKeyEditor = ReturnType<typeof useApiKeyEditor>
 
+/* ---- 02 核心实现：ApiKeyEditor、ApiKeyField、ApiKeyConfirm ---- */
 /** API Key：保存后只显示掩码，点编辑按钮才能重新输入 */
 export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
   const t = useTranslate()
@@ -50,7 +56,7 @@ export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
               placeholder={t('apiKeyPlaceholder')}
               autoComplete="off"
               spellCheck={false}
-              // 移动端打开设置时不弹键盘，点编辑后才聚焦
+              // 移动端进入设置页只展示已保存值，用户点编辑后才聚焦并弹出键盘。
               autoFocus={!isMobile || editing}
               value={form.value}
               onChange={(event) => form.setValue(event.target.value)}
@@ -60,7 +66,7 @@ export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
                 }
               }}
               onBlur={() => {
-                // 修改时没输入就离开，回到已保存的状态
+                // 编辑态没有输入就失焦时撤回草稿并恢复已保存值，避免空值被误提交。
                 if (apiKey && !form.value.trim()) {
                   setEditing(false)
                 }
@@ -73,7 +79,7 @@ export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
                   type="button"
                   className={styles.confirm}
                   disabled={form.verifying}
-                  // 保持输入框焦点
+                  // 失焦动作由外部点击触发时，把焦点交还输入框，保证连续编辑不中断。
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => void form.submit()}
                 >
@@ -89,6 +95,7 @@ export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
   )
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /** 移动端：输入 API Key 时在选项下方显示整行「确定」 */
 export const ApiKeyConfirm = ({ editor: { showInput, form } }: { editor: ApiKeyEditor }) => {
   const t = useTranslate()

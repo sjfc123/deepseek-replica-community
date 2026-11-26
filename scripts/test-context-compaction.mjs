@@ -1,3 +1,14 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-context-compaction · 上下文压缩
+ * 职责：上下文压缩：预算、检查点、截断、模型倍率与摘要复用。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/api/chatConfig、services/api/client、services/api/errors、services/chat/context 等 12 个模块；
+ *    由 pnpm 脚本直接执行。
+ * 导出：sessions、files、saveSession、loadSession、loadFile、reportStorageError
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { registerHooks } from 'node:module'
@@ -512,6 +523,7 @@ for (const [format, response, partsKey, tokenKey, pathname] of [
           : ['user', 'assistant', 'user']
       )
       assert.match(JSON.stringify(body[partsKey]), /第一轮回答/)
+/* ---- 02 验证场景 ---- */
       assert.match(JSON.stringify(body[partsKey]), /附件正文/)
       assert.match(JSON.stringify(body[partsKey]), /第二轮问题/)
       assert.doesNotMatch(JSON.stringify(body), /仅用于官方端点|safety_check|deepseek_web_search/)
@@ -935,6 +947,7 @@ test('PDF 单独超限后按原始页序缩小批次、清理临时文件并接�
       const input = JSON.parse(message.content.at(-1).text)
       assert.equal(input.focus, '找图表数据')
       assert.equal(input.previous, summarized.length ? notes(summarized.at(-1)) : undefined)
+/* ---- 03 断言与清理 ---- */
       assert.match(input.excerpts[0], /原文第/)
       summarized.push(part.name)
       return stream(notes(part.name))

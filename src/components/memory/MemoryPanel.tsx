@@ -1,6 +1,11 @@
 /* ============================================================================
- * 功能区：长期记忆界面 / MemoryPanel 开始
+ * 功能区：视图与交互 / MemoryPanel · 长期记忆面板
  * 职责：长期记忆面板：双分类、筛选、编辑、补卡、配额与注入预览。
+ * 分区：01 类型、常量与模块依赖；02 展示辅助与分类映射；03 功能实现（MemoryPanel）；04 记忆面板数据与渲染
+ * 关联：依赖 components/memory/MemoryPanel.module、components/memory/memoryPanelState、services/chat/branches、services/chat/memory 等 10 个模块；
+ *    被 components/session/SessionView 引用。
+ * 导出：MemoryPanel
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useMemo, useState } from 'react'
@@ -59,9 +64,10 @@ import { resolveUserName, useSettings } from '../../services/settings.js'
 import { closeMemoryPanel } from './memoryPanelState.js'
 import styles from './MemoryPanel.module.css'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const PAGE_SIZE = 40
 
-/* -------------------- 功能区：展示辅助与分类映射 开始 -------------------- */
+/* ---- 02 展示辅助与分类映射 ---- */
 const formatTime = (value: number) => {
   const date = new Date(value)
   const pad = (input: number) => String(input).padStart(2, '0')
@@ -139,9 +145,9 @@ const SPEECH_FILTERS: Record<MemoryPool, Array<{ key: MemorySpeechFilter; label:
 }
 
 /** 长期记忆面板：普通/角色双分类，普通记忆再分对话、代码、用户、AI */
-/* -------------------- 功能区：展示辅助与分类映射 结束 -------------------- */
 
-/* -------------------- 功能区：记忆面板数据与渲染 开始 -------------------- */
+/* ---- 03 功能实现（MemoryPanel） ---- */
+/* ---- 04 记忆面板数据与渲染 ---- */
 export const MemoryPanel = ({ session }: { session: Session }) => {
   const memoryMode = useSettings((state) => state.memoryMode)
   const memoryLimit = useSettings((state) => state.memoryLimit)
@@ -1111,7 +1117,6 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     </div>
   )
 }
-/* -------------------- 功能区：记忆面板数据与渲染 结束 -------------------- */
 
 /* ============================================================================
  * 功能区：长期记忆界面 / MemoryPanel 结束

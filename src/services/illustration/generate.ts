@@ -1,11 +1,18 @@
 /* ============================================================================
- * 功能区：配图生成 / generate 开始
- * 职责：generate 服务实现，负责配图请求与本地配图状态的该子能力。
- * 导出：IllustrationResult、IllustrationSource、buildIllustrationPrompt、generateIllustration。
+ * 功能区：配图生成与存储 / generate · 配图生成
+ * 职责：配图生成：根据角色与场景构造提示词并调用图像服务，返回结果与来源。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：toPlainText、buildIllustrationPrompt、generateIllustration；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/settings；
+ *    被 components/chatInput/ChatInput、components/messages/AssistantMessage 引用。
+ * 导出：IllustrationResult、IllustrationSource、buildIllustrationPrompt、generateIllustration
+ * 边界：只处理配图提示词、生成结果与本地 Blob；不参与消息持久化与视图布局。
  * ========================================================================== */
 
 import { useSettings } from '../settings.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 把聊天接口地址还原成服务根地址，拼上 /images/generations */
 const imageBase = (endpoint: string) => {
   const trimmed = endpoint.trim().replace(/\/+$/, '')
@@ -52,6 +59,7 @@ const toPlainText = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+/* ---- 02 核心实现：toPlainText、buildIllustrationPrompt、generateIllustration ---- */
 /**
  * 两种入口的提示词分开写：
  * - 消息菜单：把回复当作剧情，要求还原文字里描述的人物、动作与环境，台词不画成文字；
@@ -74,6 +82,7 @@ export const buildIllustrationPrompt = (input: string, source: IllustrationSourc
   ].join('\n')
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /**
  * 用当前配置的接口生成一张插画。
  * 走 OpenAI 兼容的 /images/generations；返回 b64 或 url 都接受，最终统一压成 dataURL。

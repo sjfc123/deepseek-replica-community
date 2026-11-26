@@ -1,11 +1,16 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / memoryPrune 开始
+ * 功能区：会话与角色核心 / memoryPrune · 长期记忆精确删除
  * 职责：长期记忆精确删除：按消息与卡片 ID 移除，不扫描或清空整个分类。
- * 导出：MemoryRemovalTarget、removeMemoryCards。
+ * 分区：01 类型、契约与依赖
+ * 关联：依赖 services/chat/types；
+ *    被 scripts/test-memory-prune、services/chat/store 引用。
+ * 导出：MemoryRemovalTarget、removeMemoryCards
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import type { Message } from './types.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 精确删除目标：只按消息 + 卡片定位，绝不按分类批量清空 */
 export type MemoryRemovalTarget = { messageId: string; cardId: string }
 

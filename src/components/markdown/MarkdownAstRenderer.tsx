@@ -1,7 +1,14 @@
 /* ============================================================================
- * 功能区：Markdown 视图 / MarkdownAstRenderer 开始
+ * 功能区：视图与交互 / MarkdownAstRenderer
  * 职责：MarkdownAstRenderer 组件，负责该组件的渲染、状态与交互出口。
- * 导出：MarkdownAstRenderer。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 功能实现（MarkdownPhrasingContent、MarkdownPhrasingContentItem、TextContent…）；
+ *    03 功能实现（MarkdownBlockContentOrDefinitionContent、MarkdownAstRenderer）；
+ *    04 功能实现（MarkdownAstRenderer）
+ * 关联：依赖 components/markdown/CodeBlock、components/markdown/Link、components/markdown/MathFormula、components/search/CitationLink 等 5 个模块；
+ *    被 components/markdown/Markdown 引用。
+ * 导出：MarkdownAstRenderer
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { createElement, Fragment, memo, useMemo, type ReactNode } from 'react'
@@ -20,6 +27,7 @@ import { ImageAsLink, Link } from './Link.js'
 import { InlineMath, MathBlock } from './MathFormula.js'
 import { splitAsides } from '../../services/chat/aside.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const Html = memo(function Html({ value }: { value: string }) {
   if (/^<br\s*\/?>$/i.test(value)) {
     return <br />
@@ -94,6 +102,7 @@ const Table = memo(function Table({ node }: { node: TableNode }) {
   )
 })
 
+/* ---- 02 功能实现（MarkdownPhrasingContent、MarkdownPhrasingContentItem、TextContent…） ---- */
 const MarkdownPhrasingContent = memo(function MarkdownPhrasingContent({
   nodes,
 }: {
@@ -177,6 +186,7 @@ const TextContent = memo(function TextContent({ children }: { children: string }
   return result
 })
 
+/* ---- 03 功能实现（MarkdownBlockContentOrDefinitionContent、MarkdownAstRenderer） ---- */
 const MarkdownBlockContentOrDefinitionContent = memo(
   function MarkdownBlockContentOrDefinitionContent({
     nodes,
@@ -234,6 +244,7 @@ const MarkdownBlockContentOrDefinitionContent = memo(
   }
 )
 
+/* ---- 04 功能实现（MarkdownAstRenderer） ---- */
 export const MarkdownAstRenderer = memo(function MarkdownAstRenderer({
   ast,
   className,

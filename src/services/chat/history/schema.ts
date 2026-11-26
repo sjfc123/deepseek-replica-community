@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：历史归档 / schema 开始
- * 职责：schema 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：ParsedMessage、ParsedSessionFile、checkManifest、readSessionIndex、readSessionFile。
+ * 功能区：历史归档 / schema · 归档结构校验
+ * 职责：归档结构校验：manifest、索引与会话字段的类型与完整性检查。
+ * 分区：01 类型、常量与模块依赖；02 类型与契约（ParsedMessage、ParsedSessionFile）；
+ *    03 读取与解析（integrity、parentId、role…）；04 读取与解析（readSessionFile）
+ * 关联：依赖 services/chat/history/errors、services/chat/history/format、services/chat/history/integrity；
+ *    被 scripts/test-context-compaction、scripts/test-history-merge、services/chat/history/importArchive、services/chat/history/toLocal 引用。
+ * 导出：ParsedMessage、ParsedSessionFile、checkManifest、readSessionIndex、readSessionFile
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import { BackupError, fail } from './errors.js'
@@ -16,6 +21,7 @@ import {
 } from './format.js'
 import type { SessionIntegrity } from './integrity.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /**
  * 按格式定义校验，返回只含已定义字段的新对象：容器与元数据严格校验，无法解析的内容片段丢弃。
  * 可空字段必须显式为 null；可选字段允许缺省，存在时严格校验。
@@ -111,6 +117,7 @@ const fileEntry: Read<FileEntry> = (value) => {
   }
 }
 
+/* ---- 02 类型与契约（ParsedMessage、ParsedSessionFile） ---- */
 const readFragment: Read<Fragment> = (value) => {
   const item = record(value)
   const type = string(item.type)
@@ -221,6 +228,7 @@ export type ParsedSessionFile = Omit<
   integrity: SessionIntegrity | null
 }
 
+/* ---- 03 读取与解析（integrity、parentId、role…） ---- */
 /** 完整性摘要属于本应用扩展字段；存在时严格校验，缺失时按旧格式处理。 */
 const integrity: Read<SessionIntegrity | null> = (value) => {
   if (value === undefined) {
@@ -302,6 +310,7 @@ export const readSessionIndex: Read<SessionIndexEntry[]> = list((value) => {
   }
 })
 
+/* ---- 04 读取与解析（readSessionFile） ---- */
 export const readSessionFile: Read<ParsedSessionFile> = (value) => {
   const item = record(value)
   return {

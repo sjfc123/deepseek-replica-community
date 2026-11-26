@@ -1,6 +1,11 @@
 /* ============================================================================
- * 功能区：历史归档 / importArchive 开始
+ * 功能区：历史归档 / importArchive · 历史归档导入
  * 职责：历史归档导入：ZIP 读取、结构校验、图片回填与本地落库。
+ * 分区：01 类型、常量与模块依赖；02 写入与状态变更（importArchive）
+ * 关联：依赖 i18n/index、services/chat/db、services/chat/history/errors、services/chat/history/format 等 10 个模块；
+ *    被 scripts/test-history-merge、services/chat/backup、services/chat/history/import.worker、services/chat/history/importOffMainThread 等 5 个模块 引用。
+ * 导出：ImportIssue、ArchiveProgress、ImportMode、ImportArchiveResult、ArchiveSourceError、importArchive
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import { stagingWriter, type StoredFile } from '../db.js'
@@ -21,6 +26,7 @@ import {
   type ArchiveEntry,
 } from './zipReader.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 从原件字节补充图片 MIME；无法识别时为空字符串，图片身份仍由归档的 is_image 决定。 */
 const imageType = (bytes: Uint8Array): string => {
   const startsWith = (...prefix: number[]) => prefix.every((byte, index) => bytes[index] === byte)
@@ -125,6 +131,7 @@ export type ImportArchiveResult = {
 /** 第一次读取就失败时，暂存尚未写入，可以从另一个线程重试。 */
 export class ArchiveSourceError extends Error {}
 
+/* ---- 02 写入与状态变更（importArchive） ---- */
 /**
  * 流式导入：manifest → user（跳过）→ 全部会话 JSON → index → 全部图片。
  * 同时兼容会话与图片交错排列、index 位于末尾的条目顺序。

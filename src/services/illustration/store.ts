@@ -1,11 +1,16 @@
 /* ============================================================================
- * 功能区：配图生成 / store 开始
- * 职责：store 服务实现，负责配图请求与本地配图状态的该子能力。
- * 导出：putIllustration、removeIllustration、useIllustration。
+ * 功能区：配图生成与存储 / store · 配图本地存储
+ * 职责：配图本地存储：保存、删除与读取配图 Blob 及其状态。
+ * 分区：01 类型、契约与依赖；02 核心实现：subscribe、getEntry、useIllustration
+ * 关联：无内部依赖；
+ *    被 components/messages/AssistantMessage、components/messages/MessageIllustration 引用。
+ * 导出：putIllustration、removeIllustration、useIllustration
+ * 边界：只处理配图提示词、生成结果与本地 Blob；不参与消息持久化与视图布局。
  * ========================================================================== */
 
 import { useSyncExternalStore } from 'react'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 插图按消息 ID 存本机，只保留最近若干张，避免撑爆 localStorage */
 const KEY = 'replica:illustrations'
 const LIMIT = 8
@@ -29,6 +34,7 @@ const read = (): Map => {
   return cache
 }
 
+/* ---- 02 核心实现：subscribe、getEntry、useIllustration ---- */
 const write = (next: Map) => {
   const entries = Object.entries(next).sort((a, b) => b[1].at - a[1].at)
   const trimmed: Map = {}

@@ -1,12 +1,17 @@
 /* ============================================================================
- * 功能区：附件与文件预览 / usePreviewZoom 开始
+ * 功能区：视图与交互 / usePreviewZoom · 预览缩放 Hook
  * 职责：预览缩放 Hook：双指缩放、平移边界与复位。
- * 导出：usePreviewZoom。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/files/imageCrop；
+ *    被 components/files/AndroidImageViewer 引用。
+ * 导出：usePreviewZoom
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useRef, useState, type PointerEvent, type MouseEvent } from 'react'
 import { clamp, type Point, type Size } from './imageCrop.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const DEFAULT = { x: 0, y: 0, scale: 1 }
 const MAX_ZOOM = 5
 const DOUBLE_TAP_MS = 275
@@ -18,6 +23,7 @@ const midpoint = (first: Point, second: Point) => ({
   y: (first.y + second.y) / 2,
 })
 
+/* ---- 02 对外入口与收尾 ---- */
 export const usePreviewZoom = (image: Size | undefined, onClose: () => void) => {
   const [position, setPosition] = useState(DEFAULT)
   const [controlsHidden, setControlsHidden] = useState(false)

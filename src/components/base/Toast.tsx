@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：基础 UI / Toast 开始
+ * 功能区：视图与交互 / Toast
  * 职责：Toast 组件，负责该组件的渲染、状态与交互出口。
- * 导出：Toast。
+ * 分区：01 实现：Toast
+ * 关联：依赖 components/base/Toast.module、components/base/icons、components/base/toastState、i18n/index；
+ *    被 app/App 引用。
+ * 导出：Toast
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -11,6 +15,7 @@ import { IconToastError16 } from './icons.js'
 import { useToast } from './toastState.js'
 import styles from './Toast.module.css'
 
+/* ---- 01 实现：Toast ---- */
 export const Toast = () => {
   const t = useTranslate()
   const { id, message, duration } = useToast()

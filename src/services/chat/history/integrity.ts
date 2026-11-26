@@ -1,9 +1,15 @@
 /* ============================================================================
- * 功能区：历史归档 / integrity 开始
+ * 功能区：历史归档 / integrity
  * 职责：为单个会话生成与校验完整性摘要，定位 JSON 语法正常但消息被截断或篡改的对话。
- * 导出：SessionIntegrity、createSessionIntegrity、verifySessionIntegrity。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：messageCountOf、createSessionIntegrity、verifySessionIntegrity
+ * 关联：无内部依赖；
+ *    被 scripts/test-data-management、services/chat/history/format、services/chat/history/importArchive、services/chat/history/schema 等 5 个模块 引用。
+ * 导出：SessionIntegrity、IntegrityCheck、createSessionIntegrity、verifySessionIntegrity
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 摘要随会话写在归档 JSON 内；旧备份没有该字段时跳过比对。 */
 export type SessionIntegrity = {
   /** 固定版本，便于后续升级算法时识别旧摘要。 */
@@ -36,6 +42,7 @@ const digestOf = (bytes: Uint8Array) =>
     .toString(16)
     .padStart(8, '0')}`
 
+/* ---- 02 核心实现：messageCountOf、createSessionIntegrity、verifySessionIntegrity ---- */
 /** 去掉 integrity 自身后序列化，避免校验值参与摘要计算。 */
 const payloadOf = (value: unknown): string => {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {

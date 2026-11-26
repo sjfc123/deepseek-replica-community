@@ -1,11 +1,17 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / branches 开始
- * 职责：branches 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：normalizeSession、getVisibleMessages、MessageVersions、buildMessageVersions、appendBranch、selectVersion 等 8 个导出。
+ * 功能区：会话与角色核心 / branches · 消息分支
+ * 职责：消息分支：版本构建、可见消息、追加、切换与可达节点；只处理分支图，不渲染消息。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：selectVersion、getReachableMessageIds、activateBranch；03 对外入口与收尾
+ * 关联：依赖 services/chat/types；
+ *    被 scripts/test-content-search、scripts/test-history-merge、components/memory/MemoryPanel、components/messages/BranchSwitcher 等 13 个模块 引用。
+ * 导出：normalizeSession、getVisibleMessages、MessageVersions、buildMessageVersions、appendBranch、selectVersion、getReachableMessageIds、activateBranch
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import type { Message, Session } from './types.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 将线性消息列表规范化为单分支，保留消息 ID、内容及时间。 */
 export const normalizeSession = (session: Session): Session =>
   session.rootMessageId !== undefined
@@ -106,6 +112,7 @@ export const appendBranch = (
   }
 }
 
+/* ---- 02 核心实现：selectVersion、getReachableMessageIds、activateBranch ---- */
 /** 仅允许切换当前路径上某一节点的兄弟版本，恢复该版本已选中的后续分支。 */
 export const selectVersion = (original: Session, messageId: string): Session => {
   const session = normalizeSession(original)
@@ -177,6 +184,7 @@ export const getReachableMessageIds = (original: Session): Set<string> => {
   return reachable
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /**
  * 激活通往目标消息（含非当前分支深层节点）的整条祖先路径，同时保留该节点下已选中的后续子分支。
  * 若目标消息已在当前可见路径上或无法从根到达，原样返回。

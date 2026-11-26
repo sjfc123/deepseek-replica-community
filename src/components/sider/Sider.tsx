@@ -1,6 +1,11 @@
 /* ============================================================================
- * 功能区：侧栏与会话管理 / Sider 开始
+ * 功能区：视图与交互 / Sider · 侧栏
  * 职责：侧栏：会话列表、分组、搜索、多选、抽屉手势与移动端壳。
+ * 分区：01 类型、常量与模块依赖；02 桌面侧栏；03 功能实现（Sider）；04 核心实现；05 移动端侧栏
+ * 关联：依赖 app/android、app/viewport、components/base/IconButton、components/base/icons 等 18 个模块；
+ *    被 app/App 引用。
+ * 导出：Sider、MobileSider
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -54,6 +59,7 @@ import { SessionActionDialog } from './SessionActionDialog.js'
 import { SessionItem } from './SessionItem.js'
 import styles from './Sider.module.css'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const ROW_OVERSCAN = 10
 const COLLAPSED_SESSION_GROUPS_KEY = 'replica:collapsed-session-groups'
 
@@ -78,7 +84,7 @@ type ForkFlow = {
 }
 
 /** 展开的侧边栏：名称与收起按钮、开启新对话、按时间分组的会话列表、底部设置；移动端放在抽屉里，收起按钮关闭抽屉 */
-/* -------------------- 功能区：桌面侧栏 开始 -------------------- */
+/* ---- 02 桌面侧栏 ---- */
 const SessionSectionHeader = ({
   group,
   collapsed,
@@ -135,6 +141,7 @@ const SessionSectionHeader = ({
   )
 }
 
+/* ---- 03 功能实现（Sider） ---- */
 export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean }) {
   const t = useTranslate()
   const sessions = useChatStore((state) => state.sessions)
@@ -1391,9 +1398,9 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
 })
 
 /** 移动端侧边栏：窄屏为浮层抽屉（点遮罩关闭）；Android 宽屏为左侧分栏（无遮罩）。 */
-/* -------------------- 功能区：桌面侧栏 结束 -------------------- */
 
-/* -------------------- 功能区：移动端侧栏 开始 -------------------- */
+/* ---- 04 核心实现 ---- */
+/* ---- 05 移动端侧栏 ---- */
 export const MobileSider = memo(function MobileSider() {
   const t = useTranslate()
   const open = useMobileSider((state) => state.open)
@@ -1420,7 +1427,6 @@ export const MobileSider = memo(function MobileSider() {
     </>
   )
 })
-/* -------------------- 功能区：移动端侧栏 结束 -------------------- */
 
 /* ============================================================================
  * 功能区：侧栏与会话管理 / Sider 结束

@@ -1,7 +1,18 @@
+/* ============================================================================
+ * 功能区：视图与交互 / Menu · Menu 的视觉实现
+ * 职责：Menu 的视觉实现：容器、布局、状态、动画、断点与主题兼容；类名由同名组件的 styles.* 引用。
+ * 分区：01 变量、容器与主体布局；02 变量、容器与基础布局；03 状态与交互；04 断点与主题兼容
+ * 关联：使用方 components/base/Menu；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
+/* ---- 01 变量、容器与主体布局 ---- */
 .anchor {
   display: inline-flex;
 }
 
+/* ---- 02 变量、容器与基础布局 ---- */
 .menu {
   position: fixed;
   z-index: 900;
@@ -85,6 +96,7 @@
 [data-android] .userMessageMenu {
   display: flex;
   flex-direction: column;
+/* ---- 03 状态与交互 ---- */
   gap: 1px;
   width: 168px;
   max-width: calc(100vw - 24px);
@@ -190,6 +202,7 @@
     border-radius: 6px;
     background-color: var(--dsw-alias-interactive-bg-hover);
 
+/* ---- 04 断点与主题兼容 ---- */
     svg {
       display: block;
       width: 12px;

@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：视图与交互 / AndroidContentSearch · 会话内容搜索视觉层
+ * 职责：会话内容搜索视觉层：搜索框、结果分组、关键词高亮与空状态。
+ * 分区：01 变量、容器与主体布局；02 安卓输入与结果容器；03 状态与交互；04 断点与主题兼容
+ * 关联：使用方 components/sider/AndroidContentSearch；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
+/* ---- 01 变量、容器与主体布局 ---- */
 .container {
   --search-muted: rgb(142 144 148);
   --search-ring: rgb(229 229 229);
@@ -17,6 +27,7 @@
   user-select: none;
 }
 
+/* ---- 02 安卓输入与结果容器 ---- */
 [data-ds-dark-theme] .container {
   --search-ring: rgb(71 72 73);
   --search-icon-stroke: rgb(186 188 192);
@@ -131,6 +142,7 @@
   justify-content: center;
   width: 19px;
   height: 19px;
+/* ---- 03 状态与交互 ---- */
   border-radius: 50%;
   background: var(--search-clear-bg);
   color: #fff;
@@ -289,6 +301,7 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: 14px;
+/* ---- 04 断点与主题兼容 ---- */
   line-height: 20px;
   color: var(--search-muted);
 }

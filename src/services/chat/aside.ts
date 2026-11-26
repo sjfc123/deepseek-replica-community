@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / aside 开始
- * 职责：aside 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：splitAsides、stripAsides、hasAside、maskAsides。
+ * 功能区：会话与角色核心 / aside · 旁白与对白分离
+ * 职责：旁白与对白分离：识别括号、斜体与井号旁白，支持剥离、遮罩与保留；不修改原消息。
+ * 分区：01 类型、契约与依赖
+ * 关联：无内部依赖；
+ *    被 components/chatInput/ChatInput、components/markdown/MarkdownAstRenderer、components/messages/UserMessage、services/speech/readAloud 等 5 个模块 引用。
+ * 导出：splitAsides、stripAsides、hasAside、maskAsides
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 /**
@@ -9,6 +13,7 @@
  * 渲染侧负责置灰，朗读与通话侧负责剔除。
  */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 单行内成对出现的括号片段；未闭合的部分留在正文里 */
 const ASIDE_IN_LINE = /（[^（）]*）|\([^()]*\)/g
 

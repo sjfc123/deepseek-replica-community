@@ -1,9 +1,14 @@
 /* ============================================================================
- * 功能区：消息渲染 / spring 开始
+ * 功能区：视图与交互 / spring · 弹簧动画工具
  * 职责：弹簧动画工具：生成消息进入/回弹所需的插值参数。
- * 导出：SpringState、stepCriticallyDampedSpring、prefersReducedMotion。
+ * 分区：01 类型、契约与依赖
+ * 关联：无内部依赖；
+ *    被 components/chatInput/AndroidVoiceOverlay、components/chatInput/voiceMaskShader、components/messages/JumpToBottomButton、components/messages/MessageList 引用。
+ * 导出：SpringState、stepCriticallyDampedSpring、prefersReducedMotion
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 临界阻尼弹簧的当前位置与速度状态 */
 export type SpringState = {
   value: number

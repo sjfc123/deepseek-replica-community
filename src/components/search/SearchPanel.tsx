@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：搜索与引用 / SearchPanel 开始
+ * 功能区：视图与交互 / SearchPanel
  * 职责：SearchPanel 组件，负责该组件的渲染、状态与交互出口。
- * 导出：SearchPanel。
+ * 分区：01 实现：SearchPanel
+ * 关联：依赖 app/android、components/base/IconButton、components/base/icons、components/search/AndroidSearchPanel 等 8 个模块；
+ *    被 app/App 引用。
+ * 导出：SearchPanel
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { android } from '../../app/android.js'
@@ -13,6 +17,7 @@ import { SourceCard } from './SourceCard.js'
 import { AndroidSearchPanel } from './AndroidSearchPanel.js'
 import styles from './SearchPanel.module.css'
 
+/* ---- 01 实现：SearchPanel ---- */
 /** 右侧「搜索结果」面板 */
 export const SearchPanel = () => {
   const t = useTranslate()

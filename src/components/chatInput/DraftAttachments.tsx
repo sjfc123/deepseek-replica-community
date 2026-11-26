@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / DraftAttachments 开始
+ * 功能区：视图与交互 / DraftAttachments
  * 职责：DraftAttachments 组件，负责该组件的渲染、状态与交互出口。
- * 导出：DraftAttachments。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/base/Tooltip、components/base/icons、components/chatInput/ChatInput.module、components/files/FileCard 等 7 个模块；
+ *    被 components/chatInput/AndroidDraftAttachments、components/chatInput/ChatInput 引用。
+ * 导出：DraftAttachments
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -14,6 +18,7 @@ import { Tooltip } from '../base/Tooltip.js'
 import { FileCard } from '../files/FileCard.js'
 import styles from './ChatInput.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const UPLOADING: UploadTask = { status: 'uploading' }
 
 /** 列表只随草稿附件变化更新；每张卡片独立订阅自己的上传状态。 */
@@ -51,6 +56,7 @@ export const DraftAttachments = memo(function DraftAttachments({
   )
 })
 
+/* ---- 02 对外入口与收尾 ---- */
 /** 输入框里的文件：图片显示缩略图，其余显示文件卡片 */
 const AttachmentItem = ({
   item,

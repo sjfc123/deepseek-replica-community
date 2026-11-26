@@ -1,6 +1,12 @@
 /* ============================================================================
- * 功能区：语音链路 / voiceCall 开始
+ * 功能区：语音采集与朗读 / voiceCall · 连续语音通话
  * 职责：连续语音通话：采集、VAD、转写、播放、打断与错误恢复。
+ * 分区：01 通话状态、VAD 参数与错误识别；02 麦克风与原生采集通道；03 会话状态机、音频桥与清理；04 流式回复、TTS 与打断；
+ *    05 语音轮次与采集收尾
+ * 关联：依赖 services/api/client、services/api/errors、services/api/speech、services/chat/aside 等 12 个模块；
+ *    被 components/chatInput/VoiceCallOverlay、components/session/MobileHeader 引用。
+ * 导出：VoiceCallPhase、VoiceCallMicState、useVoiceCall、primeVoiceCallAudio、ensureMicrophonePermission、prepareVoiceCall、startVoiceCall、retryVoiceCall、toggleVoiceCallMute、flushVoiceCallSpeech、interruptVoiceCall、endVoiceCall 等 13 项
+ * 边界：只处理麦克风、PCM、TTS 排程与通话语音状态；不渲染聊天正文，不修改会话数据。
  * ========================================================================== */
 
 import { create } from 'zustand'
@@ -42,7 +48,7 @@ type VoiceCallState = {
   error: string | null
 }
 
-/* -------------------- 功能区：通话状态、VAD 参数与错误识别 开始 -------------------- */
+/* ---- 01 通话状态、VAD 参数与错误识别 ---- */
 export const useVoiceCall = create<VoiceCallState>(() => ({
   active: false,
   sessionId: null,
@@ -56,9 +62,8 @@ export const useVoiceCall = create<VoiceCallState>(() => ({
   error: null,
 }))
 
-/* -------------------- 功能区：通话状态、VAD 参数与错误识别 结束 -------------------- */
 
-/* -------------------- 功能区：麦克风与原生采集通道 开始 -------------------- */
+/* ---- 02 麦克风与原生采集通道 ---- */
 const FRAME_SIZE = 2048
 const PRE_ROLL_FRAMES = 3
 const SPEECH_START_FRAMES = 2
@@ -258,7 +263,7 @@ const openMicrophoneStream = async (): Promise<MediaStream> => {
       bridge?.prepareMicrophone?.()
       bridge?.releaseNativeRecorder?.()
     } catch {
-      // 桥没注入时按桌面环境处理
+      // 系统直录桥未注入时按桌面浏览器处理，改用 WebView 采集。
     }
     const constraints: MediaStreamConstraints =
       delay === 0 ? CALL_AUDIO_CONSTRAINTS : { audio: true }
@@ -331,9 +336,8 @@ let callEpoch = 0
 /** 点击电话按钮时先建好的播放上下文；等权限回来再建会丢失用户手势，部分 ROM 不允许出声 */
 let primedPlaybackCtx: AudioContext | null = null
 
-/* -------------------- 功能区：麦克风与原生采集通道 结束 -------------------- */
 
-/* -------------------- 功能区：会话状态机、音频桥与清理 开始 -------------------- */
+/* ---- 03 会话状态机、音频桥与清理 ---- */
 export const primeVoiceCallAudio = () => {
   if (primedPlaybackCtx && primedPlaybackCtx.state !== 'closed') {
     if (primedPlaybackCtx.state === 'suspended') {
@@ -415,7 +419,7 @@ const teardownCall = (call: CallSession) => {
     try {
       node?.disconnect()
     } catch {
-      // 忽略断开错误
+      // 主动断开时忽略 close/error 事件，避免把正常挂断当成通话故障。
     }
   }
   if (call.stream) {
@@ -446,9 +450,8 @@ const findReply = (sessionId: string, replyId: string): AssistantMessage | undef
 }
 
 /** 把回复正文按句切块交给 TTS，边流式出字边播放 */
-/* -------------------- 功能区：会话状态机、音频桥与清理 结束 -------------------- */
 
-/* -------------------- 功能区：流式回复、TTS 与打断 开始 -------------------- */
+/* ---- 04 流式回复、TTS 与打断 ---- */
 const streamReplyWithTts = async (
   call: CallSession,
   sessionId: string,
@@ -696,9 +699,8 @@ const describeTurnError = (error: unknown): string => {
   return '这次没听清，请再说一遍'
 }
 
-/* -------------------- 功能区：流式回复、TTS 与打断 结束 -------------------- */
 
-/* -------------------- 功能区：语音轮次与采集收尾 开始 -------------------- */
+/* ---- 05 语音轮次与采集收尾 ---- */
 const runSpeechTurn = async (call: CallSession, wav: Blob) => {
   cleanupTurn(call)
   const controller = new AbortController()
@@ -713,7 +715,7 @@ const runSpeechTurn = async (call: CallSession, wav: Blob) => {
     }
     if (!transcript) {
       // 服务端未返回文字时给出明确反馈，再恢复聆听；旧版本采用静默恢复，
-      // 用户会以为说话没被采集。
+      // 采集已启动但长时间没有音量时给出明确提示，避免用户误以为麦克风未工作。
       const notice = '这次没听清，我还在听，再说一遍'
       useVoiceCall.setState({ error: notice, speechDetected: false, level: 0 })
       window.setTimeout(() => {
@@ -739,7 +741,7 @@ const runSpeechTurn = async (call: CallSession, wav: Blob) => {
     // 无文字会话时由通话新建：首条转写同时充当列表标题，挂断后能在会话列表找到。
     noteVoiceCallMessage(transcript)
     if (matchRefusalKeyword(transcript)) {
-      // 本地拒答同样走流式订阅，界面读回拒答话术
+      // 本地内容拦截也通过流式订阅回传，界面按同一路径读取拒答话术。
       await streamReplyWithTts(call, submitted.sessionId, submitted.replyId, controller)
       return
     }
@@ -750,7 +752,7 @@ const runSpeechTurn = async (call: CallSession, wav: Blob) => {
     }
     const message = describeTurnError(error)
     // 密钥、余额、协议这类问题重说也不会好，停在错误态让用户去设置或重试；
-    // 网络抖动与普通的没听清则自动回到聆听。
+    // 网络抖动或未听清时回到聆听态，不结束整通通话。
     const condition = classifyApiError(error)
     const needsAction =
       error instanceof ApiError &&
@@ -874,7 +876,7 @@ export const startVoiceCall = (sessionId: string | null) => {
   try {
     window.speechSynthesis?.cancel()
   } catch {
-    // 没有合成器时忽略
+    // 环境没有语音合成器时跳过播报，通话状态仍正常推进。
   }
   try {
     const bridge = (
@@ -882,7 +884,7 @@ export const startVoiceCall = (sessionId: string | null) => {
     ).DeepSeekAndroid
     bridge?.releaseNativeRecorder?.()
   } catch {
-    // 桌面环境没有桥
+    // 桌面浏览器没有系统直录桥，通话改走 WebView 采集路径。
   }
 
   const epoch = ++callEpoch
@@ -1199,7 +1201,7 @@ const retryMicrophoneAfterHostGrant = async (error: unknown): Promise<MediaStrea
   }
 }
 
-/** 系统直录桥：WebView 采集被 ROM 拦截时的兜底通道 */
+/** 系统直录桥：WebView 采集被 ROM 拦截时的独立采集通道 */
 type CallCaptureBridge = {
   startCallCapture?: () => boolean
   readCallCapture?: () => string
@@ -1220,7 +1222,7 @@ const stopNativeCapture = (call: CallSession) => {
   try {
     callCaptureBridge()?.stopCallCapture?.()
   } catch {
-    // 宿主已销毁时忽略释放异常
+    // 宿主已销毁时释放异常不再上抛，避免退出阶段产生二次崩溃。
   }
 }
 
@@ -1505,7 +1507,6 @@ if (typeof document !== 'undefined') {
     }
   })
 }
-/* -------------------- 功能区：语音轮次与采集收尾 结束 -------------------- */
 
 /* ============================================================================
  * 功能区：语音链路 / voiceCall 结束

@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / AndroidAttachments 开始
+ * 功能区：视图与交互 / AndroidAttachments
  * 职责：AndroidAttachments 组件，负责该组件的渲染、状态与交互出口。
- * 导出：AndroidAttachments。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 app/android、components/base/AndroidIcons、components/base/toastState、components/chatInput/AndroidAttachments.module 等 6 个模块；
+ *    被 components/chatInput/ChatInput 引用。
+ * 导出：AndroidAttachments
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useRef, useState } from 'react'
@@ -12,9 +16,11 @@ import { AndroidAttachment } from '../base/AndroidIcons.js'
 import { showToast } from '../base/toastState.js'
 import styles from './AndroidAttachments.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type Photo = { id: string; name: string; type: string }
 type Source = 'camera' | 'gallery' | 'files'
 
+/* ---- 02 对外入口与收尾 ---- */
 export const AndroidAttachments = ({
   open,
   onFiles,

@@ -1,6 +1,12 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / roleplay 开始
+ * 功能区：会话与角色核心 / roleplay · 角色扮演数据层
  * 职责：角色扮演数据层：角色卡、世界书、场景、内置卡种子、单卡解析与 system 人物层格式化。
+ * 分区：01 类型、常量与模块依赖；02 角色卡查找与启用判定；03 内置角色卡种子；04 内置卡读取与迁移；05 剧情时钟与线索；
+ *    06 规则、场景与世界书格式化；07 场景更新解析
+ * 关联：依赖 services/chat/types；
+ *    被 scripts/test-default-prompt、scripts/test-roleplay、scripts/test-story、scripts/test-suggestions 等 22 个模块 引用。
+ * 导出：PlayStyle、PlayStyleOption、PLAY_STYLES、PLAY_STYLE_DEFAULT、findPlayStyle、CHARACTER_GENRES、CharacterStoryClue、CharacterStory、CharacterCard、WorldbookKind、WORLDBOOK_KINDS、WORLDBOOK_KIND_DEFAULT 等 64 项
+ * 边界：只管理角色卡、世界书、场景与注入格式化；不生成回复、不写记忆卡、不渲染面板。
  * ========================================================================== */
 
 /**
@@ -10,6 +16,7 @@
 
 import type { Session } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 卡内玩法：决定叙事重心，比单纯堆形容词更能拉开体验差异 */
 export type PlayStyle = 'immersive' | 'ensemble' | 'mystery' | 'management' | 'adventure'
 
@@ -259,6 +266,7 @@ export const findWorldbookAuthority = (value: unknown): WorldbookAuthority => {
   )
 }
 
+/* ---- 02 角色卡查找与启用判定 ---- */
 export type WorldbookEntry = {
   id: string
   title: string
@@ -476,6 +484,7 @@ const BUILTIN_CARD_EXTRA = {
   speechExamples: '',
 }
 
+/* ---- 03 内置角色卡种子 ---- */
 /**
  * 内置角色卡：首次初始化写入一次，用户删除后不再自动回填；
  * 仅「恢复内置角色卡」动作会按 id 补齐缺失项。
@@ -1037,6 +1046,7 @@ const builtinCards = (): CharacterCard[] => [
   },
 ]
 
+/* ---- 04 内置卡读取与迁移 ---- */
 export const BUILTIN_CHARACTER_CARD_TOTAL = 8
 
 /** 返回内置卡副本，调用方修改不会污染常量 */
@@ -1263,6 +1273,7 @@ export const normalizeSourceUrl = (raw: unknown): string => {
   }
 }
 
+/* ---- 05 剧情时钟与线索 ---- */
 const storyMinute = (value: unknown, fallback: number) => {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) {
@@ -1504,6 +1515,7 @@ export const ROLEPLAY_FIXED_FACTS_RULE =
 export const ROLEPLAY_VIEWPOINT_RULE =
   '正文写自己时固定用第一人称「我」：动作、感官、心理都从本人视角出发。不要用姓名或「她」「他」「ta」指自己，也不要把自己的动作写成第三人称旁白；第三人称只用于别人或转述不在场的第三方。上面的经历、秘密、外貌等资料可能用第三人称写成，那只是背景说明，不是你回复的句式。'
 
+/* ---- 06 规则、场景与世界书格式化 ---- */
 /** 配合推进：可以拒绝，但不能用沉默或卡死场景代替回应 */
 export const ROLEPLAY_COOPERATION_RULE =
   '在角色逻辑里配合{{user}}的推进：先接住对方给出的动作、地点和情绪，再按这个人会有的反应回应。可以拒绝、犹豫、谈条件、转移话题，但不要无缘无故把场景卡死，不要每轮都拒绝，也不要用沉默代替推进。遇到超出底线的要求，用角色方式拒绝、回避或提出替代，不要跳出角色解释规则。'
@@ -1660,7 +1672,7 @@ export const selectWorldbookEntries = (
             score += 1
           }
         } catch {
-          // 正则写错时跳过这一条，不影响其它关键词
+          // 单条正则有语法错误时跳过该关键词，其余关键词继续匹配。
         }
       } else if (haystack.includes(keyword.toLowerCase())) {
         score += 1
@@ -1707,6 +1719,7 @@ export const formatWorldbookBlock = (entries: WorldbookEntry[]) => {
   ].join('\n')
 }
 
+/* ---- 07 场景更新解析 ---- */
 /** 场景自动更新：只接受「字段：值」行，未知或空值保持原样 */
 export const parseSceneUpdate = (raw: string, current: SceneState): SceneState => {
   const next = { ...current }

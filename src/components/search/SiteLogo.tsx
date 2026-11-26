@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：搜索与引用 / SiteLogo 开始
+ * 功能区：视图与交互 / SiteLogo
  * 职责：SiteLogo 组件，负责该组件的渲染、状态与交互出口。
- * 导出：SiteLogo、SiteThumbnails。
+ * 分区：01 类型、契约与依赖
+ * 关联：依赖 components/base/icons、components/search/FallbackImage、components/search/SiteLogo.module、services/chat/view；
+ *    被 components/messages/AssistantMessage、components/messages/ReplyArea、components/search/AndroidSearchPanel、components/search/SourceCard 引用。
+ * 导出：SiteLogo、SiteThumbnails
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import type { CSSProperties } from 'react'
@@ -11,6 +15,7 @@ import { IconLinkOutline14 } from '../base/icons.js'
 import type { Source } from '../../services/chat/view.js'
 import styles from './SiteLogo.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 站点图标：加载中显示骨架，没有图标或加载失败时显示链接图标 */
 export const SiteLogo = ({
   url,

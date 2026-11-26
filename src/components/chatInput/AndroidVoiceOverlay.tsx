@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / AndroidVoiceOverlay 开始
+ * 功能区：视图与交互 / AndroidVoiceOverlay
  * 职责：AndroidVoiceOverlay 组件，负责该组件的渲染、状态与交互出口。
- * 导出：AndroidVoiceOverlay。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/chatInput/AndroidVoiceOverlay.module、components/chatInput/voiceMaskShader、components/messages/spring、i18n/index；
+ *    被 components/chatInput/ChatInput 引用。
+ * 导出：AndroidVoiceOverlay
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useRef, useState, type RefObject } from 'react'
@@ -15,9 +19,11 @@ import {
 } from './voiceMaskShader.js'
 import styles from './AndroidVoiceOverlay.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const bars = Array.from({ length: 48 }, (_, index) => index)
 const EXIT_FADE_MS = 180
 
+/* ---- 02 对外入口与收尾 ---- */
 export const AndroidVoiceOverlay = ({
   active,
   canceling,

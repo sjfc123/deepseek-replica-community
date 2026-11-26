@@ -1,11 +1,15 @@
 /* ============================================================================
- * 功能区：附件与文件预览 / FileIcon 开始
+ * 功能区：视图与交互 / FileIcon
  * 职责：FileIcon 组件，负责该组件的渲染、状态与交互出口。
- * 导出：FileIcon。
+ * 分区：01 类型、契约与依赖；02 核心实现：TableFileIcon、ImageIcon、PptFileIcon；03 对外入口与收尾
+ * 关联：无内部依赖；被 components/files/FileCard 引用。
+ * 导出：FileIcon
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import type { ReactNode } from 'react'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const IMAGE_EXTS = ['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'BMP', 'SVG', 'HEIC', 'TIF', 'TIFF']
 const TABLE_EXTS = ['XLS', 'XLSX', 'CSV']
 const PPT_EXTS = ['PPT', 'PPTX']
@@ -44,6 +48,7 @@ function FileIconFrame({ color, children }: { color: string; children: ReactNode
   )
 }
 
+/* ---- 02 核心实现：TableFileIcon、ImageIcon、PptFileIcon ---- */
 function OtherFileIcon() {
   return (
     <FileIconFrame color="#418CFF">
@@ -79,6 +84,7 @@ function TableFileIcon() {
   )
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 function ImageIcon() {
   return (
     <FileIconFrame color="#8B76F6">

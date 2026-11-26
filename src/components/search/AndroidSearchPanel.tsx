@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：搜索与引用 / AndroidSearchPanel 开始
+ * 功能区：视图与交互 / AndroidSearchPanel
  * 职责：AndroidSearchPanel 组件，负责该组件的渲染、状态与交互出口。
- * 导出：AndroidSearchPanel。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 app/openAndroidPage、app/useAndroidBackInterception、app/viewport、components/search/AndroidSearchPanel.module 等 9 个模块；
+ *    被 components/search/SearchPanel 引用。
+ * 导出：AndroidSearchPanel
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -15,6 +19,7 @@ import { closeSearchPanel, useSearchPanel, type SearchPanelTitle } from './searc
 import { SiteLogo } from './SiteLogo.js'
 import styles from './AndroidSearchPanel.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const TRANSITION_MS = 240
 
 type DisplayedResults = { entry: string; sources: Source[]; title: SearchPanelTitle }
@@ -47,6 +52,7 @@ const AndroidSource = ({
   )
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 /** Android 搜索来源：窄屏底部面板，宽屏（>= 840dp）对齐官方以居中模态弹窗显示。 */
 export const AndroidSearchPanel = () => {
   const t = useTranslate()

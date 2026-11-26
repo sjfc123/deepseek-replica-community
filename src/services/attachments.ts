@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：本地服务 / attachments 开始
+ * 功能区：本地服务 / attachments · 附件服务
  * 职责：附件服务：上传、取消、重试、状态汇总与错误描述。
- * 导出：ACCEPTED_EXTS、ACCEPT、MAX_SIZE_MB、MAX_USER_DATA_SIZE_MB、MAX_COUNT、getFileExt 等 22 个导出。
+ * 分区：01 类型、常量与模块依赖；02 写入与状态变更（next、sendAttachment、enqueueUpload…）；
+ *    03 计算与判定（uploadAttachment、cancelUpload、resolveMimeType…）；
+ *    04 状态与视图（formatSize）
+ * 关联：依赖 app/android、i18n/index、services/api/client、services/api/errors 等 7 个模块；
+ *    被 app/App、components/chatInput/AndroidAttachments、components/chatInput/ChatInput、components/chatInput/DraftAttachments 等 11 个模块 引用。
+ * 导出：ACCEPTED_EXTS、ACCEPT、MAX_SIZE_MB、MAX_USER_DATA_SIZE_MB、MAX_COUNT、getFileExt、isAcceptedExt、getUploadPurpose、validateFiles、describeUploadError、onUploadNotice、describeUploadQuota 等 22 项
+ * 边界：只处理本机存储、设置、迁移与数据版本；不实现界面控件，不直接请求模型。
  * ========================================================================== */
 
 import { create } from 'zustand'
@@ -13,6 +19,7 @@ import type { FilePurpose } from './api/types.js'
 import { prepareImageUpload, type UploadedImage } from './imageUpload.js'
 import { ACCEPT_FILE_EXTS } from './uploadExts.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 允许上传的扩展名，按扩展名白名单过滤，清单见 uploadExts.ts */
 export const ACCEPTED_EXTS = ACCEPT_FILE_EXTS
 /** 选择文件对话框的过滤条件 */
@@ -115,6 +122,7 @@ let running = 0
 
 export type AttachmentUpload = { serverId: string; serverImage?: UploadedImage }
 
+/* ---- 02 写入与状态变更（next、sendAttachment、enqueueUpload…） ---- */
 type ImageUploadOptions = { maxEdge?: number; forceConversion?: boolean }
 
 const next = () => {
@@ -217,6 +225,7 @@ const pending = new Map<
   { promise: Promise<AttachmentUpload>; controller: AbortController }
 >()
 
+/* ---- 03 计算与判定（uploadAttachment、cancelUpload、resolveMimeType…） ---- */
 /** 开始（或复用进行中的）上传；失败时任务记为 error 并抛出原错误。 */
 export const uploadAttachment = (
   apiKey: string,
@@ -303,6 +312,7 @@ export const getExtension = (name: string) => {
   return dot > 0 ? name.slice(dot + 1).toUpperCase() : ''
 }
 
+/* ---- 04 状态与视图（formatSize） ---- */
 export const formatSize = (bytes: number) => {
   if (bytes < 1024) {
     return `${bytes} B`

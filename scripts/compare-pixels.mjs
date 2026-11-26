@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / compare-pixels · 像素对比工具
+ * 职责：像素对比工具：解码 PNG、逐像素统计差异并按阈值判定，用于构建产物视觉回归。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 无；由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
+/* ---- 01 夹具与固定输入 ---- */
 import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -63,6 +73,7 @@ const frame = (file, index, { x, y, width, height }) => {
       '1',
       '-threads',
       '1',
+/* ---- 02 验证场景 ---- */
       '-f',
       'rawvideo',
       'pipe:1',
@@ -117,6 +128,7 @@ try {
       maxChannelDelta = Math.max(maxChannelDelta, r, g, b)
       totalChannelDelta += r + g + b
       const column = x + ((offset / 3) % width)
+/* ---- 03 断言与清理 ---- */
       const row = y + Math.floor(offset / 3 / width)
       left = Math.min(left, column)
       right = Math.max(right, column)

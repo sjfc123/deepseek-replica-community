@@ -1,12 +1,17 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / memoryView 开始
+ * 功能区：会话与角色核心 / memoryView · 记忆面板的纯视图逻辑
  * 职责：记忆面板的纯视图逻辑：置顶排序、发言拆分、状态/时间/关键词筛选。
- * 导出：MemoryListEntry、MemoryStatusFilter、MemorySpeechFilter、MemoryTimeFilter、
- *      sortMemoryEntries、getMemorySpeech、memoryTextForView、filterMemoryEntries。
+ * 分区：01 类型、契约与依赖；02 核心实现：speechMatches、timeMatches、filterMemoryEntries；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/chat/memory；
+ *    被 scripts/test-memory-layers、scripts/test-memory-view、components/memory/MemoryPanel 引用。
+ * 导出：MemoryListEntry、MemoryStatusFilter、MemorySpeechFilter、MemoryTimeFilter、sortMemoryEntries、getMemorySpeech、memoryTextForView、filterMemoryEntries
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { getCharacterMemoryKind, type MemoryCard } from './memory.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type MemoryListEntry = { card: MemoryCard; messageId: string }
 export type MemoryStatusFilter =
   | 'all'
@@ -53,7 +58,7 @@ export const sortMemoryEntries = (entries: MemoryListEntry[]): MemoryListEntry[]
  * 把一轮卡片拆成用户发言、角色发言和剧情摘要。
  * 自动卡按「玩家提问：… / 角色回应：…」拆分，同时兼容旧卡的「用户：/ 角色：」；
  * 同一条发言跨多行时，直到下一条发言前缀出现前都归当前发言。
- * 普通记忆没有前缀时按 category 兜底，避免用户原话 / AI 原话筛选失效。
+ * 普通记忆没有前缀时按 category 归类，保证用户原话与 AI 原话筛选有效。
  */
 export const getMemorySpeech = (card: MemoryCard): MemorySpeech => {
   const speech: MemorySpeech = { user: [], character: [], summary: [] }
@@ -105,6 +110,7 @@ export const getMemorySpeech = (card: MemoryCard): MemorySpeech => {
   return speech
 }
 
+/* ---- 02 核心实现：speechMatches、timeMatches、filterMemoryEntries ---- */
 /** 当前发言分类下真正显示的文字；all 保持原卡全文 */
 export const memoryTextForView = (card: MemoryCard, speech: MemorySpeechFilter): string => {
   if (speech === 'all') {
@@ -153,6 +159,7 @@ const speechMatches = (card: MemoryCard, speech: MemorySpeechFilter) => {
   return parts.summary.length > 0
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 const timeMatches = (card: MemoryCard, range: MemoryTimeFilter, now: number) => {
   if (range === 'all') {
     return true

@@ -1,7 +1,14 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / contentSearch 开始
- * 职责：contentSearch 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：HighlightRange、SessionSearchResult、MessageSearchResult、ContentSearchResult、buildSearchSnippet、searchSessionContent 等 8 个导出。
+ * 功能区：会话与角色核心 / contentSearch · 会话内容搜索
+ * 职责：会话内容搜索：标题、正文、思考与分支匹配，片段高亮、日期格式化与存储端到端查询。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 读取与解析（getAssistantSearchCandidates、collectSessionMatches、compareRanked）；
+ *    03 读取与解析（compareRanked、searchSessionContent、searchLocalHistory…）；
+ *    04 状态与视图（formatSearchDate）
+ * 关联：依赖 services/chat/branches、services/chat/db、services/chat/types、services/settings；
+ *    被 scripts/test-content-search、components/sider/AndroidContentSearch 引用。
+ * 导出：HighlightRange、SessionSearchResult、MessageSearchResult、ContentSearchResult、buildSearchSnippet、searchSessionContent、searchLocalHistory、formatSearchDate
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import type { Locale } from '../settings.js'
@@ -9,6 +16,7 @@ import { buildMessageVersions, getReachableMessageIds, normalizeSession } from '
 import { scanSessions } from './db.js'
 import type { AssistantMessage, Session, SessionSummary } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 export type HighlightRange = {
   start: number
   end: number
@@ -154,6 +162,7 @@ export const buildSearchSnippet = (
   return { snippet, highlights }
 }
 
+/* ---- 02 读取与解析（getAssistantSearchCandidates、collectSessionMatches、compareRanked） ---- */
 const getAssistantSearchCandidates = (message: AssistantMessage): string[] => {
   if (message.stopReason === 'refusal') {
     const templates = message.blocks
@@ -259,6 +268,7 @@ const collectSessionMatches = (
   return results
 }
 
+/* ---- 03 读取与解析（compareRanked、searchSessionContent、searchLocalHistory…） ---- */
 const compareRanked = (a: RankedResult, b: RankedResult): number => {
   if (a.item.timestamp !== b.item.timestamp) {
     return b.item.timestamp - a.item.timestamp
@@ -366,6 +376,7 @@ const enMonthDayYear = new Intl.DateTimeFormat('en-US', {
 
 const startOfLocalDay = (time: number) => new Date(time).setHours(0, 0, 0, 0)
 
+/* ---- 04 状态与视图（formatSearchDate） ---- */
 /** 对标官方 2.8.0 搜索结果日期：今天 / 昨天 / 同年 M月D日（MMM D）/ 跨年 YYYY年M月D日（MMM D, YYYY） */
 export const formatSearchDate = (timestamp: number, now: number, locale: Locale): string => {
   const date = new Date(timestamp)

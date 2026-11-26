@@ -1,17 +1,22 @@
 /* ============================================================================
- * 功能区：应用外壳 / CrashScreen 开始
- * 职责：崩溃兜底：捕获渲染异常并展示诊断页，避免白屏。
- * 导出：CrashScreen。
+ * 功能区：应用外壳 / CrashScreen · 崩溃隔离页
+ * 职责：崩溃隔离页：捕获渲染异常、展示诊断摘要并提供重新加载入口，避免整页白屏。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 app/CrashScreen.module；被 main 引用。
+ * 导出：CrashScreen
+ * 边界：只处理应用装配、生命周期、导航与全局视图；不实现聊天协议、持久化与业务算法。
  * ========================================================================== */
 
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import styles from './CrashScreen.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type Props = { children: ReactNode }
 type State = { error: Error | null; info: string }
 
 const ERROR_KEY = 'replica:last-render-error'
 
+/* ---- 02 对外入口与收尾 ---- */
 /**
  * 渲染异常接管组件。
  *

@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：历史归档 / import.worker 开始
- * 职责：import.worker 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：无对外导出，仅供同目录模块使用。
+ * 功能区：历史归档 / import.worker · 历史导入 Worker
+ * 职责：历史导入 Worker：在后台解析 ZIP 并返回导入结果。
+ * 分区：01 实现：send
+ * 关联：依赖 services/chat/history/errors、services/chat/history/importArchive、services/chat/history/importOffMainThread、utils/workerCompat；
+ *    无内联引用。
+ * 导出：无对外导出（模块内部实现）
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import '../../../utils/workerCompat.js'
@@ -9,6 +13,7 @@ import { BackupError } from './errors.js'
 import { ArchiveSourceError, importArchive } from './importArchive.js'
 import type { ImportRequest, ImportResponse } from './importOffMainThread.js'
 
+/* ---- 01 实现：send ---- */
 const send = (response: ImportResponse) => globalThis.postMessage(response)
 
 globalThis.addEventListener(

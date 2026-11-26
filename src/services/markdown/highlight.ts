@@ -1,11 +1,16 @@
 /* ============================================================================
- * 功能区：Markdown 解析 / highlight 开始
- * 职责：highlight 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
- * 导出：getHighlightLang、isHighlightLoaded、loadHighlight。
+ * 功能区：Markdown 渲染 / highlight · 代码高亮
+ * 职责：代码高亮：语言识别、按需加载与缓存状态。
+ * 分区：01 类型、契约与依赖；02 核心实现：getHighlightLang、isHighlightLoaded、loadHighlight；
+ *    03 对外入口与收尾
+ * 关联：无内部依赖；被 components/markdown/CodeBlock 引用。
+ * 导出：getHighlightLang、isHighlightLoaded、loadHighlight
+ * 边界：只处理 Markdown/公式/图表解析与渲染资源；不读取聊天状态，不写数据库。
  * ========================================================================== */
 
 import Prism from 'prismjs'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type Loader = () => Promise<unknown>
 
 /** Prism 核心自带的语言，无需加载 */
@@ -72,6 +77,7 @@ const loaders: Record<string, Loader> = {
   yaml: () => import('prismjs/components/prism-yaml.min.js'),
 }
 
+/* ---- 02 核心实现：getHighlightLang、isHighlightLoaded、loadHighlight ---- */
 /** 代码块语言名 → Prism 语言名 */
 const aliases: Record<string, string> = {
   html: 'markup',
@@ -101,6 +107,7 @@ const aliases: Record<string, string> = {
   yml: 'yaml',
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /** 支持高亮时返回 Prism 语言名，否则返回 null */
 export function getHighlightLang(infostring: string): string | null {
   const lang = Object.hasOwn(aliases, infostring) ? aliases[infostring] : infostring

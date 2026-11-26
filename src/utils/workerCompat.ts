@@ -1,9 +1,14 @@
 /* ============================================================================
- * 功能区：通用工具 / workerCompat 开始
+ * 功能区：公共工具 / workerCompat · Worker 兼容
  * 职责：Worker 兼容：检测、创建与降级主线程执行。
- * 导出：无对外导出，仅供同目录模块使用。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：无内部依赖；
+ *    被 services/chat/history/import.worker、services/markdown/parse.worker 引用。
+ * 导出：无对外导出（模块内部实现）
+ * 边界：只提供纯函数与浏览器能力封装；不读取应用状态，不产生网络请求。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /**
  * Worker 作用域的语言能力补齐。
  *
@@ -26,6 +31,7 @@ const define = (target: object | undefined, key: string, value: unknown) => {
   })
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 const relativeIndex = (length: number, index: unknown) => {
   const n = Number.parseInt(String(index), 10)
   const safe = Number.isNaN(n) ? 0 : n

@@ -1,15 +1,21 @@
 /* ============================================================================
- * 功能区：消息渲染 / TokenUsageChip 开始
+ * 功能区：视图与交互 / TokenUsageChip
  * 职责：TokenUsageChip 组件，负责该组件的渲染、状态与交互出口。
- * 导出：TokenUsageChip。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/messages/TokenUsageChip.module、services/chat/tokenUsage；
+ *    被 components/messages/MessageList 引用。
+ * 导出：TokenUsageChip
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 import styles from './TokenUsageChip.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const CLOSE_HOLD_MS = 5000
 
+/* ---- 02 对外入口与收尾 ---- */
 /**
  * 聊天区顶部的用量小窗：显示本段对话接口返回的实际 tokens，
  * 按住不动 5 秒关闭，按住后拖动可换位置。

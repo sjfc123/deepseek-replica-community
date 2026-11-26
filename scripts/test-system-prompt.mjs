@@ -1,3 +1,12 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-system-prompt · 系统提示词
+ * 职责：系统提示词：默认与自定义、角色 guard、缓存前缀与占位符。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/api/openaiChat、services/chat/roleplay；由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /**
  * System 前缀回归测试：
  * 1. 角色卡开场白不再随消息数量进出，同一张卡永远拼出同一段；
@@ -5,6 +14,7 @@
  * 3. OpenAI Responses 把 system 放在顶层 instructions；
  * 4. 空 system 不生成 system 消息，也不写空的 instructions。
  */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 
 const { formatCharacterCard } = await import('../src/services/chat/roleplay.ts')
@@ -21,6 +31,7 @@ const card = {
   notes: '不要重复开场',
   createdAt: 1,
 }
+/* ---- 02 验证场景 ---- */
 
 const first = formatCharacterCard(card, '用户')
 const second = formatCharacterCard(card, '用户')
@@ -41,6 +52,7 @@ const chat = openAIRequest('chat', body, false)
 assert.equal(chat.messages[0].role, 'system')
 assert.equal(chat.messages[0].content, '固定 System 前缀')
 
+/* ---- 03 断言与清理 ---- */
 const responses = openAIRequest('responses', body, false)
 assert.equal(responses.instructions, '固定 System 前缀')
 assert.equal(responses.input[0].role, 'user')

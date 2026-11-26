@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / cardFormats 开始
- * 职责：cardFormats 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：readCharacterFile、parseCharacterPayload、parseWorldbookPayload。
+ * 功能区：会话与角色核心 / cardFormats · 角色卡与世界书导入格式
+ * 职责：角色卡与世界书导入格式：读取 PNG/JSON 并解析 Character Card 与 world info 载荷；不写入设置。
+ * 分区：01 类型、常量与模块依赖；02 功能实现（toCard）；
+ *    03 读取与解析（parseCharacterPayload、toWorldbookEntry、parseWorldbookPayload…）；
+ *    04 功能实现（entryLike）
+ * 关联：依赖 services/chat/roleplay；
+ *    被 scripts/test-roleplay、components/settings/RoleplayPanel 引用。
+ * 导出：readCharacterFile、parseCharacterPayload、parseWorldbookPayload
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import {
@@ -18,6 +24,7 @@ import {
   type WorldbookEntry,
 } from './roleplay.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
 const record = (value: unknown): Record<string, unknown> | null =>
@@ -134,6 +141,7 @@ export const readCharacterFile = async (file: File): Promise<unknown | null> => 
   return parseJsonText(await file.text())
 }
 
+/* ---- 02 功能实现（toCard） ---- */
 const toCard = (source: unknown): CharacterCard | null => {
   const outer = record(source)
   if (!outer) {
@@ -282,6 +290,7 @@ const toCard = (source: unknown): CharacterCard | null => {
   }
 }
 
+/* ---- 03 读取与解析（parseCharacterPayload、toWorldbookEntry、parseWorldbookPayload…） ---- */
 /** 解析单卡、角色卡数组与 character_book；返回可直接保存的卡与随卡世界书。 */
 export const parseCharacterPayload = (
   payload: unknown
@@ -396,6 +405,7 @@ export const parseWorldbookPayload = (payload: unknown, cardId = ''): WorldbookE
     .slice(0, 100)
 }
 
+/* ---- 04 功能实现（entryLike） ---- */
 const entryLike = (value: Record<string, unknown>) =>
   Boolean(value.content || value.entry || value.text || value.keys || value.key || value.keywords)
 

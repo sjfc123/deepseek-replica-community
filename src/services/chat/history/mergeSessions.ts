@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：历史归档 / mergeSessions 开始
- * 职责：mergeSessions 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：MergeSessionOptions、MergeSessionResult、mergeSessions。
+ * 功能区：历史归档 / mergeSessions · 历史合并
+ * 职责：历史合并：按消息、分支与时间做语义匹配并决定冲突结果。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 计算与判定（canonicalUser、canonicalAssistant、canonicalMatch…）；
+ *    03 写入与状态变更（backfillFileTypes、cloneMessage、mergeSessions）
+ * 关联：依赖 services/chat/branches、services/chat/types、utils/id；
+ *    被 scripts/test-history-merge、services/chat/db 引用。
+ * 导出：MergeSessionOptions、MergeSessionResult、mergeSessions
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import { createId } from '../../../utils/id.js'
@@ -15,6 +21,7 @@ import type {
   UserMessage,
 } from '../types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 export type MergeSessionOptions = {
   fileTypes?: ReadonlyMap<string, string>
   createMessageId?: () => string
@@ -136,6 +143,7 @@ const canonicalTools = (blocks: ReplyBlock[]): string[] => {
   return tools
 }
 
+/* ---- 02 计算与判定（canonicalUser、canonicalAssistant、canonicalMatch…） ---- */
 const canonicalUser = (message: UserMessage): CanonicalUser => ({
   role: 'user',
   createdAt: message.createdAt,
@@ -248,6 +256,7 @@ const buildChildrenIndex = (messages: Message[]): Map<string | null, Message[]> 
   return children
 }
 
+/* ---- 03 写入与状态变更（backfillFileTypes、cloneMessage、mergeSessions） ---- */
 const backfillFileTypes = (
   files: FileAttachment[],
   incomingFiles?: FileAttachment[],

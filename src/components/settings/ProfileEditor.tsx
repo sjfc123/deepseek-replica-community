@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：设置页 / ProfileEditor 开始
+ * 功能区：视图与交互 / ProfileEditor
  * 职责：ProfileEditor 组件，负责该组件的渲染、状态与交互出口。
- * 导出：ProfileEditor。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/base/Button、components/base/toastState、components/settings/AccountProfile.module、components/settings/ProfileAvatar 等 7 个模块；
+ *    被 components/settings/AndroidSettings 引用。
+ * 导出：ProfileEditor
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useRef, useState, type ChangeEvent } from 'react'
@@ -13,8 +17,10 @@ import { showToast } from '../base/toastState.js'
 import { ProfileAvatar } from './ProfileAvatar.js'
 import styles from './AccountProfile.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const MAX_USERNAME_LENGTH = 40
 
+/* ---- 02 对外入口与收尾 ---- */
 export const ProfileEditor = () => {
   const t = useTranslate()
   const saved = useSettings((state) => state.accountProfile)

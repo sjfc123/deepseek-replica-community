@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / db 开始
- * 职责：db 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：StoredFile、getUnreadableRecordCount、loadSessionSummaries、loadSession、scanSessions、saveSession 等 15 个导出。
+ * 功能区：会话与角色核心 / db
+ * 职责：IndexedDB 会话与文件存储：摘要、详情、扫描、保存、重命名、删除、附件读写与暂存提交；不维护 UI 状态。
+ * 分区：01 类型、常量与模块依赖；02 历史库打开、槽位与读写事务；03 会话删除、附件读写与暂存；04 合并暂存与批次提交；05 存储错误上报
+ * 关联：依赖 services/chat/history/mergeSessions、services/chat/types、utils/id；
+ *    被 app/diagnostics、components/messages/MessageFile、components/settings/AndroidSettings、components/settings/TokenUsagePanel 等 12 个模块 引用。
+ * 导出：StoredFile、getUnreadableRecordCount、loadSessionSummaries、loadSession、scanSessions、saveSession、renameSession、deleteSession、loadFile、stagingWriter、MergeCommitResult、beginStaging 等 14 项
+ * 边界：只封装 IndexedDB 会话与附件读写；不决定分支合并、导入导出或自动备份策略。
  * ========================================================================== */
 
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction } from 'idb'
@@ -15,6 +19,7 @@ import {
   type SessionSummary,
 } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** IndexedDB 存储结构版本；新增或调整存储、索引时递增。 */
 const DB_VERSION = 13
 
@@ -176,6 +181,7 @@ const transact = async <Mode extends 'readonly' | 'readwrite', Result>(
   return result
 }
 
+/* ---- 02 历史库打开、槽位与读写事务 ---- */
 type HistoryOperation<Mode extends 'readonly' | 'readwrite', Result> = (
   tx: HistoryTransaction<Mode>,
   state: HistoryState
@@ -306,6 +312,7 @@ export const renameSession = (id: string, title: string): Promise<void> =>
     }
   })
 
+/* ---- 03 会话删除、附件读写与暂存 ---- */
 /** 删除会话，仅清理已无会话引用的本地原件；远端文件不删。 */
 export const deleteSession = (sessionId: string): Promise<void> =>
   withActive('readwrite', async (tx, { slot }) => {
@@ -477,6 +484,7 @@ export const stagingWriter = (importId: string) => {
   }
 }
 
+/* ---- 04 合并暂存与批次提交 ---- */
 export type MergeCommitResult = {
   summaries: SessionSummary[]
   added: number
@@ -747,6 +755,7 @@ export const beginStaging = async () => {
 
 export type HistoryStaging = Awaited<ReturnType<typeof beginStaging>>
 
+/* ---- 05 存储错误上报 ---- */
 /** 本地存储失败不打断对话，只在控制台留痕 */
 export const reportStorageError = (action: string) => (error: unknown) => {
   // eslint-disable-next-line no-console

@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：视图与交互 / TokenUsagePanel · 用量面板视觉层
+ * 职责：用量面板视觉层：费用摘要、缓存字段、分项表格与窄屏折叠。
+ * 分区：01 容器与弹层；02 头部与搜索；03 列表与状态徽标；04 报告与用量格；05 窄屏断点；06 低命中提示
+ * 关联：使用方 components/settings/TokenUsagePanel；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
+/* ---- 01 容器与弹层 ---- */
 .overlay {
   position: fixed;
   inset: 0;
@@ -78,6 +88,7 @@
   font-size: 12px;
 }
 
+/* ---- 02 头部与搜索 ---- */
 .body {
   flex: 1;
   min-height: 0;
@@ -121,6 +132,7 @@
   border-color: var(--dsw-alias-brand-primary);
 }
 
+/* ---- 03 列表与状态徽标 ---- */
 .list {
   display: flex;
   flex-direction: column;
@@ -199,6 +211,7 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* ---- 04 报告与用量格 ---- */
 .reportHead {
   display: flex;
   align-items: center;
@@ -341,6 +354,7 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+/* ---- 05 窄屏断点 ---- */
 @media (max-width: 360px) {
   .header {
     padding: 14px 12px 10px;
@@ -365,6 +379,7 @@
   }
 }
 
+/* ---- 06 低命中提示 ---- */
 /* 只在本会话连续低命中或 system 指纹变化时渲染；正常命中不占位 */
 .cacheAlert {
   margin-top: 12px;

@@ -1,13 +1,18 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / sessionGroups 开始
- * 职责：sessionGroups 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：groupSessions、groupSessionsByCharacter。
+ * 功能区：会话与角色核心 / sessionGroups · 会话分组
+ * 职责：会话分组：按时间桶与角色子组排序，空组不生成。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 i18n/index、services/chat/types、utils/format；
+ *    被 scripts/test-session-groups、components/sider/Sider 引用。
+ * 导出：groupSessions、SessionSection、groupSessionsByCharacter
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { translate } from '../../i18n/index.js'
 import { monthKey } from '../../utils/format.js'
 import type { SessionSummary } from './types.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const DAY = 86_400_000
 
 const startOfDay = (time: number) => new Date(time).setHours(0, 0, 0, 0)
@@ -61,6 +66,7 @@ export type SessionSection = {
   characterId?: string
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 /**
  * 时间分组内部再按角色卡分组。
  * 只有该时间组里实际存在角色会话时才拆分；没有角色会话的时间组保持原来的扁平结构。

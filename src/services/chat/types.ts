@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / types 开始
- * 职责：types 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：FileAttachment、UserMessage、ThinkingPart、TextPart、ReplyBlock、ReplyStatus 等 14 个导出。
+ * 功能区：会话与角色核心 / types · 聊天领域类型
+ * 职责：聊天领域类型：消息、会话、检查点、摘要与附件的结构契约；不实现行为。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：toSessionSummary、isReadableSummary、isReadableSession；
+ *    03 对外入口与收尾
+ * 关联：依赖 i18n/index、services/api/client、services/api/types、services/chat/memory 等 6 个模块；
+ *    被 components/memory/MemoryPanel、components/messages/AssistantMessage、components/messages/MessageFile、components/messages/MessageList 等 38 个模块 引用。
+ * 导出：FileAttachment、UserMessage、ThinkingPart、TextPart、ReplyBlock、ReplyStatus、AssistantMessage、Message、ContextCheckpoint、Session、SessionSummary、toSessionSummary 等 14 项
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import type { TranslationMessage } from '../../i18n/index.js'
@@ -18,6 +24,7 @@ import type { UploadedImage } from '../imageUpload.js'
 import type { MemoryCard } from './memory.js'
 import type { SceneState } from './roleplay.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /**
  * 消息附件。id 是本地标识（IndexedDB files 表的主键，原件按它存储，所有引用同一 id 的消息共用一份），
  * 导入的附件沿用导出产物里的文件 ID；本地没有原件的附件只展示文件名，不进入请求。
@@ -84,6 +91,7 @@ export type ReplyBlock = ThinkingPart | TextPart | ServerToolBlock
  */
 export type ReplyStatus = 'pending' | 'streaming' | 'done' | 'stopped' | 'error'
 
+/* ---- 02 核心实现：toSessionSummary、isReadableSummary、isReadableSession ---- */
 export type AssistantMessage = MessageBranch & {
   id: string
   role: 'assistant'
@@ -146,7 +154,7 @@ export type Session = {
   storyClockMinute?: number
   /** active：可继续；bad_end / good_end：结局已定，输入与 regenerate 都锁死 */
   storyState?: 'active' | 'bad_end' | 'good_end'
-  /** 本轮已推进到截止时间，等待模型给出最后一幕或前端兜底判定 */
+  /** 本轮已推进到截止时间，等待模型给出最后一幕或前端按失败判定 */
   storyFinalTurn?: boolean
   /** 玩家已经问到点子上、确认过的线索 id；用于线索链弹窗去重和落盘 */
   storyClueIds?: string[]
@@ -160,6 +168,7 @@ export type SessionSummary = Pick<Session, 'id' | 'title' | 'createdAt' | 'updat
   characterId?: string
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /** 显式提取字段，避免将完整会话的消息带进列表。 */
 export const toSessionSummary = (session: SessionSummary): SessionSummary => ({
   id: session.id,

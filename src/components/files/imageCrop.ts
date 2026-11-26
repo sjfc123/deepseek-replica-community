@@ -1,12 +1,18 @@
 /* ============================================================================
- * 功能区：附件与文件预览 / imageCrop 开始
+ * 功能区：视图与交互 / imageCrop · 图片裁剪
  * 职责：图片裁剪：读取图像、计算裁剪区域并导出 Blob。
- * 导出：Size、Point、Rect、Crop、Handle、MAX_CROP_ZOOM 等 16 个导出。
+ * 分区：01 类型、契约与依赖；02 核心实现：freezeAnimatedImage、isAnimatedPng、exportCrop；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/imageUpload、utils/blob；
+ *    被 components/files/AndroidImageViewer、components/files/usePreviewZoom 引用。
+ * 导出：Size、Point、Rect、Crop、Handle、MAX_CROP_ZOOM、fullImage、rotatedSize、rotateCrop、isFullImage、clamp、fitCrop 等 16 项
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { APP_DOWNSAMPLE_PIXELS, MAX_IMAGE_EDGE } from '../../services/imageUpload.js'
 import { readBlobBuffer } from '../../utils/blob.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type Size = { width: number; height: number }
 export type Point = { x: number; y: number }
 export type Rect = Point & Size
@@ -102,6 +108,7 @@ export const resizeCrop = (
   return { x: left, y: top, width: right - left, height: bottom - top }
 }
 
+/* ---- 02 核心实现：freezeAnimatedImage、isAnimatedPng、exportCrop ---- */
 export const zoomCrop = (
   rect: Rect,
   image: Size,
@@ -160,11 +167,11 @@ const isAnimatedPng = async (file: Blob) => {
     const chunk = new DataView(await readBlobBuffer(file.slice(offset, offset + 8)))
     const kind = chunk.getUint32(4)
     if (kind === 0x6163544c) {
-      // acTL
+      // acTL：APNG 动画控制块，记录帧数与循环次数；位于 IHDR 之后、IDAT 之前。
       return true
     }
     if (kind === 0x49444154 || kind === 0x49454e44) {
-      // IDAT or IEND
+      // IDAT 为图像数据，IEND 为文件结束；两者都表示 acTL 之前不再有可读取的控制块。
       return false
     }
     offset += chunk.getUint32(0) + 12
@@ -172,6 +179,7 @@ const isAnimatedPng = async (file: Blob) => {
   return false
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 export const exportCrop = async (image: HTMLImageElement, name: string, { turns, rect }: Crop) => {
   const width = Math.max(1, Math.round(rect.width))
   const height = Math.max(1, Math.round(rect.height))

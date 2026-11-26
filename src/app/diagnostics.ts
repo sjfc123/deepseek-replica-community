@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：应用外壳 / diagnostics 开始
+ * 功能区：应用外壳 / diagnostics · 运行诊断
  * 职责：运行诊断：记录渲染、网络、生命周期与异常事件。
- * 导出：installDiagnostics、DiagnosticFinding、DiagnosticFact、collectDiagnosticReport、saveDiagnosticReport。
+ * 分区：01 类型、常量与模块依赖；02 诊断安装与存储读取；03 本机能力探测；04 桥接与报告汇总；05 报告落盘
+ * 关联：依赖 app/android、services/chat/cacheDiagnostics、services/chat/db、services/chat/roleplay 等 6 个模块；
+ *    被 app/App、components/settings/AndroidSettings 引用。
+ * 导出：installDiagnostics、DiagnosticFinding、DiagnosticFact、collectDiagnosticReport、saveDiagnosticReport
+ * 边界：只采集与落盘诊断事实；不修改聊天数据，不上报网络。
  * ========================================================================== */
 
 import { android, saveAndroidHistory } from './android.js'
@@ -16,6 +20,7 @@ import {
 } from '../services/chat/cacheDiagnostics.js'
 import { normalizeSourceUrl } from '../services/chat/roleplay.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 最近错误只留摘要，避免诊断包变大；不记录任何消息正文或 API Key */
 type DiagnosticError = { at: string; source: string; message: string }
 
@@ -88,7 +93,7 @@ const persistSessionLog = (cleanExit = false) => {
       })
     )
   } catch {
-    // 存储已满时放弃这次落盘，不影响主流程
+    // 配额不足时停止本次诊断落盘并保留内存快照，聊天主流程继续。
   }
 }
 
@@ -160,6 +165,7 @@ const watchFrames = (now: number) => {
   window.requestAnimationFrame(watchFrames)
 }
 
+/* ---- 02 诊断安装与存储读取 ---- */
 /** 在 App 挂载时调用一次；重复调用不会重复注册 */
 export const installDiagnostics = () => {
   if (installed) {
@@ -203,7 +209,7 @@ export const installDiagnostics = () => {
       )
     }
   } catch {
-    // 旧格式快照读不动就忽略
+    // 旧格式快照字段不完整时跳过恢复，避免用半截状态覆盖本次启动。
   }
 
   // 长任务：超过 50ms 的脚本占用单独记，和帧间隔互为补充
@@ -300,6 +306,7 @@ const probeIndexedDb = (): Promise<{ ok: boolean; detail: string }> =>
     }
   })
 
+/* ---- 03 本机能力探测 ---- */
 const probeLocalStorage = (): { ok: boolean; detail: string } => {
   try {
     const key = 'replica:diag-probe'
@@ -437,6 +444,7 @@ const probeRendering = () => {
   }
 }
 
+/* ---- 04 桥接与报告汇总 ---- */
 const bridgeMethods = () => {
   const bridge = (window as Window & { DeepSeekAndroid?: Record<string, unknown> }).DeepSeekAndroid
   if (!bridge) {
@@ -960,6 +968,7 @@ export const collectDiagnosticReport = async () => {
   return { report, text: lines.join('\n') }
 }
 
+/* ---- 05 报告落盘 ---- */
 /** 跑自检并把日志写成文件；Android 走系统保存，浏览器直接下载 */
 export const saveDiagnosticReport = async () => {
   const { report, text } = await collectDiagnosticReport()

@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：本地服务 / dataMigration 开始
+ * 功能区：本地服务 / dataMigration · 本地数据迁移
  * 职责：本地数据迁移：修复旧键、隔离非法值并在启动前完成一次性校准。
- * 导出：DATA_VERSION、MigrationReport、readMigrationReport、migrateLocalData。
+ * 分区：01 类型、常量与模块依赖；02 计算与判定（checkJsonKeys、checkNumberKeys、checkEnumKeys…）；
+ *    03 计算与判定（checkRoleplayLists、checkActiveCharacter、checkSystemPrompt…）；
+ *    04 功能实现（migrateLocalData）
+ * 关联：无内部依赖；被 components/settings/AndroidSettings、services/settings 引用。
+ * 导出：DATA_VERSION、MigrationReport、readMigrationReport、migrateLocalData
+ * 边界：只处理本机存储、设置、迁移与数据版本；不实现界面控件，不直接请求模型。
  * ========================================================================== */
 
 /**
@@ -12,6 +17,7 @@
  * 本模块在设置状态建立之前执行一次：修复可处理项，不可处理项移入隔离副本，不整库清空。
  */
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 数据结构版本。字段含义变化时递增，旧值将触发一次校验。 */
 export const DATA_VERSION = 3
 
@@ -108,6 +114,7 @@ const JSON_KEYS: Array<{ key: string; kind: 'array' | 'object' }> = [
   { key: 'chat-demo:location', kind: 'object' },
 ]
 
+/* ---- 02 计算与判定（checkJsonKeys、checkNumberKeys、checkEnumKeys…） ---- */
 /** 数值型键：越界或非数字则删除，业务逻辑回落至默认值 */
 const NUMBER_KEYS: Array<{ key: string; min: number; max: number }> = [
   { key: 'replica:character-avatar-size', min: 20, max: 36 },
@@ -219,6 +226,7 @@ const applyRenames = (report: MigrationReport) => {
   })
 }
 
+/* ---- 03 计算与判定（checkRoleplayLists、checkActiveCharacter、checkSystemPrompt…） ---- */
 /** 角色卡与世界书逐条校验：单条非法仅剔除该条，不影响整张列表 */
 const checkRoleplayLists = (report: MigrationReport) => {
   const lists: Array<{ key: string; required: string[] }> = [
@@ -278,6 +286,7 @@ export const readMigrationReport = (): MigrationReport | null => {
     : null
 }
 
+/* ---- 04 功能实现（migrateLocalData） ---- */
 /**
  * 执行校验。同一数据版本仅执行一次；覆盖安装后版本号变化会再次执行。
  * 任一步骤失败均不抛出：允许漏修单项，但不得阻塞启动流程。

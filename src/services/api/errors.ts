@@ -1,11 +1,18 @@
 /* ============================================================================
- * 功能区：模型接口 / errors 开始
- * 职责：errors 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
- * 导出：isContextOverflow、ApiErrorCondition、classifyStatus、classifyApiError、isRetryableApiError、FileErrorCode 等 12 个导出。
+ * 功能区：模型接口 / errors · API 与文件错误分类
+ * 职责：API 与文件错误分类：按 HTTP 状态、错误体与上传/图片错误码归一到可重试、上下文溢出、内容拦截与用户可读提示。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：UploadErrorInfo、PARSE_FAILED_PATTERNS、getUploadErrorInfo；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/api/client；
+ *    被 scripts/test-context-compaction、components/settings/useApiKeyForm、services/attachments、services/chat/context 等 10 个模块 引用。
+ * 导出：isContextOverflow、ApiErrorCondition、classifyStatus、classifyApiError、isRetryableApiError、FileErrorCode、getFileErrorCode、extractFileIds、getRejectedImagePosition、UploadErrorCode、UploadErrorInfo、getUploadErrorInfo
+ * 边界：只处理 HTTP 协议、请求头、流式帧与错误归一化；不维护会话状态、不渲染视图、不写业务数据库。
  * ========================================================================== */
 
 import { ApiError } from './client.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const contextOverflow =
   /\b(?:maximum context length|context (?:window|length)(?: (?:is|was))? exceeded|exceeds? (?:the |this model.s )?(?:maximum |max )?context (?:window|length)|input[-_ ]tokens? exceed(?:s|ed)? the limit|user input too long, \d+ tokens exceeds max \d+ tokens)\b/i
 const attachmentOverflow =
@@ -63,6 +70,7 @@ export const classifyApiError = (error: unknown): ApiErrorCondition => {
   return classifyStatus(error.status)
 }
 
+/* ---- 02 核心实现：UploadErrorInfo、PARSE_FAILED_PATTERNS、getUploadErrorInfo ---- */
 /** 重试可能成功的情况：网络、限流、服务端繁忙；参数或鉴权类错误重试无用 */
 export const isRetryableApiError = (error: unknown): boolean => {
   const condition = classifyApiError(error)
@@ -117,6 +125,7 @@ export type UploadErrorCode = 'fileCountLimit' | 'storageLimit' | 'parseFailed'
 
 export type UploadErrorInfo = { code: UploadErrorCode; limit?: string }
 
+/* ---- 03 对外入口与收尾 ---- */
 /** 服务端无法解析文件内容：图片损坏或尺寸过大、格式不受支持、加密、文档解析失败 */
 const PARSE_FAILED_PATTERNS = [
   /You have uploaded an (unsupported|invalid) (file|image)/i,

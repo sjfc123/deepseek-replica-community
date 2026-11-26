@@ -1,13 +1,17 @@
 /* ============================================================================
- * 功能区：搜索与引用 / FallbackImage 开始
+ * 功能区：视图与交互 / FallbackImage
  * 职责：FallbackImage 组件，负责该组件的渲染、状态与交互出口。
- * 导出：FallbackImage。
+ * 分区：01 实现：FallbackImage
+ * 关联：无内部依赖；被 components/search/SiteLogo 引用。
+ * 导出：FallbackImage
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { CSSProperties, ReactNode, memo, useState } from 'react'
 
+/* ---- 01 实现：FallbackImage ---- */
 /**
- * 带加载兜底的图片：loading 骨架占位 → 成功显示 → 失败展示 fallback 内容。
+ * 带加载状态的图片：loading 骨架占位 → 成功显示 → 失败展示 fallback 内容。
  * 只提供三态行为，视觉全部由调用方类名决定。
  */
 export const FallbackImage = memo(function FallbackImage({

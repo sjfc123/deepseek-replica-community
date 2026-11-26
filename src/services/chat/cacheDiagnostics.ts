@@ -1,11 +1,19 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / cacheDiagnostics 开始
+ * 功能区：会话与角色核心 / cacheDiagnostics
  * 职责：记录每次请求的前缀指纹与 usage，区分静态 system、动态尾部和历史段；命中正常时不报警，连续骤降时给出原因分析。
- * 导出：hashPromptText、auditSystemText、buildPromptConfigFingerprint、recordPromptCacheSample、readPromptCacheSamples、diagnosePromptCache、readPromptCacheStatus、clearPromptCacheSamples。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 读取与解析（findPrefixDrift、auditSystemText、buildPromptConfigFingerprint…）；
+ *    03 读取与解析（readAll、isSample、recordPromptCacheSample…）；
+ *    04 类型与契约（CacheDiagnosis）；05 类型与契约（PromptCacheStatus）
+ * 关联：依赖 services/api/types；
+ *    被 scripts/test-cache-diagnostics、app/diagnostics、components/settings/TokenUsagePanel、services/chat/store 引用。
+ * 导出：PROMPT_CACHE_STORAGE_KEY、hashPromptText、RequestFingerprint、fingerprintRequestMessages、fingerprintWireRequest、SystemAudit、auditSystemText、buildPromptConfigFingerprint、PromptCacheSample、PromptCacheSampleInput、recordPromptCacheSample、readPromptCacheSamples 等 17 项
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import type { MessageUsage } from '../api/types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 export const PROMPT_CACHE_STORAGE_KEY = 'replica:prompt-cache-samples'
 const MAX_SAMPLES = 80
 /** 消息链只在最近两条样本保留：诊断只比较相邻两轮，旧样本不再占存储。 */
@@ -107,6 +115,7 @@ type PrefixDrift = {
   shortened: boolean
 }
 
+/* ---- 02 读取与解析（findPrefixDrift、auditSystemText、buildPromptConfigFingerprint…） ---- */
 /** 同一会话、同一配置下，找当前请求与上一轮请求最早不一致的历史消息。 */
 const findPrefixDrift = (
   previous: PromptCacheSample,
@@ -227,6 +236,7 @@ export type PromptCacheSample = {
   cacheRate: number
 }
 
+/* ---- 03 读取与解析（readAll、isSample、recordPromptCacheSample…） ---- */
 export type PromptCacheSampleInput = Omit<
   PromptCacheSample,
   'at' | 'systemHash' | 'systemChars' | 'systemDynamicMarkers' | 'unresolvedPlaceholders' | 'cacheRate'
@@ -290,7 +300,7 @@ export const clearPromptCacheSamples = (): void => {
   try {
     localStorage.removeItem(PROMPT_CACHE_STORAGE_KEY)
   } catch {
-    // 忽略不可写存储
+    // 存储不可写时跳过时间戳更新，诊断数据本身仍保留在内存中。
   }
 }
 
@@ -301,6 +311,7 @@ const sampleLabel = (sample: PromptCacheSample, index: number) =>
     sample.cacheRate
   )}`
 
+/* ---- 04 类型与契约（CacheDiagnosis） ---- */
 export type CacheDiagnosis = {
   level: 'warning' | 'problem'
   area: string
@@ -483,6 +494,7 @@ export const diagnosePromptCache = (
   }
 }
 
+/* ---- 05 类型与契约（PromptCacheStatus） ---- */
 export type PromptCacheStatus = {
   samples: number
   latest: PromptCacheSample | null

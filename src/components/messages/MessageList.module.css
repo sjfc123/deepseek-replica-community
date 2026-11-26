@@ -1,3 +1,12 @@
+/* ============================================================================
+ * 功能区：视图与交互 / MessageList · 消息列表视觉层
+ * 职责：消息列表视觉层：滚动容器、消息间距、跳转按钮与底部插槽。
+ * 分区：01 变量、容器与基础布局；02 断点与窄屏适配；03 安卓列表对齐；04 记忆选择
+ * 关联：使用方 components/messages/MessageList；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 .container {
   flex: 1;
   min-height: 0;
@@ -8,6 +17,7 @@
   scrollbar-color: var(--scroll-color) transparent;
 }
 
+/* ---- 01 变量、容器与基础布局 ---- */
 .scrollArea {
   display: contents;
 }
@@ -16,6 +26,7 @@
   display: contents;
 }
 
+/* ---- 02 断点与窄屏适配 ---- */
 @media not all and (min-width: 768px) {
   .container {
     overflow: hidden;
@@ -124,6 +135,7 @@
   padding-bottom: 24px;
 }
 
+/* ---- 03 安卓列表对齐 ---- */
 /* 与官方 Android 端一致：正文最大内容宽度 768dp（含左右各 20px 内边距共 808px） */
 [data-android] .column {
   box-sizing: border-box;
@@ -165,6 +177,7 @@
   margin-bottom: 12px;
 }
 
+/* ---- 04 记忆选择 ---- */
 /* 记忆选择：长按进入后，整行可点选；选中行只做轻量高亮，不改变原有排版 */
 .memorySelectRow {
   position: relative;

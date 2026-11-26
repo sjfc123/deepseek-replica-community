@@ -1,12 +1,17 @@
 /* ============================================================================
- * 功能区：应用外壳 / viewport 开始
+ * 功能区：应用外壳 / viewport · 视口适配
  * 职责：视口适配：判断移动端、监听尺寸变化并生成布局断点。
- * 导出：useIsMobile、isAndroidWide、useIsAndroidWide、usePreventPageScroll、useMobileViewport。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 app/android；
+ *    被 app/App、components/base/Tooltip、components/chatInput/ChatInput、components/messages/MessageList 等 13 个模块 引用。
+ * 导出：useIsMobile、isAndroidWide、useIsAndroidWide、usePreventPageScroll、useMobileViewport
+ * 边界：只处理应用装配、生命周期、导航与全局视图；不实现聊天协议、持久化与业务算法。
  * ========================================================================== */
 
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { android } from './android.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** Web 端窄于 768px 按移动端布局；Android 客户端始终保持移动端交互壳层 */
 const query = window.matchMedia('not all and (min-width: 768px)')
 
@@ -65,6 +70,7 @@ export const usePreventPageScroll = (enabled: boolean) => {
   }, [enabled])
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 /** 移动端页面跟随视觉视口，键盘弹出后顶栏和输入框仍留在可见区域。 */
 export const useMobileViewport = (enabled: boolean) => {
   const frameRef = useRef<HTMLDivElement>(null)

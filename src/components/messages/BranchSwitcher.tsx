@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：消息渲染 / BranchSwitcher 开始
+ * 功能区：视图与交互 / BranchSwitcher
  * 职责：BranchSwitcher 组件，负责该组件的渲染、状态与交互出口。
- * 导出：SelectMessageVersion、BranchSwitcher。
+ * 分区：01 类型、契约与依赖；02 核心实现：SelectMessageVersion、BranchSwitcher
+ * 关联：依赖 components/base/IconButton、components/base/icons、components/messages/BranchSwitcher.module、i18n/index 等 5 个模块；
+ *    被 components/messages/AssistantMessage、components/messages/UserMessage 引用。
+ * 导出：SelectMessageVersion、BranchSwitcher
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useTranslate } from '../../i18n/index.js'
@@ -11,9 +15,11 @@ import { IconChevronRightOutline14 } from '../base/icons.js'
 import { IconButton } from '../base/IconButton.js'
 import styles from './BranchSwitcher.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type { MessageVersions } from '../../services/chat/branches.js'
 export type SelectMessageVersion = (messageId: string, anchorTop: number) => void
 
+/* ---- 02 核心实现：SelectMessageVersion、BranchSwitcher ---- */
 export const BranchSwitcher = ({
   versions,
   disabled,

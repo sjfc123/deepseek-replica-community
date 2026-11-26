@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：历史归档 / format 开始
- * 职责：format 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：Iso8601Utc、EXPORT_FORMAT_VERSION、Manifest、SessionIndexEntry、SessionFile、ChatRole 等 31 个导出。
+ * 功能区：历史归档 / format · 历史归档格式
+ * 职责：历史归档格式：manifest、索引、消息片段与请求/响应结构。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：ImageSearchResult、ToolImageSearchFragment、Fragment；03 对外入口与收尾
+ * 关联：依赖 services/chat/history/integrity；
+ *    被 services/chat/history/exportArchive、services/chat/history/importArchive、services/chat/history/schema、services/chat/history/toArchive 等 5 个模块 引用。
+ * 导出：Iso8601Utc、EXPORT_FORMAT_VERSION、Manifest、SessionIndexEntry、SessionFile、ChatRole、ChatMessageStatus、ChatMessage、RequestFragment、ResponseFragment、ThinkFragment、TemplateResponseFragment 等 31 项
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 /**
@@ -14,6 +19,7 @@
 
 import type { SessionIntegrity } from './integrity.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 2026-11-11T02:33:23.270Z */
 export type Iso8601Utc = string
 
@@ -98,6 +104,7 @@ export type TipFragment = { type: 'TIP'; content: string; style: TipStyle }
 /** 内容风险提示条，保留原回答内容 */
 export type ContentRiskFragment = { type: 'CONTENT_RISK'; content: string; style: TipStyle }
 
+/* ---- 02 核心实现：ImageSearchResult、ToolImageSearchFragment、Fragment ---- */
 export type PartialFileReadFragment = {
   type: 'PARTIAL_FILE_READ'
   /** 截断后占原文的百分比，0–100 */
@@ -179,6 +186,7 @@ export type FileEntry = {
   height: number | null
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /** 非图片文件只有元数据，本体不在产物里 */
 export type FileFragment = { type: 'FILE'; files: FileEntry[] }
 

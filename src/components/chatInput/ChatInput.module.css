@@ -1,8 +1,20 @@
+/* ============================================================================
+ * 功能区：视图与交互 / ChatInput · 聊天输入区视觉层
+ * 职责：聊天输入区视觉层：输入框、附件条、发送/停止、语音频谱、建议条、限时推理与线索板；
+ * 分区：01 变量、容器与基础布局；02 线索板入口；03 三条玩家回复建议；04 断点与窄屏适配；05 上传失败；06 不可重试操作区；
+ *    07 录音频谱接管
+ * 关联：使用方 components/chatInput/AndroidDraftAttachments、components/chatInput/DraftAttachments、components/chatInput/ChatInput；
+ *    本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 .composer {
   width: 100%;
 }
 
 /* 限时推理卡的时间条：只显示虚拟时钟与剩余时间，不提前标注异常阶段 */
+/* ---- 01 变量、容器与基础布局 ---- */
 .storyBar {
   display: flex;
   align-items: center;
@@ -48,6 +60,7 @@
   color: var(--dsw-alias-label-caption);
 }
 
+/* ---- 02 线索板入口 ---- */
 /* 线索板入口：只给进度，不用颜色提前标记“危险程度” */
 .storyCluesButton {
   display: inline-flex;
@@ -201,6 +214,7 @@
   margin-top: 3px;
 }
 
+/* ---- 03 三条玩家回复建议 ---- */
 /* 三条玩家回复建议：贴在输入框上方，点击只填草稿，不直接发送 */
 .suggestions {
   margin: 0 4px 8px;
@@ -476,6 +490,7 @@
   }
 }
 
+/* ---- 04 断点与窄屏适配 ---- */
 @media (prefers-reduced-motion: reduce) {
   .suggestions,
   .suggestionItem,
@@ -601,6 +616,7 @@
   }
 }
 
+/* ---- 05 上传失败 ---- */
 /* 上传失败：红色描边 + 暗色蒙层，可重试时中间为重试图标，原因写在图标下方 */
 .attachmentFailed {
   border-color: var(--dsw-alias-state-error-primary);
@@ -669,6 +685,7 @@
   transition: opacity var(--ds-transition-duration) var(--ds-ease-in-out);
 }
 
+/* ---- 06 不可重试操作区 ---- */
 /* 不可重试时删除按钮常显，提示需要先删除 */
 .invalidRemove {
   opacity: 1;
@@ -715,6 +732,7 @@
   }
 }
 
+/* ---- 07 录音频谱接管 ---- */
 /* 录音中由频谱接管第一行，隐藏正文但保留高度 */
 .textareaHidden {
   visibility: hidden;

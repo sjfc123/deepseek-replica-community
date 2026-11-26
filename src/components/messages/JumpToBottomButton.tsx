@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：消息渲染 / JumpToBottomButton 开始
+ * 功能区：视图与交互 / JumpToBottomButton
  * 职责：JumpToBottomButton 组件，负责该组件的渲染、状态与交互出口。
- * 导出：JumpToBottomButton。
+ * 分区：01 类型、常量与模块依赖；02 功能实现（JumpToBottomButton）
+ * 关联：依赖 components/base/icons、components/messages/JumpToBottomButton.module、components/messages/spring、i18n/index；
+ *    被 components/messages/MessageList 引用。
+ * 导出：JumpToBottomButton
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -11,6 +15,7 @@ import { IconChevronDownOutline20 } from '../base/icons.js'
 import styles from './JumpToBottomButton.module.css'
 import { prefersReducedMotion, stepCriticallyDampedSpring, type SpringState } from './spring.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const BUTTON_STIFFNESS = 1500
 const BUTTON_SLIDE_OFFSET = 17
 const HALO_CYCLE_MS = 2000
@@ -117,6 +122,7 @@ const HaloRing = ({ visible }: { visible: boolean }) => {
   )
 }
 
+/* ---- 02 功能实现（JumpToBottomButton） ---- */
 /** 复刻官方客户端右下角「回到底部」悬浮按钮（含临界阻尼弹簧出入场与流式旋转光环） */
 export const JumpToBottomButton = ({
   visible,

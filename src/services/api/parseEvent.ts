@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：模型接口 / parseEvent 开始
- * 职责：parseEvent 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
- * 导出：readMessageEvent。
+ * 功能区：模型接口 / parseEvent · 上游 SSE 事件解析
+ * 职责：上游 SSE 事件解析：把消息增量、usage 与工具块归一为统一事件；不维护会话状态。
+ * 分区：01 类型、常量与模块依赖；02 读取与解析（readDelta、readUsage）；03 读取与解析（readMessageEvent）
+ * 关联：依赖 services/api/types；
+ *    被 scripts/test-cache-diagnostics、services/api/client 引用。
+ * 导出：readMessageEvent
+ * 边界：只处理 HTTP 协议、请求头、流式帧与错误归一化；不维护会话状态、不渲染视图、不写业务数据库。
  * ========================================================================== */
 
 import type {
@@ -12,6 +16,7 @@ import type {
   TextCitation,
 } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
@@ -154,6 +159,7 @@ const readBlock = (value: unknown): OutputBlockStart | null => {
   return value as OutputBlockStart
 }
 
+/* ---- 02 读取与解析（readDelta、readUsage） ---- */
 const readDelta = (value: unknown): ContentBlockDelta | null => {
   if (!isRecord(value)) {
     return null
@@ -200,6 +206,7 @@ const readUsage = (value: unknown): MessageUsage | undefined => {
   }
 }
 
+/* ---- 03 读取与解析（readMessageEvent） ---- */
 /** 未识别或无法安全消费的事件静默丢弃，不影响后续有效内容与正常结束。 */
 export const readMessageEvent = (value: unknown): MessageStreamEvent | null => {
   if (!isRecord(value)) {

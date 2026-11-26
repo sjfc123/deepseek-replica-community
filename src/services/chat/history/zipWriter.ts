@@ -1,12 +1,17 @@
 /* ============================================================================
- * 功能区：历史归档 / zipWriter 开始
- * 职责：zipWriter 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：ArchiveLimitError、writeArchive。
+ * 功能区：历史归档 / zipWriter · ZIP 写入
+ * 职责：ZIP 写入：分块写入、进度、大小上限与 CRC 校验。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 utils/blob；
+ *    被 scripts/test-data-management、services/chat/history/exportArchive 引用。
+ * 导出：ArchiveLimitError、writeArchive
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import { Zip, ZipPassThrough } from 'fflate'
 import { readBlobChunks } from '../../../utils/blob.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 // ZIP32 字段中的哨兵值表示需要 ZIP64；当前格式不支持 ZIP64。
 const ZIP64_SIZE = 0xffffffff
 const ZIP64_COUNT = 0xffff
@@ -45,6 +50,7 @@ const entryName = (name: string) => {
   return { name: normalized, byteLength: bytes.length }
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 /** STORE 流式写入；成品必须能再次导入。 */
 export const writeArchive = async (
   entries: { name: string; blob: Blob }[],

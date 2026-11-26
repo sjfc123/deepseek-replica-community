@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：设置页 / ApiKeyScreen 开始
+ * 功能区：视图与交互 / ApiKeyScreen
  * 职责：ApiKeyScreen 组件，负责该组件的渲染、状态与交互出口。
- * 导出：ApiKeyScreen。
+ * 分区：01 实现：ApiKeyScreen
+ * 关联：依赖 components/settings/AdvancedApiSettings.module、components/settings/AdvancedApiSettings、components/settings/ApiKeyScreen.module、components/settings/useApiKeyForm 等 5 个模块；
+ *    被 app/App 引用。
+ * 导出：ApiKeyScreen
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useState } from 'react'
@@ -12,6 +16,7 @@ import advancedStyles from './AdvancedApiSettings.module.css'
 import { useApiKeyForm } from './useApiKeyForm.js'
 import styles from './ApiKeyScreen.module.css'
 
+/* ---- 01 实现：ApiKeyScreen ---- */
 export const ApiKeyScreen = () => {
   const t = useTranslate()
   const form = useApiKeyForm()

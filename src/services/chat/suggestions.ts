@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / suggestions 开始
+ * 功能区：会话与角色核心 / suggestions
  * 职责：按当前场景、在场人物、玩家站位与最近对话生成三条回复建议，只读会话，不写入消息。
- * 导出：generateReplySuggestions、parseReplySuggestions、ReplySuggestion。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 功能实现（filterPrematureReplySuggestions、generateReplySuggestions）
+ * 关联：依赖 services/api/chatConfig、services/api/client、services/api/types、services/chat/branches 等 10 个模块；
+ *    被 components/chatInput/ChatInput 引用。
+ * 导出：generateReplySuggestions、parseReplySuggestions
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { DEFAULT_CHAT_MODEL } from '../api/chatConfig.js'
@@ -35,6 +40,7 @@ import {
 } from './suggestionsContext.js'
 
 export { parseReplySuggestions } from './suggestionsContext.js'
+/* ---- 01 类型、常量与模块依赖 ---- */
 export type { ReplySuggestion, ReplySuggestionMode } from './suggestionsContext.js'
 
 const messageText = (message: ReturnType<typeof getVisibleMessages>[number]) => {
@@ -136,6 +142,7 @@ const createSuppressionSuggestionCard = (name: string): CharacterCard => ({
   tags: [],
 })
 
+/* ---- 02 功能实现（filterPrematureReplySuggestions、generateReplySuggestions） ---- */
 /** 对象版线索词过滤：保留 mode/target，只替换候选文本。 */
 const filterPrematureReplySuggestions = (
   candidates: ReplySuggestion[],

@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：消息渲染 / ReplyArea 开始
+ * 功能区：视图与交互 / ReplyArea
  * 职责：ReplyArea 组件，负责该组件的渲染、状态与交互出口。
- * 导出：ReplyArea。
+ * 分区：01 类型、常量与模块依赖；02 思考与步骤视图模型；03 搜索、工具与页面行；04 打开、查找与读链行；05 读链收尾
+ * 关联：依赖 app/android、components/base/Tooltip、components/base/icons、components/markdown/Markdown 等 13 个模块；
+ *    被 components/messages/AssistantMessage 引用。
+ * 导出：ReplyArea
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useTranslate } from '../../i18n/index.js'
@@ -44,6 +48,7 @@ import { useStopFollowing } from './scrollContext.js'
 import styles from './ReplyArea.module.css'
 import './thinking.markdown.css'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 进行中时每秒刷新，用于思考用时与搜索词轮播 */
 const useTicker = (active: boolean, interval: number) => {
   const [tick, setTick] = useState(0)
@@ -264,6 +269,7 @@ const stepKey = (step: Step, index: number) =>
     ? step.key
     : `${step.type}-${index}`
 
+/* ---- 02 思考与步骤视图模型 ---- */
 const StepItem = ({
   step,
   message,
@@ -340,6 +346,7 @@ const ContentItem = ({
   </div>
 )
 
+/* ---- 03 搜索、工具与页面行 ---- */
 /** 搜索：普通搜索为「已阅读 N 个网页」，边想边搜为「搜索到 N 个网页」，点击打开搜索结果 */
 const SearchRow = ({
   step,
@@ -502,6 +509,7 @@ const AndroidOpenRow = ({
   )
 }
 
+/* ---- 04 打开、查找与读链行 ---- */
 /** 边想边搜打开的网页：「浏览 N 个页面」+ 最多 5 个页面 */
 const OpenRow = ({
   step,
@@ -584,6 +592,7 @@ const FindRow = ({ step, isLast }: { step: FindStep; isLast: boolean }) => {
   )
 }
 
+/* ---- 05 读链收尾 ---- */
 /** 阅读用户消息中的链接：视图只保留仍在读取的链接。 */
 const ReadLinkRow = ({ step, isLast }: { step: ReadLinkStep; isLast: boolean }) => {
   const t = useTranslate()

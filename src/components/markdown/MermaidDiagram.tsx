@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：Markdown 视图 / MermaidDiagram 开始
+ * 功能区：视图与交互 / MermaidDiagram
  * 职责：MermaidDiagram 组件，负责该组件的渲染、状态与交互出口。
- * 导出：MermaidDiagram。
+ * 分区：01 实现：MermaidDiagram
+ * 关联：依赖 app/theme、i18n/index、services/markdown/mermaid；
+ *    被 components/markdown/CodeBlock 引用。
+ * 导出：MermaidDiagram
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useTranslate } from '../../i18n/index.js'
@@ -9,6 +13,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../../app/theme.js'
 import { renderMermaid } from '../../services/markdown/mermaid.js'
 
+/* ---- 01 实现：MermaidDiagram ---- */
 /** 流式绘制最新内容、保留上次有效图；回答结束后才显示渲染错误。 */
 export const MermaidDiagram = memo(function MermaidDiagram({
   code,

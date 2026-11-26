@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / VoiceCallOverlay 开始
+ * 功能区：视图与交互 / VoiceCallOverlay
  * 职责：VoiceCallOverlay 组件，负责该组件的渲染、状态与交互出口。
- * 导出：VoiceCallOverlay。
+ * 分区：01 实现：VoiceCallOverlay
+ * 关联：依赖 app/useAndroidBackInterception、components/base/icons、components/chatInput/VoiceCallOverlay.module、services/chat/roleplay 等 7 个模块；
+ *    被 app/App 引用。
+ * 导出：VoiceCallOverlay
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -27,6 +31,7 @@ import {
 } from '../base/icons.js'
 import styles from './VoiceCallOverlay.module.css'
 
+/* ---- 01 实现：VoiceCallOverlay ---- */
 /** 角色语音通话：全屏浮层，连续「听 → 想 → 说」循环 */
 export const VoiceCallOverlay = () => {
   const active = useVoiceCall((state) => state.active)

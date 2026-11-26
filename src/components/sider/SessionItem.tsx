@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：侧栏与会话管理 / SessionItem 开始
+ * 功能区：视图与交互 / SessionItem
  * 职责：SessionItem 组件，负责该组件的渲染、状态与交互出口。
- * 导出：SessionItem。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 app/android、app/viewport、components/base/IconButton、components/base/Menu 等 11 个模块；
+ *    被 components/sider/Sider 引用。
+ * 导出：SessionItem
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -29,6 +33,7 @@ import { closeMobileSider } from './mobileSiderState.js'
 import { SessionActionDialog } from './SessionActionDialog.js'
 import styles from './SessionItem.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 需要二次确认的会话动作；改状态、写文件、复制分支都不该点一下就执行 */
 type PendingAction =
   | 'pin'
@@ -87,6 +92,7 @@ const pendingCopy = (
   return map[action]
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 export const SessionItem = memo(function SessionItem({
   session,
   active,

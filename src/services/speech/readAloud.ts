@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：语音链路 / readAloud 开始
- * 职责：readAloud 服务实现，负责语音朗读、录音采集或连续通话链路中的该子能力。
- * 导出：ReadAloudStatus、useReadAloud、stopReadAloud、setReadAloudBlocked、scheduleTtsStream、describeReadAloudError、previewTtsVoice、stopVoicePreview。
+ * 功能区：语音采集与朗读 / readAloud · 朗读与音色试听
+ * 职责：朗读与音色试听：PCM 流排程、停止、通话屏蔽与试听生命周期。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 状态与视图（describeReadAloudError、voicePreview、stopVoicePreview…）；
+ *    03 音色试听；04 状态与视图（toggleReadAloud）
+ * 关联：依赖 app/android、components/base/toastState、i18n/index、services/api/client 等 8 个模块；
+ *    被 app/App、components/chatInput/ChatInput、components/messages/AssistantMessage、components/messages/ReadAloudButton 等 8 个模块 引用。
+ * 导出：ReadAloudStatus、useReadAloud、stopReadAloud、setReadAloudBlocked、scheduleTtsStream、describeReadAloudError、stopVoicePreview、previewTtsVoice、toggleReadAloud
+ * 边界：只处理麦克风、PCM、TTS 排程与通话语音状态；不渲染聊天正文，不修改会话数据。
  * ========================================================================== */
 
 import { create } from 'zustand'
@@ -14,6 +20,7 @@ import { stripAsides } from '../chat/aside.js'
 import { android } from '../../app/android.js'
 import { showToast } from '../../components/base/toastState.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /**
  * 朗读：同一时间只读一条回复。
  * 请求 TTS 的裸 PCM 流，边收边用 AudioContext 按顺序排程播放，首帧到达即出声。
@@ -142,6 +149,7 @@ export const scheduleTtsStream = async ({
   return { nextTime, lastSource }
 }
 
+/* ---- 02 状态与视图（describeReadAloudError、voicePreview、stopVoicePreview…） ---- */
 export const describeReadAloudError = (error: unknown): TranslationMessage | string => {
   if (error instanceof ApiError && error.kind === 'protocol') {
     return error.message
@@ -162,7 +170,7 @@ export const describeReadAloudError = (error: unknown): TranslationMessage | str
   }
 }
 
-/* -------------------- 功能区：音色试听 开始 -------------------- */
+/* ---- 03 音色试听 ---- */
 
 type VoicePreview = {
   controller: AbortController
@@ -250,8 +258,8 @@ export const previewTtsVoice = (
   })()
 }
 
-/* -------------------- 功能区：音色试听 结束 -------------------- */
 
+/* ---- 04 状态与视图（toggleReadAloud） ---- */
 /**
  * 开始朗读指定回复的正文；对同一条回复重复调用视为停止。
  * 必须在点击事件内同步调用：AudioContext 需用户手势方可发声。

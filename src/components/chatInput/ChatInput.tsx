@@ -1,6 +1,11 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / ChatInput 开始
+ * 功能区：视图与交互 / ChatInput · 聊天输入容器
  * 职责：聊天输入容器：文本、附件、发送/停止、工具入口与草稿恢复。
+ * 分区：01 类型、契约与依赖；02 聊天输入入口与语音浮层；03 对外入口与收尾；04 输入控件主体
+ * 关联：依赖 app/android、app/useAndroidBackInterception、app/viewport、components/base/AndroidIcons 等 35 个模块；
+ *    被 components/session/SessionView、components/session/Welcome 引用。
+ * 导出：ChatInput
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import clsx from 'clsx'
@@ -82,18 +87,19 @@ import { useHoldToTalk } from './useHoldToTalk.js'
 import { useTranslate } from '../../i18n/index.js'
 import styles from './ChatInput.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const useVoiceMode = create<{ enabled: boolean }>(() => ({ enabled: false }))
 
 /** 输入框：自适应高度的文本框 + 文件 + 深度思考与智能搜索开关 + 语音输入 + 发送 / 停止 */
-/* -------------------- 功能区：聊天输入入口与语音浮层 开始 -------------------- */
+/* ---- 02 聊天输入入口与语音浮层 ---- */
 export const ChatInput = memo(function ChatInput({ sessionId }: { sessionId: string | null }) {
   // 切换目标时释放录音、转写和 DOM 状态；文字与附件由草稿服务保留。
   return <Input key={sessionId === null ? 'new' : `session:${sessionId}`} sessionId={sessionId} />
 })
 
-/* -------------------- 功能区：聊天输入入口与语音浮层 结束 -------------------- */
 
-/* -------------------- 功能区：输入控件主体 开始 -------------------- */
+/* ---- 03 对外入口与收尾 ---- */
+/* ---- 04 输入控件主体 ---- */
 const Input = ({ sessionId }: { sessionId: string | null }) => {
   const t = useTranslate()
   const draft = useDrafts((state) => state.drafts.get(sessionId) ?? EMPTY_DRAFT)
@@ -831,7 +837,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                     : 'chatInputPlaceholderChat'
               )}
               rows={2}
-              // 移动端不自动聚焦，避免一打开就弹出键盘
+              // 移动端首次渲染不自动聚焦，避免进入页面即弹出软键盘遮挡内容。
               autoFocus={!isMobile}
               disabled={importingHistory || storyLocked}
               value={text}
@@ -1388,7 +1394,6 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     </div>
   )
 }
-/* -------------------- 功能区：输入控件主体 结束 -------------------- */
 
 /* ============================================================================
  * 功能区：输入与语音控件 / ChatInput 结束

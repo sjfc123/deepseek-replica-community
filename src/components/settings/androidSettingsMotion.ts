@@ -1,9 +1,13 @@
 /* ============================================================================
- * 功能区：设置页 / androidSettingsMotion 开始
+ * 功能区：视图与交互 / androidSettingsMotion · 设置页转场
  * 职责：设置页转场：页面切换动画、降级与超时收尾。
- * 导出：createSettingsPageMotion。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：无内部依赖；被 components/settings/AndroidSettings 引用。
+ * 导出：createSettingsPageMotion
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 const timeline = 1000
 const duration = 300
 const handoff = 0.35
@@ -79,6 +83,7 @@ const waitForAnimation = (animation: Animation): Promise<boolean> => {
   })
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 // A back gesture seeks through the same keyframes as a press of the back button.
 export const createSettingsPageMotion = (
   page: HTMLElement,

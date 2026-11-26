@@ -1,13 +1,17 @@
 /* ============================================================================
- * 功能区：Markdown 解析 / parse.worker 开始
- * 职责：parse.worker 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
- * 导出：无对外导出，仅供同目录模块使用。
+ * 功能区：Markdown 渲染 / parse.worker
+ * 职责：Markdown 解析 Worker 入口：接收主线程消息并返回 AST。
+ * 分区：01 类型、契约与依赖
+ * 关联：依赖 services/markdown/parse、utils/workerCompat；无内联引用。
+ * 导出：无对外导出（模块内部实现）
+ * 边界：只处理 Markdown/公式/图表解析与渲染资源；不读取聊天状态，不写数据库。
  * ========================================================================== */
 
 import '../../utils/workerCompat.js'
 import type { RootContent } from 'mdast'
 import { toMdAst, type MarkdownParseOptions } from './parse.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type ParseRequest = MarkdownParseOptions & { id: number; content: string; previousId?: number }
 let previous: { id: number; blocks: RootContent[] } | undefined
 

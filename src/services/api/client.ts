@@ -1,6 +1,11 @@
 /* ============================================================================
- * 功能区：模型接口 / client 开始
+ * 功能区：模型接口 / client · 模型请求客户端
  * 职责：模型请求客户端：协议分发、流式读取、取消与错误归一化。
+ * 分区：01 类型、常量与模块依赖；02 附件上传、删除与文件校验；03 自定义网关与安卓通道；04 消息流与请求头解析
+ * 关联：依赖 app/android、i18n/index、services/api/chatConfig、services/api/openaiChat 等 7 个模块；
+ *    被 scripts/test-context-compaction、components/settings/useApiKeyForm、services/api/errors、services/api/speech 等 13 个模块 引用。
+ * 导出：API_ORIGIN、ApiErrorKind、ApiError、request、verifyApiKey、uploadFile、deleteFile、streamChatMessage
+ * 边界：只处理 HTTP 协议、请求头、流式帧与错误归一化；不维护会话状态、不渲染视图、不写业务数据库。
  * ========================================================================== */
 
 import { android } from '../../app/android.js'
@@ -19,6 +24,7 @@ import type {
   StopReason,
 } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 构建期 API 地址，默认 https://api.deepseek.com；本地开发支持开发服务器代理 */
 export const API_ORIGIN = __API_ORIGIN__
 /** Anthropic 兼容接口的前缀 */
@@ -111,6 +117,7 @@ export const verifyApiKey = async (apiKey: string, signal?: AbortSignal): Promis
   })
 }
 
+/* ---- 02 附件上传、删除与文件校验 ---- */
 /**
  * POST /anthropic/v1/files 上传附件（不设过期时间，会话里的历史附件一直可用）。
  * purpose 为 null 时不传该字段（图片）；purpose 必须排在 file 之前。
@@ -256,6 +263,7 @@ async function* readAnthropicStream(response: Response, signal: AbortSignal) {
   throw new ApiError('interrupted', '')
 }
 
+/* ---- 03 自定义网关与安卓通道 ---- */
 const customMessagesRequest = ({
   model,
   system,
@@ -368,6 +376,7 @@ const openAndroidChat = (
   return { response, close }
 }
 
+/* ---- 04 消息流与请求头解析 ---- */
 export const streamChatMessage = (
   config: ChatConfig,
   apiKey: string,

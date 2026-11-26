@@ -1,3 +1,12 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-session-groups · 会话分组
+ * 职责：会话分组：时间桶、角色子组、排序、空组与删除卡。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/chat/sessionGroups；由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /**
  * 会话日期分组回归：
  * 1. 今天、昨天、前天单独成组；
@@ -6,6 +15,7 @@
  * 4. 分组按时间倒序连续排列，不合并跨桶会话；
  * 5. 时间组内出现角色会话时再按普通聊天与各角色卡拆子组，空子组不生成。
  */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { registerHooks } from 'node:module'
@@ -82,6 +92,7 @@ assert.equal(groups[6].key, 'sessionHistoryTimelineLabel30days')
 
 // 同一桶的会话必须落在同一组，且顺序保持输入顺序。
 const sameBucket = groupSessions(
+/* ---- 02 验证场景 ---- */
   [
     { id: 'a', title: 'A', updatedAt: atDaysAgo(70) },
     { id: 'b', title: 'B', updatedAt: atDaysAgo(40) },
@@ -153,6 +164,7 @@ assert.deepEqual(
 
 // 没有角色会话：保持原来的扁平时间组，不额外插普通聊天标题。
 const onlyNormal = groupSessionsByCharacter(
+/* ---- 03 断言与清理 ---- */
   [{ id: 'normal', title: '普通', updatedAt: atDaysAgo(2) }],
   now,
   t,
@@ -178,7 +190,7 @@ const crossDay = groupSessionsByCharacter(
 assert.equal(new Set(crossDay.map((section) => section.key)).size, crossDay.length)
 assert.equal(crossDay.filter((section) => section.kind === 'character').length, 2)
 
-// 卡已被删除时仍按 id 分组，并显示可读的兜底标题。
+// 卡已被删除时仍按 id 分组，并显示可读的默认标题。
 const missingCard = groupSessionsByCharacter(
   [{ id: 'x', title: 'X', updatedAt: atDaysAgo(0), characterId: 'card-missing' }],
   now,

@@ -1,3 +1,12 @@
+/* ============================================================================
+ * 功能区：应用外壳 / App · App 的视觉实现
+ * 职责：App 的视觉实现：容器、布局、状态、动画、断点与主题兼容；类名由同名组件的 styles.* 引用。
+ * 分区：01 变量、容器与基础布局；02 安卓列表对齐；03 抽屉动画变量；04 抽屉阴影层；05 横屏分栏断点
+ * 关联：使用方 app/App；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 .frame {
   position: absolute;
   inset: 0;
@@ -6,6 +15,7 @@
   background-color: var(--dsw-alias-bg-base);
 }
 
+/* ---- 01 变量、容器与基础布局 ---- */
 .main {
   position: relative;
   display: flex;
@@ -31,6 +41,7 @@
   touch-action: pan-y;
 }
 
+/* ---- 02 安卓列表对齐 ---- */
 /* 与官方 Android 端一致：抽屉宽度上限为 326dp（窄屏手机保持 calc(100% - 79.6px)） */
 @media (min-width: 405.6px) {
   [data-android] .frame {
@@ -43,6 +54,7 @@
   --drawer-edge: calc(100% - 0px);
 }
 
+/* ---- 03 抽屉动画变量 ---- */
 /* 抽屉动画的变量只用于外层，避免每次移动把它们传给消息树。 */
 [data-android] .content {
   --drawer-progress: initial;
@@ -90,6 +102,7 @@
   transform: var(--drawer-transform, none);
 }
 
+/* ---- 04 抽屉阴影层 ---- */
 /* 单独绘制阴影，仅在抽屉展开或拖动期间可见并提升合成层，静止关闭时释放显存。 */
 [data-android] .frame::after {
   content: '';
@@ -144,6 +157,7 @@
   visibility: visible;
 }
 
+/* ---- 05 横屏分栏断点 ---- */
 /* 横屏/平板（>= 840px）改为左右并排分栏，关闭模态抽屉圆角缩放、蒙层和全屏阴影。 */
 [data-android] .frame[data-drawer-layout='side'] {
   --drawer-edge: 326px;

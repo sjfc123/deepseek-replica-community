@@ -1,12 +1,16 @@
 /* ============================================================================
- * 功能区：Markdown 解析 / parseOffMainThread 开始
- * 职责：parseOffMainThread 服务实现，负责 Markdown 解析、代码高亮、KaTeX、Mermaid 与 Worker 调度中的该子能力。
- * 导出：ParsedMarkdown、parseOffMainThread。
+ * 功能区：Markdown 渲染 / parseOffMainThread · Markdown 解析调度
+ * 职责：Markdown 解析调度：优先 Worker，失败时退回主线程。
+ * 分区：01 类型、契约与依赖；02 核心实现：pending、getWorker、parseOffMainThread
+ * 关联：依赖 services/markdown/parse；被 components/markdown/Markdown 引用。
+ * 导出：ParsedMarkdown、parseOffMainThread
+ * 边界：只处理 Markdown/公式/图表解析与渲染资源；不读取聊天状态，不写数据库。
  * ========================================================================== */
 
 import type { Root } from 'mdast'
 import type { MarkdownParseOptions } from './parse.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type ParsedMarkdown = { id: number; ast: Root }
 type ParseResponse = { id: number; ast?: Root; reused?: number }
 
@@ -48,6 +52,7 @@ const getWorker = () => {
   return parser
 }
 
+/* ---- 02 核心实现：pending、getWorker、parseOffMainThread ---- */
 export const parseOffMainThread = (
   content: string,
   options: MarkdownParseOptions,

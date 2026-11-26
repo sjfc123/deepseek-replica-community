@@ -1,9 +1,14 @@
 /* ============================================================================
- * 功能区：应用外壳 / updateCheck 开始
+ * 功能区：本地服务 / updateCheck
  * 职责：读取仓库 package.json 的版本号，与应用内版本比较；只负责查询，不自动下载或覆盖安装。
- * 导出：UpdateCheckResult、compareVersions、checkForUpdates。
+ * 分区：01 类型、契约与依赖；02 核心实现：compareVersions、fetchJson、checkForUpdates
+ * 关联：无内部依赖；
+ *    被 scripts/test-cache-diagnostics、components/settings/AndroidSettings 引用。
+ * 导出：UpdateCheckResult、compareVersions、checkForUpdates
+ * 边界：只处理本机存储、设置、迁移与数据版本；不实现界面控件，不直接请求模型。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type UpdateCheckResult = {
   current: string
   latest: string
@@ -41,6 +46,7 @@ export const compareVersions = (left: string, right: string): number => {
   return 0
 }
 
+/* ---- 02 核心实现：compareVersions、fetchJson、checkForUpdates ---- */
 const fetchJson = async (url: string): Promise<{ version: string }> => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 8000)

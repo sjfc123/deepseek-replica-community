@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / customAttachments 开始
- * 职责：customAttachments 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：prepareCustomAttachments。
+ * 功能区：会话与角色核心 / customAttachments · 自定义网关附件
+ * 职责：自定义网关附件：把本地文件与图片转换为协议允许的附件载荷，处理大小与类型限制。
+ * 分区：01 类型、契约与依赖；02 核心实现：toBase64、toInlineBlock、prepareCustomAttachments；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/api/chatConfig、services/api/client、services/api/types、services/attachments 等 10 个模块；
+ *    被 services/chat/store 引用。
+ * 导出：prepareCustomAttachments
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { readBlobBuffer } from '../../utils/blob.js'
@@ -14,6 +19,7 @@ import { readPlainText } from './contextSummary.js'
 import { getContextRounds } from './reply.js'
 import type { FileAttachment, Message, UserMessage } from './types.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type CustomAttachment = InlineFileBlockParam | TextBlockParam
 
 const toBase64 = async (blob: Blob, signal: AbortSignal) => {
@@ -28,6 +34,7 @@ const toBase64 = async (blob: Blob, signal: AbortSignal) => {
   return chunks.join('')
 }
 
+/* ---- 02 核心实现：toBase64、toInlineBlock、prepareCustomAttachments ---- */
 const toInlineBlock = async (
   format: ChatApiFormat,
   file: FileAttachment,
@@ -62,6 +69,7 @@ const toInlineBlock = async (
   return text === undefined ? undefined : { type: 'text', text: `${file.name}\n${text}` }
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 export const prepareCustomAttachments = async (
   format: ChatApiFormat,
   history: Message[],

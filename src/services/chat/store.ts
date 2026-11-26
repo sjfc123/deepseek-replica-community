@@ -1,6 +1,12 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / store 开始
+ * 功能区：会话与角色核心 / store · 聊天状态机
  * 职责：聊天状态机：会话加载、请求流、历史替换、记忆写入与持久化。
+ * 分区：01 状态模型与持久化基础设施；02 会话装载与历史替换；03 会话选择、分叉与增删改；04 消息发送、生成与编辑；
+ *    05 记忆写入、分类与配额；06 附件上传、请求组装与流式执行
+ * 关联：依赖 i18n/index、services/api/chatConfig、services/api/client、services/api/errors 等 30 个模块；
+ *    被 scripts/test-content-search、scripts/test-context-compaction、scripts/test-history-merge、app/App 等 26 个模块 引用。
+ * 导出：PendingMessageJump、useChatStore、setSessionSceneField、replaceSessionScene、clearSessionScene、retrySaveSessions、bindChatPersistence、initChat、MergeHistorySummary、replaceHistory、mergeHistory、newChat 等 38 项
+ * 边界：只维护聊天状态机与请求生命周期；协议解析、Markdown AST 与视图样式不在本文件。
  * ========================================================================== */
 
 import { create } from 'zustand'
@@ -188,7 +194,7 @@ const HISTORY_SUMMARY_LIMIT = 6
 const HISTORY_OVERFLOW_RETRIES = 3
 
 /** 阅读链接始终开启，智能搜索开关控制是否另行声明搜索工具（含边想边搜）。 */
-/* -------------------- 功能区：状态模型与持久化基础设施 开始 -------------------- */
+/* ---- 01 状态模型与持久化基础设施 ---- */
 const serverTools = (search: boolean) => {
   const tools: NonNullable<CreateMessageRequest['tools']> = [
     { type: 'deepseek_read_url', name: 'deepseek_read_url' },
@@ -451,9 +457,8 @@ export const bindChatPersistence = () => {
  * 命中本地拒答关键词时不请求接口：直接写入模板文案并标记 refusal，
  * 与「被安全拒绝」走同一套展示路径，拒绝话术可自定义。
  */
-/* -------------------- 功能区：状态模型与持久化基础设施 结束 -------------------- */
 
-/* -------------------- 功能区：会话装载与历史替换 开始 -------------------- */
+/* ---- 02 会话装载与历史替换 ---- */
 const refuseLocally = (sessionId: string, reply: AssistantMessage) => {
   const text = useSettings.getState().refusalMessage.trim() || translate('replyRefused')
   const refused: AssistantMessage = {
@@ -754,7 +759,7 @@ export const replaceHistory = async (
       set({ importingHistory: false })
       retrySaveSessions()
       const { activeId, ready } = get()
-      // 提交失败时恢复被取消的详情读取。
+      // 提交失败时恢复之前取消的详情读取，避免界面停在空详情。
       if (activeId !== null) {
         void ensureSessionLoaded(activeId)
       } else if (!ready) {
@@ -853,9 +858,8 @@ export const mergeHistory = async (
   }
 }
 
-/* -------------------- 功能区：会话装载与历史替换 结束 -------------------- */
 
-/* -------------------- 功能区：会话选择、分叉与增删改 开始 -------------------- */
+/* ---- 03 会话选择、分叉与增删改 ---- */
 export const newChat = () => {
   if (get().importingHistory) {
     return
@@ -1117,9 +1121,8 @@ const appendPendingFiles = (sessionId: string, files: readonly DraftFilePayload[
  * 提交指定会话的最新草稿；null 表示新建会话。
  * 同步接收成功才清空草稿，附件原件由会话接管；保存失败仍通过保存入口重试。
  */
-/* -------------------- 功能区：会话选择、分叉与增删改 结束 -------------------- */
 
-/* -------------------- 功能区：消息发送、生成与编辑 开始 -------------------- */
+/* ---- 04 消息发送、生成与编辑 ---- */
 export const sendMessage = (targetSessionId: string | null) => {
   if (get().importingHistory || !get().ready) {
     return false
@@ -1615,9 +1618,8 @@ const MEMORY_REFINE_SYSTEM =
   '只输出清单本身，不要编号以外的任何解释。'
 
 /** 将卡片挂载到生成它的消息上；无法挂载则丢弃，不影响其他轮次 */
-/* -------------------- 功能区：消息发送、生成与编辑 结束 -------------------- */
 
-/* -------------------- 功能区：记忆写入、分类与配额 开始 -------------------- */
+/* ---- 05 记忆写入、分类与配额 ---- */
 const attachMemories = (sessionId: string, messageId: string, cards: MemoryCard[]) => {
   if (cards.length === 0) {
     return false
@@ -2364,9 +2366,8 @@ export const clearMemoryCards = (sessionId: string, targets: MemoryRemovalTarget
   persist(sessionId)
 }
 
-/* -------------------- 功能区：记忆写入、分类与配额 结束 -------------------- */
 
-/* -------------------- 功能区：附件上传、请求组装与流式执行 开始 -------------------- */
+/* ---- 06 附件上传、请求组装与流式执行 ---- */
 export const retryUpload = (sessionId: string, messageId: string) => {
   if (get().importingHistory || deletingSessions.has(sessionId)) {
     return
@@ -2863,7 +2864,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       ? storedSuppressionPersona.trim()
       : DEFAULT_SUPPRESSION_PERSONA
   // 档案关闭或为空时不读取整份档案，但仍保留姓名这一条身份展示；
-  // 有角色卡时卡内已有姓名，不再重复补。
+  // 角色卡已提供姓名时直接使用卡内值，不再追加档案姓名。
   const identitySystem =
     !activeCard && !profileSystem
       ? formatCharacterIdentity({
@@ -2899,7 +2900,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     .filter(Boolean)
     .join('\n\n')
   // 统一替换占位符：手写提示词、角色卡字段、世界书与记忆都走这一处
-  // 当前卡名优先，其次手写档案名；两者都空时用 AI 兜底，避免 {{char}} 原样漏进 system。
+  // 当前卡名优先，其次手写档案名；两者都空时用 AI 生成名，避免 {{char}} 原样漏进 system。
   const promptCharName = suppressionActive
     ? resolveSystemCharacterName(undefined, characterName || DEFAULT_SUPPRESSION_PERSONA_NAME)
     : resolveSystemCharacterName(activeCard?.name, characterName)
@@ -2998,7 +2999,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     return settleReply(settled, status, Date.now(), error, keepRefusedContent)
   }
   // 限时剧情的结束标记只在前端消费：先摘掉标记，再把会话改成已结束。
-  // 截止轮没有标记时兜底判失败，避免模型漏写后会话还能继续。
+  // 截止轮没有结束标记时按失败处理，避免模型漏写后会话仍继续推进。
   const settleStory = (target: AssistantMessage) => {
     if (!activeCard?.story || (target.status !== 'done' && target.status !== 'stopped')) {
       return null
@@ -3021,7 +3022,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       },
     }
   }
-  // 独白密度由前端兜底：只统计本轮之前的助手正文，最近两轮出现过独白就整轮剔除，
+  // 独白密度由前端硬性限制：只统计本轮之前的助手正文，最近两轮出现过独白就整轮剔除，
   // 允许保留时也只留一条，避免提示词失效时每轮复读同一句假心声。
   const settleStoryAsides = (target: AssistantMessage) => {
     if (!activeCard?.story) {
@@ -3463,7 +3464,6 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     }
   }
 }
-/* -------------------- 功能区：附件上传、请求组装与流式执行 结束 -------------------- */
 
 /* ============================================================================
  * 功能区：会话与角色核心 / store 结束

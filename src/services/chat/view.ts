@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / view 开始
- * 职责：view 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：Source、ToolStatus、isDeepSearchKind、isImageSearchKind、SearchStep、PageItem 等 17 个导出。
+ * 功能区：会话与角色核心 / view · 消息视图模型
+ * 职责：消息视图模型：工具、搜索、页面与步骤块的类型与判定，供渲染层消费。
+ * 分区：01 类型、常量与模块依赖；02 功能实现（joinTextBlocks、buildReplyView）；
+ *    03 读取与解析（getTotalThinkingSeconds、getAreaTitle）
+ * 关联：依赖 i18n/index、services/api/types、services/chat/types；
+ *    被 components/markdown/Markdown、components/messages/ReplyArea、components/messages/useReplyView、components/search/AndroidSearchPanel 等 9 个模块 引用。
+ * 导出：Source、ToolStatus、isDeepSearchKind、isImageSearchKind、SearchStep、PageItem、OpenStep、FindStep、ReadLinkStep、ThinkingStep、PreambleStep、Step 等 17 项
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { translate } from '../../i18n/index.js'
@@ -14,6 +19,7 @@ import type {
 } from '../api/types.js'
 import type { AssistantMessage, ThinkingPart } from './types.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /**
  * 由回复的内容块推导界面需要的结构：思考与工具步骤的时间线、带引用角标的正文、可引用的来源列表。
  * 只做纯计算，不改动内容块（内容块要原样回传）。
@@ -157,6 +163,7 @@ class SourceRegistry {
   }
 }
 
+/* ---- 02 功能实现（joinTextBlocks、buildReplyView） ---- */
 /**
  * 文本块拼成一份 markdown：服务端在挂过引用的块之后另起新块，引用位置即块尾。
  * 引用之后的空白（含换行）仍留在被引用的块里，所以 [citation:N] 插在块尾空白之前。
@@ -361,6 +368,7 @@ export const buildReplyView = (reply: AssistantMessage, streaming: boolean): Rep
   }
 }
 
+/* ---- 03 读取与解析（getTotalThinkingSeconds、getAreaTitle） ---- */
 /** 思考总用时（秒）：各思考块用时之和，至少 1 秒；有块缺少用时时返回 null。 */
 export const getTotalThinkingSeconds = (steps: Step[], now: number) => {
   let total = 0

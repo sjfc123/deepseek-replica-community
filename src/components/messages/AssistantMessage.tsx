@@ -1,6 +1,12 @@
 /* ============================================================================
- * 功能区：消息渲染 / AssistantMessage 开始
+ * 功能区：视图与交互 / AssistantMessage · 助手消息
  * 职责：助手消息：正文、推理、用量、朗读、长按菜单与版本切换。
+ * 分区：01 类型、契约与依赖；02 组件入口、身份与自动朗读；03 用量计算与摘要；04 渲染入口与头像；05 正文、配图与长文折叠；
+ *    06 记忆胶囊、分支与操作条
+ * 关联：依赖 app/android、components/base/Button、components/base/IconButton、components/base/Menu 等 33 个模块；
+ *    被 components/messages/MessageList 引用。
+ * 导出：AssistantMessage
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useTranslate } from '../../i18n/index.js'
@@ -64,8 +70,10 @@ import {
 } from './BranchSwitcher.js'
 import styles from './AssistantMessage.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const TOP_UP_URL = 'https://platform.deepseek.com/top_up'
 
+/* ---- 02 组件入口、身份与自动朗读 ---- */
 export const AssistantMessage = memo(function AssistantMessage({
   sessionId,
   message,
@@ -188,6 +196,7 @@ export const AssistantMessage = memo(function AssistantMessage({
     : 0
   const cacheTotal = cacheRead + cacheMiss
   const cacheHitRate = cacheTotal > 0 ? (cacheRead / cacheTotal) * 100 : 0
+/* ---- 03 用量计算与摘要 ---- */
   // 用量行只保留一个节点，位置由 data-position 和消息容器的 order 控制。
   const renderUsageLine = (position: 'above' | 'below') =>
     showUsage && message.status === 'done' && message.usage ? (
@@ -211,6 +220,7 @@ export const AssistantMessage = memo(function AssistantMessage({
         </span>
       </div>
     ) : null
+/* ---- 04 渲染入口与头像 ---- */
   return (
     <div
       className={clsx(styles.message, searchHighlightNonce !== null && styles.searchHighlighted)}
@@ -484,6 +494,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           </span>
         ) : null}
         <div ref={contentRef} className={styles.selectableContent}>
+          {/* ---- 05 正文、配图与长文折叠 ---- */}
           {answer ? (
             <>
               <div
@@ -600,6 +611,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           </span>
         </div>
       ) : null}
+      {/* ---- 06 记忆胶囊、分支与操作条 ---- */}
       {!streaming && memoryInline && (message.memories?.length ?? 0) > 0 ? (
         <div className={styles.memoryRow}>
           <MemoryChip

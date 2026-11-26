@@ -1,7 +1,12 @@
 /* ============================================================================
- * 功能区：模型接口 / openaiChat 开始
- * 职责：openaiChat 服务实现，负责模型与语音接口的协议分发、请求头、流式解析、SSE 与错误归一化中的该子能力。
- * 导出：openAIRequest、readOpenAIFrame。
+ * 功能区：模型接口 / openaiChat
+ * 职责：OpenAI Chat/Responses 请求序列化与增量帧读取；只把通用消息转换成协议字段，不处理重试与界面。
+ * 分区：01 类型、契约与依赖；02 核心实现：readChatChunk、readResponseEvent、readOpenAIFrame；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/api/chatConfig、services/api/types；
+ *    被 scripts/test-cache-diagnostics、scripts/test-system-prompt、services/api/client 引用。
+ * 导出：openAIRequest、readOpenAIFrame
+ * 边界：只处理 HTTP 协议、请求头、流式帧与错误归一化；不维护会话状态、不渲染视图、不写业务数据库。
  * ========================================================================== */
 
 import type { ChatApiFormat } from './chatConfig.js'
@@ -13,6 +18,7 @@ import type {
   UserBlockParam,
 } from './types.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 type OpenAIFormat = Exclude<ChatApiFormat, 'messages'>
 
 const userPart = (format: OpenAIFormat, block: UserBlockParam, deepSeek: boolean) => {
@@ -100,6 +106,7 @@ export const openAIRequest = (
   }
 }
 
+/* ---- 02 核心实现：readChatChunk、readResponseEvent、readOpenAIFrame ---- */
 type OpenAIFrame = {
   text?: string
   thinking?: string
@@ -167,6 +174,7 @@ const readChatChunk = (payload: Record<string, unknown>): OpenAIFrame => {
   }
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 const readResponseEvent = (payload: Record<string, unknown>): OpenAIFrame => {
   const response = record(payload.response)
   switch (payload.type) {

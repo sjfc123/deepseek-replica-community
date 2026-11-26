@@ -1,12 +1,18 @@
 /* ============================================================================
- * 功能区：本地服务 / tokenUsage 开始
+ * 功能区：本地服务 / tokenUsage · 用量聚合
  * 职责：用量聚合：请求级 usage 汇总、缓存命中与会话统计。
- * 导出：UsageTotals、SessionUsageSummary、summarizeSessionUsage。
+ * 分区：01 类型、契约与依赖；02 核心实现：usageEntries、addUsage、summarizeSessionUsage；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/api/types、services/chat/types；
+ *    被 scripts/test-cache-diagnostics、components/settings/TokenUsagePanel、services/chat/tokenUsage 引用。
+ * 导出：UsageTotals、SessionUsageSummary、summarizeSessionUsage
+ * 边界：只处理本机存储、设置、迁移与数据版本；不实现界面控件，不直接请求模型。
  * ========================================================================== */
 
 import type { MessageUsage } from './api/types.js'
 import type { AssistantMessage } from './chat/types.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 export type UsageTotals = {
   /** 输入总量 = 未命中 + 缓存命中 + 缓存写入 */
   input: number
@@ -29,7 +35,7 @@ export type SessionUsageSummary = {
   requests: number
   /** 带 usage 的助手回复条数 */
   replies: number
-  /** 其中使用单条 usage 兜底的旧回复条数 */
+  /** 其中使用单条 usage 补算的旧回复条数 */
   legacyReplies: number
 }
 
@@ -43,6 +49,7 @@ const emptyTotals = (): UsageTotals => ({
   cacheFieldMissing: 0,
 })
 
+/* ---- 02 核心实现：usageEntries、addUsage、summarizeSessionUsage ---- */
 const usageEntries = (message: AssistantMessage): MessageUsage[] => {
   if (message.usageHistory?.length) {
     return message.usageHistory
@@ -68,6 +75,7 @@ const addUsage = (totals: UsageTotals, usage: MessageUsage) => {
   }
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /**
  * 汇总一个会话里所有助手回复的接口 usage。
  * 会话消息包含分支与重新生成产生的全部请求，正好对应实际消耗。

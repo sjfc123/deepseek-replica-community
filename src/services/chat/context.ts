@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / context 开始
- * 职责：context 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：WINDOW_TOKENS、SUMMARY_OUTPUT_TOKENS、contextBudget、resolveMaxOutputTokens、estimateQuestionTokens、textPrefixLength 等 10 个导出。
+ * 功能区：会话与角色核心 / context · 上下文预算与历史窗口
+ * 职责：上下文预算与历史窗口：Token 预算、输出上限、问题估算、前缀截断、检查点与分支缩放；不拼接 system。
+ * 分区：01 类型、常量与模块依赖；02 读取与解析（estimateBranchScale、roundText、fitRecent…）；
+ *    03 写入与状态变更（saveContextCheckpoint、prepareHistoryContext、summaryTokens）；
+ *    04 功能实现（summaryTokens）
+ * 关联：依赖 services/api/errors、services/chat/reply、services/chat/tokenEstimator、services/chat/types；
+ *    被 scripts/test-context-compaction、services/chat/contextSummary、services/chat/store 引用。
+ * 导出：WINDOW_TOKENS、SUMMARY_OUTPUT_TOKENS、contextBudget、resolveMaxOutputTokens、estimateQuestionTokens、textPrefixLength、HistoryContext、estimateBranchScale、saveContextCheckpoint、prepareHistoryContext、estimateTextTokens
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import { isContextOverflow } from '../api/errors.js'
@@ -17,6 +23,7 @@ import type {
 
 export { estimateTextTokens }
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 export const WINDOW_TOKENS = 1_048_576
 /** 参考 Codex CLI：有效窗口留 5% 缓冲，自动压缩在 90% 触发。 */
 const EFFECTIVE_WINDOW_RATIO = 0.95
@@ -107,6 +114,7 @@ const roundTokens = ([user, reply]: Round) => {
 const scaleTokens = (tokens: number, scale: number) =>
   scale === 1 ? tokens : Math.ceil(tokens * scale)
 
+/* ---- 02 读取与解析（estimateBranchScale、roundText、fitRecent…） ---- */
 /**
  * 以当前分支最近一条无工具、无附件、未截断的同模型回复 usage 校准本地估算倍率。
  * 可吸收文本估算的残余误差，并自适应第三方模型的不同分词器。
@@ -218,6 +226,7 @@ const readBatch = (rounds: Round[], cursor: Cursor, end: number, budget: number,
   return { excerpts, next: { index, offset } }
 }
 
+/* ---- 03 写入与状态变更（saveContextCheckpoint、prepareHistoryContext、summaryTokens） ---- */
 export const saveContextCheckpoint = (
   checkpoints: ContextCheckpoint[] | undefined,
   checkpoint: ContextCheckpoint
@@ -318,6 +327,7 @@ export const prepareHistoryContext = async ({
   }
 }
 
+/* ---- 04 功能实现（summaryTokens） ---- */
 const summaryTokens = (summary: string | undefined, scale = 1) =>
   summary ? scaleTokens(estimateTextTokens(summary), scale) + 64 : 0
 

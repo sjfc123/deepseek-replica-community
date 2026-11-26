@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / AndroidDraftAttachments 开始
+ * 功能区：视图与交互 / AndroidDraftAttachments
  * 职责：AndroidDraftAttachments 组件，负责该组件的渲染、状态与交互出口。
- * 导出：AndroidDraftAttachments。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/chatInput/ChatInput.module、components/chatInput/DraftAttachments、i18n/index、services/chat/drafts；
+ *    被 components/chatInput/ChatInput 引用。
+ * 导出：AndroidDraftAttachments
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useLayoutEffect, useRef, useState } from 'react'
@@ -10,6 +14,7 @@ import type { DraftAttachment } from '../../services/chat/drafts.js'
 import { DraftAttachments } from './DraftAttachments.js'
 import styles from './ChatInput.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const TRANSITION_MS = 300
 const PHOTO_ACTIONS = [
   'androidPhotoWhat',
@@ -18,6 +23,7 @@ const PHOTO_ACTIONS = [
   'androidPhotoExplain',
 ] as const satisfies readonly TranslationKey[]
 
+/* ---- 02 对外入口与收尾 ---- */
 /** 保留退出中的预览，让图片和输入框一起收回。 */
 export const AndroidDraftAttachments = ({
   items,

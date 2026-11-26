@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：输入与语音控件 / DragMask 开始
+ * 功能区：视图与交互 / DragMask
  * 职责：DragMask 组件，负责该组件的渲染、状态与交互出口。
- * 导出：useFileDrop、DragMask。
+ * 分区：01 类型、契约与依赖；02 核心实现：DragMask、DragMaskContent、UploadIcon；03 对外入口与收尾
+ * 关联：依赖 components/chatInput/DragMask.module、i18n/index、services/attachments；
+ *    被 components/chatInput/ChatInput 引用。
+ * 导出：useFileDrop、DragMask
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, useRef, useState } from 'react'
@@ -10,6 +14,7 @@ import { useTranslate } from '../../i18n/index.js'
 import { MAX_COUNT, MAX_SIZE_MB } from '../../services/attachments.js'
 import styles from './DragMask.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false
 
 /**
@@ -65,6 +70,7 @@ export const useFileDrop = (onDrop: (files: File[]) => void) => {
 /** 拖拽遮罩，挂到 body 上盖住整个页面 */
 export const DragMask = () => createPortal(<DragMaskContent />, document.body)
 
+/* ---- 02 核心实现：DragMask、DragMaskContent、UploadIcon ---- */
 const DragMaskContent = () => {
   const t = useTranslate()
   return (
@@ -80,6 +86,7 @@ const DragMaskContent = () => {
   )
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 const UploadIcon = () => {
   return (
     <svg

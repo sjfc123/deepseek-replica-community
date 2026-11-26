@@ -1,9 +1,14 @@
 /* ============================================================================
- * 功能区：历史归档 / paths 开始
- * 职责：paths 服务实现，负责历史归档的 ZIP 读写、结构校验、会话转换与导入导出中的该子能力。
- * 导出：MANIFEST_PATH、USER_PATH、INDEX_PATH、sessionPath、sessionFilesDir、parseSessionPath 等 7 个导出。
+ * 功能区：历史归档 / paths · 归档路径
+ * 职责：归档路径：manifest、用户、索引、会话与图片的固定路径与解析。
+ * 分区：01 类型、契约与依赖
+ * 关联：无内部依赖；
+ *    被 services/chat/history/exportArchive、services/chat/history/importArchive、services/chat/history/toLocal 引用。
+ * 导出：MANIFEST_PATH、USER_PATH、INDEX_PATH、sessionPath、sessionFilesDir、parseSessionPath、imagePath
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** ZIP 条目名。条目顺序固定：manifest → user（可能缺失）→ 全部会话 JSON → index → 全部图片。 */
 
 export const MANIFEST_PATH = 'manifest.json'

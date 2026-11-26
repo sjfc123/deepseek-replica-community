@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：消息渲染 / ReadingBars 开始
+ * 功能区：视图与交互 / ReadingBars
  * 职责：ReadingBars 组件，负责该组件的渲染、状态与交互出口。
- * 导出：ReadingBars。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：ReadingBars、REDUCED_MOTION_QUERY、usePrefersReducedMotion；
+ *    03 对外入口与收尾
+ * 关联：依赖 components/messages/ReadingBars.module；
+ *    被 components/messages/ReadAloudButton 引用。
+ * 导出：ReadingBars
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 /**
@@ -20,6 +26,7 @@ import clsx from 'clsx'
 
 import styles from './ReadingBars.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 条宽 2、间距 2，总宽 14 在 16 视口内居中 */
 const BAR_XS = [1, 5, 9, 13]
 
@@ -35,6 +42,7 @@ const EASE_IN_OUT = '0.42 0 0.58 1'
 /** loading 扫光蒙层逐条一份高斯 keyframes（峰对齐条的几何位置），见 module.css */
 const SWEEP_CLASSES = [styles.sweep1, styles.sweep2, styles.sweep3, styles.sweep4]
 
+/* ---- 02 核心实现：ReadingBars、REDUCED_MOTION_QUERY、usePrefersReducedMotion ---- */
 export function ReadingBars({ mode }: { mode: 'loading' | 'playing' }) {
   const reducedMotion = usePrefersReducedMotion()
   const playing = mode === 'playing'
@@ -104,6 +112,7 @@ export function ReadingBars({ mode }: { mode: 'loading' | 'playing' }) {
   )
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 
 function usePrefersReducedMotion() {

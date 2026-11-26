@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：侧栏与会话管理 / SessionActionDialog 开始
+ * 功能区：视图与交互 / SessionActionDialog
  * 职责：SessionActionDialog 组件，负责该组件的渲染、状态与交互出口。
- * 导出：SessionActionDialog。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 app/useAndroidBackInterception、components/sider/SessionActionDialog.module；
+ *    被 components/chatInput/ChatInput、components/sider/SessionItem、components/sider/Sider 引用。
+ * 导出：SessionActionDialog
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useEffect, type ReactNode } from 'react'
@@ -9,9 +13,11 @@ import { createPortal } from 'react-dom'
 import { useAndroidBackInterception } from '../../app/useAndroidBackInterception.js'
 import styles from './SessionActionDialog.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 侧边栏会话动作弹窗；叠放时 Esc 只关闭最上层。 */
 const openDialogs: object[] = []
 
+/* ---- 02 对外入口与收尾 ---- */
 export const SessionActionDialog = ({
   title,
   description,

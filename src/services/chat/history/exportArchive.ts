@@ -1,6 +1,11 @@
 /* ============================================================================
- * 功能区：历史归档 / exportArchive 开始
+ * 功能区：历史归档 / exportArchive · 历史归档导出
  * 职责：历史归档导出：会话、设定与图片打包为可校验 ZIP。
+ * 分区：01 类型、契约与依赖；02 核心实现：json、ExportArchiveProgress、exportArchive
+ * 关联：依赖 services/chat/db、services/chat/history/format、services/chat/history/paths、services/chat/history/toArchive 等 6 个模块；
+ *    被 scripts/test-history-merge、services/chat/backup 引用。
+ * 导出：ExportArchiveProgress、exportArchive
+ * 边界：只处理导入导出格式、ZIP、合并与还原；不承担在线会话状态，也不负责自动备份调度。
  * ========================================================================== */
 
 import * as db from '../db.js'
@@ -10,6 +15,7 @@ import { INDEX_PATH, MANIFEST_PATH, imagePath, sessionPath } from './paths.js'
 import { toIndexEntry, toSessionFile } from './toArchive.js'
 import { writeArchive } from './zipWriter.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 const json = (value: unknown) => new Blob([JSON.stringify(value)], { type: 'application/json' })
 
 /** 导出归档两个阶段：逐会话整理 JSON / 图片，以及把条目压缩成 ZIP。 */
@@ -17,6 +23,7 @@ export type ExportArchiveProgress =
   | { phase: 'archive'; processed: number; total: number }
   | { phase: 'pack'; bytes: number; total: number }
 
+/* ---- 02 核心实现：json、ExportArchiveProgress、exportArchive ---- */
 /**
  * 按导出格式生成 ZIP：manifest → 全部会话 JSON → index → 全部图片。没有账号信息，不写 user.json。
  * 只写出本地有原件的图片，每个会话目录各写一份；其他附件只有元数据。

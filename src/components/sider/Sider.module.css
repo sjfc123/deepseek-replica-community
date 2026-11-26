@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：视图与交互 / Sider · 侧栏视觉层
+ * 职责：侧栏视觉层：桌面固定分栏、移动抽屉、会话分组、搜索与多选；断点与主题变量集中在本文件。
+ * 分区：01 变量、容器与基础布局；02 角色与普通子组；03 时间组吸顶标题；04 安卓横屏断点；05 断点与窄屏适配；06 会话分组条；
+ *    07 分组选择弹窗；08 更多；09 选分组弹窗；10 会话行触控
+ * 关联：使用方 components/sider/CollapsedSider、components/sider/Sider；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 .sider {
   display: flex;
   flex-direction: column;
@@ -10,6 +20,7 @@
   background-color: var(--dsw-specific-sidebar-fill);
 }
 
+/* ---- 01 变量、容器与基础布局 ---- */
 .top {
   display: flex;
   align-items: center;
@@ -104,6 +115,7 @@
   }
 }
 
+/* ---- 02 角色与普通子组 ---- */
 /* 时间组内部的角色/普通子组：缩小间距并把标题内缩，形成二级层级 */
 .characterSection {
   margin-top: 6px;
@@ -143,6 +155,7 @@
   background: var(--dsw-alias-border-l2);
 }
 
+/* ---- 03 时间组吸顶标题 ---- */
 /* 时间组标题吸顶：整条背景铺满列表宽度，滚动时不会让下方文字从标签两侧穿出 */
 .sectionHeaderBar {
   position: sticky;
@@ -381,6 +394,7 @@
   left: var(--drawer-edge);
 }
 
+/* ---- 04 安卓横屏断点 ---- */
 /* Android 横屏/平板（>= 840px）：左侧 326dp 固定分栏，纯 GPU transform 滑动避免连点触发布局重排 */
 [data-android] [data-drawer-layout='side'] .drawer {
   position: absolute;
@@ -419,6 +433,7 @@
   display: none;
 }
 
+/* ---- 05 断点与窄屏适配 ---- */
 @media (prefers-reduced-motion: reduce) {
   [data-android] [data-drawer-layout='side'] .drawer {
     transition: none;
@@ -702,6 +717,7 @@
   line-height: 22px;
 }
 
+/* ---- 06 会话分组条 ---- */
 /* 会话分组条：横向可滚，选中项高亮；归档开关与新建分组固定在右侧 */
 .folderBar {
   display: flex;
@@ -745,6 +761,7 @@
   border-style: dashed;
 }
 
+/* ---- 07 分组选择弹窗 ---- */
 /* 分组选择弹窗：每行左侧是分组名，右侧是删除 */
 .folderPicker {
   display: flex;
@@ -848,6 +865,7 @@
   margin-left: 0;
 }
 
+/* ---- 08 更多 ---- */
 /* 更多：一枚小胶囊，展开后操作竖排在下方，不跟分组胶囊挤同一行 */
 .folderMore {
   display: inline-flex;
@@ -915,6 +933,7 @@
   line-height: 1;
 }
 
+/* ---- 09 选分组弹窗 ---- */
 /* 选分组弹窗：列表可滚动、行高压够、长名字省略不撑破 */
 .folderPicker {
   display: flex;
@@ -955,6 +974,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ---- 10 会话行触控 ---- */
 /* 会话行统一去掉双击缩放带来的点击延迟 */
 [data-android] .item {
   touch-action: manipulation;

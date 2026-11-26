@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：应用外壳 / App 开始
+ * 功能区：应用外壳 / App · 应用根组件
  * 职责：应用根组件：组合会话、输入、消息列表、设置与自动备份生命周期。
- * 导出：App。
+ * 分区：01 类型、常量与模块依赖；02 应用入口、状态与侧栏；03 悬停、宽度与侧栏动画；04 附件、备份与提示；05 会话切换与启动遮罩
+ * 关联：依赖 app/App.module、app/android、app/diagnostics、app/useAndroidBackInterception 等 28 个模块；
+ *    被 main 引用。
+ * 导出：App
+ * 边界：只处理应用装配、生命周期、导航与全局视图；不实现聊天协议、持久化与业务算法。
  * ========================================================================== */
 
 import { memo, useEffect, useLayoutEffect, useRef } from 'react'
@@ -51,6 +55,7 @@ import { MobileSider, Sider } from '../components/sider/Sider.js'
 import { useAndroidDrawerGesture } from '../components/sider/useAndroidDrawerGesture.js'
 import styles from './App.module.css'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 const SIDE_DRAWER_WIDTH = 326
 const SIDE_DRAWER_MS = 220
 const SIDE_DRAWER_EASING = 'cubic-bezier(0.2, 0, 0, 1)'
@@ -135,6 +140,7 @@ const ChatContent = memo(function ChatContent({
   )
 })
 
+/* ---- 02 应用入口、状态与侧栏 ---- */
 export const App = () => {
   useEffect(() => installDiagnostics(), [])
   const t = useTranslate()
@@ -217,6 +223,7 @@ export const App = () => {
     return () => window.clearInterval(timer)
   }, [frameRef])
 
+/* ---- 03 悬停、宽度与侧栏动画 ---- */
   // Android 平板可能上报 hover: hover：仅在真实鼠标移动时启用悬停样式，触控与手写笔点击不残留高亮。
   useEffect(() => {
     if (!android) {
@@ -300,6 +307,7 @@ export const App = () => {
     }
   }, [])
 
+/* ---- 04 附件、备份与提示 ---- */
   // 文件数、存储空间达到上限时，附件上只显示「上传失败」，原因用 toast 说明
   useEffect(() => onUploadNotice(showToast), [])
   useEffect(() => {
@@ -323,9 +331,10 @@ export const App = () => {
   }, [t])
   useEffect(bindChatPersistence, [])
 
+/* ---- 05 会话切换与启动遮罩 ---- */
   // 搜索结果面板只属于当前会话
   useEffect(closeSearchPanel, [activeId])
-  // 切换会话时停止朗读
+  // 切换会话时停止朗读：避免上一会话音频继续播放
   useEffect(stopReadAloud, [activeId])
   // Web 窄屏切换布局时收起抽屉；Android 跨 840dp 断点时与官方一致（窄→宽展开，宽→窄收起）
   useEffect(() => {

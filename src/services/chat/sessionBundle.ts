@@ -1,7 +1,13 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / sessionBundle 开始
- * 职责：sessionBundle 服务实现，负责会话状态、角色档案、角色卡、世界书、记忆、上下文或草稿操作中的该子能力。
- * 导出：SESSION_BUNDLE_FORMAT、SESSION_BUNDLE_VERSION、SessionBundleMemory、SessionBundle、loadSessionForExport、buildSessionBundle 等 10 个导出。
+ * 功能区：会话与角色核心 / sessionBundle · 单会话分享包
+ * 职责：单会话分享包：构建、解析、导入、Markdown 导出与命名；不处理完整历史归档。
+ * 分区：01 类型、契约与依赖；
+ *    02 核心实现：importSessionBundle、sessionBundleToMarkdown、sessionBundleName；
+ *    03 对外入口与收尾
+ * 关联：依赖 services/chat/db、services/chat/memory、services/chat/roleplay、services/chat/store 等 7 个模块；
+ *    被 components/settings/AndroidSettings、components/sider/Sider 引用。
+ * 导出：SESSION_BUNDLE_FORMAT、SESSION_BUNDLE_VERSION、SessionBundleMemory、SessionBundle、loadSessionForExport、buildSessionBundle、parseSessionBundle、importSessionBundle、sessionBundleToMarkdown、sessionBundleName
+ * 边界：只处理聊天领域的数据、状态转换与提示词装配；不直接渲染视图，不发起职责外的网络请求。
  * ========================================================================== */
 
 import * as db from './db.js'
@@ -15,6 +21,7 @@ import { createId } from '../../utils/id.js'
 import { replyPlainText } from './memory.js'
 import { toSessionSummary } from './types.js'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 单会话设定包的格式标识与版本，导入端按这两个字段校验 */
 export const SESSION_BUNDLE_FORMAT = 'deepseek-replica-session-bundle'
 export const SESSION_BUNDLE_VERSION = 1
@@ -109,6 +116,7 @@ export const buildSessionBundle = async (
   }
 }
 
+/* ---- 02 核心实现：importSessionBundle、sessionBundleToMarkdown、sessionBundleName ---- */
 const isBundle = (value: unknown): value is SessionBundle => {
   const bundle = value as Partial<SessionBundle> | null
   return Boolean(
@@ -194,6 +202,7 @@ export const importSessionBundle = async (bundle: SessionBundle): Promise<Sessio
   return next
 }
 
+/* ---- 03 对外入口与收尾 ---- */
 /** 单会话导出为可读文本：角色名 + 逐条消息，独白与动作按原文保留 */
 export const sessionBundleToMarkdown = (bundle: SessionBundle, now = new Date()) => {
   const name = bundle.card?.name || '角色'

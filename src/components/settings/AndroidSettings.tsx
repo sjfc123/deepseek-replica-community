@@ -1,8 +1,12 @@
 /* ============================================================================
- * 功能区：设置页 / AndroidSettings 开始
- * 职责：Android 设置页的页面栈、分区导航、账户、角色档案、记忆、数据、语音与外观配置。
- * 分区：页面类型与通用控件；设置模块入口；状态/派生数据/副作用；各页渲染；
- *       弹层与危险操作确认；页面栈收尾。通用控件只负责展示，业务写入留在设置动作区。
+ * 功能区：视图与交互 / AndroidSettings · 安卓设置页主体
+ * 职责：安卓设置页主体：页面栈、配置分区、开关与弹层渲染，把用户操作交给 settings 服务持久化。
+ * 分区：01 配置常量区：版本、官方链接；02 页面类型与通用控件；03 设置模块入口；04 设置页状态、派生数据与副作用；
+ *    05 各设置页渲染与页面分发；06 弹层、导入与危险操作确认；07 页面栈渲染收尾
+ * 关联：依赖 app/android、app/diagnostics、app/openAndroidPage、app/useAndroidBackInterception 等 36 个模块；
+ *    被 app/App 引用。
+ * 导出：formatIntervalNumber、formatBackupInterval、AndroidSettings
+ * 边界：只负责设置页路由、状态与控件渲染；持久化与协议校验由 settings、api 服务承担。
  * ========================================================================== */
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
@@ -178,14 +182,14 @@ import {
 } from '../../services/speech/readAloud.js'
 import styles from './AndroidSettings.module.css'
 
-/* -------------------- 配置常量区：版本、官方链接 -------------------- */
+/* ---- 01 配置常量区：版本、官方链接 ---- */
 const appVersion = document.querySelector<HTMLMetaElement>(
   'meta[name="application-version"]'
 )?.content
 const policiesUrl = 'https://cdn.deepseek.com/policies'
 const chinesePoliciesUrl = `${policiesUrl}/zh-CN`
 const faqUrl = 'https://static.deepseek.com/faq/index.html'
-/* -------------------- 功能区：页面类型与通用控件 开始 -------------------- */
+/* ---- 02 页面类型与通用控件 ---- */
 type Page =
   | 'root'
   | 'account'
@@ -627,9 +631,8 @@ const describeBackupFailure = (result: AutoBackupResult, tr: BackupText) => {
   }
 }
 
-/* -------------------- 功能区：页面类型与通用控件 结束 -------------------- */
 
-/* -------------------- 功能区：设置模块入口 开始 -------------------- */
+/* ---- 03 设置模块入口 ---- */
 export const AndroidSettings = ({ chatFrame }: { chatFrame: RefObject<HTMLDivElement> }) => {
   const open = useSettingsDialog((state) => state.open)
   const section = useSettingsDialog((state) => state.section)
@@ -650,9 +653,8 @@ export const AndroidSettings = ({ chatFrame }: { chatFrame: RefObject<HTMLDivEle
   return open ? <Settings start={start} chatFrame={chatFrame} key={section} /> : null
 }
 
-/* -------------------- 功能区：设置模块入口 结束 -------------------- */
 
-/* -------------------- 功能区：设置页状态、派生数据与副作用 开始 -------------------- */
+/* ---- 04 设置页状态、派生数据与副作用 ---- */
 const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTMLDivElement> }) => {
   const t = useTranslate()
   const [imageModel, setImageModel] = useState('')
@@ -1594,9 +1596,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       )
     : []
 
-  /* -------------------- 功能区：设置页状态、派生数据与副作用 结束 -------------------- */
 
-  /* -------------------- 功能区：各设置页渲染与页面分发 开始 -------------------- */
+/* ---- 05 各设置页渲染与页面分发 ---- */
   const renderPage = (screen: Page) => (
     <>
       <header className={styles.header}>
@@ -4141,9 +4142,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     </>
   )
 
-  /* -------------------- 功能区：各设置页渲染与页面分发 结束 -------------------- */
 
-  /* -------------------- 功能区：弹层、导入与危险操作确认 开始 -------------------- */
+/* ---- 06 弹层、导入与危险操作确认 ---- */
   const popups = (
     <>
       {popup === 'locale' ? (
@@ -4913,9 +4913,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     </>
   )
 
-  /* -------------------- 功能区：弹层、导入与危险操作确认 结束 -------------------- */
 
-  /* -------------------- 功能区：页面栈渲染收尾 开始 -------------------- */
+/* ---- 07 页面栈渲染收尾 ---- */
   const pages = [page]
   for (let parent = parentPage[page]; parent; parent = parentPage[parent]) {
     pages.unshift(parent)
@@ -4991,7 +4990,6 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     </div>
   )
 }
-/* -------------------- 功能区：页面栈渲染收尾 结束 -------------------- */
 
 /* ============================================================================
  * 功能区：设置页 / AndroidSettings 结束

@@ -1,9 +1,19 @@
 /* ============================================================================
- * 功能区：基础 UI / icons 开始
+ * 功能区：视图与交互 / icons
  * 职责：icons 组件，负责该组件的渲染、状态与交互出口。
- * 导出：IconCheckOutline16、IconChevronDownOutline14、IconChevronDownOutline20、IconChevronRightOutline14、IconCloseFill14、IconCloseOutline16 等 46 个导出。
+ * 分区：01 类型、常量与模块依赖；
+ *    02 功能实现（IconDownloadOutline16、IconEditOutline16、IconEllipsisOutline16…）；
+ *    03 功能实现（IconPanelLeftOutline16、IconPinOutline16、IconMultiSelectOutline16…）；
+ *    04 功能实现（IconTrashOutline16、IconWarningOutline16、IconBrowseOutline16…）；
+ *    05 功能实现（IconSearchOutline16、IconSearchWarningOutline16、NewChatIcon…）；
+ *    06 功能实现（IconToastError16）
+ * 关联：无内部依赖；
+ *    被 components/base/Modal、components/base/Select、components/base/Toast、components/chatInput/ChatInput 等 29 个模块 引用。
+ * 导出：IconCheckOutline16、IconChevronDownOutline14、IconChevronDownOutline20、IconChevronRightOutline14、IconCloseFill14、IconCloseOutline16、IconCopyOutline16、IconSelectTextOutline16、IconSelectAllOutline16、IconDataOutline16、IconDownloadOutline16、IconEditOutline16 等 42 项
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 export const IconCheckOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
@@ -130,6 +140,7 @@ export const IconDataOutline16 = () => (
   </svg>
 )
 
+/* ---- 02 功能实现（IconDownloadOutline16、IconEditOutline16、IconEllipsisOutline16…） ---- */
 export const IconDownloadOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
@@ -241,6 +252,7 @@ export const IconNewChatOutline20 = () => (
   </svg>
 )
 
+/* ---- 03 功能实现（IconPanelLeftOutline16、IconPinOutline16、IconMultiSelectOutline16…） ---- */
 export const IconPanelLeftOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
@@ -361,6 +373,7 @@ export const IconThinkOutline16 = () => (
   </svg>
 )
 
+/* ---- 04 功能实现（IconTrashOutline16、IconWarningOutline16、IconBrowseOutline16…） ---- */
 export const IconTrashOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
@@ -479,6 +492,7 @@ export const IconRightUpOutline14 = () => (
   </svg>
 )
 
+/* ---- 05 功能实现（IconSearchOutline16、IconSearchWarningOutline16、NewChatIcon…） ---- */
 export const IconSearchOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
@@ -585,6 +599,7 @@ export const IconPhotoErrorFill20 = () => (
   </svg>
 )
 
+/* ---- 06 功能实现（IconToastError16） ---- */
 /** 错误提示图标：圆环 + 感叹号，颜色跟随 currentColor */
 export const IconToastError16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

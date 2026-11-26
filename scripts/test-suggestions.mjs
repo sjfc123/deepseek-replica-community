@@ -1,3 +1,13 @@
+/* ============================================================================
+ * 功能区：回归与构建辅助 / test-suggestions · 回复建议
+ * 职责：回复建议：场景、多角色、动作模式、去重与重开刷新。
+ * 分区：01 夹具与固定输入；02 验证场景；03 断言与清理
+ * 关联：被测或辅助模块 services/chat/roleplay、services/chat/story、services/chat/suggestionsContext；
+ *    由 pnpm 脚本直接执行。
+ * 导出：无（独立可执行脚本）
+ * 边界：只执行回归、构建与像素比对；不写入产品数据，临时目录在结束时清理。
+ * ========================================================================== */
+
 /**
  * 回复建议回归：
  * 1. 角色资料只保留玩家能感知的字段，不带 secret、notes 与卡内系统指令；
@@ -7,6 +17,7 @@
  * 5. 上一批建议必须进入排除区，近义复读会被 pickFreshSuggestions 拦掉；
  * 6. 尚未到点的线索词必须从候选里硬过滤，不能提前写旧疤、暗号或储物间。
  */
+/* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
 
 const { getBuiltinCharacterCards } = await import('../src/services/chat/roleplay.ts')
@@ -133,6 +144,7 @@ assert.equal(leaveByCharacter.presence, 'leaving')
 const leaveByPlayer = detectSuggestionPresence({
   lastCharacterLine: '门没锁。',
   lastPlayerLine: '（我把外套拎起来，往门口走）',
+/* ---- 02 验证场景 ---- */
 })
 assert.equal(leaveByPlayer.presence, 'leaving')
 const stillHere = detectSuggestionPresence({
@@ -245,6 +257,7 @@ assert.match(
     cast: ['林小满'],
     presence: remotePresence.presence,
     presenceReason: remotePresence.reason,
+/* ---- 03 断言与清理 ---- */
   }),
   /不能假设玩家看得见屋内陈设/
 )

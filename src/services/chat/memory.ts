@@ -1,11 +1,18 @@
 /* ============================================================================
- * 功能区：会话与角色核心 / memory 开始
+ * 功能区：会话与角色核心 / memory · 长期记忆数据层
  * 职责：长期记忆数据层：卡片生成、时间锚点、分类、预算与注入格式化。
+ * 分区：01 类型、常量与模块依赖；02 注入配额与上限；03 回合记忆生成；04 可见与生效卡片筛选；05 注入优先级与预算；
+ *    06 system 记忆块格式化；07 卡片创建与回合归档；08 普通记忆逐条建档
+ * 关联：依赖 services/chat/types、utils/id；
+ *    被 scripts/test-memory-layers、components/memory/MemoryPanel、components/messages/MessageList、components/session/SessionView 等 12 个模块 引用。
+ * 导出：MemoryMode、MemoryPool、NormalMemoryKind、CharacterMemoryKind、MemoryOwner、MEMORY_OWNERS、MemoryNames、memoryOwnerLabel、memorySpeakerName、CHARACTER_MEMORY_KINDS、characterMemoryLabel、getCharacterMemoryKind 等 53 项
+ * 边界：只处理记忆卡、预算、注入文本与时间锚点；不维护面板筛选与 UI 状态。
  * ========================================================================== */
 
 import type { Message, Session } from './types.js'
 import { createId } from '../../utils/id.js'
 
+/* ---- 01 类型、常量与模块依赖 ---- */
 /** 记忆模式：关闭 / 每轮整段记录 / 每轮记录后用模型提炼合并 */
 export type MemoryMode = 'off' | 'turn' | 'refine'
 
@@ -160,6 +167,7 @@ export type MemoryCard = {
   relationship?: string
 }
 
+/* ---- 02 注入配额与上限 ---- */
 /** 注入上限：卡片条数与字符总量；字符预算可由设置页调整，默认 1,000,000 */
 export const MEMORY_MAX_CARDS = 60
 export const MEMORY_MAX_CHARS = 1_000_000
@@ -325,6 +333,7 @@ export const parseMemoryTimeHints = (query: string, now = new Date()): MemoryTim
   return ranges
 }
 
+/* ---- 03 回合记忆生成 ---- */
 /** 回复正文（不含思考块），用于生成记忆与提炼材料 */
 export const replyPlainText = (message: Message): string => {
   if (message.role !== 'assistant') {
@@ -450,6 +459,7 @@ export const buildImportantMemoryCards = (
   ]
 }
 
+/* ---- 04 可见与生效卡片筛选 ---- */
 /** 当前可见路径上的所有卡片（含被取代、被关闭的，供面板展示） */
 export const collectVisibleMemories = (_session: Session, messages: Message[]) =>
   messages.flatMap((message) =>
@@ -565,6 +575,7 @@ const queryTerms = (query: string) => {
   return [...terms]
 }
 
+/* ---- 05 注入优先级与预算 ---- */
 /**
  * 每轮真正注入的卡片：手动记录 → 置顶 → 最近几轮 → 与当前发言相关或落在同一时间段的旧卡。
  * 手动卡是玩家明确要求角色记住的偏好、姓名和经历，不参与“最近 12 张”的竞争，优先占预算；
@@ -712,6 +723,7 @@ export const selectNormalMemoryCardsForInjection = (
     .slice(0, Math.max(1, limit))
 }
 
+/* ---- 06 system 记忆块格式化 ---- */
 /** 普通记忆的 system 块：只作开发/问答参考，不携带角色剧情规则 */
 export const formatNormalMemoryBlock = (
   cards: MemoryCard[],
@@ -883,6 +895,7 @@ export const parseRefinedCards = (
     .filter((line) => line.text.length > 0 && !/^【[^】]{1,10}】$/.test(line.text))
     .slice(0, limit)
 
+/* ---- 07 卡片创建与回合归档 ---- */
 /** 新建一张卡片；调用方负责挂到具体消息上 */
 export const createMemoryCard = (
   text: string,
@@ -991,6 +1004,7 @@ export const buildConversationMemoryCards = (
   return drafts
 }
 
+/* ---- 08 普通记忆逐条建档 ---- */
 /**
  * 普通记忆按“每条消息一张卡”保存，不把用户与角色强行合成回合。
  * 指定 category 时全部归入该子分类；auto 时逐条识别代码 / 用户原话 / AI 原话。

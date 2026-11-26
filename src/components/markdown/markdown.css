@@ -1,8 +1,18 @@
+/* ============================================================================
+ * 功能区：视图与交互 / markdown · Markdown 共享排版
+ * 职责：Markdown 共享排版：标题、段落、列表、代码、表格、引用与图片的统一样式。
+ * 分区：01 基础排版；02 分隔线、引用与表格；03 代码块与公式；04 代码块工具栏与图表；05 角色独白与动作
+ * 关联：使用方 components/markdown/Markdown；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件通过 styles.* 引用）
+ * 边界：只定义该组件的视觉令牌、布局与状态类名；不读取业务数据，状态通过 data-* 或 class 进入。
+ * ========================================================================== */
+
 .ds-markdown {
   font: var(--dsw-font-markdown-base);
   color: var(--dsw-alias-label-primary);
 }
 
+/* ---- 01 基础排版 ---- */
 .ds-markdown strong {
   font-weight: 600;
 }
@@ -146,6 +156,7 @@
   display: inline;
 }
 
+/* ---- 02 分隔线、引用与表格 ---- */
 .ds-markdown hr {
   display: block;
   border: none;
@@ -194,6 +205,7 @@
   padding-right: 0;
 }
 
+/* ---- 03 代码块与公式 ---- */
 .ds-markdown pre {
   margin: 16px 0;
   font-family: var(--ds-font-family-code);
@@ -317,6 +329,7 @@
   background: var(--dsw-alias-markdown-citation);
 }
 
+/* ---- 04 代码块工具栏与图表 ---- */
 .ds-markdown .md-code-block {
   margin: 16px 0;
 }
@@ -397,6 +410,7 @@
   font-size: 14px;
 }
 
+/* ---- 05 角色独白与动作 ---- */
 /* 角色内心独白：括号片段降低对比度，与台词分开；关闭识别时恢复正文样式 */
 .ds-markdown .ds-markdown-thought {
   color: var(--dsw-alias-label-secondary);

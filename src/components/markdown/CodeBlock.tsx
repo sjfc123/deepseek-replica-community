@@ -1,7 +1,11 @@
 /* ============================================================================
- * 功能区：Markdown 视图 / CodeBlock 开始
+ * 功能区：视图与交互 / CodeBlock
  * 职责：CodeBlock 组件，负责该组件的渲染、状态与交互出口。
- * 导出：CodeBlock。
+ * 分区：01 类型、契约与依赖；02 对外入口与收尾
+ * 关联：依赖 components/base/icons、components/base/toastState、components/markdown/CodeBlock.module、components/markdown/MermaidDiagram 等 7 个模块；
+ *    被 components/markdown/MarkdownAstRenderer 引用。
+ * 导出：CodeBlock
+ * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
 import { useTranslate } from '../../i18n/index.js'
@@ -18,6 +22,7 @@ import { copyText } from '../../utils/clipboard.js'
 import { MermaidDiagram } from './MermaidDiagram.js'
 import styles from './CodeBlock.module.css'
 
+/* ---- 01 类型、契约与依赖 ---- */
 /** 代码块标题栏：左侧语言名，右侧复制 */
 const CodeInfoRow = ({
   code,
@@ -75,6 +80,7 @@ const CodeInfoRow = ({
   )
 }
 
+/* ---- 02 对外入口与收尾 ---- */
 /** 代码块：语言包按需加载，不支持或尚未加载的语言按纯文本显示 */
 export const CodeBlock = memo(function CodeBlock({
   code,
