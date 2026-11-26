@@ -249,6 +249,8 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   } | null>(null)
   /** 底部补卡区默认收起，把高度留给卡片列表；需要写入时展开 */
   const [adding, setAdding] = useState(false)
+  /** 顶部配额详情默认收起，只留一行摘要；需要核对预算时再展开 */
+  const [statsOpen, setStatsOpen] = useState(false)
   const messages = useMemo(() => getVisibleMessages(session), [session])
   const entries = useMemo(
     () => sortMemoryEntries(collectVisibleMemories(session, messages)),
@@ -463,7 +465,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="长期记忆">
-      <section className={styles.card}>
+      <section className={styles.card} data-adding={adding ? 'true' : undefined}>
         <header className={styles.head}>
           <div>
             <span className={styles.eyebrow}>MEMORY</span>
@@ -511,7 +513,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             <span className={styles.poolIcon}>⌘</span>
             <span>
               <strong>普通记忆</strong>
-              <small>{characterMemoryActive ? '当前显示角色名，普通池暂停写入' : '开发 · 问答 · 代码'}</small>
+              <small>{characterMemoryActive ? '普通池已暂停' : '开发 · 问答 · 代码'}</small>
             </span>
             <em>{normalCount}</em>
           </button>
@@ -533,57 +535,86 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
             <span className={styles.limitText}>
               生效 {activeCount} · 自动配额 {autoCount} / {cardLimit}
             </span>
+            <button
+              className={styles.usageToggle}
+              type="button"
+              aria-expanded={statsOpen}
+              onClick={() => setStatsOpen((current) => !current)}
+            >
+              {statsOpen ? '收起' : '详情'}
+              <span data-open={statsOpen ? 'true' : undefined} aria-hidden="true">
+                ⌄
+              </span>
+            </button>
           </div>
-          <div className={styles.diagnosis}>
-            <div>
-              <b>本轮注入</b>
-              <span>
-                {pool === 'normal' && !normalInjectionAllowed
-                  ? '已暂停：角色名下不注入普通池'
-                  : lastQuestion
-                    ? `${injectionPreview.count} 张 · ${injectionPreview.chars.toLocaleString('zh-CN')} 字`
-                    : '发一条消息后显示'}
-              </span>
-              <small>
-                {pool === 'normal' && !normalInjectionAllowed
-                  ? '把显示名恢复为 AI / DeepSeek 后恢复'
-                  : injectionPreview.total > injectionPreview.count
-                    ? `共对上 ${injectionPreview.total} 张，预算只够前 ${injectionPreview.count} 张`
-                    : pool === 'character' && !characterMemoryActive && hasRoleplayCodeCard
-                      ? '已排除带代码块的角色卡'
-                      : `预算 ${budget.toLocaleString('zh-CN')} 字`}
-              </small>
-            </div>
-            <div>
-              <b>容量占用</b>
-              <span>
-                {activeChars.toLocaleString('zh-CN')} / {budget.toLocaleString('zh-CN')} 字
-              </span>
-              <small>
-                自动配额 {autoCount} / {cardLimit} 张
-                {activeChars >= budget ? ' · 已到上限，新的自动卡会归档' : ''}
-              </small>
-            </div>
+          <div className={styles.usageSummary}>
+            <span>
+              {pool === 'normal' && !normalInjectionAllowed
+                ? '普通池暂停注入'
+                : lastQuestion
+                  ? `本轮注入 ${injectionPreview.count} 张 · ${injectionPreview.chars.toLocaleString('zh-CN')} 字`
+                  : '本轮注入：发消息后显示'}
+            </span>
             {pool === 'character' ? (
-              <div>
-                <b>核心记忆</b>
-                <span>
-                  生效场景 {activeSceneCount} · 生效事实 {activeFactCount}
-                </span>
-                <small>每轮各最多带回 6 张；不占自动配额，不参与淘汰</small>
-              </div>
+              <span>
+                核心 场景 {activeSceneCount} / 事实 {activeFactCount}
+              </span>
             ) : null}
           </div>
           <div className={styles.meter} aria-hidden="true">
             <i style={{ width: `${Math.max(limitRatio * 100, autoCount > 0 ? 2 : 0)}%` }} />
           </div>
-          <p>
-            {pool === 'normal'
-              ? `普通记忆只做关键词检索与开发问答，不参与角色时间线；超过 ${cardLimit} 张或 ${budget.toLocaleString('zh-CN')} 字后，最早的自动卡会归档，文本保留。`
-              : memoryMode === 'off'
-                ? '现在不带角色记忆，记下来的内容还在本机。到「设置 → 长期记忆」打开就能恢复。'
-                : `超过 ${cardLimit} 张或 ${budget.toLocaleString('zh-CN')} 字以后，最早的自动卡片会归档：内容不删，这里照样能看，只是不再带进对话。`}
-          </p>
+          {statsOpen ? (
+            <>
+              <div className={styles.diagnosis}>
+                <div>
+                  <b>本轮注入</b>
+                  <span>
+                    {pool === 'normal' && !normalInjectionAllowed
+                      ? '已暂停：角色名下不注入普通池'
+                      : lastQuestion
+                        ? `${injectionPreview.count} 张 · ${injectionPreview.chars.toLocaleString('zh-CN')} 字`
+                        : '发一条消息后显示'}
+                  </span>
+                  <small>
+                    {pool === 'normal' && !normalInjectionAllowed
+                      ? '把显示名恢复为 AI / DeepSeek 后恢复'
+                      : injectionPreview.total > injectionPreview.count
+                        ? `共对上 ${injectionPreview.total} 张，预算只够前 ${injectionPreview.count} 张`
+                        : pool === 'character' && !characterMemoryActive && hasRoleplayCodeCard
+                          ? '已排除带代码块的角色卡'
+                          : `预算 ${budget.toLocaleString('zh-CN')} 字`}
+                  </small>
+                </div>
+                <div>
+                  <b>容量占用</b>
+                  <span>
+                    {activeChars.toLocaleString('zh-CN')} / {budget.toLocaleString('zh-CN')} 字
+                  </span>
+                  <small>
+                    自动配额 {autoCount} / {cardLimit} 张
+                    {activeChars >= budget ? ' · 已到上限，新的自动卡会归档' : ''}
+                  </small>
+                </div>
+                {pool === 'character' ? (
+                  <div>
+                    <b>核心记忆</b>
+                    <span>
+                      生效场景 {activeSceneCount} · 生效事实 {activeFactCount}
+                    </span>
+                    <small>每轮各最多带回 6 张；不占自动配额，不参与淘汰</small>
+                  </div>
+                ) : null}
+              </div>
+              <p>
+                {pool === 'normal'
+                  ? `普通记忆只做关键词检索与开发问答，不参与角色时间线；超过 ${cardLimit} 张或 ${budget.toLocaleString('zh-CN')} 字后，最早的自动卡会归档，文本保留。`
+                  : memoryMode === 'off'
+                    ? '现在不带角色记忆，记下来的内容还在本机。到「设置 → 长期记忆」打开就能恢复。'
+                    : `超过 ${cardLimit} 张或 ${budget.toLocaleString('zh-CN')} 字以后，最早的自动卡片会归档：内容不删，这里照样能看，只是不再带进对话。`}
+              </p>
+            </>
+          ) : null}
         </div>
 
         <div className={styles.toolbar}>
@@ -943,7 +974,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                     >
                       每轮优先
                     </button>
-                    <small>主动提起只在气氛合适时用，不会每轮重复；每轮优先会先占注入预算。</small>
+                    <small>手动卡本身会优先注入；「主动提起」只让角色找机会开口，「每轮优先」再提前占用预算。</small>
                   </div>
                 </div>
               ) : null}
@@ -982,28 +1013,32 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
               </div>
             </div>
           ) : null}
-          <p className={styles.footerHint}>
-            {characterMemoryActive
-              ? '当前显示名是角色名，长按保存的代码与整轮内容只进角色记忆；普通记忆暂停手动补卡，把角色名字恢复为 AI / DeepSeek 或清空表达提示词后恢复。'
-              : '保存历史对话请长按消息 → 选择这条对话 / 全选本对话 → 保存为记忆，并在确认弹窗里选分类。'}
-          </p>
-          {filtered.length > 0 && !query.trim() ? (
-            <button
-              className={styles.clearAll}
-              type="button"
-              onClick={() =>
-                setConfirming({
-                  kind: 'filter',
-                  label: clearActionLabel,
-                  count: filtered.length,
-                  pool,
-                  targets: clearTargets,
-                })
-              }
-            >
-              {clearActionLabel}（{filtered.length} 张）
-            </button>
-          ) : null}
+          <div className={styles.footerMeta}>
+            <p className={styles.footerHint}>
+              {normalDraftLocked
+                ? '普通记忆暂停写入：把显示名恢复为 AI / DeepSeek 或清空表达提示词后恢复。'
+                : adding
+                  ? '长按消息可保存对话；写好后按「添加」。'
+                  : '长按消息可保存对话，也可手写一条。'}
+            </p>
+            {filtered.length > 0 && !query.trim() ? (
+              <button
+                className={styles.clearAll}
+                type="button"
+                onClick={() =>
+                  setConfirming({
+                    kind: 'filter',
+                    label: clearActionLabel,
+                    count: filtered.length,
+                    pool,
+                    targets: clearTargets,
+                  })
+                }
+              >
+                {clearActionLabel}（{filtered.length} 张）
+              </button>
+            ) : null}
+          </div>
         </footer>
       </section>
 

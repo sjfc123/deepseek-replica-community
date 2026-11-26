@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react'
 import styles from './MemoryAddedToast.module.css'
+import { useMemoryPanel } from './memoryPanelState.js'
 
 type Kind = 'turn' | 'refine' | 'manual'
 type Payload = { kind: Kind; count: number }
@@ -23,6 +24,8 @@ const LABELS: Record<Kind, string> = {
 export const MemoryAddedToast = () => {
   const [payload, setPayload] = useState<Payload | null>(null)
   const [visible, setVisible] = useState(false)
+  // 记忆面板打开时由面板内的 saveNotice 就地反馈，避免顶部气泡盖住弹窗标题。
+  const panelOpen = useMemoryPanel((state) => state.open)
 
   useEffect(() => {
     let timer = 0
@@ -43,7 +46,7 @@ export const MemoryAddedToast = () => {
     }
   }, [])
 
-  if (!payload) {
+  if (!payload || panelOpen) {
     return null
   }
 

@@ -203,6 +203,20 @@ const userManual = createMemoryCard('玩家下周三要去面试，不想被提�
 assert.match(formatMemoryBlock([userManual], 1, MEMORY_MAX_CHARS), /（玩家本人）/)
 assert.equal(ownedManual.pinned, true, '手动卡可直接带置顶')
 
+// 手动卡不勾“主动提起”和“每轮优先”也必须每轮优先注入；两个开关只负责语气与排序加成。
+const plainManual = createMemoryCard('玩家讨厌香菜，点外卖时不要加。', 'manual', 50, {
+  pool: 'character',
+  memoryKind: 'fact',
+  owner: 'user',
+})
+const pickedPlainManual = selectMemoryCardsForInjection(
+  { id: 's' },
+  [{ id: 'm', role: 'assistant', content: '', memories: [plainManual, ...turns], createdAt: 1 }],
+  1,
+  '今天吃什么'
+)
+assert.equal(pickedPlainManual[0]?.card.id, plainManual.id, '无开关的手动卡仍应排在最前')
+
 // 触发词必须真的参与召回：旧卡本身不在最近 12 张里，只靠“关灯”触发词回到注入。
 const triggered = card('triggered', '她说过走廊那盏灯不能关。', 35, {
   pool: 'character',
