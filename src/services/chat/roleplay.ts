@@ -1065,10 +1065,7 @@ export const ensureBuiltinCharacterCards = (
       // 只升级未被用户保存过的旧种子；保留原创建时间，正文换成当前版本
       return { ...seed, createdAt: card.createdAt || seed.createdAt }
     }
-    if (!card.sourceUrl && seed.sourceUrl) {
-      // 0.9.1 新增来源链接：用户即使编辑过内置卡正文，也补回作者/作品页，不覆盖其他字段
-      return { ...card, sourceUrl: seed.sourceUrl }
-    }
+    // 来源链接是作者/作品页而不是角色正文：用户删空后保持为空，不再强行补回种子链接
     return card
   })
   const room = Math.max(0, CHARACTER_CARD_MAX - refreshed.length)

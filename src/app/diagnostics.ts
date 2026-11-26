@@ -9,6 +9,13 @@ import { useChatStore } from '../services/chat/store.js'
 import { useSettings } from '../services/settings.js'
 import { readMigrationReport } from '../services/dataMigration.js'
 import { getUnreadableRecordCount } from '../services/chat/db.js'
+import {
+  auditSystemText,
+  diagnosePromptCache,
+  readPromptCacheSamples,
+  readPromptCacheStatus,
+} from '../services/chat/cacheDiagnostics.js'
+import { normalizeSourceUrl } from '../services/chat/roleplay.js'
 
 /** 最近错误只留摘要，避免诊断包变大；不记录任何消息正文或 API Key */
 type DiagnosticError = { at: string; source: string; message: string }
@@ -303,6 +310,13 @@ export const buildDiagnostics = async () => {
       storageQuota: storage.quota ?? null,
       unreadableRecords: getUnreadableRecordCount(),
     },
+    promptCache: {
+      status: readPromptCacheStatus(),
+      latest: readPromptCacheStatus().latest,
+      systemMarkers: readPromptCacheStatus().latest?.systemDynamicMarkers ?? [],
+      unresolvedPlaceholders: readPromptCacheStatus().latest?.unresolvedPlaceholders ?? [],
+    },
+    rendering: probeRendering(),
     startup: {
       patchedApis:
         (window as Window & { __replicaCompat?: { patched: string[] } }).__replicaCompat?.patched ??
@@ -347,7 +361,7 @@ export const copyDiagnostics = async () => {
 /* 主动诊断：每项都真跑一遍，只写实际结果，跑不动的写「跳过：原因」 */
 /* ------------------------------------------------------------------ */
 
-export type DiagnosticFinding = { level: 'problem'; area: string; detail: string }
+export type DiagnosticFinding = { level: 'problem' | 'warning'; area: string; detail: string }
 export type DiagnosticFact = { area: string; detail: string }
 
 const JSON_KEYS = [
@@ -441,6 +455,91 @@ const probeNativeMic = (): Record<string, unknown> | null => {
       stage: 'bridge',
       error: error instanceof Error ? error.message : String(error),
     }
+  }
+}
+
+/**
+ * 诊断附件：主线程是否被长任务堵住、帧间隔是否异常、页面是否横向溢出或弹层未释放。
+ * 这些检查只读 DOM 与 performance 条目，不改页面状态，也不记录聊天正文。
+ */
+const probeEventLoop = (): Promise<{ lagMs: number; supported: boolean }> =>
+  new Promise((resolve) => {
+    const started = performance.now()
+    setTimeout(() => resolve({ lagMs: performance.now() - started - 40, supported: true }), 40)
+  })
+
+const probeFrames = (): Promise<{ frames: number; averageGap: number; maxGap: number } | null> => {
+  if (document.visibilityState === 'hidden' || typeof requestAnimationFrame !== 'function') {
+    return Promise.resolve(null)
+  }
+  return new Promise((resolve) => {
+    const gaps: number[] = []
+    let last = performance.now()
+    let frames = 0
+    const tick = (now: number) => {
+      gaps.push(now - last)
+      last = now
+      frames += 1
+      if (frames >= 8) {
+        const averageGap = gaps.reduce((sum, item) => sum + item, 0) / gaps.length
+        resolve({ frames, averageGap, maxGap: Math.max(...gaps) })
+        return
+      }
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+    setTimeout(() => {
+      if (frames > 0) {
+        return
+      }
+      resolve({ frames: 0, averageGap: 0, maxGap: 0 })
+    }, 1200)
+  })
+}
+
+const probeRendering = () => {
+  const root = document.documentElement
+  const body = document.body
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const overflowNodes: string[] = []
+  const nodes = Array.from(document.querySelectorAll('body *')).slice(0, 2500)
+  for (const node of nodes) {
+    const element = node as HTMLElement
+    if (element.hidden || element.getClientRects().length === 0) {
+      continue
+    }
+    const style = getComputedStyle(element)
+    if (style.position === 'fixed' || style.visibility === 'hidden' || style.display === 'none') {
+      continue
+    }
+    const rect = element.getBoundingClientRect()
+    if (rect.width > 0 && (rect.right > viewportWidth + 2 || rect.left < -2)) {
+      overflowNodes.push(`${element.tagName.toLowerCase()}.${String(element.className).slice(0, 26)}`)
+      if (overflowNodes.length >= 5) {
+        break
+      }
+    }
+  }
+  let animations = 0
+  try {
+    animations = document.getAnimations?.().length ?? 0
+  } catch {
+    animations = -1
+  }
+  const dialogs = document.querySelectorAll('[role="dialog"], [aria-modal="true"]').length
+  const bodyOverflow = getComputedStyle(body).overflow
+  return {
+    viewportWidth,
+    viewportHeight,
+    scrollWidth: Math.max(root.scrollWidth, body.scrollWidth),
+    scrollHeight: Math.max(root.scrollHeight, body.scrollHeight),
+    horizontalOverflow: Math.max(root.scrollWidth, body.scrollWidth) > viewportWidth + 2,
+    overflowNodes,
+    animations,
+    dialogs,
+    bodyOverflow,
+    visibility: document.visibilityState,
   }
 }
 
@@ -626,6 +725,250 @@ export const collectDiagnosticReport = async () => {
     findings.push({ level: 'problem', area: '网络', detail: '系统报告当前离线，请求会直接失败' })
   }
 
+  const loop = await probeEventLoop()
+  const frames = await probeFrames()
+  facts.push({
+    area: '事件循环与帧',
+    detail: `定时器迟到 ${Math.max(0, Math.round(loop.lagMs))} ms；${
+      frames
+        ? `采样 ${frames.frames} 帧，平均 ${frames.averageGap.toFixed(1)} ms，最长 ${frames.maxGap.toFixed(1)} ms`
+        : '页面不在前台，跳过帧采样'
+    }`,
+  })
+  if (loop.lagMs > 140) {
+    findings.push({
+      level: 'problem',
+      area: '主线程',
+      detail: `事件循环迟到 ${Math.round(loop.lagMs)} ms，主线程正被长任务占用`,
+    })
+  }
+  if (frames && frames.frames >= 6 && frames.maxGap > 120) {
+    findings.push({
+      level: 'warning',
+      area: '渲染帧',
+      detail: `单帧间隔达到 ${frames.maxGap.toFixed(1)} ms，页面动画或布局可能卡顿`,
+    })
+  }
+
+  const rendering = probeRendering()
+  facts.push({
+    area: '渲染与页面',
+    detail: `视口 ${rendering.viewportWidth}×${rendering.viewportHeight}，文档 ${
+      rendering.scrollWidth
+    }×${rendering.scrollHeight}，动画 ${rendering.animations} 个，弹层 ${
+      rendering.dialogs
+    } 个，body.overflow=${rendering.bodyOverflow}，visibility=${rendering.visibility}`,
+  })
+  if (rendering.horizontalOverflow) {
+    findings.push({
+      level: 'problem',
+      area: '渲染溢出',
+      detail: `文档宽度 ${rendering.scrollWidth} 超过视口 ${rendering.viewportWidth}，存在横向溢出${
+        rendering.overflowNodes.length ? `：${rendering.overflowNodes.join('、')}` : ''
+      }`,
+    })
+  }
+  if (rendering.dialogs > 0 && rendering.bodyOverflow !== 'hidden') {
+    findings.push({
+      level: 'warning',
+      area: '弹层状态',
+      detail: `有 ${rendering.dialogs} 个弹层打开，但 body 未锁定滚动，背景可能跟着滚动`,
+    })
+  }
+  if (rendering.dialogs === 0 && rendering.bodyOverflow === 'hidden') {
+    findings.push({
+      level: 'warning',
+      area: '滚动锁',
+      detail: '没有弹层，但 body.overflow 仍是 hidden；关闭弹窗时可能漏掉滚动锁恢复',
+    })
+  }
+
+  if (jsMemory) {
+    const ratio = jsMemory.usedJSHeapSize / Math.max(1, jsMemory.jsHeapSizeLimit)
+    facts.push({
+      area: 'JS 进程内存',
+      detail: `${(jsMemory.usedJSHeapSize / 1048576).toFixed(1)} MB / ${(
+        jsMemory.jsHeapSizeLimit / 1048576
+      ).toFixed(1)} MB（${(ratio * 100).toFixed(1)}%）`,
+    })
+    if (ratio > 0.82) {
+      findings.push({
+        level: 'warning',
+        area: '进程内存',
+        detail: `JS 堆占用达到 ${(ratio * 100).toFixed(1)}%，再加载长会话容易触发回收卡顿`,
+      })
+    }
+  }
+
+  const promptStatus = readPromptCacheStatus()
+  const promptSamples = readPromptCacheSamples()
+  const latest = promptStatus.latest
+  const previousSample = promptSamples
+    .filter((item) => item.sessionId === latest?.sessionId && item.at < (latest?.at ?? 0))
+    .sort((a, b) => b.at - a.at)[0]
+  facts.push({
+    area: '提示词分层',
+    detail: latest
+      ? `system 静态段 ${latest.systemChars} 字（${latest.systemHash}），尾部 turnContext ${
+          latest.turnContextChars
+        } 字、latest_reminder ${latest.latestReminderChars} 字；消息 ${
+          latest.messageCount
+        } 条，历史 ${latest.historyTurns} 轮，压缩=${latest.compacted ? '是' : '否'}`
+      : '还没有请求样本；先完成一次带 usage 的回复后再看',
+  })
+  facts.push({
+    area: '缓存命中',
+    detail:
+      latest && promptStatus.latestRate !== null
+        ? `最新 ${(promptStatus.latestRate * 100).toFixed(1)}%，平均 ${(
+            (promptStatus.averageRate ?? 0) * 100
+          ).toFixed(1)}%，样本 ${promptStatus.samples} 条；scope=${latest.scope}`
+        : '暂无缓存样本',
+  })
+  const promptConfig = useSettings.getState()
+  const savedPromptAudit = auditSystemText(promptConfig.systemPrompt)
+  facts.push({
+    area: '手写与角色提示词',
+    detail: `手写提示词 ${promptConfig.systemPrompt.length} 字，动态标记 ${
+      savedPromptAudit.dynamicMarkers.length
+    } 个，未替换占位符 ${savedPromptAudit.unresolvedPlaceholders.length} 个；角色扮演=${
+      promptConfig.roleplayEnabled ? '开' : '关'
+    }，世界书注入=${promptConfig.worldbookInject ? '开' : '关'}，自动压缩=${
+      promptConfig.autoCompact ? '开' : '关'
+    }`,
+  })
+  if (savedPromptAudit.dynamicMarkers.length > 0) {
+    findings.push({
+      level: 'problem',
+      area: '手写提示词',
+      detail: `手写提示词里含动态段：${savedPromptAudit.dynamicMarkers.join('、')}；它进入 system 后会逐轮改写前缀`,
+    })
+  }
+  if (savedPromptAudit.unresolvedPlaceholders.length > 0) {
+    findings.push({
+      level: 'problem',
+      area: '提示词占位符',
+      detail: `拼接前仍有未替换占位符：${savedPromptAudit.unresolvedPlaceholders.join('、')}`,
+    })
+  }
+  if (latest) {
+    const stable =
+      previousSample && previousSample.configHash === latest.configHash
+        ? latest.systemHash === previousSample.systemHash
+        : null
+    facts.push({
+      area: '静态前缀稳定性',
+      detail:
+        stable === null
+          ? '配置刚变化或没有同配置样本，暂无可比对象'
+          : stable
+            ? `同一配置下 system 指纹一致（${latest.systemHash}），静态段没有随轮次变化`
+            : `同一配置下 system 指纹从 ${previousSample?.systemHash} 变成 ${latest.systemHash}，静态段被改写`,
+    })
+    if (stable === false) {
+      findings.push({
+        level: 'problem',
+        area: '静态前缀',
+        detail: '同一配置下 system 指纹发生变化，后续历史会从 system 之后整段未命中',
+      })
+    }
+    const activeMarkers = [...latest.systemDynamicMarkers, ...latest.unresolvedPlaceholders]
+    if (activeMarkers.length > 0) {
+      findings.push({
+        level: 'problem',
+        area: '提示词污染',
+        detail: `system 中检测到动态段或未替换占位符：${activeMarkers.join('、')}`,
+      })
+    }
+  }
+
+  const diagnosed = new Set<string>()
+  for (const sampleSession of Array.from(
+    new Set(promptSamples.slice(-12).map((item) => item.sessionId))
+  )) {
+    const diagnosis = diagnosePromptCache(promptSamples, sampleSession)
+    if (!diagnosis) {
+      continue
+    }
+    const key = `${diagnosis.area}|${diagnosis.detail}`
+    if (diagnosed.has(key)) {
+      continue
+    }
+    diagnosed.add(key)
+    findings.push({
+      level: diagnosis.level,
+      area: diagnosis.area,
+      detail: `${diagnosis.detail} 原因：${diagnosis.causes.join('；')} 证据：${diagnosis.evidence.join('；')}`,
+    })
+  }
+
+  const cachedSessions = Object.values(state.sessionCache) as Array<{
+    messages?: Array<{ id?: string; role?: string }>
+  }>
+  let duplicateIds = 0
+  let malformedMessages = 0
+  for (const session of cachedSessions) {
+    if (!Array.isArray(session.messages)) {
+      malformedMessages += 1
+      continue
+    }
+    const ids = new Set<string>()
+    for (const message of session.messages) {
+      if (!message.id || !message.role) {
+        malformedMessages += 1
+      } else if (ids.has(message.id)) {
+        duplicateIds += 1
+      } else {
+        ids.add(message.id)
+      }
+    }
+  }
+  facts.push({
+    area: '数据完整性',
+    detail: `内存中的会话 ${cachedSessions.length} 个，缺字段消息 ${malformedMessages} 条，重复消息 ID ${duplicateIds} 个`,
+  })
+  if (malformedMessages > 0 || duplicateIds > 0) {
+    findings.push({
+      level: 'problem',
+      area: '数据完整性',
+      detail: `缺字段消息 ${malformedMessages} 条，重复消息 ID ${duplicateIds} 个；编辑、分支或导入可能留下了半条记录`,
+    })
+  }
+
+  const badSources = useSettings
+    .getState()
+    .characterCards.filter((card) => {
+      const raw = (card.sourceUrl ?? '').trim()
+      return Boolean(raw) && normalizeSourceUrl(raw).trim() !== raw
+    })
+  facts.push({
+    area: '角色来源链接',
+    detail: `全部角色卡 ${useSettings.getState().characterCards.length} 张，疑似无效链接 ${badSources.length} 张`,
+  })
+  if (badSources.length > 0) {
+    findings.push({
+      level: 'problem',
+      area: '角色来源',
+      detail: `来源链接未通过校验：${badSources.map((card) => card.name || card.id).join('、')}；请在角色卡里改正或清空`,
+    })
+  }
+
+  const config = useSettings.getState().chatConfig
+  const endpoint = config.endpoint.trim()
+  if (endpoint && !/^https?:\/\//i.test(endpoint)) {
+    findings.push({
+      level: 'problem',
+      area: '接口地址',
+      detail: '自定义接口地址不是 http/https 开头，请求会被设置页拒绝或落到默认端点',
+    })
+  }
+  facts.push({
+    area: '接口配置',
+    detail: `协议=${config.format}，模型=${config.model || '默认'}，端点=${
+      endpoint ? '已填写（地址不外泄）' : '官方默认'
+    }`,
+  })
+
   const report = {
     generatedAt: new Date().toISOString(),
     version:
@@ -660,7 +1003,9 @@ export const collectDiagnosticReport = async () => {
     lines.push('本次自检没有发现异常。这不代表功能都正常，只代表下面这些检查项都通过。')
   } else {
     findings.forEach((item, index) => {
-      lines.push(`${index + 1}. [${item.area}] ${item.detail}`)
+      lines.push(
+        `${index + 1}. ${item.level === 'warning' ? '[提醒] ' : ''}[${item.area}] ${item.detail}`
+      )
     })
   }
   lines.push('', '二、实测项（每项都是本次真实执行的结果）')

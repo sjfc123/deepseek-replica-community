@@ -9,6 +9,11 @@ import { useSettings } from '../../services/settings.js'
 import { loadSession, loadSessionSummaries } from '../../services/chat/db.js'
 import type { AssistantMessage, SessionSummary } from '../../services/chat/types.js'
 import { summarizeSessionUsage, type SessionUsageSummary } from '../../services/tokenUsage.js'
+import {
+  diagnosePromptCache,
+  readPromptCacheSamples,
+  type CacheDiagnosis,
+} from '../../services/chat/cacheDiagnostics.js'
 import styles from './TokenUsagePanel.module.css'
 
 type Props = {
@@ -44,6 +49,8 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
   const [report, setReport] = useState<SessionUsageSummary | null>(null)
   const [reportError, setReportError] = useState('')
   const [reportBusy, setReportBusy] = useState(false)
+  /** 只在同会话连续低命中或前缀变化时出现；正常命中不渲染 */
+  const [cacheIssue, setCacheIssue] = useState<CacheDiagnosis | null>(null)
 
   useEffect(() => {
     if (!open) {
@@ -114,6 +121,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
     setSelected(summary)
     setReport(null)
     setReportError('')
+    setCacheIssue(null)
     setReportBusy(true)
     try {
       const session = await loadSession(summary.id)
@@ -128,6 +136,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
           )
         )
       )
+      setCacheIssue(diagnosePromptCache(readPromptCacheSamples(), summary.id))
     } catch {
       setReportError(t('统计失败，请稍后重试', 'Failed to calculate usage'))
     } finally {
@@ -242,6 +251,32 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
                     <div className={styles.meter}>
                       <span style={{ width: `${Math.min(100, hitRate)}%` }} />
                     </div>
+                    {cacheIssue ? (
+                      <div
+                        className={styles.cacheAlert}
+                        data-level={cacheIssue.level}
+                        role="alert"
+                      >
+                        <div className={styles.cacheAlertHead}>
+                          <span>{t('缓存异常', 'Cache issue')}</span>
+                          <strong>{cacheIssue.detail}</strong>
+                        </div>
+                        <div className={styles.cacheAlertLabel}>
+                          {t('可能原因', 'Likely causes')}
+                        </div>
+                        <ul>
+                          {cacheIssue.causes.map((cause) => (
+                            <li key={cause}>{cause}</li>
+                          ))}
+                        </ul>
+                        <div className={styles.cacheAlertLabel}>
+                          {t('证据', 'Evidence')}
+                        </div>
+                        <p className={styles.cacheEvidence}>
+                          {cacheIssue.evidence.join(' · ')}
+                        </p>
+                      </div>
+                    ) : null}
                     <div className={styles.notes}>
                       <p>
                         {t(

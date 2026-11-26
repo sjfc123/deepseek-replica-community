@@ -4,7 +4,7 @@
  * ========================================================================== */
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { android, saveAndroidHistory } from '../../app/android.js'
+import { android, openExternalUrl, saveAndroidHistory } from '../../app/android.js'
 import {
   exportMemory,
   importMemory,
@@ -168,6 +168,7 @@ import { ProfileIcon } from './ProfileAvatar.js'
 import { ProfileEditor } from './ProfileEditor.js'
 import { RoleplayPanel } from './RoleplayPanel.js'
 import { closeSettings, useSettingsDialog } from './settingsDialogState.js'
+import { checkForUpdates, type UpdateCheckResult } from '../../services/updateCheck.js'
 import styles from './AndroidSettings.module.css'
 
 const appVersion = document.querySelector<HTMLMetaElement>(
@@ -773,6 +774,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const [memoryImportMode, setMemoryImportMode] = useState<MemoryImportMode>('merge')
   const [bundleBusy, setBundleBusy] = useState(false)
   const [diagBusy, setDiagBusy] = useState(false)
+  const [updateBusy, setUpdateBusy] = useState(false)
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null)
+  const [updateError, setUpdateError] = useState('')
   const [rootQuery, setRootQuery] = useState('')
   const bundleInput = useRef<HTMLInputElement | null>(null)
   const [memoryStatus, setMemoryStatus] = useState<{
@@ -1487,8 +1491,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       run: () => setUsageOpen(true),
     },
     {
+      label: tr('检查更新', 'Check for updates'),
+      keys: '检查更新 新版本 升级 更新 update version',
+      run: () => openPage('root'),
+    },
+    {
       label: tr('运行诊断并保存日志', 'Run diagnostics & save log'),
-      keys: '诊断 日志 排查 diagnose log',
+      keys: '诊断 日志 排查 提示词 缓存 命中率 渲染 进程 diagnose log prompt cache render process',
       run: () => openPage('data'),
     },
     {
@@ -1732,6 +1741,60 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <Group label={tr('关于', 'About')}>
               <Row label={tr('版本信息', 'Version')} value={appVersion} />
+              <Row
+                label={
+                  updateResult?.hasUpdate
+                    ? tr(`发现新版本 ${updateResult.latest}`, `Update ${updateResult.latest} available`)
+                    : tr('检查更新', 'Check for updates')
+                }
+                value={
+                  updateBusy
+                    ? tr('检查中…', 'Checking…')
+                    : updateError
+                      ? tr('连接失败', 'Failed')
+                      : updateResult
+                        ? updateResult.hasUpdate
+                          ? tr('点此打开下载页', 'Open releases')
+                          : tr('已是最新', 'Up to date')
+                        : ''
+                }
+                arrow={Boolean(updateResult?.hasUpdate)}
+                onClick={() => {
+                  if (updateBusy) {
+                    return
+                  }
+                  if (updateResult?.hasUpdate) {
+                    openExternalUrl(updateResult.releaseUrl)
+                    return
+                  }
+                  setUpdateError('')
+                  setUpdateBusy(true)
+                  void checkForUpdates(appVersion ?? '0.0.0')
+                    .then((result) => {
+                      setUpdateResult(result)
+                      showToast(
+                        result.hasUpdate
+                          ? tr(
+                              `发现新版本 ${result.latest}，点“检查更新”打开下载页`,
+                              `Version ${result.latest} is available; tap again to open releases`
+                            )
+                          : tr('当前已是最新版本', 'You are up to date')
+                      )
+                    })
+                    .catch((error: unknown) => {
+                      const message = error instanceof Error ? error.message : String(error)
+                      setUpdateError(message.slice(0, 80))
+                      showToast(
+                        tr(
+                          '更新清单读取失败，请检查网络后重试',
+                          'Could not read the update manifest; check your network and retry'
+                        ),
+                        4200
+                      )
+                    })
+                    .finally(() => setUpdateBusy(false))
+                }}
+              />
               <Row
                 label={tr('运行诊断并保存日志', 'Run diagnostics & save log')}
                 arrow={false}

@@ -136,6 +136,13 @@ import {
 } from './drafts.js'
 import { createLatestReminder } from './latestReminder.js'
 import {
+  auditSystemText,
+  buildPromptConfigFingerprint,
+  hashPromptText,
+  recordPromptCacheSample,
+  type SystemAudit,
+} from './cacheDiagnostics.js'
+import {
   advanceStoryClock,
   confirmStoryClueFromQuestion,
   createStoryState,
@@ -2729,6 +2736,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     roleplayEnabled,
     worldbook,
     worldbookInject,
+    worldbookChars,
     sceneAutoUpdate,
   } = useSettings.getState()
   const apiKey = storedKey ?? ''
@@ -2916,6 +2924,60 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         applyPlaceholders(dynamicContext, { userName, charName: promptCharName }),
       ].join('\n')
     : ''
+  /* 前缀探针只记录指纹和长度：system 应是静态段，turnContext/记忆/场景/世界书/提醒都只进尾部。 */
+  const systemAudit: SystemAudit = auditSystemText(baseSystemResolved)
+  const endpointHash = hashPromptText(chatConfig.endpoint || 'official')
+  const cacheModel = initial.model || chatConfig.model || DEFAULT_CHAT_MODEL
+  const promptConfigHash = buildPromptConfigFingerprint({
+    promptHash: hashPromptText(systemPrompt),
+    userNameHash: hashPromptText(userName),
+    characterName,
+    profileHash: hashPromptText(JSON.stringify(characterProfile)),
+    profileEnabled,
+    activeCardId: activeCard?.id ?? '',
+    activeCardUpdatedAt: activeCard?.updatedAt ?? 0,
+    suppressionActive,
+    suppressionHash: hashPromptText(storedSuppressionPersona),
+    friendlyTone,
+    suppressMetaTalk,
+    roleplayEnabled,
+    worldbookInject,
+    worldbookChars,
+    memoryMode,
+    memoryLimit,
+    memoryChars,
+    normalMemoryEnabled,
+    normalMemoryLimit,
+    normalMemoryChars,
+    sceneAutoUpdate,
+    autoCompact,
+    model: cacheModel,
+    format: chatConfig.format,
+    custom,
+    endpointHash,
+    thinking: Boolean(initial.thinking),
+    search: Boolean(initial.search),
+    safetyCheck,
+    keepRefusedContent,
+    sendLatestReminder,
+    thinkingEffort,
+    autoTitle,
+    temperature: effectiveTemperature,
+    topP: effectiveTopP,
+    maxOutput: effectiveMaxTokens,
+  })
+  const promptScope = [chatConfig.format, custom ? 'custom' : 'official', cacheModel, endpointHash].join('|')
+  let cacheAttemptMeta:
+    | {
+        messageCount: number
+        historyTurns: number
+        compacted: boolean
+        contextSummaryHash: string
+        contextSummaryChars: number
+        latestReminderHash: string
+        latestReminderChars: number
+      }
+    | undefined
   const settleLocal = (
     target: AssistantMessage,
     status: Parameters<typeof settleReply>[1],
@@ -3134,6 +3196,15 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           turnContext
         )
         includeContextSummary(messages, context.summary)
+        cacheAttemptMeta = {
+          messageCount: messages.length,
+          historyTurns: Math.max(0, messages.filter((message) => message.role === 'user').length - 1),
+          compacted: Boolean(context.summary),
+          contextSummaryHash: context.summary ? hashPromptText(context.summary) : '',
+          contextSummaryChars: context.summary?.length ?? 0,
+          latestReminderHash: latestReminder ? hashPromptText(latestReminder) : '',
+          latestReminderChars: latestReminder?.length ?? 0,
+        }
         estimatedInput =
           context.tokens +
           scaleEstimate(estimateQuestionTokens(activeQuestion)) +
@@ -3295,6 +3366,30 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     titleRequests.delete(controller)
     streamFlushes.delete(sessionId)
     cancelAnimationFrame(frame)
+    /* 记录最终一次请求的 usage；中断、上传失败或没有 usage 时跳过，不用估算冒充。 */
+    if (reply.usage && cacheAttemptMeta) {
+      recordPromptCacheSample({
+        sessionId,
+        model: cacheModel,
+        format: chatConfig.format,
+        custom,
+        endpointHash,
+        scope: promptScope,
+        configHash: promptConfigHash,
+        systemAudit,
+        turnContextHash: hashPromptText(turnContext),
+        turnContextChars: turnContext.length,
+        ...cacheAttemptMeta,
+        thinking: Boolean(initial.thinking),
+        search: Boolean(initial.search),
+        usage: {
+          input_tokens: reply.usage.input_tokens,
+          cache_creation_input_tokens: reply.usage.cache_creation_input_tokens,
+          cache_read_input_tokens: reply.usage.cache_read_input_tokens,
+          output_tokens: reply.usage.output_tokens,
+        },
+      })
+    }
     reply = settleStoryAsides(reply)
     const storyEnd = settleStory(reply)
     if (storyEnd) {

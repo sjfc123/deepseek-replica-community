@@ -364,3 +364,65 @@
     font-size: 12px;
   }
 }
+
+/* 只在本会话连续低命中或 system 指纹变化时渲染；正常命中不占位 */
+.cacheAlert {
+  margin-top: 12px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, #f59e0b 32%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, #f59e0b 8%, transparent);
+  font-size: 10.5px;
+  line-height: 16px;
+}
+
+.cacheAlert[data-level='problem'] {
+  border-color: color-mix(in srgb, #ef4444 34%, transparent);
+  background: color-mix(in srgb, #ef4444 8%, transparent);
+}
+
+.cacheAlertHead {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 7px;
+}
+
+.cacheAlertHead span {
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.cacheAlert[data-level='problem'] .cacheAlertHead span {
+  color: #b91c1c;
+}
+
+.cacheAlertHead strong {
+  color: var(--dsw-alias-label-primary);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.cacheAlertLabel {
+  margin-top: 6px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cacheAlert ul {
+  margin: 3px 0 0;
+  padding-left: 14px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.cacheAlert li {
+  margin-top: 2px;
+}
+
+.cacheEvidence {
+  margin: 3px 0 0;
+  color: var(--dsw-alias-label-tertiary);
+  word-break: break-word;
+}

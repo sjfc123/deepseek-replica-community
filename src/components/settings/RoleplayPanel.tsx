@@ -1623,7 +1623,7 @@ export function RoleplayPanel() {
               <i>{cardSections.source ? '收起' : '展开'}</i>
             </button>
             <span>
-              二创、游戏、动漫或小说角色填写作者主页；找不到主页就填作品页或公开来源文档。链接只用于卡片展示，不进入请求。
+              原创角色可以留空；二创、游戏、动漫或小说角色请自行填写作者主页，找不到主页就填作品页或公开来源文档。留空不会阻止保存，但来源缺失或填错由填写者自行承担。链接只用于卡片展示，不进入请求。
             </span>
           </div>
           {cardSections.source ? (
@@ -1651,7 +1651,7 @@ export function RoleplayPanel() {
                 />
               </label>
               <div className={styles.sourceNote}>
-                导入他人设定前确认你有使用与分享权限；商用、公开发布或二次分发需另行取得授权。找不到作者主页时可填作品页，不要把无关页面写成作者主页。
+                导入他人设定前确认你有使用与分享权限；商用、公开发布或二次分发需另行取得授权。非原创卡不要因为“链接是可选项”就跳过来源：找不到作者主页时填作品页，不要把无关页面写成作者主页。
               </div>
             </>
           ) : null}
@@ -1842,6 +1842,8 @@ export function RoleplayPanel() {
                 setAvatarDraft(null)
                 setTagDraft('')
                 setCardDraft(emptyCard(characterName))
+                // 新卡默认展开来源，非原创作者能直接填链接，不必再找折叠入口
+                setCardSections((current) => ({ ...current, source: true }))
               }}
             >
               + 新建角色卡

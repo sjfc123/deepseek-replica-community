@@ -310,11 +310,16 @@ const editedSeed = { ...oldSeed, appearance: '我自己改的外观', updatedAt:
 const kept = ensureBuiltinCharacterCards([editedSeed]).find((card) => card.id === 'builtin:dafeiyu')
 assert.equal(kept.appearance, '我自己改的外观', '用户保存过的内置卡不应被种子覆盖')
 const savedWithoutLink = { ...editedSeed, sourceUrl: undefined }
-const linked = ensureBuiltinCharacterCards([savedWithoutLink]).find(
+const unlinked = ensureBuiltinCharacterCards([savedWithoutLink]).find(
   (card) => card.id === 'builtin:dafeiyu'
 )
-assert.match(linked.sourceUrl ?? '', /^https:\/\//, '用户编辑过的内置卡也要补回来源链接')
-assert.equal(linked.appearance, '我自己改的外观', '补来源链接时不能覆盖已保存的正文')
+assert.equal(unlinked.sourceUrl, undefined, '用户编辑过的内置卡清空来源后应保持为空')
+assert.equal(unlinked.appearance, '我自己改的外观', '同步内置卡时不能覆盖已保存的正文')
+const clearedLink = { ...editedSeed, sourceUrl: '' }
+const stillEmpty = ensureBuiltinCharacterCards([clearedLink]).find(
+  (card) => card.id === 'builtin:dafeiyu'
+)
+assert.equal(stillEmpty.sourceUrl, '', '用户主动清空来源链接后不能再被种子回填')
 
 const longNotes = '长'.repeat(20_000)
 const [card] = normalizeCharacterCards([

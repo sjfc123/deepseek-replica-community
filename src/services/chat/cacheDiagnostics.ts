@@ -1,0 +1,335 @@
+/* ============================================================================
+ * 功能区：会话与角色核心 / cacheDiagnostics 开始
+ * 职责：记录每次请求的前缀指纹与 usage，区分静态 system、动态尾部和历史段；命中正常时不报警，连续骤降时给出原因分析。
+ * 导出：hashPromptText、auditSystemText、buildPromptConfigFingerprint、recordPromptCacheSample、readPromptCacheSamples、diagnosePromptCache、readPromptCacheStatus、clearPromptCacheSamples。
+ * ========================================================================== */
+
+import type { MessageUsage } from '../api/types.js'
+
+export const PROMPT_CACHE_STORAGE_KEY = 'replica:prompt-cache-samples'
+const MAX_SAMPLES = 80
+const LOW_RATE = 0.12
+const HEALTHY_RATE = 0.4
+
+/** 两段 32 位 FNV-1a，避免只靠短哈希在长提示词里撞车 */
+export const hashPromptText = (text: string): string => {
+  let left = 0x811c9dc5
+  let right = 0x9e3779b9
+  for (const char of Array.from(text)) {
+    const code = char.codePointAt(0) ?? 0
+    left = Math.imul(left ^ code, 16777619)
+    right = Math.imul(right ^ code, 2246822519)
+  }
+  return `${(left >>> 0).toString(16).padStart(8, '0')}${(right >>> 0)
+    .toString(16)
+    .padStart(8, '0')}`
+}
+
+export type SystemAudit = {
+  chars: number
+  hash: string
+  /** 本应只在尾部出现的动态段，若出现在 system 就说明静态前缀被污染 */
+  dynamicMarkers: string[]
+  unresolvedPlaceholders: string[]
+}
+
+const DYNAMIC_MARKERS: Array<{ label: string; test: (text: string) => boolean }> = [
+  { label: '本轮背景资料', test: (text) => text.includes('这一轮附带的背景资料') },
+  { label: '记忆块', test: (text) => /【(?:长期记忆|角色记忆|普通记忆|记忆片段)/.test(text) },
+  { label: '场景块', test: (text) => text.includes('眼下是这样的') },
+  { label: '世界书块', test: (text) => text.includes('这些背景你本来就知道') },
+  { label: 'latest_reminder', test: (text) => text.includes('latest_reminder') },
+  { label: '上下文摘要', test: (text) => text.includes('较早的对话摘要（历史资料）') },
+]
+
+export const auditSystemText = (text: string): SystemAudit => {
+  const dynamicMarkers = DYNAMIC_MARKERS.filter((item) => item.test(text)).map((item) => item.label)
+  const unresolvedPlaceholders = Array.from(
+    new Set(
+      (text.match(/{{(?:user|char)}}|\${(?:user_name|char_name)}/g) ?? []).map((item) => item)
+    )
+  )
+  return {
+    chars: text.length,
+    hash: hashPromptText(text),
+    dynamicMarkers,
+    unresolvedPlaceholders,
+  }
+}
+
+/** 只放不会随轮次变化、但会影响缓存 namespace 的配置；不记录 API Key 和完整地址 */
+export const buildPromptConfigFingerprint = (value: Record<string, unknown>): string =>
+  hashPromptText(JSON.stringify(value))
+
+export type PromptCacheSample = {
+  at: number
+  sessionId: string
+  model: string
+  format: string
+  custom: boolean
+  endpointHash: string
+  /** 同一模型、协议和地址才允许比较命中率 */
+  scope: string
+  /** system 与请求形态的配置指纹；相同配置下 system hash 变化才是异常 */
+  configHash: string
+  systemHash: string
+  systemChars: number
+  systemDynamicMarkers: string[]
+  unresolvedPlaceholders: string[]
+  turnContextHash: string
+  turnContextChars: number
+  latestReminderHash: string
+  latestReminderChars: number
+  messageCount: number
+  historyTurns: number
+  compacted: boolean
+  /** 本轮插进首条 user 的摘要指纹；连续压缩时用它判断摘要是否又改写 */
+  contextSummaryHash: string
+  contextSummaryChars: number
+  thinking: boolean
+  search: boolean
+  usage: Pick<
+    MessageUsage,
+    'input_tokens' | 'cache_creation_input_tokens' | 'cache_read_input_tokens' | 'output_tokens'
+  >
+  cacheRate: number
+}
+
+export type PromptCacheSampleInput = Omit<
+  PromptCacheSample,
+  'at' | 'systemHash' | 'systemChars' | 'systemDynamicMarkers' | 'unresolvedPlaceholders' | 'cacheRate'
+> & {
+  systemAudit: SystemAudit
+}
+
+const readAll = (): PromptCacheSample[] => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PROMPT_CACHE_STORAGE_KEY) ?? '[]')
+    return Array.isArray(parsed) ? (parsed as PromptCacheSample[]).filter(isSample) : []
+  } catch {
+    return []
+  }
+}
+
+const isSample = (value: unknown): value is PromptCacheSample => {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const item = value as Partial<PromptCacheSample>
+  return (
+    typeof item.at === 'number' &&
+    typeof item.sessionId === 'string' &&
+    typeof item.systemHash === 'string' &&
+    typeof item.configHash === 'string' &&
+    typeof item.cacheRate === 'number' &&
+    typeof item.usage === 'object' &&
+    item.usage !== null
+  )
+}
+
+export const recordPromptCacheSample = (input: PromptCacheSampleInput): void => {
+  const { input_tokens, cache_creation_input_tokens, cache_read_input_tokens } = input.usage
+  const total = Math.max(0, input_tokens) + Math.max(0, cache_creation_input_tokens) + Math.max(0, cache_read_input_tokens)
+  const sample: PromptCacheSample = {
+    ...input,
+    at: Date.now(),
+    systemHash: input.systemAudit.hash,
+    systemChars: input.systemAudit.chars,
+    systemDynamicMarkers: input.systemAudit.dynamicMarkers,
+    unresolvedPlaceholders: input.systemAudit.unresolvedPlaceholders,
+    cacheRate: total > 0 ? Math.max(0, cache_read_input_tokens) / total : 0,
+  }
+  try {
+    const samples = [...readAll(), sample].slice(-MAX_SAMPLES)
+    localStorage.setItem(PROMPT_CACHE_STORAGE_KEY, JSON.stringify(samples))
+  } catch {
+    // 存储已满或隐私模式不可写时放弃记录，不影响请求
+  }
+}
+
+export const readPromptCacheSamples = (): PromptCacheSample[] => readAll()
+
+export const clearPromptCacheSamples = (): void => {
+  try {
+    localStorage.removeItem(PROMPT_CACHE_STORAGE_KEY)
+  } catch {
+    // 忽略不可写存储
+  }
+}
+
+const percent = (value: number) => `${(value * 100).toFixed(1)}%`
+
+const sampleLabel = (sample: PromptCacheSample, index: number) =>
+  `#${index + 1} ${new Date(sample.at).toLocaleTimeString()} · ${sample.messageCount} 条消息 · ${percent(
+    sample.cacheRate
+  )}`
+
+export type CacheDiagnosis = {
+  level: 'warning' | 'problem'
+  area: string
+  detail: string
+  causes: string[]
+  evidence: string[]
+  rate: number | null
+  samples: number
+}
+
+/**
+ * 只对同一会话、同一模型/协议/地址的连续请求做判断：
+ * - 配置刚变化、首轮、刚压缩：视为预期重建，不报警；
+ * - 相同配置下 system hash 变了：静态前缀被污染，直接报问题；
+ * - 相同配置连续三轮低命中，或从健康值骤降到 0：报问题并列出可能原因；
+ * - 自定义网关完全没有缓存字段：报“无法判断/可能不支持”，不冒充系统提示词丢失。
+ */
+export const diagnosePromptCache = (
+  samples: PromptCacheSample[],
+  sessionId?: string,
+  scope?: string
+): CacheDiagnosis | null => {
+  const usable = samples
+    .filter((item) => item.usage && item.usage.input_tokens >= 0)
+    .filter((item) => (!sessionId || item.sessionId === sessionId) && (!scope || item.scope === scope))
+    .sort((a, b) => a.at - b.at)
+  if (usable.length < 2) {
+    return null
+  }
+  const last = usable[usable.length - 1]
+  const previous = usable[usable.length - 2]
+  const lastTotal =
+    Math.max(0, last.usage.input_tokens) +
+    Math.max(0, last.usage.cache_creation_input_tokens) +
+    Math.max(0, last.usage.cache_read_input_tokens)
+  if (lastTotal <= 0) {
+    return null
+  }
+  const expectedReasons: string[] = []
+  if (last.configHash !== previous.configHash) {
+    expectedReasons.push('切换模型、协议、提示词、角色卡或请求开关后，本轮属于预期重建')
+  }
+  const continuousCompaction =
+    last.compacted &&
+    previous.compacted &&
+    last.contextSummaryHash !== previous.contextSummaryHash
+  if (last.compacted && !previous.compacted) {
+    expectedReasons.push('本轮首次插入上下文摘要；摘要位于首条 user 消息，会把整段历史前缀改写，首次压缩后低命中属于预期')
+  }
+  if (last.historyTurns === 0) {
+    expectedReasons.push('这是会话首轮，没有可复用的历史前缀')
+  }
+  const low = last.cacheRate < LOW_RATE
+  const cacheRead = Math.max(0, last.usage.cache_read_input_tokens)
+  const cacheWrite = Math.max(0, last.usage.cache_creation_input_tokens)
+  const hasCacheSignal = cacheRead > 0 || cacheWrite > 0
+  if (!hasCacheSignal && low && last.custom) {
+    return {
+      level: 'warning',
+      area: '缓存命中',
+      detail: '当前接口没有返回命中或缓存写入字段，无法判断是前缀失效还是网关不支持。',
+      causes: [
+        '自定义网关可能只返回 prompt_tokens，没有 prompt_tokens_details.cached_tokens',
+        '部分网关会吞掉或改名缓存字段，需在网关日志确认 usage',
+      ],
+      evidence: [`最近请求输入 ${lastTotal} tokens，命中 0，写入 0`, sampleLabel(last, usable.length - 1)],
+      rate: 0,
+      samples: usable.length,
+    }
+  }
+
+  const systemChangedSameConfig =
+    last.systemHash !== previous.systemHash && last.configHash === previous.configHash
+  const activeMarkers = [...last.systemDynamicMarkers, ...last.unresolvedPlaceholders]
+  if (systemChangedSameConfig || activeMarkers.length > 0) {
+    return {
+      level: 'problem',
+      area: '提示词前缀',
+      detail: systemChangedSameConfig
+        ? '同一套提示词、角色卡和开关下，system 指纹发生了变化；静态前缀被逐轮内容污染，后续历史会从该段开始全部未命中。'
+        : `system 静态前缀中出现了动态段或未替换占位符：${activeMarkers.join('、')}。`,
+      causes: [
+        '检查日期、星期、位置、记忆、场景、世界书、上下文摘要或随机文本是否被拼进 system',
+        '检查角色卡、基础档案或自定义提示词是否被热更新写入',
+        '检查占位符替换是否在拼装前完成',
+      ],
+      evidence: [
+        `system ${last.systemChars} 字，${last.systemHash}`,
+        systemChangedSameConfig ? `上一条 system ${previous.systemHash}` : `标记：${activeMarkers.join('、')}`,
+      ],
+      rate: last.cacheRate,
+      samples: usable.length,
+    }
+  }
+
+  const recent = usable.slice(-4)
+  const lowStreak = recent.filter((item) => item.cacheRate < LOW_RATE && item.configHash === last.configHash)
+  const previousHealthy = usable
+    .slice(-5, -1)
+    .some((item) => item.cacheRate >= HEALTHY_RATE && item.configHash === last.configHash && !item.compacted)
+  const lowHistory = recent.filter(
+    (item) => item.cacheRate < LOW_RATE && item.historyTurns >= 1 && item.configHash === last.configHash
+  )
+  const shouldReport =
+    low &&
+    expectedReasons.length === 0 &&
+    (lowStreak.length >= 3 || (previousHealthy && lowHistory.length >= 1))
+
+  if (!shouldReport) {
+    return null
+  }
+  const causes = [
+    '检查历史消息是否被编辑、删除或重排；任何早于当前提问的改动都会改变缓存起点',
+    '检查是否刚切换深度思考、智能搜索或模型；这些会改变请求形态，需要重新建缓存',
+    '检查 latest_reminder 是否在本轮被插入到历史开头；它应只出现在当前提问附近',
+    '检查上游网关是否支持前缀缓存；部分网关命中率恒为 0，不代表系统提示词丢失',
+    '如果只有首条回复低、后续恢复，通常是网关冷启动或缓存写入延迟，不必改提示词',
+  ]
+  if (continuousCompaction) {
+    causes.unshift('连续两轮都在改写上下文摘要，摘要位于首条 user 消息，历史前缀每轮都从该段重建；需降低自动压缩频率或增大上下文预算')
+  }
+  return {
+    level: 'problem',
+    area: '缓存命中',
+    detail:
+      previousHealthy
+        ? `缓存命中率从健康值骤降到 ${percent(last.cacheRate)}，最近 ${lowHistory.length} 轮持续偏低。`
+        : `最近 ${lowStreak.length} 轮连续低命中，最新仅 ${percent(last.cacheRate)}。`,
+    causes,
+    evidence: [
+      sampleLabel(last, usable.length - 1),
+      `最近 ${recent.length} 轮命中率：${recent.map((item) => percent(item.cacheRate)).join(' / ')}`,
+      `system ${last.systemChars} 字，turnContext ${last.turnContextChars} 字，历史 ${last.historyTurns} 轮`,
+      `上下文摘要 ${last.contextSummaryChars} 字，摘要指纹 ${last.contextSummaryHash || '无'}`,
+      `输入 ${lastTotal} tokens，命中 ${cacheRead}，写入 ${cacheWrite}`,
+      ...expectedReasons,
+    ],
+    rate: last.cacheRate,
+    samples: usable.length,
+  }
+}
+
+export type PromptCacheStatus = {
+  samples: number
+  latest: PromptCacheSample | null
+  latestRate: number | null
+  averageRate: number | null
+}
+
+export const readPromptCacheStatus = (sessionId?: string): PromptCacheStatus => {
+  const samples = readPromptCacheSamples()
+    .filter((item) => !sessionId || item.sessionId === sessionId)
+    .sort((a, b) => a.at - b.at)
+  if (samples.length === 0) {
+    return { samples: 0, latest: null, latestRate: null, averageRate: null }
+  }
+  const latest = samples[samples.length - 1]
+  const averageRate = samples.reduce((sum, item) => sum + item.cacheRate, 0) / samples.length
+  return {
+    samples: samples.length,
+    latest,
+    latestRate: latest.cacheRate,
+    averageRate,
+  }
+}
+
+/* ============================================================================
+ * 功能区：会话与角色核心 / cacheDiagnostics 结束
+ * ========================================================================== */
