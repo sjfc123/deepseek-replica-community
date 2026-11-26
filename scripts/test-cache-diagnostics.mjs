@@ -22,6 +22,7 @@ const { compareVersions } = await import('../src/services/updateCheck.ts')
 const { DEFAULT_SYSTEM_PROMPT } = await import('../src/services/chat/systemPrompt.ts')
 const { readOpenAIFrame } = await import('../src/services/api/openaiChat.ts')
 const { readMessageEvent } = await import('../src/services/api/parseEvent.ts')
+const { summarizeSessionUsage } = await import('../src/services/tokenUsage.ts')
 
 const audit = (text) => auditSystemText(text)
 const base = {
@@ -263,6 +264,20 @@ const noCacheFields = readOpenAIFrame('chat', {
 }).usage
 assert.equal(noCacheFields?.input_tokens, 50, '缺失缓存字段时仍要保留输入总量')
 assert.equal(noCacheFields?.cache_fields_present, false, '缺失缓存字段不能冒充真实 0 命中')
+
+const usageSummary = summarizeSessionUsage([
+  {
+    role: 'assistant',
+    usage: {
+      input_tokens: 70,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+      output_tokens: 2,
+      cache_fields_present: false,
+    },
+  },
+])
+assert.equal(usageSummary.totals.cacheFieldMissing, 1, '缺字段的请求数要能汇总给用量面板')
 
 const anthropicMissing = readMessageEvent({
   type: 'message_delta',
