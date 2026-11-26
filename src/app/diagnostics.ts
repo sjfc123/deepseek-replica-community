@@ -1,13 +1,12 @@
 /* ============================================================================
  * 功能区：应用外壳 / diagnostics 开始
  * 职责：运行诊断：记录渲染、网络、生命周期与异常事件。
- * 导出：installDiagnostics、buildDiagnostics、copyDiagnostics、DiagnosticFinding、DiagnosticFact、collectDiagnosticReport 等 7 个导出。
+ * 导出：installDiagnostics、DiagnosticFinding、DiagnosticFact、collectDiagnosticReport、saveDiagnosticReport。
  * ========================================================================== */
 
 import { android, saveAndroidHistory } from './android.js'
 import { useChatStore } from '../services/chat/store.js'
 import { useSettings } from '../services/settings.js'
-import { readMigrationReport } from '../services/dataMigration.js'
 import { getUnreadableRecordCount } from '../services/chat/db.js'
 import {
   auditSystemText,
@@ -243,30 +242,6 @@ export const installDiagnostics = () => {
   })
 }
 
-const copyText = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    // WebView 或旧内核的 clipboard 可能被拒绝，退回隐藏 textarea 实现
-  }
-  const area = document.createElement('textarea')
-  area.value = text
-  area.style.position = 'fixed'
-  area.style.opacity = '0'
-  document.body.appendChild(area)
-  area.select()
-  const ok = (() => {
-    try {
-      return document.execCommand('copy')
-    } catch {
-      return false
-    }
-  })()
-  area.remove()
-  return ok
-}
-
 /** 读本机留存的启动/渲染错误摘要；读不到就返回 null，不影响诊断生成 */
 const readStoredJson = (key: string): unknown => {
   try {
@@ -274,87 +249,6 @@ const readStoredJson = (key: string): unknown => {
   } catch {
     return null
   }
-}
-
-/** 生成可分享的诊断文本：版本、平台、关键设置、数据规模与最近错误 */
-export const buildDiagnostics = async () => {
-  const settings = useSettings.getState()
-  const store = useChatStore.getState()
-  let storage: { usage?: number; quota?: number } = {}
-  try {
-    storage = (await navigator.storage?.estimate?.()) ?? {}
-  } catch {
-    storage = {}
-  }
-  const device = readDeviceStats()
-  const previous = readStoredJson('replica:last-session-log')
-  return {
-    generatedAt: new Date().toISOString(),
-    device,
-    previousSession: previous,
-    recentInteractions: interactions.slice(-30),
-    stalls: stalls.slice(-20),
-    version:
-      document.querySelector('meta[name="application-version"]')?.getAttribute('content') ?? null,
-    platform: android ? 'android-webview' : 'web',
-    secureContext: window.isSecureContext,
-    userAgent: navigator.userAgent,
-    screen: { width: window.innerWidth, height: window.innerHeight, dpr: devicePixelRatio },
-    data: {
-      sessions: store.sessions.length,
-      pinnedSessions: settings.pinnedSessions.length,
-      streaming: Object.keys(store.streaming).length,
-      ready: store.ready,
-      initError: store.initError,
-      storageUsage: storage.usage ?? null,
-      storageQuota: storage.quota ?? null,
-      unreadableRecords: getUnreadableRecordCount(),
-    },
-    promptCache: {
-      status: readPromptCacheStatus(),
-      latest: readPromptCacheStatus().latest,
-      systemMarkers: readPromptCacheStatus().latest?.systemDynamicMarkers ?? [],
-      unresolvedPlaceholders: readPromptCacheStatus().latest?.unresolvedPlaceholders ?? [],
-    },
-    rendering: probeRendering(),
-    startup: {
-      patchedApis:
-        (window as Window & { __replicaCompat?: { patched: string[] } }).__replicaCompat?.patched ??
-        [],
-      dataMigration: readMigrationReport(),
-      lastBootError: readStoredJson('replica:last-boot-error'),
-      lastRenderError: readStoredJson('replica:last-render-error'),
-    },
-    settings: {
-      locale: settings.locale,
-      theme: settings.themePreference,
-      chatLayout: settings.chatLayout,
-      avatarShape: settings.avatarShape,
-      autoFollow: settings.autoFollow,
-      autoCompact: settings.autoCompact,
-      keepRefusedContent: settings.keepRefusedContent,
-      refusalEnabled: settings.refusalEnabled,
-      safetyCheck: settings.safetyCheck,
-      tokenLimit: settings.tokenLimit,
-      showUsage: settings.showUsage,
-      memoryMode: settings.memoryMode,
-      worldbookInject: settings.worldbookInject,
-      memoryLimit: settings.memoryLimit,
-      autoBackup: settings.autoBackup,
-      autoBackupMinutes: settings.autoBackupMinutes,
-      characterCards: settings.characterCards.length,
-      activeCharacter: Boolean(settings.activeCharacterId),
-      roleplayEnabled: settings.roleplayEnabled,
-      worldbookEntries: settings.worldbook.length,
-      sceneAutoUpdate: settings.sceneAutoUpdate,
-    },
-    recentErrors: errors,
-  }
-}
-
-export const copyDiagnostics = async () => {
-  const text = JSON.stringify(await buildDiagnostics(), null, 2)
-  return copyText(text)
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,3 +1,11 @@
+/* ============================================================================
+ * 功能区：设置页 / RoleplayPanel 样式
+ * 职责：角色卡、世界书、场景、档案编辑器与角色卡列表的令牌、卡片、选中态、标签和响应式布局。
+ * 结构：01 角色令牌与面板；02 卡片与条目列表；03 编辑器与字段；04 世界书、场景与预算；
+ *       05 角色卡列表与来源；06 窄屏断点；07 旧 WebView 兼容层。
+ * 约定：卡片和选择项必须有可见边框、选中底与状态文字；兼容层与主规则同步维护。
+ * ========================================================================== */
+
 .panel {
   --rp-card: var(--settings-card, #fff);
   --rp-line: var(--settings-line, #ececec);
@@ -75,7 +83,6 @@
   border: 1px solid rgba(255, 255, 255, 0.16);
   font-size: 11px;
   color: rgba(245, 247, 255, 0.76);
-  
 }
 
 .heroStats b {
@@ -157,7 +164,6 @@
 
 .emptyLine,
 .notice,
-.activeBanner,
 .hitLine {
   border-radius: 12px;
   font-size: 12px;
@@ -172,26 +178,6 @@
   border: 1px dashed var(--rp-line);
 }
 
-.activeBanner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  color: var(--dsw-alias-label-primary);
-  background: var(--rp-button);
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 8%, var(--rp-card));
-  border: color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 20%, transparent);
-}
-
-.activeBanner > span:last-child {
-  color: var(--rp-muted);
-  font-size: 11px;
-}
-
-.badge,
 .activeTag,
 .constantTag,
 .offTag,
@@ -206,7 +192,6 @@
   font-weight: 500;
 }
 
-.badge,
 .activeTag {
   color: var(--dsw-alias-brand-primary, #4d6bfe);
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
@@ -516,8 +501,10 @@
   color: var(--dsw-alias-brand-primary, #4d6bfe);
   border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 32%, transparent);
   border-color: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 32%, transparent);
-  background: var(--rp-button);
+  background: rgba(77, 107, 254, 0.1);
   background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 10%, var(--rp-card));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 18%, transparent);
 }
 
 .entryRow {
@@ -737,6 +724,7 @@
   gap: 8px;
 }
 
+/* -------------------- 06 窄屏断点：360–520px 下的行高、字号与控件宽度 -------------------- */
 @media (max-width: 420px) {
   .hero,
   .section {
@@ -824,7 +812,9 @@
 .cardRow {
   padding: 12px 13px;
   border-radius: 14px;
-  transition: border-color 140ms ease, background 140ms ease;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease;
 }
 
 .cardAvatar {
@@ -1303,25 +1293,46 @@
   margin-left: -4px;
 }
 
-/* 卡上开关：胶囊轨道加滑块，和世界书条目里的开关保持同一套语言 */
-.cardSwitch {
+/* 卡上开关：带边框的胶囊容器 + 轨道 + 状态文字，关闭态也必须有完整轮廓 */
+.rowActions .cardSwitch {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px 0 4px !important;
+  height: 30px;
+  padding: 0 9px 0 5px !important;
+  border: 1px solid var(--rp-line);
+  border-radius: 999px;
+  background: var(--rp-button);
+  color: var(--rp-muted);
+  font-size: 11px;
+  line-height: 1;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+
+  &[data-on='true'] {
+    border-color: var(--dsw-alias-brand-primary, #4d6bfe);
+    background: rgba(77, 107, 254, 0.08);
+    background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 8%, var(--rp-card));
+    color: var(--dsw-alias-brand-primary, #4d6bfe);
+  }
 }
 
-.cardSwitch i {
+.rowActions .cardSwitch i {
   position: relative;
   display: block;
+  flex: 0 0 28px;
   width: 28px;
   height: 16px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--rp-muted) 30%, transparent);
+  background: rgba(109, 116, 135, 0.46);
+  background: color-mix(in srgb, var(--rp-muted) 46%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
   transition: background 160ms ease;
 }
 
-.cardSwitch i::after {
+.rowActions .cardSwitch i::after {
   content: '';
   position: absolute;
   top: 2px;
@@ -1334,15 +1345,12 @@
   transition: transform 160ms ease;
 }
 
-.cardSwitch[data-on='true'] {
-  color: var(--dsw-alias-brand-primary, #4d6bfe);
-}
-
-.cardSwitch[data-on='true'] i {
+.rowActions .cardSwitch[data-on='true'] i {
   background: var(--dsw-alias-brand-primary, #4d6bfe);
+  box-shadow: none;
 }
 
-.cardSwitch[data-on='true'] i::after {
+.rowActions .cardSwitch[data-on='true'] i::after {
   transform: translateX(12px);
 }
 
@@ -1355,12 +1363,10 @@
     align-items: flex-start;
   }
 
-  .cardSwitch span {
-    display: none;
-  }
-
-  .cardSwitch {
-    padding: 0 4px !important;
+  .rowActions .cardSwitch {
+    gap: 5px;
+    padding: 0 8px 0 4px !important;
+    font-size: 10.5px;
   }
 }
 
@@ -1531,7 +1537,6 @@
   font-size: 12px;
 }
 
-
 /* 世界书搜索：贴在列表上方，输入即过滤，清除按钮只在有词时出现 */
 .listSearch {
   display: flex;
@@ -1572,7 +1577,8 @@
   gap: 5px 8px;
   margin: 0 0 10px;
   padding: 8px 11px;
-  border-left: 2px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 55%, transparent);
+  border-left: 2px solid
+    color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 55%, transparent);
   border-radius: 0 9px 9px 0;
   background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 5%, var(--rp-card));
   color: var(--rp-muted);
@@ -1614,9 +1620,11 @@
   border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 18%, var(--rp-line));
   border-radius: 14px;
   background:
-    linear-gradient(135deg,
+    linear-gradient(
+      135deg,
       color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 5%, transparent),
-      transparent 56%),
+      transparent 56%
+    ),
     var(--rp-card);
 }
 
@@ -1759,9 +1767,11 @@
   overflow: hidden;
   border-radius: 16px;
   background:
-    radial-gradient(120% 70% at 12% 0%,
+    radial-gradient(
+      120% 70% at 12% 0%,
       color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 9%, transparent),
-      transparent 62%),
+      transparent 62%
+    ),
     color-mix(in srgb, var(--rp-button) 34%, var(--rp-card));
   box-shadow:
     0 6px 18px rgb(0 0 0 / 6%),
@@ -1776,7 +1786,12 @@
   left: 14px;
   height: 1px;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 38%, transparent), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 38%, transparent),
+    transparent
+  );
   pointer-events: none;
 }
 
@@ -1883,7 +1898,8 @@
   margin: 6px 0 2px;
   padding: 6px 8px;
   overflow: hidden;
-  border-left: 2px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 30%, transparent);
+  border-left: 2px solid
+    color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 30%, transparent);
   border-radius: 0 7px 7px 0;
   background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 4%, transparent);
   color: color-mix(in srgb, var(--rp-muted) 88%, var(--rp-ink));
@@ -1978,7 +1994,6 @@
     padding-left: 8px;
   }
 }
-
 
 /* 窄屏两列会把正文压到三行截断，改为单列；宽度足够时仍保留左右并列 */
 @media (max-width: 399px) {
@@ -2150,7 +2165,8 @@
   color: var(--dsw-alias-brand-primary, #4d6bfe);
   font-size: 10.5px;
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 36%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 36%, transparent);
   overflow-wrap: anywhere;
   cursor: pointer;
 }
@@ -2171,4 +2187,110 @@
   background: color-mix(in srgb, #d97706 5%, var(--rp-card));
   font-size: 10.5px;
   line-height: 1.55;
+}
+
+/* -------------------- 07 旧 WebView 兼容层 -------------------- */
+/* ============================================================================
+ * 兼容层：旧 WebView 没有 color-mix 时的可见外观
+ * 角色卡、页签、标签、世界书与预算控件的选中态必须有实底或实线，不依赖混色。
+ * ========================================================================== */
+@supports not (background: color-mix(in srgb, #000 10%, transparent)) {
+  .tabs button[data-on] {
+    background: rgba(77, 107, 254, 0.12);
+  }
+
+  .activeTag,
+  .authorityTag[data-authority='canon'] {
+    background: rgba(77, 107, 254, 0.1);
+    border-color: rgba(77, 107, 254, 0.24);
+  }
+
+  .authorityTag[data-authority='rumor'] {
+    background: rgba(116, 122, 140, 0.1);
+    border-color: rgba(116, 122, 140, 0.24);
+  }
+
+  .entryRow,
+  .hitLine,
+  .notice,
+  .cardMeter,
+  .modeCard,
+  .avatarEdit,
+  .budgetCard,
+  .cardList .cardRow {
+    background: var(--rp-card);
+  }
+
+  .modeCard[data-on='true'] {
+    border-color: rgba(77, 107, 254, 0.22);
+    background: rgba(77, 107, 254, 0.07);
+  }
+
+  .modeIcon {
+    background: rgba(116, 122, 140, 0.18);
+  }
+
+  .modeCard[data-on='true'] .modeIcon {
+    background: rgba(77, 107, 254, 0.16);
+  }
+
+  .tagChip[data-on] {
+    border-color: rgba(77, 107, 254, 0.45);
+    background: rgba(77, 107, 254, 0.12);
+  }
+
+  .cardTags span {
+    background: rgba(77, 107, 254, 0.08);
+    color: #4d6bfe;
+  }
+
+  .formatHint {
+    border-left: 2px solid rgba(77, 107, 254, 0.55);
+    background: rgba(77, 107, 254, 0.05);
+  }
+
+  .injectOff {
+    border: 1px solid rgba(217, 119, 6, 0.34);
+    background: rgba(217, 119, 6, 0.1);
+  }
+
+  .budgetCard {
+    border: 1px solid rgba(77, 107, 254, 0.18);
+  }
+
+  .budgetHead b,
+  .budgetPresets button[data-on] {
+    background: rgba(77, 107, 254, 0.1);
+  }
+
+  .budgetPresets button {
+    background: var(--rp-button);
+  }
+
+  .budgetPresets button[data-on] {
+    border-color: rgba(77, 107, 254, 0.42);
+    background: rgba(77, 107, 254, 0.12);
+  }
+
+  .cardList .cardRow {
+    border-color: var(--rp-line);
+  }
+
+  .cardList .cardRow[data-active='true'] {
+    border-color: rgba(77, 107, 254, 0.52);
+  }
+
+  .cardQuote {
+    border-left: 2px solid rgba(77, 107, 254, 0.3);
+    background: rgba(77, 107, 254, 0.04);
+  }
+
+  .sourceNotice,
+  .sourceNote {
+    background: rgba(217, 119, 6, 0.07);
+  }
+
+  .sourceNote {
+    border: 1px solid rgba(217, 119, 6, 0.24);
+  }
 }

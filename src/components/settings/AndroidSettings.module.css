@@ -1,3 +1,11 @@
+/* ============================================================================
+ * 功能区：设置页 / AndroidSettings 样式
+ * 职责：安卓设置页的颜色令牌、页面骨架、列表行、开关、单选、输入、提示条、弹层与移动端断点。
+ * 结构：01 颜色令牌与页面骨架；02 导航与搜索；03 通用行、开关与选择；04 数据、备份与档案；
+ *       05 记忆、费用、语音与关于；06 窄屏断点；07 旧 WebView 兼容层。
+ * 约定：新增控件先复用 --settings-* 令牌；可见边界不得只依赖 color-mix，兼容层必须同步。
+ * ========================================================================== */
+
 .page {
   --settings-bg: #f8f8f8;
   --settings-card: #fff;
@@ -128,10 +136,17 @@ a.row:active,
 }
 
 .rowLabel {
+  display: -webkit-box;
   flex: 1;
   min-width: 0;
+  padding: 7px 0;
+  max-height: calc(2 * 1.35em + 14px);
+  overflow: hidden;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
-
 
 /* 导入方式：设置卡片内的分段控件，选中态跟随主题色，替代系统默认按钮外观 */
 .modeRow {
@@ -196,7 +211,7 @@ a.row:active,
 }
 
 .value {
-  max-width: 55%;
+  max-width: 46%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -226,18 +241,6 @@ a.row:active,
   font-weight: 500;
 }
 
-.info {
-  display: grid;
-  place-items: center;
-  width: 12px;
-  height: 12px;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  font-size: 10px;
-  font-weight: bold;
-  line-height: 12px;
-}
-
 .switch {
   position: relative;
   flex: 0 0 52px;
@@ -246,7 +249,9 @@ a.row:active,
   padding: 0;
   border: 0;
   border-radius: 20px;
-  background: color-mix(in srgb, var(--settings-muted) 24%, var(--settings-card));
+  background: rgba(116, 122, 140, 0.38);
+  background: color-mix(in srgb, var(--settings-muted) 32%, var(--settings-card));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
   transition: background-color 160ms;
 
   span {
@@ -257,11 +262,13 @@ a.row:active,
     height: 24px;
     border-radius: 50%;
     background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
     transition: transform 160ms;
   }
 
   &[aria-checked='true'] {
     background: var(--dsw-alias-brand-primary);
+    box-shadow: none;
 
     span {
       transform: translateX(20px);
@@ -533,9 +540,16 @@ a.row:active,
     }
 
     &[aria-checked='true'] {
+      background: rgba(77, 107, 254, 0.06);
+      background: color-mix(in srgb, var(--dsw-alias-brand-primary) 7%, transparent);
       color: var(--replica-accent-text, var(--dsw-alias-brand-text));
-    }
 
+      &::before {
+        border-color: var(--dsw-alias-brand-primary);
+        background: var(--dsw-alias-brand-primary);
+        box-shadow: inset 0 0 0 3px var(--settings-card);
+      }
+    }
 
     .optionText {
       display: flex;
@@ -552,6 +566,7 @@ a.row:active,
     }
 
     &[aria-checked='true'] .optionText small {
+      color: var(--settings-muted);
       color: color-mix(in srgb, currentColor 62%, var(--settings-muted));
     }
   }
@@ -586,14 +601,6 @@ a.row:active,
   margin: 0 18px 18px;
   color: var(--settings-muted);
   text-align: center;
-}
-
-.importDescription {
-  margin: 14px 18px 18px;
-  color: var(--settings-muted);
-  font-size: 13px;
-  line-height: 20px;
-  text-align: start;
 }
 
 /* 导入方式面板：从底部整宽弹出，选项纵向排列，长文案换行而不是把按钮撑出屏幕 */
@@ -805,6 +812,7 @@ a.row:active,
   height: 100px;
   margin-bottom: 8px;
   border-radius: 60px;
+  background: linear-gradient(130deg, #c5cdff 0%, #7586f2 56%, #3446b8 100%);
   background:
     radial-gradient(
       ellipse at 14% 82%,
@@ -824,6 +832,7 @@ a.row:active,
     );
 
   &[data-tone='tide'] {
+    background: linear-gradient(135deg, #d2d8ff 0%, #6478e8 50%, #25328c 100%);
     background:
       radial-gradient(
         ellipse at 20% 15%,
@@ -844,21 +853,106 @@ a.row:active,
   }
 }
 
+.voiceName {
+  font-size: 16px;
+  font-weight: 500;
+}
+
 .dots {
   display: flex;
-  margin-top: 18px;
+  gap: 8px;
+  margin-top: 12px;
 
   button {
-    width: 22px;
-    height: 22px;
-    padding: 7px;
-    border: 0;
+    box-sizing: border-box;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 2px solid rgba(116, 122, 140, 0.5);
     border-radius: 50%;
-    background: color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, var(--settings-card)) content-box;
+    background: transparent;
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease,
+      box-shadow 140ms ease;
   }
 
   button[aria-checked='true'] {
-    background-color: var(--dsw-alias-brand-text);
+    border-color: var(--dsw-alias-brand-primary);
+    background: var(--dsw-alias-brand-primary);
+    box-shadow: inset 0 0 0 4px var(--settings-card);
+  }
+}
+
+.voicePreview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 132px;
+  height: 36px;
+  margin-top: 10px;
+  padding: 0 15px;
+  border: 1px solid var(--settings-line);
+  border-radius: 999px;
+  background: var(--settings-button);
+  color: var(--settings-text, var(--dsw-alias-label-primary));
+  font: inherit;
+  font-size: 13px;
+
+  &[data-playing='true'] {
+    border-color: var(--dsw-alias-brand-primary);
+    background: rgba(77, 107, 254, 0.08);
+    background: color-mix(in srgb, var(--dsw-alias-brand-primary) 8%, transparent);
+    color: var(--dsw-alias-brand-primary);
+  }
+}
+
+.voiceBars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 14px;
+  height: 12px;
+  color: currentColor;
+
+  i {
+    width: 3px;
+    height: 100%;
+    border-radius: 1px;
+    background: currentColor;
+    transform: scaleY(0.35);
+    transform-origin: bottom;
+  }
+
+  .voicePreview[data-playing='true'] & i {
+    animation: voice-bar 760ms ease-in-out infinite alternate;
+  }
+
+  i:nth-child(2) {
+    animation-delay: -280ms !important;
+  }
+
+  i:nth-child(3) {
+    animation-delay: -520ms !important;
+  }
+}
+
+.voicePreviewHint {
+  max-width: 248px;
+  margin: 8px 0 0;
+  color: var(--settings-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@keyframes voice-bar {
+  from {
+    transform: scaleY(0.3);
+  }
+  to {
+    transform: scaleY(1);
   }
 }
 
@@ -1070,17 +1164,6 @@ a.row:active,
   }
 }
 
-.promptReset {
-  flex-shrink: 0;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 8px;
-  color: inherit;
-  background: var(--settings-button);
-  font: inherit;
-  font-size: 12px;
-}
-
 .paramRow {
   display: flex;
   align-items: center;
@@ -1137,7 +1220,8 @@ a.row:active,
 .costBanner {
   margin: 0 0 14px;
   padding: 15px 16px 13px;
-  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 24%, var(--settings-line));
+  border: 1px solid
+    color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 24%, var(--settings-line));
   border-radius: 16px;
   background: color-mix(in srgb, var(--dsw-alias-brand-primary, #4d6bfe) 7%, var(--settings-card));
 }
@@ -1524,6 +1608,7 @@ a.row:active,
 }
 
 .memoryModeCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1534,11 +1619,32 @@ a.row:active,
   color: inherit;
   font: inherit;
   text-align: left;
-  transition: border-color 140ms ease, background 140ms ease;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
 
   &[data-active='true'] {
     border-color: var(--dsw-alias-brand-primary, #4d6bfe);
+    background: rgba(77, 107, 254, 0.08);
     background: color-mix(in srgb, var(--dsw-alias-brand-primary) 8%, transparent);
+    box-shadow: inset 0 0 0 1px var(--dsw-alias-brand-primary);
+
+    &::after {
+      content: '✓';
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      display: grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--dsw-alias-brand-primary);
+      color: #fff;
+      font-size: 11px;
+      line-height: 1;
+    }
   }
 
   &[data-recommend='true'][data-active='false'] {
@@ -1626,7 +1732,9 @@ a.row:active,
 
     &[aria-checked='true'] {
       border-color: var(--dsw-alias-brand-primary, #4d6bfe);
+      background: rgba(77, 107, 254, 0.1);
       background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
+      box-shadow: inset 0 0 0 1px var(--dsw-alias-brand-primary);
       color: var(--dsw-alias-brand-primary, #4d6bfe);
       font-weight: 600;
     }
@@ -1752,7 +1860,6 @@ a.row:active,
     color: inherit;
   }
 }
-
 
 /* 设置搜索：根页顶部吸顶，输入即出结果，点结果直达目标页或弹层 */
 .settingsSearch {
@@ -2054,6 +2161,7 @@ a.row:active,
 }
 
 /* 长期记忆：窄屏把三列速览和分层说明改成单列，避免文字被压成一字一行 */
+/* -------------------- 06 窄屏断点：360–520px 下的行高、字号与控件宽度 -------------------- */
 @media (max-width: 520px) {
   .memoryBannerGrid {
     grid-template-columns: 1fr;
@@ -2064,7 +2172,6 @@ a.row:active,
     gap: 2px;
   }
 }
-
 
 @keyframes settingsPageIn {
   from {
@@ -2081,5 +2188,92 @@ a.row:active,
 @media (prefers-reduced-motion: reduce) {
   .page {
     animation: none;
+  }
+}
+
+/* -------------------- 07 旧 WebView 兼容层 -------------------- */
+/* ============================================================================
+ * 兼容层：旧 WebView 没有 color-mix 时的可见外观
+ * 只覆盖容器边界、选中底、状态底与进度底；现代 WebView 保持原渐变与混色。
+ * ========================================================================== */
+@supports not (background: color-mix(in srgb, #000 10%, transparent)) {
+  .modeSwitch button[data-on] {
+    background: rgba(77, 107, 254, 0.14);
+    box-shadow: inset 0 0 0 1px rgba(77, 107, 254, 0.32);
+  }
+
+  .caption,
+  .importIssues,
+  .pageIntro,
+  .profileGroupHint,
+  .choiceHint {
+    background: rgba(127, 127, 127, 0.07);
+  }
+
+  .exportProgress {
+    background: rgba(116, 122, 140, 0.18);
+  }
+
+  .rangeWrap::before {
+    background: rgba(77, 107, 254, 0.32);
+  }
+
+  .rangeTicks span {
+    background: rgba(77, 107, 254, 0.45);
+  }
+
+  .importMode[data-selected='true'],
+  .voicePreview[data-playing='true'],
+  .profileNotice[data-off] {
+    background: rgba(77, 107, 254, 0.08);
+  }
+
+  .profileInput[data-disabled] {
+    background: rgba(116, 122, 140, 0.07);
+  }
+
+  .costBanner {
+    border-color: rgba(77, 107, 254, 0.24);
+    background: rgba(77, 107, 254, 0.07);
+  }
+
+  .costKicker {
+    background: rgba(77, 107, 254, 0.13);
+  }
+
+  .costRow p {
+    background: rgba(127, 127, 127, 0.06);
+  }
+
+  .helpBody {
+    background: var(--settings-card, #fff);
+    opacity: 1;
+  }
+
+  .memoryBanner {
+    border: 1px solid rgba(77, 107, 254, 0.18);
+    background: linear-gradient(135deg, rgba(77, 107, 254, 0.14), rgba(77, 107, 254, 0.05));
+  }
+
+  .memoryBadge[data-mode='turn'],
+  .memoryBadge[data-mode='refine'] {
+    background: rgba(77, 107, 254, 0.16);
+  }
+
+  .memoryBannerGrid > div {
+    border: 1px solid rgba(77, 107, 254, 0.12);
+    background: rgba(77, 107, 254, 0.05);
+  }
+
+  .memoryModeCard[data-recommend='true'][data-active='false'] {
+    border-color: rgba(77, 107, 254, 0.35);
+  }
+
+  .memoryModeName i {
+    background: rgba(77, 107, 254, 0.14);
+  }
+
+  .settingsSearch button {
+    border: 1px solid rgba(77, 107, 254, 0.28);
   }
 }

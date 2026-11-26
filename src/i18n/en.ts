@@ -1,7 +1,7 @@
 /* ============================================================================
  * 功能区：国际化 / en 开始
  * 职责：英文文案字典：维护界面与错误所需英文文本。
- * 导出：androidWelcomeMessages、androidColdStartGreeting、en。
+ * 导出：androidWelcomeMessages、en。
  * ========================================================================== */
 
 import type { zh } from './zh.js'
@@ -11,8 +11,6 @@ export const androidWelcomeMessages = [
   'Hi. What can I do for you?',
 ] as const
 
-export const androidColdStartGreeting = 'Welcome back, start chatting whenever you like'
-
 export const en = {
   peakWelcomeMessage: 'Peak hours. Higher load may slow responses.',
   offpeakWelcomeMessage: 'Off-peak hours. Lower load suits longer conversations.',
@@ -21,8 +19,7 @@ export const en = {
   peakHoursShort: 'peak',
   offpeakHoursShort: 'off-peak',
   fatFishLineFirst: 'Hold on. I just filled my bowl, and you nearly knocked it over.',
-  fatFishLinePhase1:
-    'It is {phase} hours. We can talk, but leave me one bowl of plain rice first.',
+  fatFishLinePhase1: 'It is {phase} hours. We can talk, but leave me one bowl of plain rice first.',
   fatFishLinePhase2:
     'It is {phase} hours. If you want a scene, wait until I finish this mouthful. And stop staring at my bowl.',
   fatFishLinePhase3:
@@ -33,10 +30,12 @@ export const en = {
   fatFishLineTease3: 'You can have some. One chopstickful, and do not touch the bowl.',
   fatFishLineTease4: 'It is not that I refuse to share. I am guarding my food. Understand?',
   fatFishLineTease5: 'Calling me names will not help. I am the blue fat fish who eats plain rice.',
-  fatFishLineTease6: 'Come back later. I am busy eating right now and have no time to entertain you.',
+  fatFishLineTease6:
+    'Come back later. I am busy eating right now and have no time to entertain you.',
   fatFishLineTease7: 'Keep tapping and I will take the bowl away. Catch me if you can.',
   fatFishLineTease8: 'Hmph. I can share half the rice. The bowl stays with me.',
-  fatFishLineTease9: 'Fine, fine, I will save you a bite. Stop poking. You are knocking rice everywhere.',
+  fatFishLineTease9:
+    'Fine, fine, I will save you a bite. Stop poking. You are knocking rice everywhere.',
   fatFishLineTease10: 'If you are really hungry, go fill your own bowl. Stop staring at mine.',
   androidMessageHint: 'Send a message',
   androidHoldHint: 'Send a message or hold to talk',
@@ -296,19 +295,22 @@ export const en = {
   backupSessionIntegrityDigest: 'Message content does not match the export checksum',
   autoBackupDone: 'Auto backup complete: {count} chats, verified and saved to Downloads',
   autoBackupFailed: 'Auto backup failed; no incomplete file was left in Downloads',
-  settingsLocalePreference: 'Language',
-  settingsTtsVoice: 'Read-aloud voice',
+  settingsCostHigh: 'High cost',
+  settingsCostMid: 'Medium',
+  settingsCostLow: 'Low',
   settingsTtsVoiceStella: 'Stella',
   settingsTtsVoiceTide: 'Tide',
   settingsTtsVoiceStellaDescription: 'Playful and sweet',
   settingsTtsVoiceTideDescription: 'Deep and rich',
-  settingsLocation: 'Location',
-  settingsLocationProvince: 'Select province/region',
-  settingsLocationCity: 'Select city',
-  settingsLocationRegion: 'Select country or region',
+  settingsTtsVoicePreview: 'Preview voice',
+  settingsTtsVoicePreviewStop: 'Stop preview',
+  settingsTtsVoicePreviewHint:
+    'Preview uses one TTS request with the selected voice; read-aloud stays unchanged.',
+  settingsTtsVoicePreviewNoKey: 'Add and save an API key before previewing a voice.',
+  settingsTtsVoicePreviewFailed:
+    'Voice preview failed. Check the network or speech service and retry.',
   settingDialogAsideGeneralOptionLabel: 'General',
   settingDialogAsideDataOptionLabel: 'Data',
-  avatarMenuSettingsDialogThemeItemLabel: 'Theme',
   avatarMenuSettingsDialogThemeSelectLightOption: 'Light',
   avatarMenuSettingsDialogThemeSelectDarkOption: 'Dark',
   avatarMenuSettingsDialogThemeSelectSystemOption: 'System',
@@ -397,9 +399,6 @@ export const en = {
   historyExportPacking: 'Packing archive: {percent}%',
   historyExportSaving: 'Writing to device: {percent}%',
   historyExportSaved: 'Saved: {name}',
-  exportAllDownload: 'Download',
-  deleteAllSessions: 'Delete all chats',
-  deleteAllSessionsModalTitle: 'Once deleted, all chats will be cleared and cannot be recovered.',
   deleteAllSessionsModalDescription:
     'Locally saved attachments and unsent drafts will also be deleted.',
   historyDeleting: 'Deleting...',
@@ -507,8 +506,6 @@ export const en = {
   pageLoading: 'Loading...',
   pageLoadFailed: 'Unable to load this page. Please try again.',
   latestReminderLanguage: 'English',
-  settingsLocaleZhCN: 'Simplified Chinese',
-  settingsLocaleEnUS: 'English',
   roleplayNeedName: 'Enter a character name first',
   roleplaySourceUrlBad: 'Invalid source link. Only http / https addresses are allowed.',
   roleplayStorageFailed: 'Local storage failed. Try again.',

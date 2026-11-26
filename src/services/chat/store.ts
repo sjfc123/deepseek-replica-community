@@ -2880,14 +2880,13 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         ? formatCharacterCard(activeCard, userName)
         : profileSystem || identitySystem
   // 三种身份来源互斥：一张卡、完整档案或轻量身份行，不会同时拼进 system。
-  // 只有角色上下文才把默认助手提示替换成中性角色基底，并追加演出/格式规则。
+  // 只有角色上下文才把默认助手提示替换成沉浸角色基底，并追加演出/格式规则。
   const roleplayContext =
     suppressionActive || (!promptEmpty && Boolean(activeCard || profileSystem || identitySystem))
   const baseSystem = [
     identityBlock,
     composeSystemPrompt({
       savedPrompt: systemPrompt,
-      custom,
       suppressMetaTalk,
       userName,
       roleplayContext,

@@ -1,7 +1,7 @@
 /* ============================================================================
  * 功能区：语音链路 / readAloud 开始
  * 职责：readAloud 服务实现，负责语音朗读、录音采集或连续通话链路中的该子能力。
- * 导出：ReadAloudStatus、useReadAloud、stopReadAloud、setReadAloudBlocked、scheduleTtsStream、describeReadAloudError 等 7 个导出。
+ * 导出：ReadAloudStatus、useReadAloud、stopReadAloud、setReadAloudBlocked、scheduleTtsStream、describeReadAloudError、previewTtsVoice、stopVoicePreview。
  * ========================================================================== */
 
 import { create } from 'zustand'
@@ -161,6 +161,96 @@ export const describeReadAloudError = (error: unknown): TranslationMessage | str
       return { key: 'ttsFailed' }
   }
 }
+
+/* -------------------- 功能区：音色试听 开始 -------------------- */
+
+type VoicePreview = {
+  controller: AbortController
+  context: AudioContext
+}
+
+let voicePreview: VoicePreview | null = null
+
+/** 停止试听并释放 AudioContext；重复调用安全 */
+export const stopVoicePreview = () => {
+  if (!voicePreview) {
+    return
+  }
+  const currentPreview = voicePreview
+  voicePreview = null
+  currentPreview.controller.abort()
+  void currentPreview.context.close()
+}
+
+/**
+ * 用当前音色合成一句示例并立即播放。
+ * 必须在点击事件内同步调用，AudioContext 才能取得用户手势授权。
+ * 与回复朗读互斥：开始试听会先停止正在朗读的回复。
+ */
+export const previewTtsVoice = (
+  voice: 'stella' | 'tide',
+  text: string,
+  onFinish: () => void,
+  onError: (error: unknown) => void
+) => {
+  stopReadAloud()
+  stopVoicePreview()
+  const controller = new AbortController()
+  let context: AudioContext
+  try {
+    context = new AudioContext({ sampleRate: TTS_SAMPLE_RATE })
+  } catch (error) {
+    onError(error)
+    return
+  }
+  const preview: VoicePreview = { controller, context }
+  voicePreview = preview
+  const settle = () => {
+    if (voicePreview !== preview) {
+      return
+    }
+    voicePreview = null
+    void context.close()
+    onFinish()
+  }
+  void (async () => {
+    try {
+      const stream = await synthesize(
+        useSettings.getState().apiKey ?? '',
+        text,
+        voice,
+        controller.signal
+      )
+      const { lastSource } = await scheduleTtsStream({
+        context,
+        destination: context.destination,
+        stream,
+        signal: controller.signal,
+        initialNextTime: 0,
+        onSource: () => {},
+      })
+      if (controller.signal.aborted) {
+        return
+      }
+      if (!lastSource) {
+        settle()
+        return
+      }
+      lastSource.onended = settle
+    } catch (error) {
+      if (controller.signal.aborted) {
+        return
+      }
+      if (voicePreview === preview) {
+        voicePreview = null
+        void context.close()
+      }
+      onError(error)
+    }
+  })()
+}
+
+/* -------------------- 功能区：音色试听 结束 -------------------- */
 
 /**
  * 开始朗读指定回复的正文；对同一条回复重复调用视为停止。

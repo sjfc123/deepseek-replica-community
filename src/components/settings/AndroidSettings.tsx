@@ -1,6 +1,8 @@
 /* ============================================================================
  * 功能区：设置页 / AndroidSettings 开始
- * 职责：Android 设置页：分区导航、账户、角色档案、记忆、数据与外观配置。
+ * 职责：Android 设置页的页面栈、分区导航、账户、角色档案、记忆、数据、语音与外观配置。
+ * 分区：页面类型与通用控件；设置模块入口；状态/派生数据/副作用；各页渲染；
+ *       弹层与危险操作确认；页面栈收尾。通用控件只负责展示，业务写入留在设置动作区。
  * ========================================================================== */
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
@@ -169,8 +171,14 @@ import { ProfileEditor } from './ProfileEditor.js'
 import { RoleplayPanel } from './RoleplayPanel.js'
 import { closeSettings, useSettingsDialog } from './settingsDialogState.js'
 import { checkForUpdates, type UpdateCheckResult } from '../../services/updateCheck.js'
+import {
+  describeReadAloudError,
+  previewTtsVoice,
+  stopVoicePreview,
+} from '../../services/speech/readAloud.js'
 import styles from './AndroidSettings.module.css'
 
+/* -------------------- 配置常量区：版本、官方链接 -------------------- */
 const appVersion = document.querySelector<HTMLMetaElement>(
   'meta[name="application-version"]'
 )?.content
@@ -408,20 +416,29 @@ const CostRow = ({
   checked: boolean
   toggle?: () => void
   disabled?: boolean
-}) => (
-  <div className={styles.costRow} data-disabled={disabled ? '' : undefined}>
-    <div className={styles.costCopy}>
-      <div className={styles.costTitle}>
-        <strong>{label}</strong>
-        <i data-impact={impact}>
-          {impact === 'high' ? '高开销' : impact === 'mid' ? '中等' : '很低'}
-        </i>
+}) => {
+  const t = useTranslate()
+  return (
+    <div className={styles.costRow} data-disabled={disabled ? '' : undefined}>
+      <div className={styles.costCopy}>
+        <div className={styles.costTitle}>
+          <strong>{label}</strong>
+          <i data-impact={impact}>
+            {t(
+              impact === 'high'
+                ? 'settingsCostHigh'
+                : impact === 'mid'
+                  ? 'settingsCostMid'
+                  : 'settingsCostLow'
+            )}
+          </i>
+        </div>
+        <p>{description}</p>
       </div>
-      <p>{description}</p>
+      <Switch label={label} checked={checked} toggle={disabled ? undefined : toggle} />
     </div>
-    <Switch label={label} checked={checked} toggle={disabled ? undefined : toggle} />
-  </div>
-)
+  )
+}
 
 const ParamField = ({
   label,
@@ -727,11 +744,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     ...group,
     fields: CHARACTER_PROFILE_FIELDS.filter((field) => field.group === group.key),
   }))
-  const promptState = systemPrompt.trim()
+  // 首页摘要只放能在 360px 一行放下的短状态；完整的提示词来源放在角色页里说明。
+  const promptStateShort = systemPrompt.trim()
     ? systemPrompt === DEFAULT_SYSTEM_PROMPT
-      ? tr('提示词默认', 'prompt default')
-      : tr('提示词自定义', 'prompt custom')
-    : tr('提示词已清空 · 官方助手', 'prompt empty · official assistant')
+      ? tr('默认', 'default')
+      : tr('自定义', 'custom')
+    : tr('官方助手', 'assistant')
   const accountName = accountProfile.username || tr('未设置名称', 'No name')
   const compactChars = (value: number) =>
     value >= 1_000_000
@@ -790,6 +808,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   } | null>(null)
   const settingInput = useRef<HTMLInputElement>(null)
   const [tone, setTone] = useState(ttsVoice)
+  const [previewingTone, setPreviewingTone] = useState(false)
+  const previewRun = useRef(0)
   const [busy, setBusy] = useState(false)
   // 只有导入/删除这类会改动本地数据的动作才阻止返回；导出、备份可能等待原生文件选择，
   // 若也用它挡住 back()，用户会在一段时间内看到“按钮和返回都没反应”。
@@ -828,6 +848,16 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const sessions = useChatStore((state) => state.sessions.length)
   const editor = useApiKeyEditor()
 
+  // 音色试听只存在于弹层内：切换页面、关闭弹层或改选音色都必须立刻释放音频上下文。
+  useEffect(() => {
+    if (popup === 'voice') {
+      return
+    }
+    previewRun.current += 1
+    stopVoicePreview()
+    setPreviewingTone(false)
+  }, [popup])
+
   useEffect(() => {
     if (page === 'data') {
       setBackupStatus(readAutoBackupStatus())
@@ -838,8 +868,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     root: t('settings'),
     account: t('accountManagement'),
     advanced: t('advancedSettings'),
-    character: tr('角色档案与表达', 'Character profile & delivery'),
-    roleplay: tr('角色卡与世界书', 'Character cards & lorebook'),
+    character: tr('角色档案与表达', 'Profile & delivery'),
+    roleplay: tr('角色卡与世界书', 'Cards & lorebook'),
     sampling: tr('生成参数', 'Sampling'),
     request: tr('接口与请求', 'Endpoint & request'),
     context: tr('上下文与拒答', 'Context & refusal'),
@@ -858,7 +888,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   }[] = [
     {
       label: tr('总览', 'Overview'),
-      items: [{ page: 'root', label: tr('设置首页', 'Settings home'), icon: tr('设置首页', 'Settings home') }],
+      items: [
+        {
+          page: 'root',
+          label: tr('设置首页', 'Settings home'),
+          icon: tr('设置首页', 'Settings home'),
+        },
+      ],
     },
     {
       label: tr('账户与数据', 'Account & data'),
@@ -898,7 +934,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       ],
     },
   ]
-  const activeNavigationPage: Page = page === 'advanced' ? 'account' : page === 'export' ? 'data' : page
+  const activeNavigationPage: Page =
+    page === 'advanced' ? 'account' : page === 'export' ? 'data' : page
   const headerCount = Object.keys(parseCustomHeaders(customHeaders)).length
   const formatBackupTime = (date: number) =>
     new Date(date).toLocaleString(locale === 'zh-CN' ? 'zh-CN' : 'en-US', {
@@ -991,6 +1028,51 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     },
   ]
   const currentTone = tones.find((item) => item.id === tone) ?? tones[0]
+  const stopTonePreview = () => {
+    previewRun.current += 1
+    stopVoicePreview()
+    setPreviewingTone(false)
+  }
+  const startTonePreview = () => {
+    if (previewingTone) {
+      stopTonePreview()
+      return
+    }
+    if (!useSettings.getState().apiKey) {
+      showToast({ key: 'settingsTtsVoicePreviewNoKey', type: 'error' })
+      return
+    }
+    const run = previewRun.current + 1
+    previewRun.current = run
+    setPreviewingTone(true)
+    previewTtsVoice(
+      tone,
+      tr(
+        '你好，我是你的角色。现在用这个音色和你说话。',
+        'Hello, this is your character speaking in this voice.'
+      ),
+      () => {
+        if (previewRun.current === run) {
+          setPreviewingTone(false)
+        }
+      },
+      (error) => {
+        if (previewRun.current !== run) {
+          return
+        }
+        setPreviewingTone(false)
+        const described = describeReadAloudError(error)
+        showToast(
+          typeof described === 'string'
+            ? described
+            : described.key === 'ttsFailed'
+              ? { key: 'settingsTtsVoicePreviewFailed', type: 'error' }
+              : described,
+          4200
+        )
+      }
+    )
+  }
   const systemFontStep = Math.min(
     6,
     Math.max(0, Math.round(((android?.systemFontScale() ?? 1) - 1) / 0.1 + 2))
@@ -1595,7 +1677,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <Row
                 label={tr('Token 统计', 'Token usage')}
-                value={tr('接口 usage · 无估算', 'API usage · measured')}
+                value={tr('接口实测', 'Measured')}
                 onClick={() => setUsageOpen(true)}
               />
               <Row
@@ -1611,8 +1693,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <Row
                 label={labels.character}
                 value={tr(
-                  `档案 ${profileFields}/${profileTotal}${profileEnabled ? '' : '（已关闭）'} · ${promptState}`,
-                  `${profileFields}/${profileTotal} fields${profileEnabled ? '' : ' (off)'} · ${promptState}`
+                  `${profileFields}/${profileTotal}${profileEnabled ? '' : '（关）'} · ${promptStateShort}`,
+                  `${profileFields}/${profileTotal}${profileEnabled ? '' : ' (off)'} · ${promptStateShort}`
                 )}
                 onClick={() => openPage('character')}
               />
@@ -1667,16 +1749,16 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <Row
                 label={labels.context}
                 value={tr(
-                  `压缩${autoCompact ? '开' : '关'} · 拒答${keepRefusedContent ? '保留' : '占位'}${allowRefusedContext ? ' · 入上下文' : ''}`,
-                  `Compact ${autoCompact ? 'on' : 'off'} · refused ${keepRefusedContent ? 'kept' : 'placeholder'}${allowRefusedContext ? ' · in context' : ''}`
+                  `压缩${autoCompact ? '开' : '关'} · 拒答${keepRefusedContent ? '保留' : '占位'}`,
+                  `Compact ${autoCompact ? 'on' : 'off'} · ${keepRefusedContent ? 'kept' : 'blank'}`
                 )}
                 onClick={() => openPage('context')}
               />
               <Row
                 label={labels.request}
                 value={tr(
-                  `${safetyCheck ? '审核开' : '审核关'} · ${headerCount > 0 ? `${headerCount} 个请求头` : autoTitle ? '自动标题' : '手动标题'}`,
-                  `Safety ${safetyCheck ? 'on' : 'off'} · ${headerCount > 0 ? `${headerCount} headers` : autoTitle ? 'auto title' : 'manual title'}`
+                  `${safetyCheck ? '审核开' : '审核关'} · ${headerCount > 0 ? `${headerCount} 请求头` : autoTitle ? '自动' : '手动'}`,
+                  `Safety ${safetyCheck ? 'on' : 'off'} · ${headerCount > 0 ? `${headerCount} headers` : autoTitle ? 'auto' : 'manual'}`
                 )}
                 onClick={() => openPage('request')}
               />
@@ -1731,8 +1813,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             <Group label={tr('语音', 'Voice')}>
               <Row
                 label={voice}
+                value={currentTone.label}
                 icon={<VoiceIcon />}
-                arrow={false}
+                arrow
                 onClick={() => {
                   setTone(ttsVoice)
                   setPopup('voice')
@@ -1744,7 +1827,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <Row
                 label={
                   updateResult?.hasUpdate
-                    ? tr(`发现新版本 ${updateResult.latest}`, `Update ${updateResult.latest} available`)
+                    ? tr(
+                        `发现新版本 ${updateResult.latest}`,
+                        `Update ${updateResult.latest} available`
+                      )
                     : tr('检查更新', 'Check for updates')
                 }
                 value={
@@ -1910,140 +1996,145 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             {profileGroups
               .filter((_, index) => profileOpen || index === 0)
               .map((group, index) => (
-              <Group
-                key={group.key}
-                label={tr(
-                  index === 0 ? `角色设定 · ${group.label}` : group.label,
-                  index === 0 ? `Character setting · ${group.labelEn}` : group.labelEn
-                )}
-              >
-                {index === 0 ? (
-                  <>
-                    <Row
-                      label={tr('读取基础档案', 'Read base profile')}
-                      value={profileEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
-                      arrow={false}
-                      control={
-                        <Switch
-                          label={tr('读取基础档案', 'Read base profile')}
-                          checked={profileEnabled}
-                          toggle={() => {
-                            const next = !profileEnabled
-                            setCharacterProfileEnabled(next)
-                            // 重新开启档案时自动展开字段，避免开关已开却只看到一张空卡。
-                            if (next) {
-                              setProfileOpen(true)
-                            }
-                          }}
-                        />
-                      }
-                    />
-                    <div className={styles.inlineField}>
-                      <span className={styles.inlineLabel}>{tr('角色名字', 'Name')}</span>
-                      <input
-                        className={styles.inlineInput}
-                        data-disabled={!profileEnabled ? '' : undefined}
-                        value={characterName}
-                        placeholder={tr('留空则显示 AI', 'Blank shows AI')}
-                        aria-label={tr('角色名字', 'Character name')}
-                        maxLength={20}
-                        disabled={!profileEnabled}
-                        readOnly={!profileEnabled}
-                        onChange={(event) => profileEnabled && setCharacterName(event.target.value)}
-                      />
-                    </div>
-                    {activeCharacterCard ? (
+                <Group
+                  key={group.key}
+                  label={tr(
+                    index === 0 ? `角色设定 · ${group.label}` : group.label,
+                    index === 0 ? `Character setting · ${group.labelEn}` : group.labelEn
+                  )}
+                >
+                  {index === 0 ? (
+                    <>
                       <Row
-                        label={tr('当前角色卡', 'Active card')}
-                        value={activeCharacterCard.name}
+                        label={tr('读取基础档案', 'Read base profile')}
+                        value={profileEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
                         arrow={false}
-                      />
-                    ) : null}
-                    <p className={styles.profileNotice} data-off={!profileEnabled ? '' : undefined}>
-                      {profileEnabled
-                        ? activeCharacterCard
-                          ? tr(
-                              '档案已开启：当前角色卡「' +
-                                activeCharacterCard.name +
-                                '」优先进入 system，卡名不会写入上面这行档案名；这里显示与保存的始终是手写名字。',
-                              'Profile is on: the active card “' +
-                                activeCharacterCard.name +
-                                '” wins in system, and its name is never written into the profile name above. This field always shows the hand-written name.'
-                            )
-                          : tr(
-                              '档案已开启：没有当前人物卡时，这份档案每轮进入 system；有当前人物卡时以卡为准。空字段不会注入，档案名独立保存。',
-                              'Profile is on: with no active card it enters every system turn; an active card wins. Empty fields are skipped, and the profile name is stored independently.'
-                            )
-                        : activeCharacterCard
-                          ? tr(
-                              '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system；当前角色卡「' +
-                                activeCharacterCard.name +
-                                '」的卡名不会改写这行档案名。',
-                              'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line. The active card “' +
-                                activeCharacterCard.name +
-                                '” never rewrites that profile name.'
-                            )
-                          : tr(
-                              '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system，避免模型完全失去姓名；重新开启后才能修改。',
-                              'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line so the model keeps a name. Turn the switch back on to edit.'
-                            )}
-                    </p>
-                    <Row
-                      label={tr('展开基础档案', 'Show base profile')}
-                      value={profileOpen ? tr('已展开', 'Expanded') : tr('已收起', 'Collapsed')}
-                      arrow={false}
-                      control={
-                        <Switch
-                          label={tr('展开基础档案', 'Show base profile')}
-                          checked={profileOpen}
-                          toggle={() => setProfileOpen((open) => !open)}
-                        />
-                      }
-                    />
-                    <p className={styles.profileNotice}>
-                      {tr(
-                        '只写表达提示词、暂时不想填档案时，可以收起下面的基础档案；重新展开后原有内容都在，不会被清空。',
-                        'If you only want to write a delivery prompt, collapse the base profile below. Expanding it again restores every saved field.'
-                      )}
-                    </p>
-                  </>
-                ) : null}
-                {profileOpen ? (
-                  <>
-                    <p className={styles.profileGroupHint}>{tr(group.hint, group.hintEn)}</p>
-                    {group.fields.map((field) => {
-                      const en = CHARACTER_PROFILE_EN[field.key]
-                      return (
-                        <label
-                          className={styles.profileField}
-                          data-disabled={!profileEnabled ? '' : undefined}
-                          key={field.key}
-                        >
-                          <span className={styles.profileLabel}>
-                            <span>{tr(field.label, en.label)}</span>
-                            <span className={styles.profileHint}>{tr(field.hint, en.hint)}</span>
-                          </span>
-                          <textarea
-                            className={styles.profileInput}
-                            data-disabled={!profileEnabled ? '' : undefined}
-                            rows={field.rows}
-                            value={characterProfile[field.key]}
-                            placeholder={tr(field.placeholder, en.placeholder)}
-                            aria-label={tr(field.label, en.label)}
-                            disabled={!profileEnabled}
-                            readOnly={!profileEnabled}
-                            onChange={(event) =>
-                              profileEnabled &&
-                              setCharacterProfileField(field.key, event.target.value)
-                            }
+                        control={
+                          <Switch
+                            label={tr('读取基础档案', 'Read base profile')}
+                            checked={profileEnabled}
+                            toggle={() => {
+                              const next = !profileEnabled
+                              setCharacterProfileEnabled(next)
+                              // 重新开启档案时自动展开字段，避免开关已开却只看到一张空卡。
+                              if (next) {
+                                setProfileOpen(true)
+                              }
+                            }}
                           />
-                        </label>
-                      )
-                    })}
-                  </>
-                ) : null}
-              </Group>
-            ))}
+                        }
+                      />
+                      <div className={styles.inlineField}>
+                        <span className={styles.inlineLabel}>{tr('角色名字', 'Name')}</span>
+                        <input
+                          className={styles.inlineInput}
+                          data-disabled={!profileEnabled ? '' : undefined}
+                          value={characterName}
+                          placeholder={tr('留空则显示 AI', 'Blank shows AI')}
+                          aria-label={tr('角色名字', 'Character name')}
+                          maxLength={20}
+                          disabled={!profileEnabled}
+                          readOnly={!profileEnabled}
+                          onChange={(event) =>
+                            profileEnabled && setCharacterName(event.target.value)
+                          }
+                        />
+                      </div>
+                      {activeCharacterCard ? (
+                        <Row
+                          label={tr('当前角色卡', 'Active card')}
+                          value={activeCharacterCard.name}
+                          arrow={false}
+                        />
+                      ) : null}
+                      <p
+                        className={styles.profileNotice}
+                        data-off={!profileEnabled ? '' : undefined}
+                      >
+                        {profileEnabled
+                          ? activeCharacterCard
+                            ? tr(
+                                '档案已开启：当前角色卡「' +
+                                  activeCharacterCard.name +
+                                  '」优先进入 system，卡名不会写入上面这行档案名；这里显示与保存的始终是手写名字。',
+                                'Profile is on: the active card “' +
+                                  activeCharacterCard.name +
+                                  '” wins in system, and its name is never written into the profile name above. This field always shows the hand-written name.'
+                              )
+                            : tr(
+                                '档案已开启：没有当前人物卡时，这份档案每轮进入 system；有当前人物卡时以卡为准。空字段不会注入，档案名独立保存。',
+                                'Profile is on: with no active card it enters every system turn; an active card wins. Empty fields are skipped, and the profile name is stored independently.'
+                              )
+                          : activeCharacterCard
+                            ? tr(
+                                '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system；当前角色卡「' +
+                                  activeCharacterCard.name +
+                                  '」的卡名不会改写这行档案名。',
+                                'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line. The active card “' +
+                                  activeCharacterCard.name +
+                                  '” never rewrites that profile name.'
+                              )
+                            : tr(
+                                '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system，避免模型完全失去姓名；重新开启后才能修改。',
+                                'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line so the model keeps a name. Turn the switch back on to edit.'
+                              )}
+                      </p>
+                      <Row
+                        label={tr('展开基础档案', 'Show base profile')}
+                        value={profileOpen ? tr('已展开', 'Expanded') : tr('已收起', 'Collapsed')}
+                        arrow={false}
+                        control={
+                          <Switch
+                            label={tr('展开基础档案', 'Show base profile')}
+                            checked={profileOpen}
+                            toggle={() => setProfileOpen((open) => !open)}
+                          />
+                        }
+                      />
+                      <p className={styles.profileNotice}>
+                        {tr(
+                          '只写表达提示词、暂时不想填档案时，可以收起下面的基础档案；重新展开后原有内容都在，不会被清空。',
+                          'If you only want to write a delivery prompt, collapse the base profile below. Expanding it again restores every saved field.'
+                        )}
+                      </p>
+                    </>
+                  ) : null}
+                  {profileOpen ? (
+                    <>
+                      <p className={styles.profileGroupHint}>{tr(group.hint, group.hintEn)}</p>
+                      {group.fields.map((field) => {
+                        const en = CHARACTER_PROFILE_EN[field.key]
+                        return (
+                          <label
+                            className={styles.profileField}
+                            data-disabled={!profileEnabled ? '' : undefined}
+                            key={field.key}
+                          >
+                            <span className={styles.profileLabel}>
+                              <span>{tr(field.label, en.label)}</span>
+                              <span className={styles.profileHint}>{tr(field.hint, en.hint)}</span>
+                            </span>
+                            <textarea
+                              className={styles.profileInput}
+                              data-disabled={!profileEnabled ? '' : undefined}
+                              rows={field.rows}
+                              value={characterProfile[field.key]}
+                              placeholder={tr(field.placeholder, en.placeholder)}
+                              aria-label={tr(field.label, en.label)}
+                              disabled={!profileEnabled}
+                              readOnly={!profileEnabled}
+                              onChange={(event) =>
+                                profileEnabled &&
+                                setCharacterProfileField(field.key, event.target.value)
+                              }
+                            />
+                          </label>
+                        )
+                      })}
+                    </>
+                  ) : null}
+                </Group>
+              ))}
             <p className={styles.caption}>
               {tr(
                 `已填写 ${profileFields}/${profileTotal} 项（角色名字单独保存，不计入这 ${profileTotal} 项）。档案开关关闭时，以上内容全部只读；重新开启后恢复编辑与注入。空字段不会进入 system，也不会用空白占位。`,
@@ -2359,7 +2450,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <ParamField
                 label={tr('温度 temperature', 'Temperature')}
                 value={rpTemperature}
-                placeholder={tr('沿用通用值', 'Use general')}
+                placeholder={tr('继承通用', 'Inherit')}
                 min={0}
                 max={2}
                 step={0.1}
@@ -2368,7 +2459,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <ParamField
                 label="Top P"
                 value={rpTopP}
-                placeholder={tr('沿用通用值', 'Use general')}
+                placeholder={tr('继承通用', 'Inherit')}
                 min={0}
                 max={1}
                 step={0.05}
@@ -2377,7 +2468,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <ParamField
                 label={tr('最大输出 tokens', 'Max output tokens')}
                 value={rpMaxTokens}
-                placeholder={tr('沿用通用值', 'Use general')}
+                placeholder={tr('继承通用', 'Inherit')}
                 min={1}
                 max={1_000_000}
                 step={1}
@@ -2815,17 +2906,29 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 <div>
                   <span>{tr('写入', 'Routing')}</span>
                   <strong>{tr('按显示名分池', 'Route by display name')}</strong>
-                  <small>{tr('AI / DeepSeek 写普通；角色名写角色', 'AI / DeepSeek → normal; character name → character')}</small>
+                  <small>
+                    {tr(
+                      'AI / DeepSeek 写普通；角色名写角色',
+                      'AI / DeepSeek → normal; character name → character'
+                    )}
+                  </small>
                 </div>
                 <div>
                   <span>{tr('内容', 'Content')}</span>
                   <strong>{tr('回合 · 场景 · 事实', 'Turn · scene · fact')}</strong>
-                  <small>{tr('场景与事实独立成卡，长期保留', 'Scenes and facts stay independently')}</small>
+                  <small>
+                    {tr('场景与事实独立成卡，长期保留', 'Scenes and facts stay independently')}
+                  </small>
                 </div>
                 <div>
                   <span>{tr('注入', 'Injection')}</span>
                   <strong>{tr('每轮先查记忆', 'Check memory first')}</strong>
-                  <small>{tr('置顶 → 场景/事实 → 最近 → 相关', 'Pinned → scene/fact → recent → relevant')}</small>
+                  <small>
+                    {tr(
+                      '置顶 → 场景/事实 → 最近 → 相关',
+                      'Pinned → scene/fact → recent → relevant'
+                    )}
+                  </small>
                 </div>
               </div>
             </div>
@@ -2907,15 +3010,30 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <div className={styles.memoryKindGuide}>
                 <div>
                   <strong>{tr('完整回合', 'Full turn')}</strong>
-                  <span>{tr('用户与角色原话、时间与轮次；每轮自动或长按保存。', 'Both sides, time and turn number; saved per turn or on long-press.')}</span>
+                  <span>
+                    {tr(
+                      '用户与角色原话、时间与轮次；每轮自动或长按保存。',
+                      'Both sides, time and turn number; saved per turn or on long-press.'
+                    )}
+                  </span>
                 </div>
                 <div>
                   <strong>{tr('重要场景', 'Important scene')}</strong>
-                  <span>{tr('从选中的对话里单独摘出地点、人物、事件和关键细节；每轮优先带回，最多 6 张。', 'Pull place, people, event and key details out of selected messages; up to 6 recalled first every turn.')}</span>
+                  <span>
+                    {tr(
+                      '从选中的对话里单独摘出地点、人物、事件和关键细节；每轮优先带回，最多 6 张。',
+                      'Pull place, people, event and key details out of selected messages; up to 6 recalled first every turn.'
+                    )}
+                  </span>
                 </div>
                 <div>
                   <strong>{tr('关键事实', 'Key fact')}</strong>
-                  <span>{tr('姓名、称呼、关系、喜好、承诺等稳定设定；每轮优先带回，最多 6 张，不允许前后矛盾。', 'Names, address, relationship, preferences and promises; up to 6 recalled first every turn and never contradicted.')}</span>
+                  <span>
+                    {tr(
+                      '姓名、称呼、关系、喜好、承诺等稳定设定；每轮优先带回，最多 6 张，不允许前后矛盾。',
+                      'Names, address, relationship, preferences and promises; up to 6 recalled first every turn and never contradicted.'
+                    )}
+                  </span>
                 </div>
               </div>
             </Group>
@@ -3205,7 +3323,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <Row
                 label={tr('优先带回', 'Priority recall')}
-                value={tr('置顶 · 场景/事实 · 最近 · 相关', 'Pinned · scene/fact · recent · relevant')}
+                value={tr(
+                  '置顶 · 场景/事实 · 最近 · 相关',
+                  'Pinned · scene/fact · recent · relevant'
+                )}
                 arrow={false}
               />
               <Row
@@ -3373,10 +3494,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   backupStatus
                     ? `${formatBackupTime(backupStatus.date)} · ${formatBackupSize(backupStatus.size)}`
                     : sessions > 0
-                      ? tr(
-                          `未备份 · ${sessions} 个对话`,
-                          `Not backed up · ${sessions} chats`
-                        )
+                      ? tr(`未备份 · ${sessions} 个对话`, `Not backed up · ${sessions} chats`)
                       : tr('暂无备份', 'None yet')
                 }
                 disabled={busy || backingUp}
@@ -3771,7 +3889,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 onClick={() =>
                   void runExportAction(async () => {
                     setExportSavedName(null)
-                    setExportProgress({ phase: 'archive', percent: 0, processed: 0, total: sessions })
+                    setExportProgress({
+                      phase: 'archive',
+                      percent: 0,
+                      processed: 0,
+                      total: sessions,
+                    })
                     const exported = await exportHistory(setExportProgress)
                     setExportProgress({
                       phase: 'save',
@@ -3859,7 +3982,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <p>
                 {tr(
                   '示例文本用于观察字号与行距变化，不参与请求。',
-                  'You can share questions or suggestions with DeepSeek.'
+                  'Sample text shows how size and line height change; it is not sent in requests.'
                 )}
               </p>
             </div>
@@ -4636,12 +4759,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 const dx =
                   event.changedTouches[0].clientX - Number(event.currentTarget.dataset.swipeX)
                 if (Math.abs(dx) > 32) {
+                  stopTonePreview()
                   setTone(dx > 0 ? 'stella' : 'tide')
                 }
               }}
             >
               <div className={styles.voiceArt} data-tone={tone} aria-hidden="true" />
-              <div>{currentTone.label}</div>
+              <div className={styles.voiceName}>{currentTone.label}</div>
               <small>{currentTone.description}</small>
               <div className={styles.dots} role="radiogroup" aria-label={voice}>
                 {tones.map((item) => (
@@ -4651,10 +4775,28 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     role="radio"
                     aria-label={item.label}
                     aria-checked={tone === item.id}
-                    onClick={() => setTone(item.id)}
+                    onClick={() => {
+                      stopTonePreview()
+                      setTone(item.id)
+                    }}
                   />
                 ))}
               </div>
+              <button
+                className={styles.voicePreview}
+                type="button"
+                data-playing={previewingTone}
+                aria-pressed={previewingTone}
+                onClick={startTonePreview}
+              >
+                <span className={styles.voiceBars} aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                {previewingTone ? t('settingsTtsVoicePreviewStop') : t('settingsTtsVoicePreview')}
+              </button>
+              <p className={styles.voicePreviewHint}>{t('settingsTtsVoicePreviewHint')}</p>
             </div>
             <button
               className={styles.primary}
@@ -4807,7 +4949,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                       <IconCloseOutline16 />
                     </button>
                   </div>
-                  <nav className={styles.desktopRailNav} aria-label={tr('设置导航', 'Settings navigation')}>
+                  <nav
+                    className={styles.desktopRailNav}
+                    aria-label={tr('设置导航', 'Settings navigation')}
+                  >
                     {desktopNavigation.map((group) => (
                       <div key={group.label} className={styles.desktopRailGroup}>
                         <div className={styles.desktopRailGroupLabel}>{group.label}</div>
@@ -4829,9 +4974,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                       </div>
                     ))}
                   </nav>
-                  {appVersion ? (
-                    <div className={styles.desktopRailFoot}>v{appVersion}</div>
-                  ) : null}
+                  {appVersion ? <div className={styles.desktopRailFoot}>v{appVersion}</div> : null}
                 </aside>
               ) : null}
               <div className={styles.desktopContent}>

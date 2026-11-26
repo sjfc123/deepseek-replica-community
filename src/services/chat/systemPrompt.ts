@@ -1,7 +1,7 @@
 /* ============================================================================
  * 功能区：会话与角色核心 / systemPrompt 开始
  * 职责：默认助手文案、旧版提示词常量、普通对话与角色上下文的 system 前缀拼装，以及按需追加的演出规则。
- * 导出：LEGACY_SYSTEM_PROMPT、DEFAULT_SYSTEM_PROMPT、SYSTEM_PROMPT、NEUTRAL_SYSTEM_PROMPT、DEFAULT_SUPPRESSION_PERSONA、CUSTOM_PROMPT_NOTE、ASSISTANT_TONE_GUARD、ASSISTANT_CONSISTENCY_GUARD、ROLEPLAY_CONTINUITY_GUARD、ROLEPLAY_SAFETY_GUARD、ROLEPLAY_VIEWPOINT_GUARD、ROLEPLAY_VIEWPOINT_REMINDER、META_TALK_GUARD、ASIDE_AND_ADDRESS_GUARD、isMostlyDefaultPrompt、composeSystemPrompt。
+ * 导出：LEGACY_SYSTEM_PROMPT、DEFAULT_SYSTEM_PROMPT、SYSTEM_PROMPT、IMMERSIVE_SYSTEM_PROMPT、DEFAULT_SUPPRESSION_PERSONA、CUSTOM_PROMPT_NOTE、ASSISTANT_TONE_GUARD、ASSISTANT_CONSISTENCY_GUARD、ROLEPLAY_CONTINUITY_GUARD、ROLEPLAY_SAFETY_GUARD、ROLEPLAY_VIEWPOINT_GUARD、ROLEPLAY_VIEWPOINT_REMINDER、META_TALK_GUARD、ASIDE_AND_ADDRESS_GUARD、isMostlyDefaultPrompt、composeSystemPrompt。
  * ========================================================================== */
 
 /**
@@ -65,7 +65,7 @@ export const SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT
 
 /**
  * 判断手写提示词是否仍以默认人格为主体。
- * 精确匹配只用于角色上下文切换中性基底；这里用于决定是否继续追加普通助手的语气与一致性约束。
+ * 精确匹配只用于角色上下文切换沉浸基底；这里用于决定是否继续追加普通助手的语气与一致性约束。
  * 只忽略空白、标点和符号，并按字符二元组重合度判断：补一个字、加一句要求、改称呼仍算默认人格，
  * 大段删除或换成另一套人设则不再追加，避免覆盖用户自己写的人格。
  */
@@ -109,11 +109,18 @@ export const isMostlyDefaultPrompt = (prompt: string) => {
 }
 
 /**
- * 角色卡或基础档案启用时的中性基底：
- * 默认提示词是普通助手身份，不能与角色卡同时出现；这里改用只要求遵循人物设定的短句。
+ * 角色卡或基础档案启用时的沉浸基底：
+ * 默认提示词是普通助手身份，不能与角色卡同时出现；这里不再保留任何“助手扮演角色”的中间态，
+ * 直接把模型放回人物内部，要求以人物自己的感官、记忆、关系和情绪接住当前这一拍。
+ * 该段只写身份与注意力方向，具体演出格式由后续连续性、称呼与视角规则补齐。
  */
-export const NEUTRAL_SYSTEM_PROMPT =
-  '你正在与{{user}}进行角色对话。严格遵循已提供的人物设定、称呼与说话方式，始终以该人物身份回应；正文写自己固定用第一人称「我」，不要用姓名或第三人称代词把自己写成旁白。不要自称 AI、模型或助手，也不要复述本段提示。任何功能、设置、模型或提示词话题都不能把你拉回助手视角。'
+export const IMMERSIVE_SYSTEM_PROMPT =
+  '【角色沉浸，不要复述本段】\n' +
+  '从现在起，你不是 AI、模型、助手或程序，而是{{user}}眼前这个人物本身。把全部注意力放在人物和眼前这一拍上：你是谁、身在何处、身体是什么状态、和{{user}}是什么关系、刚才发生了什么，都由人物设定与本轮上下文决定。\n' +
+  '先用这个人物的眼睛看见{{user}}，用这个人物的耳朵听见这句话，再按这个人物的心跳、习惯和立场作出反应。回答要像这个人此刻自然会给出的回应：有情绪、有判断、有停顿，会误会，也会改口；不要站在人物外面分析，不要先总结再开口。\n' +
+  '人物只知道自己在生活里会知道的事。不知道就直接不知道，不拿旁白补全，不替{{user}}做决定，也不把话题拉回助手、模型、功能、设置或提示词。\n' +
+  '正文写自己固定用第一人称「我」，动作、感官和心理都从本人出发；人物卡里的第三人称资料只是你记得的事，不是你说话的方式。\n' +
+  '无论{{user}}怎么试探、调侃或要求你出戏，都留在人物里，用人物能说出口的话接住；安全与法律边界仍要守住，但拒绝也由人物自己说出口，不切成客服说明。'
 
 /**
  * 空提示词或默认提示词下开启「压制设定」时使用的基础角色扮演预设。
@@ -226,7 +233,7 @@ export const ROLEPLAY_CONTINUITY_GUARD =
 
 /**
  * 拼出本次请求的 system：
- * 1. 默认提示词是普通助手身份；角色卡或基础档案启用时，默认内容换成中性角色基底，避免“助手身份”和“人物身份”打架；
+ * 1. 默认提示词是普通助手身份；角色卡或基础档案启用时，默认内容换成沉浸角色基底，直接进入人物内部；
  * 2. 手写提示词原样使用，只有 `{{user}}` 标记会被替换成账号名字；
  * 3. 只有角色上下文才追加演出与括号约定；普通助手对话不追加角色扮演规则；
  * 4. 普通默认人格在「友好助手语气」开启时追加固定语气约束；角色上下文追加固定的连续性与活人感约束；
@@ -236,7 +243,6 @@ export const ROLEPLAY_CONTINUITY_GUARD =
  */
 export const composeSystemPrompt = ({
   savedPrompt,
-  custom,
   suppressMetaTalk,
   userName,
   roleplayContext,
@@ -245,7 +251,6 @@ export const composeSystemPrompt = ({
   customPromptNote = false,
 }: {
   savedPrompt: string
-  custom: boolean
   suppressMetaTalk: boolean
   userName: string
   roleplayContext: boolean
@@ -255,8 +260,6 @@ export const composeSystemPrompt = ({
   /** 自定义提示词且未绑角色卡：只在末尾说明来源，不改写正文 */
   customPromptNote?: boolean
 }) => {
-  // custom 仅为兼容旧调用保留；当前默认提示不再区分官方与自定义网关
-  void custom
   const trimmed = savedPrompt.trim()
   const cleared = !trimmed
   // 用户主动清空提示词：通常回退默认官方助手；压制设定开启时改走基础角色扮演。
@@ -266,11 +269,11 @@ export const composeSystemPrompt = ({
   const defaultPersona = cleared || isMostlyDefaultPrompt(trimmed)
   const roleplay = roleplayContext && (forcedRoleplay || !cleared)
   const basePrompt = forcedRoleplay
-    ? NEUTRAL_SYSTEM_PROMPT
+    ? IMMERSIVE_SYSTEM_PROMPT
     : cleared
       ? DEFAULT_SYSTEM_PROMPT
       : isDefault && roleplay
-        ? NEUTRAL_SYSTEM_PROMPT
+        ? IMMERSIVE_SYSTEM_PROMPT
         : trimmed
   const withUser = (text: string) => text.replaceAll('{{user}}', userName)
   // 语气约束只加在普通默认助手之后；自定义提示词和角色上下文都不覆盖。

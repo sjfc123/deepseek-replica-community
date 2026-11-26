@@ -1,17 +1,15 @@
 /* ============================================================================
  * 功能区：国际化 / index 开始
  * 职责：国际化运行时：语言检测、偏好持久化、翻译函数与订阅。
- * 导出：TranslationKey、TranslationParams、TranslationMessage、LinkedMessage、isTranslationKey、useAndroidWelcomeMessages 等 9 个导出。
+ * 导出：TranslationKey、TranslationParams、TranslationMessage、LinkedMessage、isTranslationKey、useAndroidWelcomeMessages、translate、useTranslate 等 7 个导出。
  * ========================================================================== */
 
 import { useSettings } from '../services/settings.js'
 import {
-  androidColdStartGreeting as enAndroidColdStartGreeting,
   androidWelcomeMessages as enAndroidWelcomeMessages,
   en,
 } from './en.js'
 import {
-  androidColdStartGreeting as zhAndroidColdStartGreeting,
   androidWelcomeMessages as zhAndroidWelcomeMessages,
   zh,
 } from './zh.js'
@@ -46,16 +44,8 @@ const androidWelcomeMessages = {
   'en-US': enAndroidWelcomeMessages,
 }
 
-const androidColdStartGreeting = {
-  'zh-CN': zhAndroidColdStartGreeting,
-  'en-US': enAndroidColdStartGreeting,
-}
-
 export const useAndroidWelcomeMessages = () =>
   useSettings((state) => androidWelcomeMessages[state.locale])
-
-export const useAndroidColdStartGreeting = () =>
-  useSettings((state) => androidColdStartGreeting[state.locale])
 
 /** 组件订阅语言变化；普通函数在调用时读取当前语言。 */
 export const useTranslate = () => useSettings((state) => translators[state.locale])

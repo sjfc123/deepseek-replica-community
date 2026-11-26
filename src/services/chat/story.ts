@@ -238,31 +238,6 @@ export const futureStoryClueTerms = (
   return [...terms]
 }
 
-/** 给回复建议看的公开状态：只告诉时间、阶段和线索标题，不暴露卡内秘密。 */ export const formatStoryPublicStatus =
-  (story: CharacterStory | undefined, session: Session | null | undefined) => {
-    if (!story || !session || session.storyClockMinute === undefined) {
-      return ''
-    }
-    const minute = session.storyClockMinute
-    const phase = storyPhaseOf(story, minute)
-    const current = currentStoryClue(story, minute)
-    const lines = [
-      `当前虚拟时间 ${formatStoryClock(minute)}，距零点还有 ${formatStoryRemaining(minute, story.deadlineMinute)}。`,
-      phase === 'normal'
-        ? '妹妹目前仍像本人，语气、标点和短句习惯正常。'
-        : phase === 'anomaly'
-          ? '聊天对象已经出现异常，但玩家还不知道原因。'
-          : '已经到达零点，只能写最后一幕，不能再给可继续的钩子。',
-    ]
-    if (current) {
-      lines.push(
-        `玩家目前已经遇到第 ${current.index + 1}/${current.total} 层异常「${current.clue.title}」。`
-      )
-    }
-    lines.push('建议只能使用玩家已经看到的内容，禁止写出角色卡秘密、真相、后续线索或角色台词。')
-    return lines.join('\n')
-  }
-
 /** 20:00–22:00 为本人，22:01–23:59 异变，00:00 起进入判定轮。 */
 export const storyPhaseOf = (story: CharacterStory, minute: number): StoryPhase => {
   if (minute >= story.deadlineMinute) {

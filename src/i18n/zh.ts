@@ -1,7 +1,7 @@
 /* ============================================================================
  * 功能区：国际化 / zh 开始
  * 职责：中文文案字典：维护界面与错误所需中文文本。
- * 导出：androidWelcomeMessages、androidColdStartGreeting、zh。
+ * 导出：androidWelcomeMessages、zh。
  * ========================================================================== */
 
 export const androidWelcomeMessages = [
@@ -10,8 +10,6 @@ export const androidWelcomeMessages = [
   '欢迎回来，想从哪里开始？',
   '嗨！今天想聊些什么？',
 ] as const
-
-export const androidColdStartGreeting = '欢迎回来，请输入消息开始对话。'
 
 export const zh = {
   welcomeMessageChat250808: '今天有什么可以帮到你？',
@@ -281,19 +279,21 @@ export const zh = {
   backupSessionIntegrityDigest: '消息内容与导出校验值不一致',
   autoBackupDone: '自动备份完成：{count} 个对话，文件已校验并保存在下载目录',
   autoBackupFailed: '自动备份失败，下载目录不会留下不完整文件',
-  settingsLocalePreference: '语言',
-  settingsTtsVoice: '朗读音色',
+  settingsCostHigh: '高开销',
+  settingsCostMid: '中等',
+  settingsCostLow: '很低',
   settingsTtsVoiceStella: '海星',
   settingsTtsVoiceTide: '暗潮',
   settingsTtsVoiceStellaDescription: '俏皮甜美',
   settingsTtsVoiceTideDescription: '低沉浑厚',
-  settingsLocation: '位置信息',
-  settingsLocationProvince: '请选择省份/地区',
-  settingsLocationCity: '请选择市',
-  settingsLocationRegion: '请选择国家或地区',
+  settingsTtsVoicePreview: '试听音色',
+  settingsTtsVoicePreviewStop: '停止试听',
+  settingsTtsVoicePreviewHint:
+    '试听会用当前音色合成一句示例，计入一次语音合成请求；正式朗读不受影响。',
+  settingsTtsVoicePreviewNoKey: '请先填写并保存 API Key，再试听音色。',
+  settingsTtsVoicePreviewFailed: '音色试听失败，请检查网络或语音服务后重试。',
   settingDialogAsideGeneralOptionLabel: '通用设置',
   settingDialogAsideDataOptionLabel: '数据管理',
-  avatarMenuSettingsDialogThemeItemLabel: '主题',
   avatarMenuSettingsDialogThemeSelectLightOption: '浅色',
   avatarMenuSettingsDialogThemeSelectDarkOption: '深色',
   avatarMenuSettingsDialogThemeSelectSystemOption: '跟随系统',
@@ -378,9 +378,6 @@ export const zh = {
   historyExportPacking: '正在压缩归档：{percent}%',
   historyExportSaving: '正在写入设备：{percent}%',
   historyExportSaved: '已保存：{name}',
-  exportAllDownload: '下载',
-  deleteAllSessions: '删除所有对话',
-  deleteAllSessionsModalTitle: '删除后，所有对话都将被清空且无法找回',
   deleteAllSessionsModalDescription: '本地保存的附件及未发送的草稿也将被删除。',
   historyDeleting: '删除中...',
   historyDeleted: '删除成功',
@@ -484,8 +481,6 @@ export const zh = {
   pageLoading: '正在加载...',
   pageLoadFailed: '页面加载失败，请重试',
   latestReminderLanguage: '中文',
-  settingsLocaleZhCN: '简体中文',
-  settingsLocaleEnUS: 'English',
   roleplayNeedName: '请先填写角色名字',
   roleplaySourceUrlBad: '来源链接无效，只支持 http / https 地址',
   roleplayStorageFailed: '本地存储失败，请重试',

@@ -1,7 +1,7 @@
 /**
  * 默认提示词与角色上下文回归：
  * 1. 默认提示词是普通 DeepSeek AI 助手，不含预置人设，但带应用功能索引；
- * 2. 普通对话不加角色扮演规则，角色卡/档案上下文才使用中性基底，且不带功能索引；
+ * 2. 普通对话不加角色扮演规则，角色卡/档案上下文才使用沉浸基底，且不带功能索引；
  * 3. 清空提示词回退默认官方助手，自定义提示词不被改写；
  * 4. 角色扮演开关必须依附一张有效角色卡，不能多卡同时生效。
  */
@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 const {
   DEFAULT_SYSTEM_PROMPT,
   LEGACY_SYSTEM_PROMPT,
-  NEUTRAL_SYSTEM_PROMPT,
+  IMMERSIVE_SYSTEM_PROMPT,
   ASSISTANT_TONE_GUARD,
   ASSISTANT_CONSISTENCY_GUARD,
   ROLEPLAY_CONTINUITY_GUARD,
@@ -54,7 +54,6 @@ assert.equal(LEGACY_SYSTEM_PROMPT, '该助手为DeepSeek，由深度求索公司
 
 const normal = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
-  custom: false,
   suppressMetaTalk: false,
   userName: '用户',
   roleplayContext: false,
@@ -68,22 +67,21 @@ assert.equal(
 assert.doesNotMatch(normal, /【角色身份|【演出规则|【对话格式与称呼/)
 assert.doesNotMatch(normal, /【演出规则|【对话格式与称呼|你正在与/)
 assert.doesNotMatch(normal, /【叙述视角/, '普通助手对话不得追加叙述视角锁')
-assert.match(NEUTRAL_SYSTEM_PROMPT, /正文写自己固定用第一人称「我」/, '中性角色基底必须写明第一人称')
+assert.match(IMMERSIVE_SYSTEM_PROMPT, /正文写自己固定用第一人称「我」/, '沉浸角色基底必须写明第一人称')
 assert.match(ROLEPLAY_VIEWPOINT_REMINDER, /【本轮叙述视角】/, '每轮背景提醒必须有明确标题')
 assert.match(ROLEPLAY_VIEWPOINT_REMINDER, /第一人称「我」/, '每轮背景提醒必须锁定第一人称')
 assert.match(ROLEPLAY_VIEWPOINT_REMINDER, /不要用姓名或「她」「他」/, '每轮背景提醒必须禁止第三人称自称')
 
 const roleplay = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
-  custom: false,
   suppressMetaTalk: false,
   userName: '用户',
   roleplayContext: true,
   assistantWarmth: true,
 })
 assert.ok(
-  roleplay.startsWith(NEUTRAL_SYSTEM_PROMPT.replaceAll('{{user}}', '用户')),
-  '角色上下文应换成中性角色基底'
+  roleplay.startsWith(IMMERSIVE_SYSTEM_PROMPT.replaceAll('{{user}}', '用户')),
+  '角色上下文应换成沉浸角色基底'
 )
 assert.doesNotMatch(roleplay, /由深度求索开发的 AI 助手/, '角色上下文不能保留助手身份')
 assert.doesNotMatch(roleplay, /本应用功能说明/, '角色上下文不应带入应用功能索引')
@@ -112,7 +110,6 @@ assert.ok(
 
 const guarded = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
-  custom: false,
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: true,
@@ -125,7 +122,6 @@ assert.doesNotMatch(guarded, /交流语气，不要复述本段/)
 
 const plainGuard = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
-  custom: false,
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: false,
@@ -141,7 +137,6 @@ const customPrompt = '你是一个代码审查助手。'
 assert.equal(
   composeSystemPrompt({
     savedPrompt: customPrompt,
-    custom: true,
     suppressMetaTalk: false,
     userName: '用户',
     roleplayContext: false,
@@ -152,7 +147,6 @@ assert.equal(
 )
 const emptyPrompt = composeSystemPrompt({
   savedPrompt: '   ',
-  custom: false,
   suppressMetaTalk: false,
   userName: '用户',
   roleplayContext: false,
@@ -167,7 +161,6 @@ assert.doesNotMatch(emptyPrompt, /【角色身份|【演出规则|【对话格�
 
 const emptyPromptRoleplay = composeSystemPrompt({
   savedPrompt: '',
-  custom: false,
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: true,
@@ -181,31 +174,28 @@ assert.equal(
 
 const forcedEmpty = composeSystemPrompt({
   savedPrompt: '',
-  custom: false,
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: true,
   assistantWarmth: true,
   forcedRoleplay: true,
 })
-assert.ok(forcedEmpty.startsWith(NEUTRAL_SYSTEM_PROMPT.replaceAll('{{user}}', '用户')))
+assert.ok(forcedEmpty.startsWith(IMMERSIVE_SYSTEM_PROMPT.replaceAll('{{user}}', '用户')))
 assert.match(forcedEmpty, /【演出规则/)
 assert.match(forcedEmpty, /【叙述视角，不要复述本段/)
 assert.doesNotMatch(forcedEmpty, /由深度求索开发的 AI 助手/, '压制设定接管空提示词后不能再留默认助手身份')
 const forcedDefault = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
-  custom: false,
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: true,
   assistantWarmth: true,
   forcedRoleplay: true,
 })
-assert.ok(forcedDefault.startsWith(NEUTRAL_SYSTEM_PROMPT.replaceAll('{{user}}', '用户')))
+assert.ok(forcedDefault.startsWith(IMMERSIVE_SYSTEM_PROMPT.replaceAll('{{user}}', '用户')))
 assert.doesNotMatch(forcedDefault, /本应用功能说明/, '默认提示词被接管时不能带功能索引')
 const customNote = composeSystemPrompt({
   savedPrompt: '你是一个冷静的代码审查助手。',
-  custom: true,
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: false,
@@ -223,7 +213,6 @@ assert.match(CUSTOM_PROMPT_NOTE, /不要把它当成默认 AI 助手说明/)
 
 const warmOff = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
-  custom: false,
   suppressMetaTalk: true,
   userName: '用户',
   roleplayContext: false,
@@ -237,7 +226,6 @@ assert.equal(
 assert.equal(
   composeSystemPrompt({
     savedPrompt: DEFAULT_SYSTEM_PROMPT,
-    custom: false,
     suppressMetaTalk: false,
     userName: '用户',
     roleplayContext: false,
@@ -263,7 +251,6 @@ assert.equal(
 )
 const nearDefaultReply = composeSystemPrompt({
   savedPrompt: nearDefault,
-  custom: false,
   suppressMetaTalk: false,
   userName: '用户',
   roleplayContext: false,
@@ -276,7 +263,6 @@ assert.equal(
 )
 const nearDefaultRoleplay = composeSystemPrompt({
   savedPrompt: nearDefault,
-  custom: false,
   suppressMetaTalk: false,
   userName: '用户',
   roleplayContext: true,

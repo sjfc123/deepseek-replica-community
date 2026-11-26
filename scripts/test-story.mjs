@@ -11,7 +11,6 @@ const {
   formatStoryRemaining,
   formatStoryTurnBlock,
   currentStoryClue,
-  formatStoryPublicStatus,
   formatStorySuggestionContext,
   isStoryLocked,
   limitStoryAsides,
@@ -80,10 +79,6 @@ const clueAtFirst = currentStoryClue(story, 1321)
 assert.equal(clueAtFirst?.index, 0)
 assert.equal(clueAtFirst?.total, 4)
 assert.equal(currentStoryClue(story, 1200), undefined)
-const publicStatus = formatStoryPublicStatus(story, { ...start, storyClockMinute: 1321 })
-assert.match(publicStatus, /22:01/)
-assert.match(publicStatus, /第 1\/4 层异常「标点与独白」/)
-assert.doesNotMatch(publicStatus, /储物间|替身|镜子/)
 const anomalyBlock = formatStoryTurnBlock(story, { ...start, storyClockMinute: 1321 })
 assert.match(anomalyBlock, /22:01/)
 assert.match(anomalyBlock, /不使用逗号/)
