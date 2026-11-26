@@ -76,7 +76,6 @@ export const AssistantMessage = memo(function AssistantMessage({
   versions,
   onSelectVersion,
   onStartMemorySelect,
-  modeSwitch = false,
 }: {
   sessionId: string
   message: AssistantMessageType
@@ -88,8 +87,6 @@ export const AssistantMessage = memo(function AssistantMessage({
   onSelectVersion: SelectMessageVersion
   /** 长按菜单进入记忆选择：one=本轮，all=当前分支全部 */
   onStartMemorySelect?: (scope: 'one' | 'all') => void
-  /** 本条回复是否紧跟在思考/非思考模式切换之后 */
-  modeSwitch?: boolean
 }) {
   const t = useTranslate()
   const customEndpoint = useSettings((state) => Boolean(state.chatConfig.endpoint))
@@ -212,9 +209,6 @@ export const AssistantMessage = memo(function AssistantMessage({
         <span>
           {t('cacheHitRateShort')} {cacheHitRate.toFixed(1)}%
         </span>
-        {modeSwitch ? (
-          <span className={styles.cacheModeSwitch}>{t('cacheModeSwitchRebuild')}</span>
-        ) : null}
       </div>
     ) : null
   return (

@@ -4,7 +4,17 @@
  * ========================================================================== */
 
 import clsx from 'clsx'
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { android, saveAndroidHistory } from '../../app/android.js'
 import { useIsAndroidWide } from '../../app/viewport.js'
 import { useTranslate } from '../../i18n/index.js'
@@ -26,7 +36,7 @@ import {
   setSiderCollapsed,
   useSettings,
 } from '../../services/settings.js'
-import { groupSessionsByCharacter } from '../../services/chat/sessionGroups.js'
+import { groupSessionsByCharacter, type SessionSection } from '../../services/chat/sessionGroups.js'
 import { forkSession, newChat, removeSession, useChatStore } from '../../services/chat/store.js'
 import {
   buildSessionBundle,
@@ -69,6 +79,62 @@ type ForkFlow = {
 
 /** 展开的侧边栏：名称与收起按钮、开启新对话、按时间分组的会话列表、底部设置；移动端放在抽屉里，收起按钮关闭抽屉 */
 /* -------------------- 功能区：桌面侧栏 开始 -------------------- */
+const SessionSectionHeader = ({
+  group,
+  collapsed,
+  ariaLabel,
+  onToggle,
+  onPressStart,
+  onPressMove,
+  onPressEnd,
+  onContextMenu,
+}: {
+  group: SessionSection
+  collapsed: boolean
+  ariaLabel: string
+  onToggle: (group: SessionSection) => void
+  onPressStart: (event: ReactPointerEvent<HTMLButtonElement>, group: SessionSection) => void
+  onPressMove: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  onPressEnd: () => void
+  onContextMenu: (event: ReactMouseEvent<HTMLButtonElement>, group: SessionSection) => void
+}) => {
+  const button = (
+    <button
+      type="button"
+      className={clsx(
+        styles.sectionHeader,
+        group.parentKey && styles.characterHeader,
+        group.kind === 'normal' && styles.normalHeader
+      )}
+      aria-expanded={!collapsed}
+      aria-label={ariaLabel}
+      onClick={() => onToggle(group)}
+      onPointerDown={(event) => onPressStart(event, group)}
+      onPointerMove={onPressMove}
+      onPointerUp={onPressEnd}
+      onPointerLeave={onPressEnd}
+      onPointerCancel={onPressEnd}
+      onContextMenu={(event) => onContextMenu(event, group)}
+    >
+      <span
+        className={styles.sectionChevron}
+        data-collapsed={collapsed || undefined}
+        aria-hidden="true"
+      />
+      <span className={styles.sectionLabel}>{group.label}</span>
+      <span className={styles.sectionCount} aria-hidden="true">
+        {group.total}
+      </span>
+    </button>
+  )
+  // 时间父组吸顶，子组保持普通行内标题；整条背景只铺在时间标签下，避免滚动时文字从标签两侧穿出。
+  return group.parentKey ? (
+    button
+  ) : (
+    <div className={styles.sectionHeaderBar}>{button}</div>
+  )
+}
+
 export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean }) {
   const t = useTranslate()
   const sessions = useChatStore((state) => state.sessions)
@@ -87,6 +153,13 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(readCollapsedSessionGroups)
   const [selecting, setSelecting] = useState(false)
   const [checked, setChecked] = useState<Set<string>>(() => new Set())
+  const [rangeMode, setRangeMode] = useState(false)
+  const [rangeAnchorId, setRangeAnchorId] = useState<string | null>(null)
+  const [groupDelete, setGroupDelete] = useState<{
+    group: SessionSection
+    sessions: SessionSummary[]
+    roleSessions: SessionSummary[]
+  } | null>(null)
   const [pinning, setPinning] = useState<{ ids: Set<string>; unpin: boolean } | null>(null)
   /** 分组筛选：'' 全部、'__none' 未分组，其余为分组 id */
   const [folderFilter, setFolderFilter] = useState('')
@@ -106,6 +179,9 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   const [bulkConfirm, setBulkConfirm] = useState<'copy' | 'archive' | null>(null)
   const newFolderInput = useRef<HTMLInputElement>(null)
   const forkNameInput = useRef<HTMLInputElement>(null)
+  const groupPressTimer = useRef<number | undefined>(undefined)
+  const groupPressStart = useRef({ x: 0, y: 0 })
+  const groupPressFired = useRef(false)
   const unpin = checked.size > 0 && [...checked].every((id) => pinnedIds.includes(id))
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000)
@@ -181,6 +257,121 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   const visibleGroups = useMemo(
     () => groups.filter((group) => !group.parentKey || !collapsedGroups.has(group.parentKey)),
     [groups, collapsedGroups]
+  )
+  /** 批量全选与范围选择只取当前可见、且没有折叠的会话，避免把隐藏的归档一并删掉。 */
+  const selectableSessions = useMemo(() => {
+    const seen = new Set<string>()
+    const result: SessionSummary[] = []
+    for (const group of visibleGroups) {
+      if (collapsedGroups.has(group.key)) {
+        continue
+      }
+      for (const session of group.sessions) {
+        if (!seen.has(session.id)) {
+          seen.add(session.id)
+          result.push(session)
+        }
+      }
+    }
+    return result
+  }, [collapsedGroups, visibleGroups])
+  /** 时间父组本身不放会话行，删除时要连同普通子组与各角色子组一起收集。 */
+  const collectGroupSessions = useCallback(
+    (group: SessionSection) => {
+      const children = group.parentKey
+        ? []
+        : groups.filter((item) => item.parentKey === group.key)
+      const source = children.length
+        ? children.flatMap((item) => item.sessions)
+        : group.sessions
+      const seen = new Set<string>()
+      return source.filter((session) => {
+        if (seen.has(session.id)) {
+          return false
+        }
+        seen.add(session.id)
+        return true
+      })
+    },
+    [groups]
+  )
+  const clearGroupPress = useCallback(() => {
+    window.clearTimeout(groupPressTimer.current)
+    groupPressTimer.current = undefined
+  }, [])
+  useEffect(() => clearGroupPress, [clearGroupPress])
+  const openGroupDelete = useCallback(
+    (group: SessionSection) => {
+      if (group.key === 'pinned') {
+        return
+      }
+      const targets = collectGroupSessions(group)
+      if (targets.length === 0) {
+        return
+      }
+      setGroupDelete({
+        group,
+        sessions: targets,
+        roleSessions: targets.filter((session) => Boolean(session.characterId)),
+      })
+      setPinning(null)
+      setSelecting(false)
+      setChecked(new Set())
+      setRangeAnchorId(null)
+    },
+    [collectGroupSessions]
+  )
+  const startGroupPress = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>, group: SessionSection) => {
+      if (group.key === 'pinned' || (event.pointerType === 'mouse' && event.button !== 0)) {
+        return
+      }
+      clearGroupPress()
+      groupPressFired.current = false
+      groupPressStart.current = { x: event.clientX, y: event.clientY }
+      groupPressTimer.current = window.setTimeout(() => {
+        groupPressFired.current = true
+        openGroupDelete(group)
+      }, 520)
+    },
+    [clearGroupPress, openGroupDelete]
+  )
+  const moveGroupPress = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!groupPressTimer.current) {
+        return
+      }
+      const distance = Math.hypot(
+        event.clientX - groupPressStart.current.x,
+        event.clientY - groupPressStart.current.y
+      )
+      if (distance > 10) {
+        clearGroupPress()
+      }
+    },
+    [clearGroupPress]
+  )
+  const clickGroup = useCallback(
+    (group: SessionSection) => {
+      if (groupPressFired.current) {
+        groupPressFired.current = false
+        return
+      }
+      toggleGroup(group.key)
+    },
+    [toggleGroup]
+  )
+  const contextGroup = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>, group: SessionSection) => {
+      event.preventDefault()
+      if (!android || groupPressFired.current || group.key === 'pinned') {
+        return
+      }
+      clearGroupPress()
+      groupPressFired.current = true
+      openGroupDelete(group)
+    },
+    [clearGroupPress, openGroupDelete]
   )
   const positionedGroups = useMemo(() => {
     let end = 0
@@ -376,6 +567,8 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
     }
     setSelecting(false)
     setChecked(new Set())
+    setRangeMode(false)
+    setRangeAnchorId(null)
     showToast({
       key: 'androidBulkCopied',
       params: { count: copied },
@@ -388,6 +581,8 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
     picked.forEach((session) => setSessionArchived(session.id, true))
     setSelecting(false)
     setChecked(new Set())
+    setRangeMode(false)
+    setRangeAnchorId(null)
     showToast({
       key: 'androidBulkArchived',
       params: { count: picked.length },
@@ -397,19 +592,115 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
   const startSelection = useCallback((session: SessionSummary) => {
     setSelecting(true)
     setChecked(new Set([session.id]))
+    setRangeMode(false)
+    setRangeAnchorId(session.id)
     setPinning(null)
   }, [])
+  const toggleChecked = useCallback(
+    (session: SessionSummary, range = false) => {
+      const ids = selectableSessions.map((item) => item.id)
+      const anchor = rangeAnchorId
+      const from = anchor ? ids.indexOf(anchor) : -1
+      const to = ids.indexOf(session.id)
+      setChecked((previous) => {
+        const next = new Set(previous)
+        if ((range || rangeMode) && from >= 0 && to >= 0) {
+          const start = Math.min(from, to)
+          const end = Math.max(from, to)
+          for (let index = start; index <= end; index += 1) {
+            next.add(ids[index])
+          }
+          return next
+        }
+        if (next.has(session.id)) {
+          next.delete(session.id)
+        } else {
+          next.add(session.id)
+        }
+        return next
+      })
+      setRangeAnchorId(session.id)
+    },
+    [rangeAnchorId, rangeMode, selectableSessions]
+  )
+  const allSelectableChecked =
+    selectableSessions.length > 0 &&
+    selectableSessions.every((session) => checked.has(session.id))
+  const toggleAll = useCallback(() => {
+    setChecked(
+      allSelectableChecked ? new Set() : new Set(selectableSessions.map((session) => session.id))
+    )
+    setRangeAnchorId(null)
+  }, [allSelectableChecked, selectableSessions])
   const [deletePending, setDeletePending] = useState(false)
   const drawerOpen = useMobileSider((state) => state.open)
+  /** 单条、批量与整组共用同一条删除链路，避免某条失败后其余状态错位。 */
+  const deleteSessions = useCallback(
+    async (items: SessionSummary[]) => {
+      setDeletePending(true)
+      try {
+        const remaining: SessionSummary[] = []
+        const deleted = new Set<string>()
+        for (const session of items) {
+          if (await removeSession(session.id)) {
+            deleted.add(session.id)
+          } else {
+            remaining.push(session)
+          }
+        }
+        if (deleted.size) {
+          setPinnedSessions(pinnedIds.filter((id) => !deleted.has(id)))
+        }
+        return { deleted, remaining }
+      } finally {
+        setDeletePending(false)
+      }
+    },
+    [pinnedIds]
+  )
+  const archiveGroup = useCallback(() => {
+    if (!groupDelete) {
+      return
+    }
+    groupDelete.sessions.forEach((session) => setSessionArchived(session.id, true))
+    showToast({
+      key: 'sessionGroupArchived',
+      params: { label: groupDelete.group.label, count: groupDelete.sessions.length },
+    })
+    setGroupDelete(null)
+  }, [groupDelete])
+  const deleteGroup = useCallback(
+    async (roleOnly: boolean) => {
+      if (!groupDelete) {
+        return
+      }
+      const target = groupDelete
+      const items = roleOnly ? target.roleSessions : target.sessions
+      const result = await deleteSessions(items)
+      setGroupDelete(null)
+      if (result.remaining.length) {
+        showToast({ key: 'sessionDeleteFailed', type: 'error' })
+      } else if (result.deleted.size) {
+        showToast({
+          key: 'sessionGroupDeleted',
+          params: { label: target.group.label, count: result.deleted.size },
+        })
+      }
+    },
+    [deleteSessions, groupDelete]
+  )
   const closeSelection = useCallback(() => {
     setSelecting(false)
     setChecked((previous) => (previous.size === 0 ? previous : new Set()))
     setPinning(null)
+    setRangeMode(false)
+    setRangeAnchorId(null)
   }, [])
 
   useEffect(() => {
     if (!drawerOpen || searchOpen) {
       closeSelection()
+      setGroupDelete(null)
     }
   }, [closeSelection, drawerOpen, searchOpen])
 
@@ -452,9 +743,35 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
     >
       {selecting ? (
         <div className={styles.selectionHeader}>
-          {checked.size
-            ? t('androidSelectedChats', { count: checked.size })
-            : t('androidSelectChats')}
+          <span className={styles.selectionHeaderLabel}>
+            {checked.size
+              ? t('androidSelectedChats', { count: checked.size })
+              : t('androidSelectChats')}
+          </span>
+          <div className={styles.selectionTools}>
+            <button
+              type="button"
+              disabled={!selectableSessions.length}
+              onClick={toggleAll}
+            >
+              {t(allSelectableChecked ? 'androidUnselectAll' : 'androidSelectAll')}
+            </button>
+            <button
+              type="button"
+              data-on={rangeMode ? '' : undefined}
+              aria-pressed={rangeMode}
+              title={t('androidRangeSelectHint')}
+              onClick={() => {
+                const next = !rangeMode
+                setRangeMode(next)
+                if (next && !rangeAnchorId) {
+                  setRangeAnchorId(checked.values().next().value ?? null)
+                }
+              }}
+            >
+              {t('androidRangeSelect')}
+            </button>
+          </div>
           <IconButton
             tone="primary"
             icon={<IconCloseOutline16 />}
@@ -610,30 +927,19 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
                   group.parentKey && styles.characterSection
                 )}
               >
-                <button
-                  type="button"
-                  className={clsx(
-                    styles.sectionHeader,
-                    group.parentKey && styles.characterHeader,
-                    group.kind === 'normal' && styles.normalHeader
-                  )}
-                  aria-expanded={!group.collapsed}
-                  aria-label={t(
+                <SessionSectionHeader
+                  group={group}
+                  collapsed={group.collapsed}
+                  ariaLabel={t(
                     group.collapsed ? 'sessionHistoryExpandGroup' : 'sessionHistoryCollapseGroup',
                     { label: group.label }
                   )}
-                  onClick={() => toggleGroup(group.key)}
-                >
-                  <span
-                    className={styles.sectionChevron}
-                    data-collapsed={group.collapsed || undefined}
-                    aria-hidden="true"
-                  />
-                  <span className={styles.sectionLabel}>{group.label}</span>
-                  <span className={styles.sectionCount} aria-hidden="true">
-                    {group.total}
-                  </span>
-                </button>
+                  onToggle={clickGroup}
+                  onPressStart={startGroupPress}
+                  onPressMove={moveGroupPress}
+                  onPressEnd={clearGroupPress}
+                  onContextMenu={contextGroup}
+                />
                 {group.collapsed ? null : start ? (
                   <div aria-hidden="true" style={{ height: start * rowHeight }} />
                 ) : null}
@@ -658,17 +964,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
                           selecting
                             ? {
                                 checked: checked.has(session.id),
-                                toggle: () => {
-                                  setChecked((previous) => {
-                                    const next = new Set(previous)
-                                    if (next.has(session.id)) {
-                                      next.delete(session.id)
-                                    } else {
-                                      next.add(session.id)
-                                    }
-                                    return next
-                                  })
-                                },
+                                toggle: (range?: boolean) => toggleChecked(session, range),
                               }
                             : undefined
                         }
@@ -1026,6 +1322,38 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
           }}
         />
       ) : null}
+      {groupDelete ? (
+        <SessionActionDialog
+          title={t('sessionGroupDeleteTitle', {
+            label: groupDelete.group.label,
+            count: groupDelete.sessions.length,
+          })}
+          description={t('sessionGroupDeleteBody')}
+          cancelLabel={t('cancel')}
+          confirmLabel={t('sessionGroupDeleteConfirm')}
+          secondaryLabel={
+            groupDelete.roleSessions.length > 0 &&
+            groupDelete.roleSessions.length < groupDelete.sessions.length
+              ? t('sessionGroupDeleteCharacters', { count: groupDelete.roleSessions.length })
+              : undefined
+          }
+          secondaryDanger
+          danger
+          stacked
+          closeDisabled={deletePending}
+          confirmDisabled={deletePending}
+          onCancel={() => setGroupDelete(null)}
+          onConfirm={() => void deleteGroup(false)}
+          onSecondary={() => void deleteGroup(true)}
+        >
+          <div className={styles.groupDeleteAlt}>
+            <button type="button" disabled={deletePending} onClick={archiveGroup}>
+              {t('sessionGroupArchiveAction')}
+            </button>
+            <p>{t('sessionGroupArchiveHint')}</p>
+          </div>
+        </SessionActionDialog>
+      ) : null}
       {deleting.length ? (
         <SessionActionDialog
           title={
@@ -1048,28 +1376,12 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
           confirmDisabled={deletePending}
           onCancel={() => setDeleting([])}
           onConfirm={async () => {
-            setDeletePending(true)
-            try {
-              const remaining: SessionSummary[] = []
-              const deleted = new Set<string>()
-              for (const session of deleting) {
-                if (await removeSession(session.id)) {
-                  deleted.add(session.id)
-                } else {
-                  remaining.push(session)
-                }
-              }
-              setDeleting(remaining)
-              if (deleted.size) {
-                setPinnedSessions(pinnedIds.filter((id) => !deleted.has(id)))
-              }
-              if (remaining.length) {
-                showToast({ key: 'sessionDeleteFailed', type: 'error' })
-              } else {
-                closeSelection()
-              }
-            } finally {
-              setDeletePending(false)
+            const result = await deleteSessions(deleting)
+            setDeleting(result.remaining)
+            if (result.remaining.length) {
+              showToast({ key: 'sessionDeleteFailed', type: 'error' })
+            } else {
+              closeSelection()
             }
           }}
         />

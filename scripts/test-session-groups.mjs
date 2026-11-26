@@ -1,7 +1,7 @@
 /**
  * 会话日期分组回归：
  * 1. 今天、昨天、前天单独成组；
- * 2. 三天前、7 天前、15 天前、30 天前与近一个月、近三个月、近一年按边界落组；
+ * 2. 三天前、7 天前、15 天前、30天、近三个月、近一年按边界落组；
  * 3. 超过两年的会话回落到月份分组；
  * 4. 分组按时间倒序连续排列，不合并跨桶会话；
  * 5. 时间组内出现角色会话时再按普通聊天与各角色卡拆子组，空子组不生成。
@@ -41,7 +41,7 @@ const labels = {
   sessionHistoryTimelineLabel3days: '三天前',
   sessionHistoryTimelineLabel7days: '7 天前',
   sessionHistoryTimelineLabel15days: '15 天前',
-  sessionHistoryTimelineLabel30days: '30 天前 · 近一个月',
+  sessionHistoryTimelineLabel30days: '30天',
   sessionHistoryTimelineLabel3months: '近三个月',
   sessionHistoryTimelineLabel1year: '近一年',
   sessionHistoryNormalGroup: '普通聊天',
@@ -77,6 +77,8 @@ assert.deepEqual(
 )
 assert.equal(groups.at(-1).label, '2024-11')
 assert.equal(groups.at(-2).label, '近一年')
+assert.equal(groups[6].label, '30天')
+assert.equal(groups[6].key, 'sessionHistoryTimelineLabel30days')
 
 // 同一桶的会话必须落在同一组，且顺序保持输入顺序。
 const sameBucket = groupSessions(

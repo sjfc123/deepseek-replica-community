@@ -114,7 +114,7 @@ export const SessionItem = memo(function SessionItem({
   onExport?: (session: SessionSummary) => void
   onFork?: (session: SessionSummary) => void
   onExportText?: (session: SessionSummary) => void
-  selection?: { checked: boolean; toggle: () => void }
+  selection?: { checked: boolean; toggle: (range?: boolean) => void }
 }) {
   const t = useTranslate()
   const [renaming, setRenaming] = useState(false)
@@ -157,7 +157,7 @@ export const SessionItem = memo(function SessionItem({
         role="checkbox"
         tabIndex={0}
         aria-checked={selection.checked}
-        onClick={selection.toggle}
+        onClick={(event) => selection.toggle(event.shiftKey)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()

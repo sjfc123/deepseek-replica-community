@@ -177,23 +177,6 @@ export const MessageList = ({
   const editingMessageIdRef = useRef(editingMessageId)
   editingMessageIdRef.current = editingMessageId
   const messages = useMemo(() => getVisibleMessages(session), [session])
-  // 缓存按完整请求前缀匹配：切换深度思考或智能搜索后，首条回复通常需要重建缓存。
-  // 这里只负责识别这次切换，让用量明细把“未命中”解释清楚。
-  const modeSwitchMessageIds = useMemo(() => {
-    const ids = new Set<string>()
-    let previousMode: string | undefined
-    for (const message of messages) {
-      if (message.role !== 'assistant') {
-        continue
-      }
-      const mode = `${message.thinking ? 'think' : 'fast'}:${message.search ? 'search' : 'plain'}`
-      if (previousMode !== undefined && previousMode !== mode) {
-        ids.add(message.id)
-      }
-      previousMode = mode
-    }
-    return ids
-  }, [messages])
   const [memorySelect, setMemorySelect] = useState<{ active: boolean; ids: Set<string> }>({
     active: false,
     ids: new Set(),
@@ -965,7 +948,6 @@ export const MessageList = ({
                         versions={versions.get(message.id) ?? EMPTY_VERSIONS}
                         onSelectVersion={selectVersion}
                         onStartMemorySelect={(scope) => startMemorySelect(message.id, scope)}
-                        modeSwitch={modeSwitchMessageIds.has(message.id)}
                       />
                     )}
                   </div>

@@ -18,24 +18,30 @@ export const SessionActionDialog = ({
   children,
   cancelLabel,
   confirmLabel,
+  secondaryLabel,
   danger = false,
+  secondaryDanger = false,
   stacked = false,
   closeDisabled = false,
   confirmDisabled = false,
   onCancel,
   onConfirm,
+  onSecondary,
 }: {
   title: string
   description?: string
   children?: ReactNode
   cancelLabel: string
   confirmLabel: string
+  secondaryLabel?: string
   danger?: boolean
+  secondaryDanger?: boolean
   stacked?: boolean
   closeDisabled?: boolean
   confirmDisabled?: boolean
   onCancel: () => void
   onConfirm: () => void
+  onSecondary?: () => void
 }) => {
   useAndroidBackInterception(!closeDisabled)
 
@@ -78,6 +84,16 @@ export const SessionActionDialog = ({
               >
                 {confirmLabel}
               </button>
+              {secondaryLabel && onSecondary ? (
+                <button
+                  type="button"
+                  className={secondaryDanger ? styles.secondaryDanger : undefined}
+                  disabled={closeDisabled}
+                  onClick={onSecondary}
+                >
+                  {secondaryLabel}
+                </button>
+              ) : null}
               <button type="button" disabled={closeDisabled} onClick={onCancel}>
                 {cancelLabel}
               </button>
