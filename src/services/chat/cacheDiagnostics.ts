@@ -300,7 +300,7 @@ export const clearPromptCacheSamples = (): void => {
   try {
     localStorage.removeItem(PROMPT_CACHE_STORAGE_KEY)
   } catch {
-    // 存储不可写时跳过时间戳更新，诊断数据本身仍保留在内存中。
+    // 存储不可写时不更新时间戳，诊断数据本身仍保留在内存中。
   }
 }
 

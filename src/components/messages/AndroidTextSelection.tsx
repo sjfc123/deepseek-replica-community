@@ -153,11 +153,11 @@ const getDisplayMathRect = (el: HTMLElement): DOMRect | null => {
   }
 
   if (!Number.isFinite(minLeft)) {
-    const fallback = (el.querySelector('.katex') ?? el).getBoundingClientRect()
-    minLeft = fallback.left
-    minTop = fallback.top
-    maxRight = fallback.right
-    maxBottom = fallback.bottom
+    const anchorRect = (el.querySelector('.katex') ?? el).getBoundingClientRect()
+    minLeft = anchorRect.left
+    minTop = anchorRect.top
+    maxRight = anchorRect.right
+    maxBottom = anchorRect.bottom
   }
 
   const left = Math.max(minLeft, clipRect.left)

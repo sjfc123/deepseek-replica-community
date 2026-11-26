@@ -30,7 +30,7 @@
   background-color: var(--dsw-alias-markdown-citation);
 }
 
-.fallback {
+.iconPlaceholder {
   color: var(--dsw-alias-label-tertiary);
 
   svg {

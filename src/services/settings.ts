@@ -167,7 +167,7 @@ type Settings = {
   characterAvatar: string | null
   /** 聊天区显示头像：助手用角色头像，用户用账号头像 */
   avatarInChat: boolean
-  /** 内心独白：括号片段置灰，朗读与通话跳过 */
+  /** 内心独白：括号片段置灰，朗读与通话不读取该片段 */
   thoughtAside: boolean
   /** 顶栏记忆胶囊入口 */
   memoryBadge: boolean
@@ -1499,7 +1499,7 @@ export const setMemoryInline = (memoryInline: boolean) => {
   useSettings.setState({ memoryInline })
 }
 
-/** 内心独白识别：关闭后括号内容按普通正文显示，朗读也不再跳过 */
+/** 内心独白识别：关闭后括号内容按普通正文显示，朗读也不再读取括号内容 */
 export const setThoughtAside = (thoughtAside: boolean) => {
   write(KEYS.thoughtAside, String(thoughtAside))
   useSettings.setState({ thoughtAside })

@@ -227,7 +227,7 @@ let unreadableRecords = 0
 export const getUnreadableRecordCount = () => unreadableRecords
 
 /**
- * 列表逐条校验：旧版本写入的非法记录仅跳过自身，其余会话正常返回。
+ * 列表逐条校验：旧版本写入的非法记录仅排除自身，其余会话正常返回。
  * 早期实现直接遍历映射，单条 null 即可导致整个列表读取失败，界面停留在空白状态。
  */
 export const loadSessionSummaries = async (): Promise<SessionSummary[]> => {

@@ -92,7 +92,7 @@ const titleOf = (value: unknown): string | null =>
     ? ((value as { title: string }).title.trim().slice(0, 200) || null)
     : null
 
-/** 单个对话损坏：跳过它，报告标题与原因，其余对话继续导入。 */
+/** 单个对话损坏：不导入该对话，报告标题与原因，其余对话继续导入。 */
 export type ImportIssue = {
   /** 会话 id；路径里能解析出来就有 */
   id: string | null
@@ -133,10 +133,10 @@ export class ArchiveSourceError extends Error {}
 
 /* ---- 02 写入与状态变更（importArchive） ---- */
 /**
- * 流式导入：manifest → user（跳过）→ 全部会话 JSON → index → 全部图片。
+ * 流式导入：manifest → user（略过）→ 全部会话 JSON → index → 全部图片。
  * 同时兼容会话与图片交错排列、index 位于末尾的条目顺序。
  * 批量暂存会话和图片；图片全部读完后只读取可能需要回填 MIME 的会话。
- * 合并模式下跳过已在当前库存在的图片写入，仍完成 ZIP 大小与 CRC 校验。
+ * 合并模式下不再写入已在当前库存在的图片，仍完成 ZIP 大小与 CRC 校验。
  */
 export const importArchive = async (
   file: File,
@@ -187,7 +187,7 @@ export const importArchive = async (
       skippedSessions.add(id)
     }
   }
-  // 条目 CRC 或本地头损坏时，ZIP 读取器会跳过该条目；只把会话文件记成“损坏对话”。
+  // 条目 CRC 或本地头损坏时，ZIP 读取器会排除该条目；只把会话文件记成“损坏对话”。
   const onEntryError = (path: string) => {
     const id = parseSessionPath(path)
     if (id !== null) {
@@ -395,7 +395,7 @@ export const importArchive = async (
         }
         continue
       }
-      // 未知条目直接跳过，不因为多一个文件就让整个归档不可导入。
+      // 未知条目不进入导入，不因为多一个文件就让整个归档不可导入。
       await skipEntry(entry).catch((error: unknown) => {
         if (!(error instanceof ArchiveError)) {
           throw error

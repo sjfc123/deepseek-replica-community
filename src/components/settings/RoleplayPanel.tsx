@@ -1653,7 +1653,7 @@ export function RoleplayPanel() {
                 />
               </label>
               <div className={styles.sourceNote}>
-                导入他人设定前确认你有使用与分享权限；商用、公开发布或二次分发需另行取得授权。非原创卡不要因为“链接是可选项”就跳过来源：找不到作者主页时填作品页，不要把无关页面写成作者主页。
+                导入他人设定前确认你有使用与分享权限；商用、公开发布或二次分发需另行取得授权。非原创卡不要因为“链接是可选项”就省略来源：找不到作者主页时填作品页，不要把无关页面写成作者主页。
               </div>
             </>
           ) : null}
@@ -2295,7 +2295,7 @@ export function RoleplayPanel() {
                 {worldbook.some((entry) => entry.id === entryDraft.id) ? '编辑条目' : '新建条目'}
               </strong>
               <span>
-                关键词以逗号分隔；命中任意一个时注入该条目；避触词命中时整条跳过。可信度决定它能不能被对话推翻。
+                关键词以逗号分隔；命中任意一个时注入该条目；避触词命中时整条不注入。可信度决定它能不能被对话推翻。
               </span>
             </div>
             <div className={styles.fieldGrid}>

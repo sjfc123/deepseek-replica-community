@@ -518,7 +518,7 @@ assert.equal(
 assert.equal(
   selectWorldbookEntries(worldbook, '渡口已封，别去', 6, 1000, null, '渡口已封，别去').length,
   0,
-  '避触词命中时必须跳过'
+  '避触词命中时必须不注入'
 )
 
 const normalizedEntry = normalizeWorldbook([

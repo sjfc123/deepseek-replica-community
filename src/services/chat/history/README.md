@@ -13,7 +13,7 @@ chat_session_index.json                            会话索引
 chat_sessions/{session_id}_files/{file_id}_{file_name}  图片原件
 ```
 
-导入时也接受“会话 JSON 和该会话图片交错排列、索引在末尾”的顺序。`user.json` 可以出现在 manifest 和会话之间，导入会跳过；本仓库不导出账号信息。图片按 `FILE.export_path` 匹配。
+导入时也接受“会话 JSON 和该会话图片交错排列、索引在末尾”的顺序。`user.json` 可以出现在 manifest 和会话之间，导入会略过；本仓库不导出账号信息。图片按 `FILE.export_path` 匹配。
 
 可选字段可以缺省。时间必须是 `Z` 结尾的 UTC，可以带小数秒。校验后只保留已定义字段，未知类型或无法解析的内容片段直接丢弃；容器和元数据不合法仍然整包失败。
 

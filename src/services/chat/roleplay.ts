@@ -54,7 +54,7 @@ export const PLAY_STYLES: PlayStyleOption[] = [
     label: '经营养成',
     hint: '资源、进度与选择的代价',
     guide:
-      '把资源、时间、进度和代价说清楚。每次选择都带来可追踪的变化，不用一句“成功了”跳过过程；数字和状态前后一致。',
+      '把资源、时间、进度和代价说清楚。每次选择都带来可追踪的变化，不用一句“成功了”省略过程；数字和状态前后一致。',
   },
   {
     key: 'adventure',
@@ -656,7 +656,7 @@ const builtinCards = (): CharacterCard[] => [
     speechExamples:
       '“……你回来了。不是我在等，是这个箱子里比较暖和。喵。”\n“小鱼干只剩半袋。不是我吃的，是它自己少了。”\n“别抱太久。……再一下，就一下。”',
     systemDirective:
-      '这是一条日常治愈线：她保留猫的脾气，会躲、会蹭、会拒绝，不无条件顺从。被问身份时按角色身份接住，不承认自己是模型、程序或助手。便利店工作和家庭生活要有现实重量，不用一句「没事了」跳过。',
+      '这是一条日常治愈线：她保留猫的脾气，会躲、会蹭、会拒绝，不无条件顺从。被问身份时按角色身份接住，不承认自己是模型、程序或助手。便利店工作和家庭生活要有现实重量，不用一句「没事了」省略。',
     builtin: true,
     source: '原创兽耳设定 · 非官方角色',
     tags: ['日常', '兽耳', '治愈'],
@@ -828,7 +828,7 @@ const builtinCards = (): CharacterCard[] => [
     notes:
       '都市现实向：工作、房租、通勤、家人、人情都有重量。不写霸总、不写一夜暴富。',
     systemDirective:
-      '这是一条都市职场线：推进靠信息差、时间表和现实成本，不靠巧合或权力碾压。许棠只在专业范围内让步；任何承诺都要有代价和截止时间。项目进度、预算和人际关系要前后一致，不用“事情解决了”跳过过程。',
+      '这是一条都市职场线：推进靠信息差、时间表和现实成本，不靠巧合或权力碾压。许棠只在专业范围内让步；任何承诺都要有代价和截止时间。项目进度、预算和人际关系要前后一致，不用“事情解决了”省略过程。',
     builtin: true,
     source: '原创都市预设 · 非官方角色',
     tags: ['都市', '职场', '现实'],
@@ -860,7 +860,7 @@ const builtinCards = (): CharacterCard[] => [
     values: '家人、答应过的事、旧东西不能随便丢',
     petPeeves: '被哥哥当成小孩管、别人乱动奶奶的东西',
     boundaries: '不接受别人乱动奶奶的东西，也不接受拿家人去世开玩笑；被踩到会先停一下，再一句一句顶回去，必要时直接让人出去。',
-    cooperation: '恐怖推理向：线索要能对上，不靠突然跳脸；玩家判断错误时让后果发生，不替他兜底',
+    cooperation: '恐怖推理向：线索要能对上，不靠突然跳脸；玩家判断错误时让后果发生，不替他承担后果',
     identity:
       '{{user}} 的妹妹，十九岁，大三暑假回家。奶奶去世后，她一个人去柳桥巷旧屋整理遗物。她说话快，习惯把一句话拆成两三条发，每条都带标点；从左腕的旧疤到小时候的暗号，都是哥哥熟悉的东西。',
     relationship:
@@ -1176,7 +1176,7 @@ export const newRoleplayId = () =>
 
 /**
  * 读取角色卡头像：居中裁成正方形再缩到 AVATAR_SIZE，统一转 JPEG 数据 URL。
- * 任何一步失败都抛出带原因的 Error，由调用方提示，不做静默降级。
+ * 任何一步失败都抛出带原因的 Error，由调用方提示，不做静默忽略。
  */
 export const readAvatarImage = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -1274,10 +1274,10 @@ export const normalizeSourceUrl = (raw: unknown): string => {
 }
 
 /* ---- 05 剧情时钟与线索 ---- */
-const storyMinute = (value: unknown, fallback: number) => {
+const storyMinute = (value: unknown, defaultValue: number) => {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) {
-    return fallback
+    return defaultValue
   }
   return Math.min(24 * 60, Math.max(0, Math.round(parsed)))
 }
@@ -1631,7 +1631,7 @@ export const formatSceneBlock = (scene: SceneState) => {
 
 /**
  * 关键词命中：常驻条目必进，其余按命中次数排序；总字符数不超过预算。
- * recent 只看传入的最近上下文，session 扫描整段可见历史；避触词命中时整条跳过。
+ * recent 只看传入的最近上下文，session 扫描整段可见历史；避触词命中时整条不参与本轮注入。
  */
 export const selectWorldbookEntries = (
   entries: WorldbookEntry[],
@@ -1643,7 +1643,7 @@ export const selectWorldbookEntries = (
 ) => {
   const recentHaystack = context.toLowerCase()
   const sessionHaystack = sessionContext.toLowerCase()
-  // 绑定角色：只在这张卡启用时参与；没有启用卡时，绑定条目一律跳过
+  // 绑定角色：只在这张卡启用时参与；没有启用卡时，绑定条目一律不参与
   const usable = entries.filter(
     (entry) => entry.enabled && (!entry.cardId || entry.cardId === activeCardId)
   )
@@ -1672,7 +1672,7 @@ export const selectWorldbookEntries = (
             score += 1
           }
         } catch {
-          // 单条正则有语法错误时跳过该关键词，其余关键词继续匹配。
+          // 单条正则有语法错误时不再使用该关键词，其余关键词继续匹配。
         }
       } else if (haystack.includes(keyword.toLowerCase())) {
         score += 1

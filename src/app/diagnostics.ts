@@ -209,7 +209,7 @@ export const installDiagnostics = () => {
       )
     }
   } catch {
-    // 旧格式快照字段不完整时跳过恢复，避免用半截状态覆盖本次启动。
+    // 旧格式快照字段不完整时不执行恢复，避免用半截状态覆盖本次启动。
   }
 
   // 长任务：超过 50ms 的脚本占用单独记，和帧间隔互为补充
@@ -258,7 +258,7 @@ const readStoredJson = (key: string): unknown => {
 }
 
 /* ------------------------------------------------------------------ */
-/* 主动诊断：每项都真跑一遍，只写实际结果，跑不动的写「跳过：原因」 */
+/* 主动诊断：每项都真跑一遍，只写实际结果，跑不动的写「未执行：原因」 */
 /* ------------------------------------------------------------------ */
 
 export type DiagnosticFinding = { level: 'problem' | 'warning'; area: string; detail: string }
@@ -498,7 +498,7 @@ export const collectDiagnosticReport = async () => {
 
   const mic = probeNativeMic()
   if (mic === null) {
-    facts.push({ area: '麦克风自检', detail: '跳过：当前环境没有 probeMicrophone 桥（浏览器）' })
+    facts.push({ area: '麦克风自检', detail: '未执行：当前环境没有 probeMicrophone 桥（浏览器）' })
   } else {
     const detail = mic.ok
       ? `通道正常，原生录到 ${String(mic.read ?? 0)} 个采样，AudioManager 模式 ${String(mic.mode ?? -1)}`
@@ -514,7 +514,7 @@ export const collectDiagnosticReport = async () => {
   const methods = bridgeMethods()
   facts.push({
     area: '原生桥',
-    detail: methods ? `${methods.length} 个方法：${methods.join('、')}` : '跳过：当前是浏览器环境',
+    detail: methods ? `${methods.length} 个方法：${methods.join('、')}` : '未执行：当前是浏览器环境',
   })
 
   let storage: { usage?: number; quota?: number } = {}
@@ -544,7 +544,7 @@ export const collectDiagnosticReport = async () => {
   ).memory
   const device = readDeviceStats()
   if (device === null) {
-    facts.push({ area: '设备资源', detail: '跳过：当前环境没有 deviceStats 桥（浏览器）' })
+    facts.push({ area: '设备资源', detail: '未执行：当前环境没有 deviceStats 桥（浏览器）' })
   } else if (typeof device.error === 'string') {
     facts.push({ area: '设备资源', detail: `原生读取失败：${device.error}` })
     findings.push({ level: 'problem', area: '设备资源', detail: `读取失败：${device.error}` })
@@ -634,7 +634,7 @@ export const collectDiagnosticReport = async () => {
     detail: `定时器迟到 ${Math.max(0, Math.round(loop.lagMs))} ms；${
       frames
         ? `采样 ${frames.frames} 帧，平均 ${frames.averageGap.toFixed(1)} ms，最长 ${frames.maxGap.toFixed(1)} ms`
-        : '页面不在前台，跳过帧采样'
+        : '页面不在前台，不执行帧采样'
     }`,
   })
   if (loop.lagMs > 140) {

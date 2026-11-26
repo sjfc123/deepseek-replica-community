@@ -1030,7 +1030,7 @@ public final class MainActivity extends Activity {
                             == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
                     }
                 } catch (Throwable ignored) {
-                    // 焦点申请失败时继续尝试 WebView 采集，后续仍有系统直录兜底
+                    // 焦点申请失败时继续尝试 WebView 采集，后续仍有系统直录路径
                 } finally {
                     done.countDown();
                 }

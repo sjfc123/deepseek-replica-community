@@ -16,7 +16,7 @@
   justify-content: space-between;
   padding: max(20px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
   /* 通话页必须从第一帧就不透明：授权提示、输入法或系统弹窗可能暂停入场动画，
-     整层 fade 会把底下的聊天页透出来。纯色底与光晕拆开声明，旧内核也能兜住。 */
+     整层 fade 会把底下的聊天页透出来。纯色底与光晕拆开声明，旧内核也能覆盖。 */
   background-color: #fff;
   background-color: var(--dsw-alias-bg-base, #fff);
   background-image: radial-gradient(

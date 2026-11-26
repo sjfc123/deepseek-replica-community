@@ -13,7 +13,7 @@
  * https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation
  *
  * 字节流 → UTF-8 解码 → 按 CRLF / LF / CR 切行 → 字段累积 → 空行派发事件。
- * 注释行（如服务端保活的 `: keep-alive`）直接忽略；`retry` 仅对 EventSource 重连有意义，本解析器不处理。
+ * 注释行（如服务端保活的 `: keep-alive`）不进入解析结果；`retry` 仅对 EventSource 重连有意义，本解析器不处理。
  */
 
 export type ServerSentEvent = {

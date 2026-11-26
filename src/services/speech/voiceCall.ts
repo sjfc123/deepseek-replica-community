@@ -714,7 +714,7 @@ const runSpeechTurn = async (call: CallSession, wav: Blob) => {
       return
     }
     if (!transcript) {
-      // 服务端未返回文字时给出明确反馈，再恢复聆听；旧版本采用静默恢复，
+      // 服务端未返回文字时给出明确反馈，再恢复聆听；旧版本不提示直接恢复，
       // 采集已启动但长时间没有音量时给出明确提示，避免用户误以为麦克风未工作。
       const notice = '这次没听清，我还在听，再说一遍'
       useVoiceCall.setState({ error: notice, speechDetected: false, level: 0 })
@@ -876,7 +876,7 @@ export const startVoiceCall = (sessionId: string | null) => {
   try {
     window.speechSynthesis?.cancel()
   } catch {
-    // 环境没有语音合成器时跳过播报，通话状态仍正常推进。
+    // 环境没有语音合成器时不执行预取消，通话状态仍正常推进。
   }
   try {
     const bridge = (

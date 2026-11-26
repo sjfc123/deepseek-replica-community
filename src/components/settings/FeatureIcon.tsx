@@ -1,7 +1,7 @@
 /* ============================================================================
  * 功能区：视图与交互 / FeatureIcon
  * 职责：FeatureIcon 组件，负责该组件的渲染、状态与交互出口。
- * 分区：01 核心实现：FALLBACK、hash、FeatureIcon；02 类型、契约与依赖；03 对外入口与收尾
+ * 分区：01 核心实现：DEFAULT_ICONS、hash、FeatureIcon；02 类型、契约与依赖；03 对外入口与收尾
  * 关联：无内部依赖；
  *    被 components/session/Welcome、components/settings/AndroidSettings 引用。
  * 导出：FeatureIcon
@@ -86,7 +86,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-/* ---- 01 核心实现：FALLBACK、hash、FeatureIcon ---- */
+/* ---- 01 核心实现：DEFAULT_ICONS、hash、FeatureIcon ---- */
 /* ---- 02 类型、契约与依赖 ---- */
 /**
  * 设置行的功能图标。
@@ -251,7 +251,7 @@ const BY_LABEL: Record<string, LucideIcon> = {
 
 /* ---- 03 对外入口与收尾 ---- */
 /** 未命中的标签：用标签长度与字符码稳定散列到一组互不相同的备选图标 */
-const FALLBACK: LucideIcon[] = [
+const DEFAULT_ICONS: LucideIcon[] = [
   BarChart3,
   BookOpen,
   BrainCircuit,
@@ -275,7 +275,7 @@ const hash = (text: string) => {
 }
 
 export const FeatureIcon = ({ label }: { label: string }) => {
-  const Icon = BY_LABEL[label] ?? FALLBACK[hash(label) % FALLBACK.length]
+  const Icon = BY_LABEL[label] ?? DEFAULT_ICONS[hash(label) % DEFAULT_ICONS.length]
   return <Icon size={15} strokeWidth={1.7} />
 }
 

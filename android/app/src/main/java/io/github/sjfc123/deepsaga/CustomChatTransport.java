@@ -116,7 +116,7 @@ final class CustomChatTransport {
         exchanges.keySet().forEach(this::cancel);
     }
 
-    /** 解析页面传来的 JSON 头对象；非法键值（含 CR/LF）直接跳过 */
+    /** 解析页面传来的 JSON 头对象；非法键值（含 CR/LF）直接拒绝 */
     private static Map<String, String> extraHeaders(String json) {
         Map<String, String> headers = new java.util.LinkedHashMap<>();
         if (json == null || json.isEmpty()) return headers;

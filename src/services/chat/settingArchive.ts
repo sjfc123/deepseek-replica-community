@@ -46,7 +46,7 @@ export type SettingArchive = {
   cards: CharacterCard[]
   avatars: Record<string, string>
   worldbook: WorldbookEntry[]
-  /** 场景快照：导出时取当前打开会话；恢复时写回当前会话，没有会话则跳过 */
+  /** 场景快照：导出时取当前打开会话；恢复时写回当前会话，没有会话则不写入 */
   scene: SceneState
 }
 
@@ -160,7 +160,7 @@ export type SettingArchiveResult = {
 
 /* ---- 03 对外入口与收尾 ---- */
 /**
- * 合并导入：同 id 覆盖，新条目按剩余名额追加，超出上限的部分跳过并计数。
+ * 合并导入：同 id 覆盖，新条目按剩余名额追加，超出上限的部分不导入并计数。
  * 逐条调用设置层的保存接口，保证内存状态与本地存储同时更新。
  */
 export const applySettingArchive = (

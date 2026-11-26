@@ -1,6 +1,6 @@
 /* ============================================================================
  * 功能区：视图与交互 / androidSettingsMotion · 设置页转场
- * 职责：设置页转场：页面切换动画、降级与超时收尾。
+ * 职责：设置页转场：页面切换动画、兼容路径与超时收尾。
  * 分区：01 类型、契约与依赖；02 对外入口与收尾
  * 关联：无内部依赖；被 components/settings/AndroidSettings 引用。
  * 导出：createSettingsPageMotion
@@ -35,7 +35,7 @@ const secondPhase = (property: Property, from: Value, to: Value, easing: string)
 
 // 旧 WebView 可能没有 Animation.finished，动画也可能被系统挂起而永远不 settle。
 // 超时按完成处理，页面的返回/进入不能因为一段装饰动画把交互锁死。
-const FALLBACK_TIMEOUT = duration * 2 + 150
+const SETTLE_TIMEOUT = duration * 2 + 150
 
 const waitForAnimation = (animation: Animation): Promise<boolean> => {
   return new Promise<boolean>((resolve) => {
@@ -60,7 +60,7 @@ const waitForAnimation = (animation: Animation): Promise<boolean> => {
     const onFinish = () => settle(true)
     const onCancel = () => settle(false)
 
-    timer = window.setTimeout(() => settle(true), FALLBACK_TIMEOUT)
+    timer = window.setTimeout(() => settle(true), SETTLE_TIMEOUT)
 
     // Animation.finished 从 Chrome 84 才有；有它时优先用它，避免旧事件漏发。
     if (animation.finished) {
@@ -158,7 +158,7 @@ export const createSettingsPageMotion = (
         animation.currentTime = 0
       }
     } catch {
-      // 某些旧 WebView 的 animate 存在但会因属性或时序抛错；退化为立即切换。
+      // 某些旧 WebView 的 animate 存在但会因属性或时序抛错；改用立即切换。
       for (const animation of animations) {
         animation.cancel()
       }

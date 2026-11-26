@@ -860,7 +860,7 @@ export const MessageList = ({
     }
     showToast(
       result.skipped > 0
-        ? `已保存 ${result.created} 张${savedLabel}，跳过 ${result.skipped} 张重复记录`
+        ? `已保存 ${result.created} 张${savedLabel}，未重复保存 ${result.skipped} 张记录`
         : `已保存 ${result.created} 张${savedLabel}，可在记忆面板查看`
     )
   }
@@ -1148,10 +1148,10 @@ export const MessageList = ({
                     : memoryPool === 'normal'
                       ? '自动识别会把三连反引号代码块归入「代码」，用户消息归入「用户原话」，AI 回复归入「AI 原话」；也可以手动指定。'
                       : memoryCharacterKind === 'scene'
-                        ? '重要场景独立成卡，每轮优先带回，不占自动配额；同一段文字重复保存会跳过。'
+                        ? '重要场景独立成卡，每轮优先带回，不占自动配额；同一段文字重复保存不会新增。'
                         : memoryCharacterKind === 'fact'
-                          ? '关键事实独立成卡，当作稳定设定长期保留；相同文字重复保存会跳过。'
-                          : '完整回合保留用户与角色原话；同一轮已有整段卡会跳过，不会重复保存。'}
+                          ? '关键事实独立成卡，当作稳定设定长期保留；相同文字重复保存不会新增。'
+                          : '完整回合保留用户与角色原话；同一轮已有整段卡时不重复保存。'}
                 </p>
                 <div className={styles.memoryConfirmActions}>
                   <button

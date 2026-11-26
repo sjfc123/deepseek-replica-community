@@ -1278,7 +1278,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     }
   }
 
-  /** 导入设定：同 id 覆盖，新条目按剩余名额追加；结果按处理项与跳过项分别说明 */
+  /** 导入设定：同 id 覆盖，新条目按剩余名额追加；结果按已处理项与未导入项分别说明 */
   const importSettings = async (file: File) => {
     setSettingBusy(true)
     setSettingStatus({ type: 'info', text: tr('正在读取设定…', 'Reading settings…') })
@@ -1308,7 +1308,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             result.scene ? '、1 份当前会话场景' : ''
           }${
             result.profile ? '、1 份基础档案' : ''
-          }${skipped > 0 ? `，${skipped} 项因超出上限被跳过` : ''}`,
+          }${skipped > 0 ? `，${skipped} 项因超出上限未导入` : ''}`,
           `Imported ${result.cards} cards, ${result.worldbook} worldbook entries, ${result.avatars} avatars${
             result.scene ? ', 1 current-session scene' : ''
           }${
@@ -2293,7 +2293,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 label={tr('角色内心独白', 'Inner monologue')}
                 value={
                   thoughtAside
-                    ? tr('置灰并跳过朗读', 'Dimmed & skipped in speech')
+                    ? tr('置灰且不朗读', 'Dimmed & muted in speech')
                     : tr('关闭', 'Off')
                 }
                 arrow={false}
@@ -2307,7 +2307,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <p className={styles.caption}>
                 {tr(
-                  '括号里的内容（……）按内心独白处理：聊天里降低对比度，朗读与语音通话自动跳过。关闭后括号与普通台词一样显示，也会被读出来。发给模型的原文不受影响。',
+                  '括号里的内容（……）按内心独白处理：聊天里降低对比度，朗读与语音通话自动不朗读。关闭后括号与普通台词一样显示，也会被读出来。发给模型的原文不受影响。',
                   'Text in parentheses (…) is treated as inner monologue: dimmed in chat, skipped by read-aloud and voice calls. When off, parentheses read like normal lines and are spoken. What is sent to the model is unchanged.'
                 )}
               </p>
@@ -2397,7 +2397,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 ? tr('正在处理…', 'Working…')
                 : (settingStatus?.text ??
                   tr(
-                    '基础档案、角色卡、头像、世界书与当前会话场景打包成一个 JSON；导入按 id 合并，同名的卡不会重复新增，超出上限的部分会跳过。场景只恢复到当前打开的会话，没有打开会话时跳过。设定存档不含对话与记忆。',
+                    '基础档案、角色卡、头像、世界书与当前会话场景打包成一个 JSON；导入按 id 合并，同名的卡不会重复新增，超出上限的部分不导入。场景只恢复到当前打开的会话，没有打开会话时不写入。设定存档不含对话与记忆。',
                     'Base profile, cards, avatars, worldbook and scene are packed into one JSON file. Import merges by id, never duplicates a card, and skips what exceeds the limits. Settings archives contain no chats or memories.'
                   ))}
             </p>
@@ -2606,7 +2606,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 <div className={styles.promptMeta}>
                   <span>
                     {tr(
-                      '支持 Key: Value 多行格式或 JSON 对象；同名请求头覆盖内置值（含 Authorization），格式错误的条目会被忽略。',
+                      '支持 Key: Value 多行格式或 JSON 对象；同名请求头覆盖内置值（含 Authorization），格式错误的条目不会写入请求。',
                       'Accepts Key: Value lines or a JSON object. Same-name headers override built-ins (including Authorization).'
                     )}
                   </span>
@@ -2653,7 +2653,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption}>
               {tr(
-                '安全审核：开启后请求体携带 safety_check 字段，由服务端按其规则检查并过滤敏感内容。关闭后不再发送该字段，软件也不再替你过滤敏感内容；网关或服务商自身的兜底审核仍可能存在。关闭后，模型说出的任何内容与行为、你发送的任何内容及由此产生的后果，均由使用者自行承担。自由是有代价的，请确认愿意承担再关闭。如果确实需要发送对话，请只发送正常的聊天内容；私密、深情的内容不要转发、截图分享或上传公开平台。\n上下文提醒：开启后发送当前日期与大致位置，用于时间与地点一致性；对隐私敏感或需要完全虚构时间线时可关闭。\n自动生成标题：在需要标题的首轮请求中携带 title 字段，由服务端生成；关闭后由首条消息文本生成。\n兼容性：网关不识别 DeepSeek 扩展字段并返回 400 时，可关闭 safety_check 与 latest_reminder。',
+                '安全审核：开启后请求体携带 safety_check 字段，由服务端按其规则检查并过滤敏感内容。关闭后不再发送该字段，软件也不再替你过滤敏感内容；网关或服务商自身的安全审核仍可能存在。关闭后，模型说出的任何内容与行为、你发送的任何内容及由此产生的后果，均由使用者自行承担。自由是有代价的，请确认愿意承担再关闭。如果确实需要发送对话，请只发送正常的聊天内容；私密、深情的内容不要转发、截图分享或上传公开平台。\n上下文提醒：开启后发送当前日期与大致位置，用于时间与地点一致性；对隐私敏感或需要完全虚构时间线时可关闭。\n自动生成标题：在需要标题的首轮请求中携带 title 字段，由服务端生成；关闭后由首条消息文本生成。\n兼容性：网关不识别 DeepSeek 扩展字段并返回 400 时，可关闭 safety_check 与 latest_reminder。',
                 'safety_check: when on, the request carries the field and the server checks and filters sensitive content by its rules. When off, the field is omitted and the app no longer filters sensitive content for you; the gateway or provider may still moderate. With it off, any model output and any content you send, plus the consequences, are your responsibility. Freedom has a cost; confirm you accept it before turning this off. If you must send a conversation, send only ordinary chat content; do not forward, screenshot-share, or upload private or intimate content publicly.\nlatest_reminder sends the current date and approximate location for time and place consistency; turn it off when privacy matters or the timeline should stay fictional.\nServer-side title: the first title-bearing request carries a title field; when off, the first message text is used.\nCompatibility: turn off safety_check and latest_reminder if a gateway rejects DeepSeek-specific fields with a 400.'
               )}
             </p>
@@ -3579,7 +3579,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   if (unreadable > 0) {
                     parts.push(
                       tr(
-                        `${unreadable} 条旧对话无法读取，已跳过`,
+                        `${unreadable} 条旧对话无法读取，未导入`,
                         `${unreadable} old chats skipped`
                       )
                     )
@@ -3802,7 +3802,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                                   result.cleared > 0 ? `，覆盖前清掉 ${result.cleared} 张` : ''
                                 }${
                                   skipped > 0
-                                    ? `，跳过 ${skipped} 项（原会话或消息已不存在、或卡片已存在）`
+                                    ? `，未导入 ${skipped} 项（原会话或消息已不存在、或卡片已存在）`
                                     : ''
                                 }`,
                                 `Imported ${result.cards} cards across ${result.sessions} chats${
@@ -3810,7 +3810,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                                 }`
                               )
                             : tr(
-                                `未导入新卡片：${skipped} 项已跳过（会话或消息不存在，或卡片已存在）`,
+                                `未导入新卡片：${skipped} 项未导入（会话或消息不存在，或卡片已存在）`,
                                 `Nothing new: ${skipped} items skipped (chat or message missing, or already present)`
                               ),
                       })
@@ -3839,7 +3839,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 </li>
                 <li>
                   {tr(
-                    '导入按会话与消息定位：原会话已删除、或那条消息已不存在，对应卡片会被跳过并计数。',
+                    '导入按会话与消息定位：原会话已删除、或那条消息已不存在，对应卡片不会导入并计数。',
                     'Import matches by chat and message id; cards whose chat or message is gone are skipped.'
                   )}
                 </li>

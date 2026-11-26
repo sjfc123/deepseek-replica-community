@@ -83,7 +83,7 @@ const updateBlock = (
 
 /**
  * 将流式事件合并进回复：仅追加可识别的块，按本次请求的临时索引映射处理增量。
- * 跳过的块不占位；追加内容按事件顺序进入已有块。
+ * 未识别的块不占位；追加内容按事件顺序进入已有块。
  */
 export const applyEvent = (
   reply: AssistantMessage,

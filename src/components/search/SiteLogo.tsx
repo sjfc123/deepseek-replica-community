@@ -2,7 +2,7 @@
  * 功能区：视图与交互 / SiteLogo
  * 职责：SiteLogo 组件，负责该组件的渲染、状态与交互出口。
  * 分区：01 类型、契约与依赖
- * 关联：依赖 components/base/icons、components/search/FallbackImage、components/search/SiteLogo.module、services/chat/view；
+ * 关联：依赖 components/base/icons、components/search/ImageWithPlaceholder、components/search/SiteLogo.module、services/chat/view；
  *    被 components/messages/AssistantMessage、components/messages/ReplyArea、components/search/AndroidSearchPanel、components/search/SourceCard 引用。
  * 导出：SiteLogo、SiteThumbnails
  * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
@@ -10,7 +10,7 @@
 
 import type { CSSProperties } from 'react'
 import clsx from 'clsx'
-import { FallbackImage } from './FallbackImage.js'
+import { ImageWithPlaceholder } from './ImageWithPlaceholder.js'
 import { IconLinkOutline14 } from '../base/icons.js'
 import type { Source } from '../../services/chat/view.js'
 import styles from './SiteLogo.module.css'
@@ -26,14 +26,14 @@ export const SiteLogo = ({
   className?: string
   style?: CSSProperties
 }) => (
-  <FallbackImage
+  <ImageWithPlaceholder
     key={url ?? ''}
     src={url ?? ''}
-    fallback={<IconLinkOutline14 />}
+    placeholder={<IconLinkOutline14 />}
     className={clsx(styles.logo, className)}
     imgClassName={styles.img}
     skeletonClassName={styles.placeholder}
-    fallbackClassName={clsx(styles.placeholder, styles.fallback)}
+    placeholderClassName={clsx(styles.placeholder, styles.iconPlaceholder)}
     style={style}
   />
 )

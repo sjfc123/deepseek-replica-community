@@ -173,7 +173,7 @@ import {
 
 /** DeepSeek Flash 和 Pro 的官方最大输出预算（384K，含思考）。 */
 const MAX_OUTPUT_TOKENS = 393_216
-/** 长上下文下的最小输出保底（5% 窗口），与 5% 安全缓冲配合对齐 90% 触发线。 */
+/** 长上下文下的最小输出下限（5% 窗口），与 5% 安全缓冲配合对齐 90% 触发线。 */
 const MIN_OUTPUT_RESERVE = 52_428
 const PROMPT_OVERHEAD_TOKENS = 256
 const CUSTOM_OUTPUT_TOKENS = 4_096
@@ -2153,7 +2153,7 @@ export const addManualMemory = (
 export type SaveConversationMemoryResult = {
   /** 本次写入的完整回合卡片数 */
   created: number
-  /** 已经存在整段卡片的轮次，跳过不重复写 */
+  /** 已经存在整段卡片的轮次，不重复写入 */
   skipped: number
   /** 写完后仍在生效的卡片数 */
   active: number
@@ -2466,7 +2466,7 @@ const refreshRequest = (sessionId: string, request: Request): Request => {
  * 发送前补齐附件的 serverId。
  * - 本轮提问的附件并行补齐，任一失败则整体失败，已成功的照常写回，重试时复用成功结果；
  * - 历史轮次（仅进入上下文的）中没有 serverId 的附件，多为导入的图片：从最新的消息往前逐张补传，
- *   失败静默跳过，该附件不进入本次请求，下次发送时再试。
+ *   任一张失败则中止本次发送，并在错误里列出附件名与原因，避免上下文缺少图片却无提示。
  */
 const prepareFiles = async (sessionId: string, request: Request, signal: AbortSignal) => {
   const epoch = historyEpoch
@@ -2506,16 +2506,27 @@ const prepareFiles = async (sessionId: string, request: Request, signal: AbortSi
       }
     }
   }
+  const attachmentFailures: string[] = []
   for (const file of pending.values()) {
     signal.throwIfAborted()
     try {
       const result = await Promise.race([ensureServerId(apiKey, file), aborted])
       if (result) {
         saveUploadedFiles(sessionId, new Map([[file.id, result]]))
+      } else {
+        attachmentFailures.push(`${file.name}：本地文件不存在或已被清理`)
       }
-    } catch {
+    } catch (error) {
       signal.throwIfAborted()
+      attachmentFailures.push(
+        `${file.name}：${error instanceof Error ? error.message : String(error)}`
+      )
     }
+  }
+  if (attachmentFailures.length > 0) {
+    throw new Error(
+      `历史附件未能补传：${attachmentFailures.join('；')}。请在输入框重新发送这些附件后再试。`
+    )
   }
 
   const prepared = refreshRequest(sessionId, request)
@@ -2872,7 +2883,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           userName,
         })
       : ''
-  // 提示词清空时三种身份来源全部跳过，只保留默认官方助手。
+  // 提示词清空时三种身份来源全部不参与，只保留默认官方助手。
   const identityBlock = suppressionActive
     ? profileSystem || suppressionPersona
     : promptEmpty
@@ -3082,7 +3093,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const initialOutputTokens =
     effectiveMaxTokens ?? (custom ? CUSTOM_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS)
   const minOutputReserve = custom ? CUSTOM_OUTPUT_TOKENS : MIN_OUTPUT_RESERVE
-  const fallbackOutputTokens = custom ? 1_024 : initial.thinking ? 32_768 : 8_192
+  const defaultOutputTokens = custom ? 1_024 : initial.thinking ? 32_768 : 8_192
   const window = custom ? CUSTOM_CONTEXT_WINDOW : undefined
   const windowLimit = window ?? WINDOW_TOKENS
   const tokenScale = estimateBranchScale(
@@ -3300,11 +3311,11 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         if (!receivedContent) {
           if (isContextOverflow(error)) {
             if (
-              requestMaxOutput > fallbackOutputTokens &&
+              requestMaxOutput > defaultOutputTokens &&
               estimatedInput + requestMaxOutput >= Math.floor(windowLimit * 0.85)
             ) {
               // 高输入场景下因 max_tokens 占满窗口导致的溢出，优先缩小输出预算，不误砍历史。
-              maxOutputTokens = fallbackOutputTokens
+              maxOutputTokens = defaultOutputTokens
               continue
             }
             if (context?.tokens) {
@@ -3314,8 +3325,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
               context = undefined
               continue
             }
-            if (maxOutputTokens > fallbackOutputTokens) {
-              maxOutputTokens = fallbackOutputTokens
+            if (maxOutputTokens > defaultOutputTokens) {
+              maxOutputTokens = defaultOutputTokens
               continue
             }
             if (!reduceInput) {
@@ -3378,7 +3389,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     titleRequests.delete(controller)
     streamFlushes.delete(sessionId)
     cancelAnimationFrame(frame)
-    /* 记录最终一次请求的 usage；中断、上传失败或没有 usage 时跳过，不用估算冒充。 */
+    /* 记录最终一次请求的 usage；中断、上传失败或没有 usage 时不记录，不用估算冒充。 */
     if (reply.usage && cacheAttemptMeta) {
       recordPromptCacheSample({
         sessionId,

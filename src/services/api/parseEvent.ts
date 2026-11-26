@@ -207,7 +207,7 @@ const readUsage = (value: unknown): MessageUsage | undefined => {
 }
 
 /* ---- 03 读取与解析（readMessageEvent） ---- */
-/** 未识别或无法安全消费的事件静默丢弃，不影响后续有效内容与正常结束。 */
+/** 未识别或无法安全消费的事件不进入消息链，不影响后续有效内容与正常结束。 */
 export const readMessageEvent = (value: unknown): MessageStreamEvent | null => {
   if (!isRecord(value)) {
     return null

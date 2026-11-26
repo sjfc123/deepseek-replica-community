@@ -130,7 +130,7 @@ export const AndroidVoiceOverlay = ({
           setShaderReady(false)
         }
       } else {
-        // WebGL 不可用时的 CSS 降级：同步手指坐标驱动径向光晕
+        // WebGL 不可用时的 CSS 光晕路径：同步手指坐标驱动径向光晕
         if (currentTouch) {
           const rect = overlay.getBoundingClientRect()
           overlay.style.setProperty('--voice-touch-x', `${currentTouch.x - rect.left}px`)
@@ -161,7 +161,7 @@ export const AndroidVoiceOverlay = ({
       <canvas ref={canvasRef} className={styles.canvas} aria-hidden="true" />
       <div className={styles.color} data-color="blue" />
       <div className={styles.color} data-color="red" />
-      <div className={styles.fallbackHalo} aria-hidden="true" />
+      <div className={styles.cssHalo} aria-hidden="true" />
       <div className={styles.hint} role="status">
         {t(canceling ? 'androidReleaseToCancel' : 'androidSlideToCancel')}
       </div>

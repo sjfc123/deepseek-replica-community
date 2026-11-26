@@ -180,7 +180,7 @@ export const toSessionSummary = (session: SessionSummary): SessionSummary => ({
 
 /**
  * 旧版本写入的记录可能缺少字段或类型不符。此处仅判定是否可安全读取，
- * 不修改内容：非法记录由调用方单独跳过，不影响整个列表。
+ * 不修改内容：非法记录由调用方单独排除，不影响整个列表。
  */
 export const isReadableSummary = (value: unknown): value is SessionSummary => {
   if (!value || typeof value !== 'object') {

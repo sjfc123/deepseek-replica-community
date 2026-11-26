@@ -69,7 +69,7 @@ export type MemoryExportOptions = {
 export type MemoryImportResult = {
   cards: number
   sessions: number
-  /** 原会话已不存在而跳过的卡片数 */
+  /** 原会话已不存在而未导入的卡片数 */
   skippedCards: number
   skippedSessions: number
   /** 覆盖模式下被清掉的旧卡片数量 */
@@ -140,7 +140,7 @@ README.txt   本说明，导入时不读取。
 
 导入规则
 --------
-1. 只按会话 id 与消息 id 匹配；找不到原会话的整段跳过，找不到原消息的卡片跳过。
+1. 只按会话 id 与消息 id 匹配；找不到原会话的整段不导入，找不到原消息的卡片不导入。
 2. 同 id 的卡片不会重复写入；本机已有卡片保持原样，不会被覆盖或删除。
 3. 导入后立即生效，下次打开对应会话即可看到。
 
@@ -236,7 +236,7 @@ const mergeCards = (existing: MemoryCard[], incoming: MemoryCard[]) => {
 /** 导入模式：merge 只追加同 id 缺失的卡片；replace 先清空本机已有记忆再写入 */
 export type MemoryImportMode = 'merge' | 'replace'
 
-/** 导入记忆归档：按会话与消息定位，同 id 跳过，不覆盖本机已有卡片 */
+/** 导入记忆归档：按会话与消息定位，同 id 不再导入，不覆盖本机已有卡片 */
 export const importMemory = async (
   file: File,
   onProgress?: (done: number, total: number) => void,
@@ -291,7 +291,7 @@ export const importMemory = async (
       skippedCards += incoming.cards.length - added
       return { ...message, memories: merged }
     })
-    // 归档里指向本机已不存在的消息：卡片无处安放，按跳过计数并说明
+    // 归档里指向本机已不存在的消息：卡片无处安放，按未导入计数并说明
     for (const item of archived.messages) {
       if (!matchedIds.has(item.messageId)) {
         skippedCards += item.cards.length

@@ -85,7 +85,7 @@ body[data-ds-dark-theme] .backdrop {
 }
 
 .overlay[data-shader='true'] .color,
-.overlay[data-shader='true'] .fallbackHalo {
+.overlay[data-shader='true'] .cssHalo {
   display: none;
 }
 
@@ -149,7 +149,7 @@ body[data-ds-dark-theme] .backdrop {
   opacity: 0;
 }
 
-.fallbackHalo {
+.cssHalo {
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -163,11 +163,11 @@ body[data-ds-dark-theme] .backdrop {
   transition: opacity 160ms ease-out;
 }
 
-.overlay[data-touch-active='true'] .fallbackHalo {
+.overlay[data-touch-active='true'] .cssHalo {
   opacity: 1;
 }
 
-.overlay[data-canceling='true'] .fallbackHalo {
+.overlay[data-canceling='true'] .cssHalo {
   background: radial-gradient(
     circle 180px at var(--voice-touch-x, 50%) var(--voice-touch-y, 82%),
     rgb(255 101 101 / 42%) 0%,

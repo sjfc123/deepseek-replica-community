@@ -1,6 +1,6 @@
 /* ============================================================================
  * 功能区：历史归档 / zipReader · ZIP 读取
- * 职责：ZIP 读取：条目遍历、CRC 与大小限制、跳过损坏项与流式读取。
+ * 职责：ZIP 读取：条目遍历、CRC 与大小限制、排除损坏项与流式读取。
  * 分区：01 类型、常量与模块依赖；02 类型与契约（ArchiveEntry、ArchiveReadOptions）；
  *    03 读取与解析（readEntry、skipEntry）；04 功能实现（skipEntry）
  * 关联：依赖 utils/blob；
@@ -292,14 +292,14 @@ export type ArchiveEntry = {
 }
 
 /* ---- 03 读取与解析（readEntry、skipEntry） ---- */
-/** 宽松读取：单个条目的本地头或 CRC 损坏时跳过该条目，继续读取后续条目。 */
+/** 宽松读取：单个条目的本地头或 CRC 损坏时排除该条目，继续读取后续条目。 */
 export type ArchiveReadOptions = {
   continueOnEntryError?: boolean
   onEntryError?: (path: string) => void
 }
 
 /**
- * 按条目在文件中的物理顺序逐条、逐块解压，跳过目录条目。
+ * 按条目在文件中的物理顺序逐条、逐块解压，略过目录条目。
  * 调用方必须消费完当前条目的数据，再请求下一个条目。
  */
 export async function* readArchive(

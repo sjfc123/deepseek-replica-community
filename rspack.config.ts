@@ -1,9 +1,19 @@
+/* ============================================================================
+ * 功能区：构建与打包 / rspack 配置
+ * 职责：生成 Web、Android WebView 与开发服务器共用的 rspack 配置；固定目标浏览器、资源命名、模块转译、分包边界与静态资源复制规则。
+ * 分区：01 运行模式、目标与常量；02 配置类型与工厂入口；03 模块解析与转译；04 插件、性能与开发服务器；05 默认导出
+ * 关联：读取 package.json 版本、src/index.html、src/boot.js 与 src/assets；被 pnpm build 与 Android Gradle buildWeb 调用。
+ * 导出：createConfig、默认配置实例
+ * 边界：只定义构建行为与资源复制；不读取应用业务状态，不执行网络请求，不修改源码。
+ * ========================================================================== */
+
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from '@rspack/cli'
 import { rspack, type Configuration } from '@rspack/core'
 
+/* ---- 01 运行模式、目标与常量 ---- */
 const dev = process.env.NODE_ENV === 'development' || process.argv.includes('serve')
 // The Android 10 test image ships with WebView 74 before system component updates.
 const targets = ['chrome >= 74', 'edge >= 105', 'safari >= 16', 'firefox >= 110']
@@ -17,6 +27,7 @@ const cssLoader = {
   options: { targets },
 }
 
+/* ---- 02 配置类型与工厂入口 ---- */
 type ConfigOptions = {
   /** 公开 API 的地址，注入为 __API_ORIGIN__ */
   apiOrigin?: string
@@ -60,6 +71,7 @@ export const createConfig = ({
         chunk.name !== 'history-import',
     },
   },
+/* ---- 03 模块解析与转译 ---- */
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
     // Markdown 的字符实体解码需要同时在页面和无 DOM 的 worker 中运行。
@@ -98,6 +110,7 @@ export const createConfig = ({
       { test: /\.(png|webp|jpg|jpeg)$/, type: 'asset/resource' },
     ],
   },
+/* ---- 04 插件、性能与开发服务器 ---- */
   plugins: [
     // 经典 defer 脚本支持 file:// 页面的资源加载
     new rspack.HtmlRspackPlugin({
@@ -109,7 +122,7 @@ export const createConfig = ({
     new rspack.CopyRspackPlugin({
       patterns: [
         { from: path.resolve(root, 'LICENSE'), to: 'LICENSE', toType: 'file' },
-        // 启动兜底脚本放在固定路径，先于主包执行，失败时显示原因而不是白屏
+        // 启动保护脚本放在固定路径，先于主包执行，失败时显示原因而不是白屏
         { from: path.resolve(root, 'src/boot.js'), to: 'static/js/boot.js', toType: 'file' },
         { from: path.resolve(root, 'src/assets/favicon.png'), to: 'favicon.png', toType: 'file' },
         { from: path.resolve(root, 'src/assets/apple-touch-icon.png'), to: 'apple-touch-icon.png', toType: 'file' },
@@ -120,5 +133,6 @@ export const createConfig = ({
   devServer: { port: 8090, ...devServer },
 })
 
+/* ---- 05 默认导出 ---- */
 // eslint-disable-next-line import/no-default-export
 export default defineConfig(createConfig())

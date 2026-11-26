@@ -49,7 +49,7 @@ export type SessionFile = {
   updated_at: Iso8601Utc
   /** 消息树，分支靠 parent_id */
   messages: ChatMessage[]
-  /** 本应用导出的会话完整性摘要；旧版归档没有该字段，导入时跳过比对。 */
+  /** 本应用导出的会话完整性摘要；旧版归档没有该字段，导入时不执行比对。 */
   integrity?: SessionIntegrity
 }
 

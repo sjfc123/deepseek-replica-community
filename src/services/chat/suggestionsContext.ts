@@ -561,7 +561,7 @@ export const filterPrematureSuggestions = (
 
 /**
  * 候选去重：先排除上一批建议，再保证本批三条彼此不像。
- * 模型偶尔会只改一个词复读，因此用双字重合度而不是简单的字符串相等。
+ * 模型偶尔会只改一个词复读，因此用双字重合度而不是单一字符串相等。
  */
 export const pickFreshSuggestions = (candidates: string[], previous: string[] = []): string[] => {
   const picked: string[] = []

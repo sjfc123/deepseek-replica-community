@@ -250,9 +250,9 @@ public final class SourceBrowserActivity extends Activity {
         else finish();
     }
 
-    private String getLabel(String key, String fallback) {
+    private String getLabel(String key, String defaultValue) {
         String value = getIntent().getStringExtra(key);
-        return TextUtils.isEmpty(value) ? fallback : value;
+        return TextUtils.isEmpty(value) ? defaultValue : value;
     }
 
     private void showLoading() {

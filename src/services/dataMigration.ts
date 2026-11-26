@@ -319,7 +319,7 @@ export const migrateLocalData = (): MigrationReport | null => {
     try {
       step(report)
     } catch {
-      /* 单项校验失败则跳过，继续处理后续项 */
+      /* 单项校验失败则排除该项，继续处理后续项 */
     }
   })
   safeWrite(VERSION_KEY, String(DATA_VERSION))

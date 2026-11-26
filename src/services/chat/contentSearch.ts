@@ -106,7 +106,7 @@ export const buildSearchSnippet = (
   let prefix = ''
   if (firstMatch > SNIPPET_DIRECT_START_LIMIT) {
     let candidate = clampSurrogateStart(text, Math.max(0, firstMatch - SNIPPET_LEAD))
-    // 落在英文单词中间时，优先向左扩展少量字符保留完整单词，否则向右跳过半截单词。
+    // 落在英文单词中间时，优先向左扩展少量字符保留完整单词，否则向右越过半截单词。
     if (candidate > 0 && isAsciiWordChar(text[candidate - 1]) && isAsciiWordChar(text[candidate])) {
       let wordStart = candidate
       const lookbehindLimit = Math.max(0, candidate - 6)

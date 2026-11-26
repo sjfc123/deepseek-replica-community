@@ -55,8 +55,8 @@ export const memoryOwnerLabel = (owner: MemoryOwner, names?: MemoryNames) => {
 }
 
 /** 自动记忆正文里的说话人：有名字用名字，没有名字用玩家 / 角色，不再写泛称「用户」。 */
-export const memorySpeakerName = (value: string | undefined, fallback: '玩家' | '角色') =>
-  cleanMemoryName(value) || fallback
+export const memorySpeakerName = (value: string | undefined, defaultSpeaker: '玩家' | '角色') =>
+  cleanMemoryName(value) || defaultSpeaker
 
 export const CHARACTER_MEMORY_KINDS: CharacterMemoryKind[] = ['turn', 'scene', 'fact']
 
@@ -436,14 +436,14 @@ export const buildImportantMemoryCards = (
     return []
   }
   const last = picked[picked.length - 1]
-  const fallback = picked
+  const joinedTranscript = picked
     .map((message) => {
       const body = message.role === 'assistant' ? replyPlainText(message) : message.content
       return body.trim()
     })
     .filter(Boolean)
     .join('\n')
-  const body = (content ?? fallback).trim()
+  const body = (content ?? joinedTranscript).trim()
   if (!body) {
     return []
   }

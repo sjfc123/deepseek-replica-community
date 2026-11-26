@@ -12,7 +12,7 @@
  * 数据管理回归：
  * 1. 自动备份的数据版本只在真实写入时前进，备份基线不会把导出期间的新数据吞掉；
  * 2. ZIP 写入按内容字节报告进度，最终值与总字节一致；
- * 3. 单个条目 CRC 损坏时宽松读取会跳过该条目，继续返回后续正常条目。
+ * 3. 单个条目 CRC 损坏时宽松读取会排除该条目，继续返回后续正常条目。
  */
 /* ---- 01 夹具与固定输入 ---- */
 import assert from 'node:assert/strict'
@@ -124,7 +124,7 @@ for await (const entry of readArchive(file, undefined, undefined, {
     }
     recovered.push(entry.path)
   } catch {
-    // 损坏条目由调用方捕获后继续循环，读取器应跳过它并保留后续条目。
+    // 损坏条目由调用方捕获后继续循环，读取器应排除它并保留后续条目。
   }
 }
 assert.deepEqual(recovered, ['good.txt'])

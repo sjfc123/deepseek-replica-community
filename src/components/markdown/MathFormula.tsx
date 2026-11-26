@@ -20,7 +20,7 @@ const KATEX_WRAPPER = {
 
 type MathHtmlResult = {
   html: string
-  renderMode: 'katex' | 'fallback'
+  renderMode: 'katex' | 'plain'
 }
 
 const noop = () => {}
@@ -42,7 +42,7 @@ const useMathHtml = (input: string, isInline: boolean): MathHtmlResult => {
 
   return useMemo((): MathHtmlResult => {
     if (!katex) {
-      return { html: input, renderMode: 'fallback' }
+      return { html: input, renderMode: 'plain' }
     }
     try {
       const [prefix, suffix] = KATEX_WRAPPER[isInline ? 'inline' : 'display']
@@ -53,14 +53,14 @@ const useMathHtml = (input: string, isInline: boolean): MathHtmlResult => {
       previousResultRef.current = result
       return result
     } catch {
-      return previousResultRef.current ?? { html: input, renderMode: 'fallback' }
+      return previousResultRef.current ?? { html: input, renderMode: 'plain' }
     }
   }, [input, isInline, katex])
 }
 
 export const MathBlock = memo(function MathBlock({ value }: { value: string }) {
   const { html, renderMode } = useMathHtml(value, false)
-  if (renderMode === 'fallback') {
+  if (renderMode === 'plain') {
     return <p className="ds-markdown-paragraph">{html}</p>
   }
   return (
@@ -72,7 +72,7 @@ export const MathBlock = memo(function MathBlock({ value }: { value: string }) {
 
 export const InlineMath = memo(function InlineMath({ value }: { value: string }) {
   const { html, renderMode } = useMathHtml(value, true)
-  if (renderMode === 'fallback') {
+  if (renderMode === 'plain') {
     return html
   }
   return (

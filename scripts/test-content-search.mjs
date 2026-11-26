@@ -319,7 +319,7 @@ test('5. 日期格式化与官方 2.8.0 中英文实机一致', () => {
   assert.equal(formatSearchDate(prevYear, now, 'en-US'), 'Feb 6, 2025')
 })
 
-test('6. 全库搜索优先使用内存缓存、跳过已缓存 ID 并在取消时中止游标，跳转端到端激活分支', async () => {
+test('6. 全库搜索优先使用内存缓存、排除已缓存 ID 并在取消时中止游标，跳转端到端激活分支', async () => {
   resetDbMock()
   const sCached = {
     id: 's-cached',

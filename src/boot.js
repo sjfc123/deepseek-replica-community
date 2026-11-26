@@ -203,7 +203,7 @@
     window.globalThis = window
   }
 
-  /* 空闲回调：缺失时退化为短延时，仍推迟到首屏之后执行 */
+  /* 空闲回调：缺失时改走短延时路径，仍推迟到首屏之后执行 */
   define(window, 'requestIdleCallback', function (callback) {
     return window.setTimeout(function () {
       callback({
@@ -425,7 +425,7 @@
     if (!splash || !splash.parentNode) {
       return
     }
-    /* 先让遮罩淡出并轻微抬升，再移除节点；transitionend 不触发时用定时器兜底 */
+    /* 先让遮罩淡出并轻微抬升，再移除节点；transitionend 不触发时由超时定时器执行收尾 */
     splash.setAttribute('data-ready', 'true')
     var removed = false
     function removeSplash() {

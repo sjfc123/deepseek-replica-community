@@ -1081,7 +1081,7 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
     params: { added: 1, merged: 1, unchanged: 1 },
   })
 
-  // 验证性能优化：重复图片 img-a 被 getActiveFileTypes 识别跳过，没有重新入暂存或写活跃文件表
+  // 验证性能优化：重复图片 img-a 被 getActiveFileTypes 识别为重复并排除，没有重新入暂存或写活跃文件表
   assert.ok(dbState.metrics.getActiveFileTypesCalls >= 1)
   assert.equal(dbState.metrics.stagedFilesAdded, 0)
   assert.equal(dbState.metrics.commitMergeFilesCopied, 0)
@@ -1096,7 +1096,7 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
   assert.equal(getVisibleMessages(storeAfterMerge.sessionCache['s-common']).length, 4)
   assert.deepEqual(useSettings.getState().pinnedSessions, ['s-local-only', 's-remote-only'])
 
-  // 再次导入同一个 ZIP：0 新增、0 更新、3 跳过，0 写盘
+  // 再次导入同一个 ZIP：0 新增、0 更新、3 项未导入，0 写盘
   resetDbMetrics()
   const repeatRes = await importHistory(makeFile(zipBlob), undefined, 'merge')
   assert.deepEqual(repeatRes, {
@@ -1128,7 +1128,7 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
   assert.ok(await loadFile('img-a'))
   assert.equal(await loadSession('s-local-only'), undefined)
 
-  // 单个会话 JSON 损坏：跳过该会话并报告标题与原因，其余会话照常合并。
+  // 单个会话 JSON 损坏：不导入该会话并报告标题与原因，其余会话照常合并。
   const brokenFiles = unzipSync(new Uint8Array(await zipBlob.arrayBuffer()))
   brokenFiles['chat_sessions/s-same.json'] = strToU8('{ this is not valid json')
   const brokenZip = new Blob([zipSync(brokenFiles)], { type: 'application/zip' })

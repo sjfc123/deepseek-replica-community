@@ -215,7 +215,7 @@ const performAutoBackup = async (options: { notify?: boolean } = {}): Promise<Au
   } catch {
     // 元信息写不进去时只是少一行校验展示，不影响备份文件
   }
-  // 只有文件真正发布成功才推进基线；失败时下一轮还会重试，不会把未备份的数据跳过去。
+  // 只有文件真正发布成功才推进基线；失败时下一轮还会重试，不会漏过未备份的数据。
   markBackupRevision(revision)
   const result: AutoBackupResult = {
     outcome: 'ok',

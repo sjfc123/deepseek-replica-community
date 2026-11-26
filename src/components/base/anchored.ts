@@ -34,7 +34,7 @@ export type AnchoredPosition = {
 }
 
 export type AnchoredOptions = {
-  /** 长按触点；给出时以该点为锚点，忽略触发元素自身盒 */
+  /** 长按触点；给出时以该点为锚点，不以触发元素自身盒为锚点 */
   point?: { x: number; y: number } | null
   /** 优先出现的一侧，放不下时翻到另一侧 */
   side?: Side

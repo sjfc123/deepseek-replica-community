@@ -45,7 +45,7 @@ setupTheme()
 try {
   localStorage.removeItem('replica:last-render-error')
 } catch {
-  /* 隐私模式下存储不可写，忽略 */
+  /* 隐私模式下存储不可写，不写入任何数据 */
 }
 
 createRoot(document.getElementById('root') as HTMLElement).render(

@@ -57,7 +57,7 @@ final class RecentPhotos {
                 String type = rows.getString(2);
                 if (name == null || type == null || !type.startsWith("image/")) continue;
                 Uri uri = ContentUris.withAppendedId(IMAGES, id);
-                // 媒体库可能仍保留已删除文件的索引；跳过这些条目，继续查找可用图片。
+                // 媒体库可能仍保留已删除文件的索引；排除这些条目，继续查找可用图片。
                 try (ParcelFileDescriptor descriptor = resolver.openFileDescriptor(uri, "r")) {
                     if (descriptor == null) continue;
                 } catch (IOException | SecurityException ignored) {

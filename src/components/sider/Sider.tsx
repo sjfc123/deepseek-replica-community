@@ -528,8 +528,8 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
       return
     }
     const requested = forkName.trim()
-    const fallback = `${flow.target.title || t('untitledChat')} · ${t('sessionForkSuffix')}`
-    const title = requested || fallback
+    const defaultTitle = `${flow.target.title || t('untitledChat')} · ${t('sessionForkSuffix')}`
+    const title = requested || defaultTitle
     const id = await forkSession(flow.target.id, requested || undefined)
     if (!id) {
       showToast({ key: 'sessionForkFailed', type: 'error' })

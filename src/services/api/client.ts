@@ -68,10 +68,10 @@ const isErrorBody = (value: unknown): value is ApiErrorBody =>
 const readErrorResponse = async (
   response: Response,
   kind: 'http' | 'protocol' = 'http',
-  fallback = response.statusText
+  defaultMessage = response.statusText
 ): Promise<ApiError> => {
   const text = await response.text().catch(() => '')
-  let message = text || fallback
+  let message = text || defaultMessage
   let code: string | undefined
   try {
     const body: unknown = JSON.parse(text)
@@ -175,7 +175,7 @@ const openMessageStream = (apiKey: string, body: CreateMessageRequest, signal: A
     signal,
   })
 
-const withDeepSeekExtensionsFallback = (
+const retryWithoutDeepSeekExtensions = (
   body: CreateMessageRequest,
   send: (requestBody: CreateMessageRequest) => Promise<Response>
 ) =>
@@ -197,7 +197,7 @@ const withDeepSeekExtensionsFallback = (
  * ping、保活注释与无法解析的内容不产出；中止请求时抛出 signal 的 AbortError。
  */
 async function* streamMessage(apiKey: string, body: CreateMessageRequest, signal: AbortSignal) {
-  const response = await withDeepSeekExtensionsFallback(body, (requestBody) =>
+  const response = await retryWithoutDeepSeekExtensions(body, (requestBody) =>
     openMessageStream(apiKey, requestBody, signal)
   )
   yield* readAnthropicStream(response, signal)
@@ -464,7 +464,7 @@ async function* streamCompatibleMessage(
     const response = native
       ? await native.response
       : deepSeek
-        ? await withDeepSeekExtensionsFallback(body, send)
+        ? await retryWithoutDeepSeekExtensions(body, send)
         : await send(body)
     if (!response.ok) {
       throw await readErrorResponse(response, 'http', `HTTP ${response.status}`)
