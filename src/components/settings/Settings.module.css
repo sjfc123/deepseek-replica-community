@@ -205,6 +205,50 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
+.importIssues {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dsw-alias-label-tertiary) 8%, transparent);
+}
+
+.importIssuesTitle {
+  color: var(--dsw-alias-label-secondary);
+  font-weight: 500;
+}
+
+.importIssuesList {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.importIssuesList li + li {
+  margin-top: 2px;
+}
+
+.importIssuesMore {
+  margin-top: 4px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.progressTrack {
+  position: relative;
+  overflow: hidden;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-label-tertiary) 18%, transparent);
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dsw-alias-brand-primary);
+  transition: width 180ms ease-out;
+}
+
 .apiKey {
   display: flex;
   flex-direction: column;

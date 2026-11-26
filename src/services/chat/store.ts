@@ -6,6 +6,7 @@
 import { create } from 'zustand'
 import { createId } from '../../utils/id.js'
 import { translate } from '../../i18n/index.js'
+import { markDataChanged } from '../dataRevision.js'
 import { DEFAULT_CHAT_MODEL } from '../api/chatConfig.js'
 import { ApiError, streamChatMessage } from '../api/client.js'
 import type { CreateMessageRequest, MessageParam } from '../api/types.js'
@@ -327,6 +328,7 @@ const updateReply = (sessionId: string, reply: AssistantMessage) =>
 const persist = (sessionId: string) => {
   const session = getSession(sessionId)
   if (session) {
+    markDataChanged()
     unsavedSessions.add(sessionId)
     if (deletingSessions.has(sessionId)) {
       return
@@ -716,6 +718,7 @@ export const replaceHistory = async (
     sessionLoads.clear()
     await waitForIdle()
     await staging.commit(clearInBackground)
+    markDataChanged()
     sessionAccess.clear()
     unsavedSessions.clear()
     pendingFiles.clear()
@@ -788,6 +791,7 @@ export const mergeHistory = async (
     }
 
     const result = await staging.commitMerge({ localOverrides, clearInBackground })
+    markDataChanged()
     const { activeId, sessionCache, sessionLoadErrors, sessionSaveErrors } = get()
     const refreshedCache = { ...sessionCache }
     const updatedSet = new Set(result.updatedIds)
@@ -1043,6 +1047,7 @@ const removeSessionData = async (id: string): Promise<boolean> => {
     if (epoch !== historyEpoch) {
       return true
     }
+    markDataChanged()
     sessionLoads.delete(id)
     sessionAccess.delete(id)
     unsavedSessions.delete(id)

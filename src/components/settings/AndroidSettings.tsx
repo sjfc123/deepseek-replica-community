@@ -41,6 +41,8 @@ import {
   exportHistory,
   formatImportResult,
   importHistory,
+  type ExportProgress,
+  type ImportIssue,
   type ImportMode,
 } from '../../services/chat/backup.js'
 import { parseCustomHeaders } from '../../services/api/headers.js'
@@ -809,7 +811,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   }
   const [importMode, setImportMode] = useState<ImportMode>('merge')
   const [importStatus, setImportStatus] = useState<LinkedMessage | null>(null)
+  const [importIssues, setImportIssues] = useState<ImportIssue[]>([])
   const [exportSavedName, setExportSavedName] = useState<string | null>(null)
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null)
   const [backupStatus, setBackupStatus] = useState<AutoBackupStatus | null>(null)
   const [backingUp, setBackingUp] = useState(false)
   const importInput = useRef<HTMLInputElement>(null)
@@ -1264,6 +1268,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       })
     } finally {
       setBusy(false)
+      setExportProgress(null)
     }
   }
 
@@ -1347,8 +1352,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         setPopup(null)
         setFile(null)
         setImportStatus({ key: 'historyImporting' })
+        setImportIssues([])
         const result = await importHistory(file, setImportStatus, importMode)
         setImportStatus(formatImportResult(result))
+        setImportIssues(result.skipped)
       } else if (popup === 'delete') {
         await clearHistory()
         showToast({ key: 'historyDeleted' })
@@ -1356,6 +1363,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       }
     } catch (error) {
       if (popup === 'import') {
+        setImportIssues([])
         setImportStatus({
           key: error instanceof BackupError ? error.key : 'historyImportFailed',
           type: 'error',
@@ -3303,8 +3311,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     ? `${formatBackupTime(backupStatus.date)} · ${formatBackupSize(backupStatus.size)}`
                     : sessions > 0
                       ? tr(
-                          `本机 ${sessions} 个对话 · 尚未自动备份`,
-                          `${sessions} chats · not backed up`
+                          `未备份 · ${sessions} 个对话`,
+                          `Not backed up · ${sessions} chats`
                         )
                       : tr('暂无备份', 'None yet')
                 }
@@ -3408,8 +3416,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </p>
               <p className={styles.caption}>
                 {tr(
-                  `按设置的间隔检查，每 ${formatBackupInterval(autoBackupMinutes, tr)}最多备份一次，只保留最近 5 份完整文件，位置在「下载/DeepSaga/自动备份」。每次成功会提示结果；备份先写应用内临时文件，核对大小并校验 ZIP 后才发布到下载目录，写入中断或进程被杀不会留下半截文件。覆盖安装、重装或系统清理后，通过下方「导入」选择该文件可恢复全部对话；导入前会校验 ZIP 结构与 CRC，API Key 不随备份迁移，需要重新填写。`,
-                  `Checked at most once every ${formatBackupInterval(autoBackupMinutes, tr)}; only the latest five complete files stay under Downloads/DeepSaga. A toast confirms every success. The export is written to a temporary file, size-checked and opened as a ZIP before it is published, so an interruption or process kill cannot leave a partial file. After an update, reinstall or cleanup, import one of them below; imports verify the ZIP and CRC, and the API key is not included.`
+                  `按设置的间隔检查，每 ${formatBackupInterval(autoBackupMinutes, tr)}最多备份一次，只保留最近 5 份完整文件，位置在「下载/DeepSaga/自动备份」。完整备份成功后，没有新增对话、消息或记忆时不会重复生成文件；只有检测到新数据才恢复按间隔备份。每次成功会提示结果；备份先写应用内临时文件，核对大小并校验 ZIP 后才发布到下载目录，写入中断或进程被杀不会留下半截文件。覆盖安装、重装或系统清理后，通过下方「导入」选择该文件可恢复全部对话；导入前会校验 ZIP 结构与 CRC，API Key 不随备份迁移，需要重新填写。`,
+                  `Checked at most once every ${formatBackupInterval(autoBackupMinutes, tr)}; only the latest five complete files stay under Downloads/DeepSaga. After a verified backup, nothing is rewritten while no chats, messages or memories change; timed backups resume only after new data appears. A toast confirms every success. The export is written to a temporary file, size-checked and opened as a ZIP before it is published, so an interruption or process kill cannot leave a partial file. After an update, reinstall or cleanup, import one of them below; imports verify the ZIP and CRC, and the API key is not included.`
                 )}
               </p>
             </Group>
@@ -3462,6 +3470,30 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               >
                 {t(importStatus.key, importStatus.params)}
               </p>
+            ) : null}
+            {importIssues.length > 0 ? (
+              <div className={styles.importIssues} role="status">
+                <div className={styles.importIssuesTitle}>
+                  {t('historyImportSkippedTitle', { count: importIssues.length })}
+                </div>
+                <ul className={styles.importIssuesList}>
+                  {importIssues.slice(0, 8).map((issue) => (
+                    <li key={issue.path}>
+                      {t('historyImportSkippedItem', {
+                        title:
+                          issue.title ||
+                          t('historyImportUnnamedSession', { id: issue.id ?? issue.path }),
+                        reason: t(issue.reason),
+                      })}
+                    </li>
+                  ))}
+                </ul>
+                {importIssues.length > 8 ? (
+                  <div className={styles.importIssuesMore}>
+                    {t('historyImportSkippedMore', { count: importIssues.length - 8 })}
+                  </div>
+                ) : null}
+              </div>
             ) : null}
             <Group label={tr('长期记忆归档', 'Memory archive')}>
               <Row
@@ -3676,10 +3708,23 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 onClick={() =>
                   void runExportAction(async () => {
                     setExportSavedName(null)
-                    const exported = await exportHistory()
+                    setExportProgress({ phase: 'archive', percent: 0, processed: 0, total: sessions })
+                    const exported = await exportHistory(setExportProgress)
+                    setExportProgress({
+                      phase: 'save',
+                      percent: 96,
+                      processed: sessions,
+                      total: sessions,
+                    })
                     if (android) {
                       if (await saveAndroidHistory(exported.name, exported.blob)) {
                         setExportSavedName(exported.name)
+                        setExportProgress({
+                          phase: 'save',
+                          percent: 100,
+                          processed: sessions,
+                          total: sessions,
+                        })
                       }
                       return
                     }
@@ -3696,11 +3741,35 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             </Group>
             <p className={styles.caption} role="status">
               {busy
-                ? t('historyExporting')
+                ? exportProgress
+                  ? exportProgress.phase === 'archive'
+                    ? t('historyExportProgress', {
+                        percent: exportProgress.percent,
+                        done: exportProgress.processed,
+                        total: exportProgress.total,
+                      })
+                    : exportProgress.phase === 'pack'
+                      ? t('historyExportPacking', { percent: exportProgress.percent })
+                      : t('historyExportSaving', { percent: exportProgress.percent })
+                  : t('historyExporting')
                 : exportSavedName
                   ? t('historyExportSaved', { name: exportSavedName })
                   : t(sessions ? 'historyExportDescription' : 'androidNoChats')}
             </p>
+            {busy && exportProgress ? (
+              <div
+                className={styles.exportProgress}
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(exportProgress.percent)}
+              >
+                <div
+                  className={styles.exportProgressFill}
+                  style={{ width: `${Math.min(100, Math.max(0, exportProgress.percent))}%` }}
+                />
+              </div>
+            ) : null}
           </>
         ) : null}
         {screen === 'font' ? (

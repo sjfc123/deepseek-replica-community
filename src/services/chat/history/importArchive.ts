@@ -5,9 +5,10 @@
 
 import { stagingWriter, type StoredFile } from '../db.js'
 import type { Session, SessionSummary } from '../types.js'
+import type { TranslationKey } from '../../../i18n/index.js'
 import { BackupError, fail } from './errors.js'
 import type { SessionIndexEntry } from './format.js'
-import { INDEX_PATH, MANIFEST_PATH, USER_PATH, parseSessionPath, sessionFilesDir } from './paths.js'
+import { INDEX_PATH, MANIFEST_PATH, USER_PATH, parseSessionPath } from './paths.js'
 import { checkManifest, readSessionFile, readSessionIndex } from './schema.js'
 import { toLocalSession } from './toLocal.js'
 import {
@@ -47,22 +48,78 @@ const imageType = (bytes: Uint8Array): string => {
   return ''
 }
 
-const readJson = async (entry: ArchiveEntry, decoder: TextDecoder): Promise<unknown> => {
+const readText = async (entry: ArchiveEntry): Promise<string> => {
+  const decoder = new TextDecoder()
   let text = ''
   for await (const chunk of entry.stream) {
     text += decoder.decode(chunk, { stream: true })
   }
+  return text + decoder.decode()
+}
+
+const readJson = async (entry: ArchiveEntry): Promise<unknown> => {
+  const text = await readText(entry)
   try {
-    return JSON.parse(text + decoder.decode())
+    return JSON.parse(text)
   } catch {
     return fail('backupInvalidJson')
   }
 }
 
+/** 会话 JSON 损坏时仍尽量从原文里取标题，导入报告才能指出是哪一个对话。 */
+const titleFromText = (text: string): string | null => {
+  const match = /"title"\s*:\s*("(?:\\.|[^"\\])*")/.exec(text)
+  if (!match) {
+    return null
+  }
+  try {
+    const value: unknown = JSON.parse(match[1])
+    return typeof value === 'string' && value.trim() ? value.trim().slice(0, 200) : null
+  } catch {
+    return null
+  }
+}
+
+const titleOf = (value: unknown): string | null =>
+  value && typeof value === 'object' && typeof (value as { title?: unknown }).title === 'string'
+    ? ((value as { title: string }).title.trim().slice(0, 200) || null)
+    : null
+
+/** 单个对话损坏：跳过它，报告标题与原因，其余对话继续导入。 */
+export type ImportIssue = {
+  /** 会话 id；路径里能解析出来就有 */
+  id: string | null
+  /** 归档里的标题；index 或 JSON 里有就能拿到 */
+  title: string | null
+  path: string
+  reason: TranslationKey
+}
+
+const sessionReason = (error: unknown): TranslationKey => {
+  if (error instanceof BackupError) {
+    switch (error.key) {
+      case 'backupInvalidJson':
+        return 'backupSessionJson'
+      case 'backupInvalidBranches':
+        return 'backupSessionBranches'
+      case 'backupInvalidFiles':
+        return 'backupSessionFiles'
+      default:
+        return 'backupSessionIncomplete'
+    }
+  }
+  return error instanceof ArchiveError ? 'backupSessionEntry' : 'backupSessionIncomplete'
+}
+
 export type ArchiveProgress = { bytes: number; total: number; count: number } | null
 
 export type ImportMode = 'merge' | 'replace'
-export type ImportArchiveResult = { summaries: SessionSummary[]; pinnedIds: string[] }
+export type ImportArchiveResult = {
+  summaries: SessionSummary[]
+  pinnedIds: string[]
+  /** 因 JSON、分支、附件或 ZIP 条目损坏而没有导入的对话 */
+  skipped: ImportIssue[]
+}
 
 /** 第一次读取就失败时，暂存尚未写入，可以从另一个线程重试。 */
 export class ArchiveSourceError extends Error {}
@@ -100,10 +157,35 @@ export const importArchive = async (
   let lastProgress = 0
   let manifest = false
   let index: SessionIndexEntry[] | undefined
-  let currentSessionId: string | undefined
-  const decoder = new TextDecoder()
+  let indexSeen = false
   const staging = stagingWriter(importId)
   let pendingSessions: Promise<{ error: unknown } | undefined> | undefined
+  const issues: ImportIssue[] = []
+  const issuePaths = new Set<string>()
+  const skippedSessions = new Set<string>()
+
+  const recordIssue = (
+    path: string,
+    id: string | null,
+    title: string | null,
+    reason: TranslationKey
+  ) => {
+    if (issuePaths.has(path)) {
+      return
+    }
+    issuePaths.add(path)
+    issues.push({ path, id, title, reason })
+    if (id) {
+      skippedSessions.add(id)
+    }
+  }
+  // 条目 CRC 或本地头损坏时，ZIP 读取器会跳过该条目；只把会话文件记成“损坏对话”。
+  const onEntryError = (path: string) => {
+    const id = parseSessionPath(path)
+    if (id !== null) {
+      recordIssue(path, id, null, 'backupSessionEntry')
+    }
+  }
 
   const waitForSessions = async () => {
     const result = await pendingSessions
@@ -182,33 +264,65 @@ export const importArchive = async (
   }
 
   try {
-    for await (const entry of readArchive(file, reportRead)) {
+    for await (const entry of readArchive(file, reportRead, undefined, {
+      continueOnEntryError: true,
+      onEntryError,
+    })) {
       const { path } = entry
       const sessionId = parseSessionPath(path)
       if (!manifest) {
         if (path !== MANIFEST_PATH) {
           fail('backupUnrecognized')
         }
-        checkManifest(await readJson(entry, decoder))
+        checkManifest(await readJson(entry))
         manifest = true
-      } else if (path === USER_PATH && !index && imported.size === 0) {
+        continue
+      }
+      if (path === USER_PATH) {
         // 账号信息（已脱敏）不导入；文件可能缺失。
-        await skipEntry(entry)
-      } else if (sessionId !== null && !index) {
+        await skipEntry(entry).catch(() => {})
+        continue
+      }
+      if (sessionId !== null) {
         if (entry.size > 8 * 1024 * 1024) {
           await flushSessions()
           await waitForSessions()
         }
-        const parsed = readSessionFile(await readJson(entry, decoder))
-        const local = toLocalSession(parsed)
-        if (local.session.id !== sessionId || imported.has(sessionId)) {
-          fail('backupIncomplete')
+        let text = ''
+        try {
+          text = await readText(entry)
+        } catch (error) {
+          recordIssue(path, sessionId, null, sessionReason(error))
+          continue
+        }
+        let value: unknown
+        try {
+          value = JSON.parse(text)
+        } catch {
+          recordIssue(path, sessionId, titleFromText(text), 'backupSessionJson')
+          continue
+        }
+        let parsed: ReturnType<typeof readSessionFile>
+        let local: ReturnType<typeof toLocalSession>
+        try {
+          parsed = readSessionFile(value)
+          local = toLocalSession(parsed)
+        } catch (error) {
+          recordIssue(path, sessionId, titleOf(value), sessionReason(error))
+          continue
+        }
+        if (local.session.id !== sessionId) {
+          recordIssue(path, sessionId, parsed.title, 'backupSessionIncomplete')
+          continue
+        }
+        if (imported.has(sessionId)) {
+          recordIssue(path, sessionId, parsed.title, 'backupSessionDuplicate')
+          continue
         }
         imported.add(sessionId)
         if (parsed.pinned) {
           pinnedIds.add(sessionId)
         }
-        currentSessionId = sessionId
         for (const [imagePath, id] of local.images) {
           images.set(imagePath, id)
           if (mode === 'merge' && !activeFileTypes.has(id)) {
@@ -225,24 +339,47 @@ export const importArchive = async (
         if (sessions.length >= 512 || sessionBytes >= 4 * 1024 * 1024) {
           await flushSessions()
         }
-      } else if (path === INDEX_PATH && !index) {
-        index = readSessionIndex(await readJson(entry, decoder))
-        for (const item of index) {
-          if (item.pinned) {
-            pinnedIds.add(item.id)
+        continue
+      }
+      if (path === INDEX_PATH) {
+        if (!indexSeen) {
+          indexSeen = true
+          try {
+            index = readSessionIndex(await readJson(entry))
+            for (const item of index) {
+              if (item.pinned) {
+                pinnedIds.add(item.id)
+              }
+            }
+          } catch {
+            // index 损坏或 CRC 错误不影响会话本身：按已成功读取的会话继续导入。
+            index = undefined
           }
         }
-      } else if (
-        index
-          ? imported.has(/^chat_sessions\/([^/]+)_files\//.exec(path)?.[1] ?? '')
-          : currentSessionId && path.startsWith(sessionFilesDir(currentSessionId))
-      ) {
+        continue
+      }
+      const filesOwner = /^chat_sessions\/([^/]+)_files\//.exec(path)?.[1]
+      if (filesOwner) {
         // 没有被引用的条目不保存，引用了但缺失的图片只展示文件名。
         const id = images.get(path)
-        await (id === undefined ? skipEntry(entry) : saveImage(entry, id))
-      } else {
-        fail('backupIncomplete')
+        try {
+          await (id === undefined || skippedSessions.has(filesOwner)
+            ? skipEntry(entry)
+            : saveImage(entry, id))
+        } catch (error) {
+          // 单张图片损坏不应连带整个会话失败。
+          if (!(error instanceof ArchiveError)) {
+            throw error
+          }
+        }
+        continue
       }
+      // 未知条目直接跳过，不因为多一个文件就让整个归档不可导入。
+      await skipEntry(entry).catch((error: unknown) => {
+        if (!(error instanceof ArchiveError)) {
+          throw error
+        }
+      })
     }
   } catch (error) {
     await pendingSessions
@@ -251,14 +388,21 @@ export const importArchive = async (
   if (!manifest) {
     fail('backupUnrecognized')
   }
-  // index 只列出成功写出的会话，与会话文件一一对应。
-  const listed = new Set(index?.map((entry) => entry.id))
-  if (
-    !index ||
-    listed.size !== index.length ||
-    listed.size !== imported.size ||
-    [...imported].some((id) => !listed.has(id))
-  ) {
+  // index 可能缺失或损坏；用实际成功导入的会话作为结果，并从 index 补全报告标题。
+  for (const issue of issues) {
+    if (!issue.title && issue.id) {
+      issue.title = index?.find((item) => item.id === issue.id)?.title ?? null
+    }
+    if (!issue.id) {
+      issue.id = parseSessionPath(issue.path)
+    }
+  }
+  for (const id of [...pinnedIds]) {
+    if (!imported.has(id)) {
+      pinnedIds.delete(id)
+    }
+  }
+  if (imported.size === 0 && issues.length > 0) {
     await pendingSessions
     fail('backupIncomplete')
   }
@@ -282,7 +426,7 @@ export const importArchive = async (
       await staging.updateFileTypes(ids, stored)
     }
   }
-  return { summaries: staging.summaries, pinnedIds: [...pinnedIds] }
+  return { summaries: staging.summaries, pinnedIds: [...pinnedIds], skipped: issues }
 }
 
 /* ============================================================================

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { registerHooks } from 'node:module'
 import { test } from 'node:test'
+import { strToU8, unzipSync, zipSync } from 'fflate'
 
 // node --experimental-transform-types --test scripts/test-history-merge.mjs
 // 覆盖深度合并引擎（mergeSessions）、归档往返（pinned / 附件 / 工具 / 分支）以及双槽位端到端合并与替换流程。
@@ -1046,7 +1047,8 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
     dbState.slots.primary.files = remoteFiles
     return exportArchive(
       [remoteCommonExtended, sSame, sRemoteOnly],
-      new Set(['s-remote-only'])
+      new Set(['s-remote-only']),
+      3
     ).finally(() => {
       dbState.slots.primary.files = origFiles
     })
@@ -1054,7 +1056,13 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
 
   resetDbMetrics()
   const mergeRes = await importHistory(makeFile(zipBlob), undefined, 'merge')
-  assert.deepEqual(mergeRes, { mode: 'merge', added: 1, merged: 1, unchanged: 1 })
+  assert.deepEqual(mergeRes, {
+    mode: 'merge',
+    added: 1,
+    merged: 1,
+    unchanged: 1,
+    skipped: [],
+  })
   assert.deepEqual(formatImportResult(mergeRes), {
     key: 'historyMergedSummary',
     params: { added: 1, merged: 1, unchanged: 1 },
@@ -1078,7 +1086,13 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
   // 再次导入同一个 ZIP：0 新增、0 更新、3 跳过，0 写盘
   resetDbMetrics()
   const repeatRes = await importHistory(makeFile(zipBlob), undefined, 'merge')
-  assert.deepEqual(repeatRes, { mode: 'merge', added: 0, merged: 0, unchanged: 3 })
+  assert.deepEqual(repeatRes, {
+    mode: 'merge',
+    added: 0,
+    merged: 0,
+    unchanged: 3,
+    skipped: [],
+  })
   assert.equal(dbState.metrics.activeSessionsWritten, 0)
   assert.deepEqual(formatImportResult(repeatRes), {
     key: 'historyMergedNoChange',
@@ -1092,7 +1106,7 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
 
   // 覆盖模式：清空现有记录并替换成 ZIP 中的记录，清空草稿，重置 activeId 与置顶列表
   const replaceRes = await importHistory(makeFile(zipBlob), undefined, 'replace')
-  assert.deepEqual(replaceRes, { mode: 'replace', count: 3 })
+  assert.deepEqual(replaceRes, { mode: 'replace', count: 3, skipped: [] })
   const storeAfterReplace = useChatStore.getState()
   assert.equal(storeAfterReplace.activeId, null)
   assert.equal(storeAfterReplace.sessions.length, 3)
@@ -1100,6 +1114,18 @@ test('12. 端到端合并与覆盖流程：增量写盘、复用已有附件、�
   assert.deepEqual(useSettings.getState().pinnedSessions, ['s-remote-only'])
   assert.ok(await loadFile('img-a'))
   assert.equal(await loadSession('s-local-only'), undefined)
+
+  // 单个会话 JSON 损坏：跳过该会话并报告标题与原因，其余会话照常合并。
+  const brokenFiles = unzipSync(new Uint8Array(await zipBlob.arrayBuffer()))
+  brokenFiles['chat_sessions/s-same.json'] = strToU8('{ this is not valid json')
+  const brokenZip = new Blob([zipSync(brokenFiles)], { type: 'application/zip' })
+  const partialRes = await importHistory(makeFile(brokenZip), undefined, 'merge')
+  assert.equal(partialRes.mode, 'merge')
+  assert.equal(partialRes.skipped.length, 1)
+  assert.equal(partialRes.skipped[0].id, 's-same')
+  assert.equal(partialRes.skipped[0].title, '无变更会话')
+  assert.equal(partialRes.skipped[0].reason, 'backupSessionJson')
+  assert.equal(useChatStore.getState().sessions.length, 3)
 
   // 清空全部记录同时清空置顶列表
   await clearHistory()

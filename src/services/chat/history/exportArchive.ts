@@ -12,13 +12,20 @@ import { writeArchive } from './zipWriter.js'
 
 const json = (value: unknown) => new Blob([JSON.stringify(value)], { type: 'application/json' })
 
+/** 导出归档两个阶段：逐会话整理 JSON / 图片，以及把条目压缩成 ZIP。 */
+export type ExportArchiveProgress =
+  | { phase: 'archive'; processed: number; total: number }
+  | { phase: 'pack'; bytes: number; total: number }
+
 /**
  * 按导出格式生成 ZIP：manifest → 全部会话 JSON → index → 全部图片。没有账号信息，不写 user.json。
  * 只写出本地有原件的图片，每个会话目录各写一份；其他附件只有元数据。
  */
 export const exportArchive = async (
   sessions: Iterable<Session> | AsyncIterable<Session>,
-  pinnedIds?: ReadonlySet<string>
+  pinnedIds: ReadonlySet<string> | undefined,
+  total: number,
+  onProgress?: (progress: ExportArchiveProgress) => void
 ): Promise<Blob> => {
   const manifest: Manifest = { export_format_version: EXPORT_FORMAT_VERSION }
   const entries = [{ name: MANIFEST_PATH, blob: json(manifest) }]
@@ -55,13 +62,16 @@ export const exportArchive = async (
       imageEntries.push({ name, blob })
     }
     index.push(toIndexEntry(data))
+    onProgress?.({ phase: 'archive', processed: ++sessionCount, total })
     // 多会话导出时给主线程一次绘制机会，长列表/大量图片下仍能响应返回键。
-    if (++sessionCount % 8 === 0) {
+    if (sessionCount % 8 === 0) {
       await new Promise<void>((resolve) => setTimeout(resolve, 0))
     }
   }
   entries.push({ name: INDEX_PATH, blob: json(index) })
-  return writeArchive(entries.concat(imageEntries))
+  return writeArchive(entries.concat(imageEntries), (bytes, contentSize) =>
+    onProgress?.({ phase: 'pack', bytes, total: contentSize })
+  )
 }
 
 /* ============================================================================

@@ -36,6 +36,7 @@ import {
 import type { TtsVoice } from './api/speech.js'
 import { normalizeLocation, type UserLocation } from './location.js'
 import { migrateLocalData } from './dataMigration.js'
+import { markDataChanged } from './dataRevision.js'
 
 /** 会话分组：给大量对话分类，只影响侧栏的筛选与显示 */
 export type SessionFolder = {
@@ -352,6 +353,8 @@ const write = (key: string, value: string | null) => {
     } else {
       localStorage.setItem(key, value)
     }
+    // 设置与角色卡、世界书、长期记忆偏好都会进入备份；任何真实改动都算新数据。
+    markDataChanged()
     return true
   } catch {
     return false

@@ -23,6 +23,8 @@ import {
   exportHistory,
   formatImportResult,
   importHistory,
+  type ExportProgress,
+  type ImportIssue,
   type ImportMode,
 } from '../../services/chat/backup.js'
 import { useIsMobile } from '../../app/viewport.js'
@@ -470,7 +472,11 @@ const ThemeSetting = () => {
 }
 
 /** `reason` 为失败原因的文案 key，展示时按当前语言翻译后填入 `message` 参数。 */
-type Status = (TranslationMessage & { error?: boolean; reason?: TranslationKey }) | null
+type Status = (TranslationMessage & {
+  error?: boolean
+  reason?: TranslationKey
+  issues?: ImportIssue[]
+}) | null
 
 /** 导出失败附带原因：预期的错误用对应文案作原因，其他错误用错误信息。 */
 const errorStatus = (key: TranslationKey, error: unknown): Status => ({
@@ -485,12 +491,14 @@ const SettingCell = ({
   label,
   description,
   status,
+  progress,
   action,
   className,
 }: {
   label: string
   description?: string
   status: Status
+  progress?: number | null
   action: ReactNode
   className?: string
 }) => {
@@ -504,6 +512,44 @@ const SettingCell = ({
             {status
               ? t(status.key, status.reason ? { message: t(status.reason) } : status.params)
               : description}
+          </div>
+        ) : null}
+        {status?.issues?.length ? (
+          <div className={styles.importIssues}>
+            <div className={styles.importIssuesTitle}>
+              {t('historyImportSkippedTitle', { count: status.issues.length })}
+            </div>
+            <ul className={styles.importIssuesList}>
+              {status.issues.slice(0, 8).map((issue) => (
+                <li key={issue.path}>
+                  {t('historyImportSkippedItem', {
+                    title:
+                      issue.title ||
+                      t('historyImportUnnamedSession', { id: issue.id ?? issue.path }),
+                    reason: t(issue.reason),
+                  })}
+                </li>
+              ))}
+            </ul>
+            {status.issues.length > 8 ? (
+              <div className={styles.importIssuesMore}>
+                {t('historyImportSkippedMore', { count: status.issues.length - 8 })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {progress !== undefined && progress !== null ? (
+          <div
+            className={styles.progressTrack}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress)}
+          >
+            <div
+              className={styles.progressFill}
+              style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+            />
           </div>
         ) : null}
       </div>
@@ -536,7 +582,7 @@ const useHistoryImport = () => {
     setStatus({ key: 'historyImporting' })
     try {
       const result = await importHistory(file, setStatus, chosenMode)
-      setStatus(formatImportResult(result))
+      setStatus({ ...formatImportResult(result), issues: result.skipped })
     } catch (error) {
       setStatus({
         key: error instanceof BackupError ? error.key : 'historyImportFailed',
@@ -604,14 +650,31 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
   const empty = useChatStore((state) => state.sessions.length === 0)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<Status>(null)
+  const [progress, setProgress] = useState<ExportProgress | null>(null)
+  const total = useChatStore((state) => state.sessions.length)
+
+  const progressText = progress
+    ? progress.phase === 'archive'
+      ? t('historyExportProgress', {
+          percent: progress.percent,
+          done: progress.processed,
+          total: progress.total,
+        })
+      : progress.phase === 'pack'
+        ? t('historyExportPacking', { percent: progress.percent })
+        : t('historyExportSaving', { percent: progress.percent })
+    : null
 
   const onExport = async () => {
     setBusy(true)
     setStatus(null)
+    setProgress({ phase: 'archive', percent: 0, processed: 0, total })
     try {
-      const { name, blob } = await exportHistory()
+      const { name, blob } = await exportHistory(setProgress)
+      setProgress({ phase: 'save', percent: 96, processed: total, total })
       if (android) {
         await saveAndroidHistory(name, blob)
+        setProgress({ phase: 'save', percent: 100, processed: total, total })
         return
       }
       const url = URL.createObjectURL(blob)
@@ -620,18 +683,21 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
       link.download = name
       link.click()
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      setProgress({ phase: 'save', percent: 100, processed: total, total })
     } catch (error) {
       setStatus(errorStatus('historyExportFailed', error))
     } finally {
       setBusy(false)
+      setProgress(null)
     }
   }
 
   return (
     <SettingCell
       label={t('exportAllLabel')}
-      description={t('historyExportDescription')}
+      description={progressText ?? t('historyExportDescription')}
       status={status}
+      progress={progress?.percent}
       action={
         <Button
           variant="outlined"

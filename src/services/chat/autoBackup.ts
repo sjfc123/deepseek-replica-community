@@ -7,6 +7,12 @@
 import { readBlobBuffer } from '../../utils/blob.js'
 import { android, writeAndroidBlob } from '../../app/android.js'
 import { useSettings } from '../settings.js'
+import {
+  currentDataRevision,
+  flushDataRevision,
+  markBackupRevision,
+  readBackupRevision,
+} from '../dataRevision.js'
 import { exportHistory } from './backup.js'
 
 /** 自动备份写入公共下载目录，卸载重装后仍可找到；本模块仅记录本机上次备份时间 */
@@ -132,6 +138,8 @@ const performAutoBackup = async (options: { notify?: boolean } = {}): Promise<Au
   }
   // 不以内存中的会话摘要数组判定是否存在对话：列表可能尚未加载或读取失败。
   // 改由导出结果的实际会话数判定，避免将已有记录误报为空。
+  // 版本在导出开始时固定：导出期间用户继续聊天产生的新数据，留给下一次备份。
+  const revision = currentDataRevision()
   const { name, blob, count } = await exportHistory()
   if (count === 0) {
     return { outcome: 'empty', status: readAutoBackupStatus(), sessionCount: 0 }
@@ -199,6 +207,8 @@ const performAutoBackup = async (options: { notify?: boolean } = {}): Promise<Au
   } catch {
     // 元信息写不进去时只是少一行校验展示，不影响备份文件
   }
+  // 只有文件真正发布成功才推进基线；失败时下一轮还会重试，不会把未备份的数据跳过去。
+  markBackupRevision(revision)
   const result: AutoBackupResult = {
     outcome: 'ok',
     status: readAutoBackupStatus(),
@@ -229,13 +239,24 @@ export const runAutoBackup = (options: { notify?: boolean } = {}): Promise<AutoB
   return task
 }
 
-/** 开关开启且距上次备份超过设定间隔时执行；由启动、回到前台与定时器触发 */
+/** 开关开启且距上次备份超过设定间隔、并且确实有新数据时才执行 */
 export const maybeAutoBackup = () => {
   if (!useSettings.getState().autoBackup) {
     return
   }
   const target = device()
   if (!target) {
+    return
+  }
+  flushDataRevision()
+  const revision = currentDataRevision()
+  const backupRevision = readBackupRevision()
+  // 上一次完整备份成功后，版本没有再前进就说明没有新数据：时间到了也不重复写盘。
+  // backupRevision 为 0 表示旧版本还没有记录基线，先允许补一次。
+  const hasNewData = backupRevision === 0 || revision > backupRevision
+  // 用户可能手动删掉了下载目录里的备份；没有可用文件时即使版本未变也补一份。
+  const backupMissing = !readAutoBackupStatus()
+  if (!hasNewData && !backupMissing) {
     return
   }
   let last = 0

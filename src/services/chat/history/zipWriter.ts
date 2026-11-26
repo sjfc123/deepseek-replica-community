@@ -46,7 +46,10 @@ const entryName = (name: string) => {
 }
 
 /** STORE 流式写入；成品必须能再次导入。 */
-export const writeArchive = async (entries: { name: string; blob: Blob }[]): Promise<Blob> => {
+export const writeArchive = async (
+  entries: { name: string; blob: Blob }[],
+  onProgress?: (bytes: number, total: number) => void
+): Promise<Blob> => {
   if (entries.length >= ZIP64_COUNT) {
     throw new ArchiveLimitError()
   }
@@ -71,6 +74,8 @@ export const writeArchive = async (entries: { name: string; blob: Blob }[]): Pro
   })
 
   const expectedSize = dataSize + directorySize + 22
+  const contentSize = prepared.reduce((sum, entry) => sum + entry.blob.size, 0)
+  let writtenTotal = 0
   const chunks: Blob[] = []
   let size = 0
   let completed = false
@@ -94,10 +99,12 @@ export const writeArchive = async (entries: { name: string; blob: Blob }[]): Pro
       let written = 0
       for await (const chunk of readBlobChunks(blob)) {
         written += chunk.byteLength
+        writtenTotal += chunk.byteLength
         if (written > blob.size) {
           invalid()
         }
         entry.push(chunk)
+        onProgress?.(writtenTotal, contentSize)
         // 图片与长会话会产生大量 Blob 分片；每 16 片让出一次宏任务，
         // 避免导出期间微任务链把绘制和返回键一起饿死。
         if (++chunkCount % 16 === 0) {
@@ -113,6 +120,7 @@ export const writeArchive = async (entries: { name: string; blob: Blob }[]): Pro
     if (!completed || size !== expectedSize) {
       invalid()
     }
+    onProgress?.(contentSize, contentSize)
     return new Blob(chunks, { type: 'application/zip' })
   } finally {
     zip.terminate()

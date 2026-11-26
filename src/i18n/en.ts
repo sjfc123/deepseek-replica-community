@@ -286,6 +286,12 @@ export const en = {
   backupIncomplete: 'The file is incomplete and cannot be imported.',
   backupInvalidBranches: 'The message branches in this file are corrupted and cannot be imported.',
   backupInvalidFiles: 'The attachment data in this file is corrupted and cannot be imported.',
+  backupSessionJson: 'Chat JSON is corrupted',
+  backupSessionBranches: 'Message branch structure is corrupted',
+  backupSessionFiles: 'Attachment details are corrupted',
+  backupSessionEntry: 'ZIP entry is corrupted',
+  backupSessionIncomplete: 'Chat structure is incomplete',
+  backupSessionDuplicate: 'Duplicate chat ID',
   autoBackupDone: 'Auto backup complete: {count} chats, verified and saved to Downloads',
   autoBackupFailed: 'Auto backup failed; no incomplete file was left in Downloads',
   settingsLocalePreference: 'Language',
@@ -356,7 +362,7 @@ export const en = {
   historyImportConfirmDescription:
     'The uploaded chat history will replace all your current chats. Import anyway?',
   historyImportDescription:
-    'Supports ZIP files exported from DeepSeek. Merges into existing chats by default, with an option to replace.',
+    'Supports ZIP files exported from DeepSaga. Merges into existing chats by default, with an option to replace. A corrupted chat is skipped while the rest continue, and the name and reason are listed afterwards.',
   historyImportModeMerge: 'Merge into existing chats',
   historyImportModeMergeDescription:
     'Keep current chats, attachments, and drafts. Add new chats and merge new messages or branches.',
@@ -367,6 +373,10 @@ export const en = {
   historyImportReplaceConfirm: 'Replace all',
   historyImportedOne: 'Imported 1 chat',
   historyImported: 'Imported {count} chats',
+  historyImportSkippedTitle: 'Skipped {count} chats that could not be imported:',
+  historyImportSkippedItem: '{title}: {reason}',
+  historyImportSkippedMore: '{count} more not listed',
+  historyImportUnnamedSession: 'Chat {id}',
   historyMergedEmpty: 'No chats found in archive',
   historyMergedNoChange: 'All chats are already up to date ({unchanged} unchanged)',
   historyMergedSummary: 'Merged: {added} added, {merged} updated, {unchanged} unchanged',
@@ -381,6 +391,9 @@ export const en = {
   historyExportDescription:
     'Includes all chat history and locally stored images. Other attachments retain file details only. Your API Key is not included.',
   historyExporting: 'Exporting and saving…',
+  historyExportProgress: 'Collecting chats: {percent}% · {done}/{total} done',
+  historyExportPacking: 'Packing archive: {percent}%',
+  historyExportSaving: 'Writing to device: {percent}%',
   historyExportSaved: 'Saved: {name}',
   exportAllDownload: 'Download',
   deleteAllSessions: 'Delete all chats',

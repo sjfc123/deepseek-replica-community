@@ -284,6 +284,12 @@ export type ArchiveEntry = {
   stream: AsyncIterable<Uint8Array>
 }
 
+/** 宽松读取：单个条目的本地头或 CRC 损坏时跳过该条目，继续读取后续条目。 */
+export type ArchiveReadOptions = {
+  continueOnEntryError?: boolean
+  onEntryError?: (path: string) => void
+}
+
 /**
  * 按条目在文件中的物理顺序逐条、逐块解压，跳过目录条目。
  * 调用方必须消费完当前条目的数据，再请求下一个条目。
@@ -291,15 +297,31 @@ export type ArchiveEntry = {
 export async function* readArchive(
   file: Blob,
   onRead?: (bytes: number, total: number) => Promise<void> | undefined,
-  select?: (path: string) => boolean
+  select?: (path: string) => boolean,
+  options?: ArchiveReadOptions
 ): AsyncGenerator<ArchiveEntry> {
   const readBytes = createReader(file)
   const directory = await readDirectory(file.size, readBytes)
+  const recoverable = (path: string, error: unknown) => {
+    if (!(options?.continueOnEntryError && error instanceof ArchiveError)) {
+      return false
+    }
+    options.onEntryError?.(path)
+    return true
+  }
   for (const [index, entry] of directory.entries.entries()) {
     const boundary = directory.entries[index + 1]?.offset ?? directory.offset
-    const start = await readEntryOffset(readBytes, entry, boundary)
     if (entry.path.endsWith('/') || (select && !select(entry.path))) {
       continue
+    }
+    let start: number
+    try {
+      start = await readEntryOffset(readBytes, entry, boundary)
+    } catch (error) {
+      if (recoverable(entry.path, error)) {
+        continue
+      }
+      throw error
     }
     let completed = false
     const stream = async function* (): AsyncGenerator<Uint8Array> {
@@ -374,7 +396,11 @@ export async function* readArchive(
     }
     yield { path: entry.path, size: entry.size, stream: stream() }
     if (!completed) {
-      invalid()
+      const error = new ArchiveError()
+      if (recoverable(entry.path, error)) {
+        continue
+      }
+      throw error
     }
   }
 }

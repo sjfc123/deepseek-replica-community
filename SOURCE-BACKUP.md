@@ -87,7 +87,7 @@ cd android
 - `dist/index.html` 标题为 `DeepSaga`，版本 meta 为 `0.9.1`。
 - `dist/favicon.png` 与主脚本返回 HTTP 200。
 - `pnpm type`、`pnpm lint`、`pnpm build` 通过。
-- `pnpm test:system`、`test:roleplay`、`test:story`、`test:auto-backup`、`test:prompt`、`test:memory`、`test:memory-routing`、`test:memory-view`、`test:memory-layers`、`test:groups`、`test:suggestions` 通过。
+- `pnpm test:system`、`test:roleplay`、`test:story`、`test:auto-backup`、`test:data`、`test:prompt`、`test:memory`、`test:memory-routing`、`test:memory-view`、`test:memory-layers`、`test:groups`、`test:suggestions` 通过。
 - APK 签名证书指纹与发布记录一致；不一致时不得作为同一应用的升级包分发。
 
 校验结果只证明该次构建的输入与产物，不证明第三方修改版、转载包或非官方渠道产物。
@@ -99,7 +99,7 @@ cd android
 - API Key 不进入备份，迁移后必须重新填写。
 - 历史对话 ZIP、单会话包、设定存档和记忆归档保持原格式标识。
 - 内部 `replica:` 存储键保持不变，用于读取既有数据。
-- 旧包字段缺失、ID 冲突或手工修改导致的格式异常，导入时跳过并计数，不保证全部恢复。
+- 旧包字段缺失、ID 冲突或手工修改导致的格式异常，按单个会话跳过并在界面列出标题与原因；其余会话继续导入，不因一个坏条目整体失败。
 
 ## 7. 交付边界
 

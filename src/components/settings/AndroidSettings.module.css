@@ -286,6 +286,51 @@ a.row:active,
   }
 }
 
+.exportProgress {
+  overflow: hidden;
+  height: 6px;
+  margin: -10px 16px 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--settings-muted) 18%, transparent);
+}
+
+.exportProgressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--settings-accent, #4f6ef7);
+  transition: width 180ms ease-out;
+}
+
+.importIssues {
+  margin: 0 16px 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--settings-line, rgb(127 127 127 / 16%));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--settings-button, rgb(127 127 127 / 6%)) 42%, transparent);
+  color: var(--settings-muted);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.importIssuesTitle {
+  color: var(--settings-text);
+  font-weight: 500;
+}
+
+.importIssuesList {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.importIssuesList li + li {
+  margin-top: 2px;
+}
+
+.importIssuesMore {
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
 .legal {
   margin: 24px 16px 0;
   color: var(--settings-muted);

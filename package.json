@@ -15,6 +15,7 @@
     "test:roleplay": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-roleplay.mjs",
     "test:story": "node --experimental-strip-types scripts/test-story.mjs",
     "test:auto-backup": "node --experimental-strip-types scripts/test-auto-backup.mjs",
+    "test:data": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-data-management.mjs",
     "test:prompt": "node --experimental-strip-types scripts/test-default-prompt.mjs",
     "test:memory": "node --experimental-strip-types scripts/test-memory-prune.mjs",
     "test:memory-routing": "node --experimental-strip-types scripts/test-memory-routing.mjs",

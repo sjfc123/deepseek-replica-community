@@ -8,16 +8,25 @@ import { autoBackupFileName } from './backupName.js'
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { useSettings } from '../settings.js'
 import * as db from './db.js'
-import type { ArchiveProgress, ImportMode } from './history/importArchive.js'
+import type { ArchiveProgress, ImportIssue, ImportMode } from './history/importArchive.js'
 import { mergeHistory, replaceHistory, useChatStore } from './store.js'
 import type { Session } from './types.js'
 
 export { BackupError } from './history/errors.js'
+export type { ImportIssue } from './history/importArchive.js'
 export type { ImportMode } from './history/importArchive.js'
 
 export type ImportHistoryResult =
-  | { mode: 'replace'; count: number }
-  | { mode: 'merge'; added: number; merged: number; unchanged: number }
+  | { mode: 'replace'; count: number; skipped: ImportIssue[] }
+  | { mode: 'merge'; added: number; merged: number; unchanged: number; skipped: ImportIssue[] }
+
+/** 导出进度：archive 整理会话与图片，pack 压缩 ZIP，save 交给系统写入。 */
+export type ExportProgress = {
+  phase: 'archive' | 'pack' | 'save'
+  percent: number
+  processed: number
+  total: number
+}
 
 // 导入、导出与全部删除串行处理，避免读取归档时数据被清空或两个替换事务交错。
 let backupQueue: Promise<unknown> = Promise.resolve()
@@ -31,11 +40,27 @@ const enqueueBackup = <T>(run: () => Promise<T>): Promise<T> => {
 const backupFileName = (date: Date) => autoBackupFileName(date)
 
 /** 导出为历史会话导出格式的 ZIP，可再次导入。 */
-export const exportHistory = (): Promise<{ name: string; blob: Blob; count: number }> =>
+export const exportHistory = (
+  onProgress?: (progress: ExportProgress) => void
+): Promise<{ name: string; blob: Blob; count: number }> =>
   enqueueBackup(async () => {
     // 列表、置顶和已加载内容保留导出开始时的快照；未打开的会话逐条读取，不填满详情缓存。
     const { sessions, sessionCache } = useChatStore.getState()
     const pinnedIds = new Set(useSettings.getState().pinnedSessions)
+    const total = sessions.length
+    let lastPaint = 0
+    const report = (progress: ExportProgress, force = false) => {
+      const now = performance.now()
+      if (!force && progress.phase !== 'pack' && now - lastPaint < 120) {
+        return
+      }
+      if (!force && progress.phase === 'pack' && now - lastPaint < 200) {
+        return
+      }
+      lastPaint = now
+      onProgress?.(progress)
+    }
+    report({ phase: 'archive', percent: 0, processed: 0, total }, true)
     async function* readSessions(): AsyncGenerator<Session> {
       for (const summary of sessions) {
         const session = Object.hasOwn(sessionCache, summary.id)
@@ -58,7 +83,32 @@ export const exportHistory = (): Promise<{ name: string; blob: Blob; count: numb
         yield session
       }
     })()
-    const blob = await exportArchive(counted, pinnedIds)
+    const blob = await exportArchive(counted, pinnedIds, total, (progress) => {
+      if (progress.phase === 'archive') {
+        const ratio = progress.total > 0 ? progress.processed / progress.total : 1
+        report(
+          {
+            phase: 'archive',
+            percent: Math.min(85, 5 + Math.floor(ratio * 80)),
+            processed: progress.processed,
+            total: progress.total,
+          },
+          progress.processed >= progress.total
+        )
+      } else {
+        const ratio = progress.total > 0 ? progress.bytes / progress.total : 1
+        report(
+          {
+            phase: 'pack',
+            percent: Math.min(95, 85 + Math.floor(ratio * 10)),
+            processed: total,
+            total,
+          },
+          ratio >= 1
+        )
+      }
+    })
+    report({ phase: 'save', percent: 96, processed: total, total }, true)
     return { name: backupFileName(now), blob, count }
   })
 
@@ -98,18 +148,28 @@ export const importHistory = (
     }
 
     if (mode === 'merge') {
+      let skipped: ImportIssue[] = []
       const summary = await mergeHistory(
-        (importId) => importOffMainThread(file, importId, trackProgress, 'merge'),
+        async (importId) => {
+          const parsed = await importOffMainThread(file, importId, trackProgress, 'merge')
+          skipped = parsed.skipped
+          return parsed
+        },
         { onCommit: () => onProgress?.({ key: 'historyImportMerging' }), clearInBackground: true }
       )
-      return { mode: 'merge', ...summary }
+      return { mode: 'merge', ...summary, skipped }
     }
 
+    let skipped: ImportIssue[] = []
     const count = await replaceHistory(
-      (importId) => importOffMainThread(file, importId, trackProgress, 'replace'),
+      async (importId) => {
+        const parsed = await importOffMainThread(file, importId, trackProgress, 'replace')
+        skipped = parsed.skipped
+        return parsed
+      },
       { onCommit: () => onProgress?.({ key: 'historyImportReplacing' }), clearInBackground: true }
     )
-    return { mode: 'replace', count }
+    return { mode: 'replace', count, skipped }
   })
 
 export const formatImportResult = (result: ImportHistoryResult): TranslationMessage => {
@@ -141,7 +201,7 @@ export const formatImportResult = (result: ImportHistoryResult): TranslationMess
 /** 确认删除后调用：以空历史原子替换全部本地会话与附件，保留 API Key 和其他设置。 */
 export const clearHistory = (): Promise<void> =>
   enqueueBackup(async () => {
-    await replaceHistory(async () => ({ summaries: [], pinnedIds: [] }))
+    await replaceHistory(async () => ({ summaries: [], pinnedIds: [], skipped: [] }))
   })
 
 /* ============================================================================
