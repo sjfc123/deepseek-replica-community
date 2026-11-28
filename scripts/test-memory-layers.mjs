@@ -48,19 +48,19 @@ assert.doesNotMatch(split[1].text, /玩家提问/)
 const named = buildTurnMemoryCards('今天去哪？', '去旧屋看看。', {
   at: 2,
   userName: '林默',
-  characterName: '凯伊',
+  characterName: '阿澈',
 })
 assert.match(named[0].text, /林默：今天去哪？/)
 assert.doesNotMatch(named[0].text, /用户：|玩家提问/)
 assert.equal(named[0].speaker, '林默')
-assert.match(named[1].text, /凯伊：去旧屋看看。/)
-assert.equal(named[1].speaker, '凯伊')
-const sameName = buildTurnMemoryCards('你是谁？', '我是凯伊。', {
-  userName: '凯伊',
-  characterName: '凯伊',
+assert.match(named[1].text, /阿澈：去旧屋看看。/)
+assert.equal(named[1].speaker, '阿澈')
+const sameName = buildTurnMemoryCards('你是谁？', '我是阿澈。', {
+  userName: '阿澈',
+  characterName: '阿澈',
 })
-assert.match(sameName[0].text, /凯伊（玩家）：你是谁？/)
-assert.match(sameName[1].text, /凯伊（角色）：我是凯伊。/)
+assert.match(sameName[0].text, /阿澈（玩家）：你是谁？/)
+assert.match(sameName[1].text, /阿澈（角色）：我是阿澈。/)
 
 const turnMessages = [
   { id: 'u1', role: 'user', content: '窗户还是打不开吗？', createdAt: 10, blocks: [] },
@@ -190,7 +190,7 @@ assert.equal(memoryOwnerLabel('character'), '角色本人')
 assert.equal(memoryOwnerLabel('user'), '玩家本人')
 assert.equal(memoryOwnerLabel('shared'), '共同经历')
 assert.equal(memoryOwnerLabel('user', { user: '林默' }), '林默')
-assert.equal(memoryOwnerLabel('character', { character: '凯伊' }), '凯伊')
+assert.equal(memoryOwnerLabel('character', { character: '阿澈' }), '阿澈')
 assert.equal(memoryOwnerLabel('user', { user: '用户' }), '玩家本人')
 assert.equal(getMemoryOwner(card('legacy', '旧卡', 1)), 'shared', '旧卡默认共同经历')
 const ownedBlock = formatMemoryBlock([ownedManual], 1, MEMORY_MAX_CHARS)

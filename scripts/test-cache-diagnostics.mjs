@@ -87,7 +87,7 @@ const rate = (hit, total = 10_000, overrides = {}) =>
   })
 
 clearPromptCacheSamples()
-const clean = audit('【角色身份】\n姓名：凯伊\n固定规则')
+const clean = audit('【角色身份】\n姓名：阿澈\n固定规则')
 assert.equal(clean.dynamicMarkers.length, 0, '正常 system 不应出现动态标记')
 assert.equal(clean.unresolvedPlaceholders.length, 0, '正常 system 不应留下占位符')
 assert.deepEqual(

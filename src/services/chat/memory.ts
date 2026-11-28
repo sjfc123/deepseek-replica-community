@@ -387,7 +387,7 @@ export const buildTurnMemoryCards = (
   const head = meta.at
     ? `【${formatMemoryStamp(meta.at)}${meta.turnIndex ? ` · 第${meta.turnIndex}轮` : ''}${meta.relationship ? ` · 关系：${meta.relationship}` : ''}】`
     : ''
-  // 有名字时写成「凯伊：… / 小明：…」；同一名字加身份后缀，避免两句话看起来是同一个人说的。
+  // 有名字时写成「阿澈：… / 小明：…」；同一名字加身份后缀，避免两句话看起来是同一个人说的。
   const named = Boolean(cleanMemoryName(meta.userName) || cleanMemoryName(meta.characterName))
   const userSpeaker = memorySpeakerName(meta.userName, '玩家')
   const characterSpeaker = memorySpeakerName(meta.characterName, '角色')

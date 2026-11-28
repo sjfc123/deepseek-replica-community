@@ -10,7 +10,7 @@
 
 /**
  * 角色扮演层回归：
- * 1. 内置卡数量、八张卡的基础配置完整度、旧种子刷新与默认头像；
+ * 1. 内置卡数量、七张卡的基础配置完整度、旧种子刷新与默认头像；
  * 2. 补充设定不限字数；
  * 3. 情景、系统指令与对白示例进入 system 且跨轮稳定；
  * 4. 会话绑定优先于全局开关，旧会话可按开场白识别；
@@ -68,7 +68,7 @@ const {
 
 const builtins = getBuiltinCharacterCards()
 assert.equal(builtins.length, BUILTIN_CHARACTER_CARD_TOTAL, '内置卡总数必须和常量一致')
-assert.equal(builtins.length, 8)
+assert.equal(builtins.length, 7)
 for (const id of [
   'builtin:dafeiyu',
   'builtin:whale-girl',
@@ -77,14 +77,13 @@ for (const id of [
   'builtin:xianxia',
   'builtin:urban',
   'builtin:midnight-sister',
-  'builtin:kei',
 ]) {
   assert.ok(
     builtins.some((card) => card.id === id),
     `缺少内置卡 ${id}`
   )
 }
-for (const id of ['builtin:dafeiyu', 'builtin:whale-girl', 'builtin:kei']) {
+for (const id of ['builtin:dafeiyu', 'builtin:whale-girl']) {
   const card = builtins.find((item) => item.id === id)
   assert.match(card.sourceUrl ?? '', /^https:\/\//, `${card.name}必须带可点击的来源链接`)
 }
@@ -156,25 +155,13 @@ assert.match(boundaryCard, /底线（被碰到会怎么反弹）/, '卡片底线
 assert.match(boundaryCard, /被说胖就翘尾巴顶回去/, '卡片底线原文必须进入 system')
 assert.ok(boundaryCard.includes(ROLEPLAY_BOUNDARY_RULE.split('：')[0]), '卡片 system 必须带底线演出规则')
 
-const kei = builtins.find((card) => card.id === 'builtin:kei')
-assert.equal(kei?.name, '天童凯伊', '凯伊卡必须使用正式姓名')
-assert.match(kei?.identity ?? '', /AL-1S|Key/, '凯伊卡必须交代 AL-1S / Key 的来历')
-assert.match(kei?.relationship ?? '', /爱丽丝/, '凯伊卡必须写明与爱丽丝的关系')
-assert.match(kei?.systemDirective ?? '', /不是 Key/, '凯伊卡必须锁定当前身份')
-assert.doesNotMatch(kei?.notes ?? '', /成人内容允许/, '凯伊卡必须保持健康向')
-const keiSystem = formatCharacterCard(kei, '老师')
-assert.match(keiSystem, /天童凯伊/, '凯伊卡 system 必须带正式姓名')
-assert.match(keiSystem, /不是 Key/, '凯伊卡 system 必须锁定当前身份')
-assert.match(keiSystem, /爱丽丝/, '凯伊卡 system 必须保留与爱丽丝的关系')
-assert.doesNotMatch(keiSystem, /\{\{user\}\}|\{\{char\}\}/, '凯伊卡 system 不应残留占位符')
-assert.ok(keiSystem.length < 12_000, '凯伊卡 system 不应把整段资料无限堆入上下文')
 
 const {
   BUILTIN_CARD_AVATARS,
   BUILTIN_CARD_AVATAR_IDS,
   ensureBuiltinCardAvatars,
 } = await import('../src/services/chat/builtinAvatars.ts')
-assert.equal(BUILTIN_CARD_AVATAR_IDS.length, 8, '八张内置卡都必须有默认头像')
+assert.equal(BUILTIN_CARD_AVATAR_IDS.length, 7, '七张内置卡都必须有默认头像')
 for (const id of BUILTIN_CARD_AVATAR_IDS) {
   assert.ok(isAvatarDataUrl(BUILTIN_CARD_AVATARS[id]), `${id} 的默认头像必须是合法 data URL`)
 }
@@ -182,20 +169,20 @@ const emptyAvatars = ensureBuiltinCardAvatars(
   {},
   builtins.map((card) => card.id)
 )
-assert.equal(emptyAvatars.added, 8, '空头像表应一次补齐八张内置头像')
-assert.ok(emptyAvatars.avatars['builtin:kei']?.startsWith('data:image/webp;base64,'), '凯伊应使用 WebP 默认头像')
-const customAvatars = { 'builtin:kei': 'data:image/jpeg;base64,Zm9v' }
+assert.equal(emptyAvatars.added, 7, '空头像表应一次补齐七张内置头像')
+assert.ok(emptyAvatars.avatars['builtin:dafeiyu']?.startsWith('data:image/webp;base64,'), '默认头像应使用 WebP data URL')
+const customAvatars = { 'builtin:dafeiyu': 'data:image/jpeg;base64,Zm9v' }
 const keptAvatars = ensureBuiltinCardAvatars(
   customAvatars,
   builtins.map((card) => card.id)
 )
-assert.equal(keptAvatars.avatars['builtin:kei'], customAvatars['builtin:kei'], '自定义头像不得被默认头像覆盖')
+assert.equal(keptAvatars.avatars['builtin:dafeiyu'], customAvatars['builtin:dafeiyu'], '自定义头像不得被默认头像覆盖')
 const removedAvatars = ensureBuiltinCardAvatars(
   {},
   builtins.map((card) => card.id),
-  ['builtin:kei']
+  ['builtin:dafeiyu']
 )
-assert.equal(removedAvatars.avatars['builtin:kei'], undefined, '显式移除过的默认头像不得补回')
+assert.equal(removedAvatars.avatars['builtin:dafeiyu'], undefined, '显式移除过的默认头像不得补回')
 
 const newCards = builtins.filter((card) => ['江湖', '修仙', '都市'].includes(card.genre))
 assert.equal(newCards.length, 3, '三张新卡必须带题材')
