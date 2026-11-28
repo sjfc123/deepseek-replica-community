@@ -8,7 +8,7 @@
  * 边界：只处理应用装配、生命周期、导航与全局视图；不实现聊天协议、持久化与业务算法。
  * ========================================================================== */
 
-import { memo, useEffect, useLayoutEffect, useRef } from 'react'
+import { lazy, memo, Suspense, useEffect, useLayoutEffect, useRef } from 'react'
 import { android } from './android.js'
 import { useAndroidBackInterception } from './useAndroidBackInterception.js'
 import { useTranslate } from '../i18n/index.js'
@@ -34,12 +34,21 @@ import { SessionView } from '../components/session/SessionView.js'
 import { MobileHeader } from '../components/session/MobileHeader.js'
 import { Welcome } from '../components/session/Welcome.js'
 import { ensureApiKey, useSettingsDialog } from '../components/settings/settingsDialogState.js'
-import { AndroidSettings } from '../components/settings/AndroidSettings.js'
 import { ApiKeyScreen } from '../components/settings/ApiKeyScreen.js'
-import { VoiceCallOverlay } from '../components/chatInput/VoiceCallOverlay.js'
 import { MemoryAddedToast } from '../components/memory/MemoryAddedToast.js'
-import { HistoryAuditDialog } from '../components/session/HistoryAuditDialog.js'
 import { installDiagnostics } from './diagnostics.js'
+
+// 设置面板、语音通话浮层与历史结算弹窗属于按需打开的重覆盖层：延迟到首次需要时再
+// 下载解析对应 chunk，避免首屏主包携带设置页、语音与审计相关代码拖慢冷启动。
+const AndroidSettings = lazy(() =>
+  import('../components/settings/AndroidSettings.js').then((mod) => ({ default: mod.AndroidSettings }))
+)
+const VoiceCallOverlay = lazy(() =>
+  import('../components/chatInput/VoiceCallOverlay.js').then((mod) => ({ default: mod.VoiceCallOverlay }))
+)
+const HistoryAuditDialog = lazy(() =>
+  import('../components/session/HistoryAuditDialog.js').then((mod) => ({ default: mod.HistoryAuditDialog }))
+)
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
@@ -442,11 +451,13 @@ export const App = () => {
         </main>
         <SearchPanel />
       </div>
-      <AndroidSettings chatFrame={frameRef} />
+      <Suspense fallback={null}>
+        <AndroidSettings chatFrame={frameRef} />
+        <HistoryAuditDialog />
+        <VoiceCallOverlay />
+      </Suspense>
       <Toast />
       <MemoryAddedToast />
-      <HistoryAuditDialog />
-      <VoiceCallOverlay />
     </>
   )
 }

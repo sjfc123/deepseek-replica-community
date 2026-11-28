@@ -192,15 +192,39 @@ export const installDiagnostics = () => {
     return
   }
   installed = true
+  // 错误采集在 Web 浏览器与 Android 壳都保留：只记录摘要，不启动高频采样。
   window.addEventListener('error', (event) => {
     pushError('error', event.message || String(event.error ?? 'unknown'))
-    schedulePersist()
+    if (android) {
+      schedulePersist()
+    }
   })
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason
     pushError('promise', reason instanceof Error ? reason.message : String(reason))
-    schedulePersist()
+    if (android) {
+      schedulePersist()
+    }
   })
+  // 渲染异常：WebGL 上下文丢失会让画面停住但点击可能还在响应
+  window.addEventListener(
+    'webglcontextlost',
+    (event) => {
+      pushError('render', `WebGL 上下文丢失：${describeTarget(event.target)}`)
+      if (android) {
+        recordStall(0, '渲染上下文丢失')
+      }
+    },
+    true
+  )
+
+  // 以下高频交互采样、帧看门狗、长任务观察者与周期落盘只在 Android 壳启用。
+  // 桌面浏览器自带 DevTools 性能面板，常驻 rAF / longtask 回调只会增加主线程负担，
+  // 网页端因此跳过这部分诊断循环，错误摘要仍保留在内存中供主动诊断读取。
+  if (!android) {
+    return
+  }
+
   // 任何点击都留一条，包含功能和两次操作之间的间隔
   window.addEventListener('pointerdown', (event) => recordInteraction('tap', event.target), {
     capture: true,
@@ -245,16 +269,6 @@ export const installDiagnostics = () => {
   } catch {
     // 内核不支持 longtask 就只靠帧看门狗
   }
-
-  // 渲染异常：WebGL 上下文丢失会让画面停住但点击可能还在响应
-  window.addEventListener(
-    'webglcontextlost',
-    (event) => {
-      pushError('render', `WebGL 上下文丢失：${describeTarget(event.target)}`)
-      recordStall(0, '渲染上下文丢失')
-    },
-    true
-  )
 
   window.requestAnimationFrame(watchFrames)
   window.setInterval(persistSessionLog, 30_000)
