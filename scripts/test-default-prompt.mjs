@@ -499,14 +499,22 @@ assert.match(ROLEPLAY_STRICT_GUARD, /一、身份与跨轮延续/)
 assert.match(IDENTITY_LOCK_GUARD, /I am an AI/, '身份守卫必须拦截英文自认话术')
 
 // 思考链展示归一：抹除元分析措辞，泛称替换为昵称；占位名不替换
-assert.equal(sanitizeThinkingText('分析用户意图，先接住用户这句话', '小梦'), '先接住小梦这句话')
+assert.equal(
+  sanitizeThinkingText('分析用户意图，先接住用户这句话', '小梦'),
+  '',
+  '带“接住”的写作计划整段隐藏，不把半成品计划露给用户'
+)
 assert.equal(sanitizeThinkingText('用户想让我先开口；玩家在等回应', '小梦'), '先开口；小梦在等回应')
 assert.equal(sanitizeThinkingText('用户想让我先开口', '用户'), '先开口')
 assert.equal(sanitizeThinkingText('User 在等回应', '小梦'), '小梦 在等回应')
 // 分析式开场：带冒号的“分析用户意图：”必须连标题一起剔除
 assert.equal(sanitizeThinkingText('分析用户意图：先看看他想要什么', '小梦'), '先看看他想要什么')
 assert.equal(sanitizeThinkingText('意图分析: 他在试探', '小梦'), '他在试探')
-assert.equal(sanitizeThinkingText('揣摩对方意图，先放软语气', '小梦'), '先放软语气')
+assert.equal(
+  sanitizeThinkingText('揣摩对方意图，先放软语气', '小梦'),
+  '',
+  '“先放软语气”是给自己下指令，过滤后仍有计划口吻就整段隐藏'
+)
 
 // 本地环境段：普通助手与角色上下文都要带，写入用户名，并覆盖自我审查清单
 assert.match(normal, /【本地环境，不要复述本段】/)

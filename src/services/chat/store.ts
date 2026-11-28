@@ -3257,6 +3257,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   let reduceInput = false
   let reducedInput: Awaited<ReturnType<typeof summarizeCurrentInput>> = null
   let invalidatedRetries = 0
+  // 深度思考偶发把额度全花在 reasoning 上、正文为空；角色链路自动降级思考重发一次，避免空白回复。
+  let thinkingEnabled = initial.thinking
+  let emptyReplyRetries = 0
   try {
     for (;;) {
       /** 附件补齐前出错属于上传失败，请求还没有发出 */
@@ -3379,7 +3382,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           max_tokens: outputCap(requestMaxOutput),
           system: baseSystemResolved,
           messages,
-          thinking: { type: initial.thinking ? 'enabled' : 'disabled' },
+          thinking: { type: thinkingEnabled ? 'enabled' : 'disabled' },
           ...(safetyCheck ? { safety_check: SAFETY_CHECK } : {}),
           tools: serverTools(initial.search ?? false),
           ...(effectiveTemperature !== null ? { temperature: effectiveTemperature } : {}),
@@ -3414,6 +3417,30 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           scheduleFlush()
         }
         reply = settleLocal(reply, 'done')
+        const hasBody = reply.blocks.some((block) =>
+          block.type === 'text' ? block.text.trim() : block.type !== 'thinking'
+        )
+        if (
+          !hasBody &&
+          reply.stopReason !== 'refusal' &&
+          !controller.signal.aborted &&
+          emptyReplyRetries < 1
+        ) {
+          emptyReplyRetries += 1
+          thinkingEnabled = false
+          reply = {
+            ...initial,
+            blocks: [],
+            status: 'streaming',
+            thinking: false,
+            stopReason: undefined,
+            usage: undefined,
+            error: undefined,
+          }
+          updateReply(sessionId, reply)
+          persist(sessionId)
+          continue
+        }
         if (
           (custom || chatConfig.format !== 'messages') &&
           titleRequests.has(controller) &&
