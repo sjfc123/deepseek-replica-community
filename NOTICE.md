@@ -46,7 +46,7 @@ DeepChat 的 `LICENSE` 文件署名为 `Copyright (c) 2026 DeepSeek`。该署名
 ## 5. 包名与迁移
 
 - 应用名：`DeepSaga`
-- 包名 / namespace：`io.github.sjfc123.deepsaga`
+- 包名 / namespace：`io.github.coldreport.deepsaga`
 - 旧包名：`io.github.lijiahua1024.dsreplica`，本版不再使用。
 - 新旧包名不同，Android 视为两款独立应用，可并存安装，不共享应用数据。
 - 旧版数据必须通过导出再导入迁移；API Key 不随备份迁移，必须重新填写。

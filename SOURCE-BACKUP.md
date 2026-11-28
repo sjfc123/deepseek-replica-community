@@ -7,7 +7,7 @@
 - 应用名：`DeepSaga`
 - 版本：`1.0.0`
 - versionCode：`153`
-- 包名 / namespace：`io.github.sjfc123.deepsaga`
+- 包名 / namespace：`io.github.coldreport.deepsaga`
 - 构建基线：Gradle 9.7.1、AGP 9.4.0、JDK 17 编译目标、minSdk 29、targetSdk 36、compileSdk 36
 
 ## 2. 包内容
@@ -70,8 +70,8 @@ cd android
 
 发布或分发前，构建者应核对：
 
-- `aapt2 dump badging`：包名 `io.github.sjfc123.deepsaga`、versionCode `153`、versionName `1.0.0`、application-label `DeepSaga`。
-- 启动 Activity：`io.github.sjfc123.deepsaga.MainActivity`。
+- `aapt2 dump badging`：包名 `io.github.coldreport.deepsaga`、versionCode `153`、versionName `1.0.0`、application-label `DeepSaga`。
+- 启动 Activity：`io.github.coldreport.deepsaga.MainActivity`。
 - APK 内 `ic_launcher.png` 为星空图标，不是上游蓝色鲸鱼。
 - `dist/index.html` 标题为 `DeepSaga`。
 - `pnpm type`、`pnpm lint`、`pnpm build` 通过。

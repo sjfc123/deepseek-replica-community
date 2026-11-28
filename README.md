@@ -16,8 +16,8 @@ DeepSaga 是基于上游 Android WebView 容器与 React / TypeScript 前端改�
 
 | 用途 | 地址 | 说明 |
 | --- | --- | --- |
-| 源码仓库 | <https://github.com/sjfc123/deepsaga> | 当前 `main` 分支，归档基线 `1.0.0` / `153` |
-| 发布页 | <https://github.com/sjfc123/deepsaga/releases> | 仓库不附预编译 APK，发布页仅用于版本与变更记录 |
+| 源码仓库 | <https://github.com/cold-report/deepsaga> | 当前 `main` 分支，归档基线 `1.0.0` / `153` |
+| 发布页 | <https://github.com/cold-report/deepsaga/releases> | 仓库不附预编译 APK，发布页仅用于版本与变更记录 |
 
 ### 上游项目
 
@@ -52,7 +52,7 @@ DeepSaga 是基于上游 Android WebView 容器与 React / TypeScript 前端改�
 ## 1. 项目标识
 
 - 应用名：`DeepSaga`
-- 包名 / namespace：`io.github.sjfc123.deepsaga`
+- 包名 / namespace：`io.github.coldreport.deepsaga`
 - 当前版本：`1.0.0`，versionCode `153`
 - 维护状态：正式版基线；本次发布后停止后续功能更新与维护，仓库仅保留源码与构建配置（见文首闭关声明）。
 - DeepSaga 不是 DeepSeek 官方客户端，不是上游项目的官方分支，也不代表上述主体对本仓库的功能、稳定性、维护或分发行为作出背书。`Deep` 前缀仅用于说明接口语境和代码来源；应用名、图标、包名与界面品牌属于本分支。来源、版权和素材许可以 [NOTICE.md](NOTICE.md) 为准。
@@ -125,7 +125,7 @@ DeepSaga 是基于上游 Android WebView 容器与 React / TypeScript 前端改�
 - 全局同一时间只启用一张角色卡；会话可绑定独立角色，绑定优先于全局开关。人物层为角色卡、基础档案、轻量身份行三选一，不叠加冲突身份。
 - 角色卡包含固定参数、生活细节、性格边界、题材玩法、关系、经历、情景、目标、说话方式、口癖、秘密、补充设定、开场参考、对白示例和卡内指令。
 - 支持 Character Card V2/V3、TavernAI、PNG chara 导入；世界书支持关键词或正则命中、常驻条目、按角色绑定、单轮预算、最近发言或整段历史扫描、避触词与可信度分层。
-- 官方助手人格是独立开关；开启时不叠入手写系统提示词、自定义预设或基础扮演。会话绑定的自定义角色扮演预设按所选范围作为同级身份来源生效。
+- 官方助手人格是独立开关；启用角色卡、填写手写系统提示词、启用自定义预设或开启基础扮演时自动关闭；关闭角色卡或重新开启官方人格会停用其它身份来源、回到普通助手。角色卡自带人设即可接管对话，不必再手写提示词；手写身份或自定义预设优先级高于角色卡。
 
 ### 3.4 长期记忆
 

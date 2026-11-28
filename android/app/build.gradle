@@ -20,7 +20,7 @@ if (releaseSigningFile.isFile()) {
 
 /* ---- 02 Android 编译配置 ---- */
 android {
-    namespace = 'io.github.sjfc123.deepsaga'
+    namespace = 'io.github.coldreport.deepsaga'
     // 公网 SDK 仓库当前只提供到 android-36 平台；本工程 minSdk 29、targetSdk 36，
     // 源码未使用 API 37 专属接口，因此编译平台对齐到 36。
     compileSdk = 36
@@ -30,7 +30,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = 'io.github.sjfc123.deepsaga'
+        applicationId = 'io.github.coldreport.deepsaga'
         minSdk = 29
         targetSdk = 36
         versionCode = 153

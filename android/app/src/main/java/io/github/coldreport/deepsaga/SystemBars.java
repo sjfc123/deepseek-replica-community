@@ -3,7 +3,7 @@
  * 职责：Android 系统栏：状态栏/导航栏配色与 Insets 计算。
  * ========================================================================== */
 
-package io.github.sjfc123.deepsaga;
+package io.github.coldreport.deepsaga;
 
 import android.graphics.Color;
 import android.graphics.Insets;

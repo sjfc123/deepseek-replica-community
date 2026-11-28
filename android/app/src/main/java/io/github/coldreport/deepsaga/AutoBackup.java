@@ -3,7 +3,7 @@
  * 职责：Android 自动备份：两阶段写入、ZIP 完整性校验、发布与清理。
  * ========================================================================== */
 
-package io.github.sjfc123.deepsaga;
+package io.github.coldreport.deepsaga;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;

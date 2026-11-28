@@ -2197,6 +2197,10 @@ const usesCharacterMemory = (sessionId?: string) => {
   if (suppressionActive) {
     return true
   }
+  // 当前启用卡直接接管时，记忆落角色池；不需要手写提示词或预设在场。
+  if (Boolean(card) && !handwrittenActive && !personaActive) {
+    return true
+  }
   if (promptEmpty) {
     return false
   }
@@ -2950,7 +2954,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const handwrittenPromptActive = locks.system ? true : handwrittenGlobalActive && !personaGlobalActive
   const personaActive = locks.persona ? true : personaGlobalActive && !handwrittenGlobalActive
   const effectiveHandwrittenActive = handwrittenPromptActive && !personaActive
-  const activeCard = effectiveHandwrittenActive ? resolvedCard : undefined
+  // 角色卡无需手写提示词即可接管：手写身份或自定义预设优先，两者都没有时当前启用卡直接扮演。
+  const activeCard =
+    resolvedCard && !effectiveHandwrittenActive && !personaActive ? resolvedCard : undefined
   const promptEmpty = !effectiveHandwrittenActive
   const promptIsCustom = effectiveHandwrittenActive && !promptIsDefault
   if (effectiveHandwrittenActive) {
@@ -2971,7 +2977,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 手写系统提示词与自定义预设属于用户明确指定的身份来源；内部角色锁定不覆盖其写明的模型/产品身份。
   const relaxedIdentity = personaActive || effectiveHandwrittenActive
   const builtinSuppression = suppressionActive && !personaActive
-  const roleplayActive = suppressionActive || (!promptEmpty && Boolean(activeCard))
+  const roleplayActive = suppressionActive || Boolean(activeCard)
   // 记忆落池按显示名判断，不跟角色卡开关绑定：显示 AI / DeepSeek 走普通池，
   // 显示角色名（卡名或手写档案名）走角色池，避免普通问答被默认写成角色剧情。
   // 压制设定接管空/默认提示词时，这一轮属于基础角色扮演，写角色记忆。
@@ -3089,25 +3095,27 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     !activeCard &&
     !profileSystem
   // 提示词清空时三种身份来源全部不参与；默认提示关闭且无其它身份时，只保留兜底人设与身份行。
+  // 角色卡优先于空提示词兜底判断：卡片自带人设即可注入，不必依赖手写提示词。
   const identityBlock = personaActive
     ? ''
-    : suppressionActive
-      ? promptIsCustom
-        ? ''
-        : profileSystem || suppressionPersona
-      : promptEmpty || promptIsDefault
-        ? fallbackBaseline
-          ? identitySystem
-          : ''
-        : activeCard
-          ? formatCharacterCard(activeCard, userName)
+    : activeCard
+      ? formatCharacterCard(activeCard, userName)
+      : suppressionActive
+        ? promptIsCustom
+          ? ''
+          : profileSystem || suppressionPersona
+        : promptEmpty || promptIsDefault
+          ? fallbackBaseline
+            ? identitySystem
+            : ''
           : profileSystem || identitySystem
   // 三种身份来源互斥：一张卡、完整档案或轻量身份行，不会同时拼进 system。
   // 只有内部角色上下文才把默认助手提示替换成沉浸角色基底，并追加演出/格式规则。
   const roleplayContext =
     builtinSuppression ||
     fallbackBaseline ||
-    (!promptEmpty && Boolean(activeCard || profileSystem || identitySystem))
+    Boolean(activeCard) ||
+    (!promptEmpty && Boolean(profileSystem || identitySystem))
   // 统一替换占位符：系统提示词、角色卡字段、世界书与记忆都走这一处
   // 当前卡名优先，其次手写档案名；两者都空时用 AI 生成名，避免 {{char}} 原样漏进 system。
   const promptCharName = personaActive

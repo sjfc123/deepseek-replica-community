@@ -1393,26 +1393,65 @@ export const setCardAvatar = (cardId: string, avatar: string | null) => {
   return true
 }
 
-/** 启用角色卡：卡名由运行时按「当前启用卡」解析，不覆盖手写基础档案的名字 */
+/**
+ * 回到官方默认助手：冻结手写/预设在旧会话里的快照，并关闭其它身份来源。
+ * 文本与会话绑定保留在本机，不清空；改动并入传入的下一次 setState。
+ */
+const restoreOfficialPersona = (nextState: Partial<Settings>) => {
+  freezePromptSourceSessions('system')
+  freezePromptSourceSessions('persona')
+  write(KEYS.systemPromptEnabled, '0')
+  write(KEYS.suppressionPersonaEnabled, '0')
+  write(KEYS.basicRoleplayEnabled, '0')
+  write(KEYS.defaultPromptEnabled, '1')
+  Object.assign(nextState, {
+    systemPromptEnabled: false,
+    suppressionPersonaEnabled: false,
+    basicRoleplayEnabled: false,
+    defaultPromptEnabled: true,
+  })
+}
+
+/**
+ * 启用角色卡：卡名由运行时按「当前启用卡」解析，不覆盖手写基础档案的名字。
+ * 启用即关闭官方默认人格；关闭当前卡则恢复官方助手并停用其它身份来源。
+ */
 export const activateCharacterCard = (id: string | null) => {
-  const card = id ? useSettings.getState().characterCards.find((item) => item.id === id) : undefined
+  const state = useSettings.getState()
+  const card = id ? state.characterCards.find((item) => item.id === id) : undefined
   write(KEYS.activeCharacterId, card ? card.id : null)
   write(KEYS.roleplayEnabled, card ? '1' : '0')
-  useSettings.setState({
+  const nextState: Partial<Settings> = {
     activeCharacterId: card?.id ?? null,
     roleplayEnabled: Boolean(card),
-  })
+  }
+  if (card) {
+    // 启用角色卡即接管身份：关闭官方默认人格，避免官方助手前缀与角色设定互搏。
+    write(KEYS.defaultPromptEnabled, '0')
+    nextState.defaultPromptEnabled = false
+  } else {
+    restoreOfficialPersona(nextState)
+  }
+  useSettings.setState(nextState)
 }
 
 /**
  * 只切换角色扮演模式：开启必须有一张有效角色卡。
  * 没有有效卡时不写入开启状态，避免出现“开关已开、system 没有人物”的空转状态。
+ * 开启时关闭官方人格；关闭时恢复官方助手并停用其它身份来源。
  */
 export const setRoleplayEnabled = (roleplayEnabled: boolean) => {
   const state = useSettings.getState()
   const next = canEnableRoleplay(state.characterCards, state.activeCharacterId, roleplayEnabled)
   write(KEYS.roleplayEnabled, next ? '1' : '0')
-  useSettings.setState({ roleplayEnabled: next })
+  const nextState: Partial<Settings> = { roleplayEnabled: next }
+  if (next) {
+    write(KEYS.defaultPromptEnabled, '0')
+    nextState.defaultPromptEnabled = false
+  } else {
+    restoreOfficialPersona(nextState)
+  }
+  useSettings.setState(nextState)
 }
 
 /** 补齐缺失的内置角色卡；返回新增数量，写入失败返回 -1 */
@@ -1464,12 +1503,17 @@ export const deleteCharacterCard = (id: string) => {
   if (avatarRemoved) {
     write(KEYS.cardAvatars, Object.keys(avatars).length > 0 ? JSON.stringify(avatars) : null)
   }
-  useSettings.setState({
+  const nextState: Partial<Settings> = {
     characterCards: next,
     activeCharacterId: active,
     ...(active === null ? { roleplayEnabled: false } : {}),
     ...(avatarRemoved ? { cardAvatars: avatars } : {}),
-  })
+  }
+  // 删除的正是当前启用卡：回到官方默认助手，停用其它身份来源。
+  if (wasActive) {
+    restoreOfficialPersona(nextState)
+  }
+  useSettings.setState(nextState)
   return true
 }
 

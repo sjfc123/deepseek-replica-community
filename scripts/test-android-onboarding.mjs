@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
-const [serial, appId = 'io.github.sjfc123.deepsaga'] = process.argv.slice(2)
+const [serial, appId = 'io.github.coldreport.deepsaga'] = process.argv.slice(2)
 assert.match(serial ?? '', /^emulator-\d+$/, 'Pass the serial of a test emulator')
 assert.match(appId, /^[\w.]+$/)
 
@@ -51,7 +51,7 @@ async function until(label, check) {
 }
 
 async function launch() {
-  adb('shell', 'am', 'start', '-n', `${appId}/io.github.sjfc123.deepsaga.MainActivity`)
+  adb('shell', 'am', 'start', '-n', `${appId}/io.github.coldreport.deepsaga.MainActivity`)
   const pid = await until('The app process did not start', () =>
     adb('shell', `pidof ${appId} || true`)
   )

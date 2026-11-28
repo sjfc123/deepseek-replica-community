@@ -3,7 +3,7 @@
  * 职责：Android 源码浏览页：本地 HTML/源码查看与返回处理。
  * ========================================================================== */
 
-package io.github.sjfc123.deepsaga;
+package io.github.coldreport.deepsaga;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;

@@ -18,10 +18,10 @@ export type UpdateCheckResult = {
   checkedAt: string
 }
 
-const RELEASE_URL = 'https://github.com/sjfc123/deepsaga/releases'
+const RELEASE_URL = 'https://github.com/cold-report/deepsaga/releases'
 const MANIFESTS = [
-  'https://raw.githubusercontent.com/sjfc123/deepsaga/main/package.json',
-  'https://cdn.jsdelivr.net/gh/sjfc123/deepsaga@main/package.json',
+  'https://raw.githubusercontent.com/cold-report/deepsaga/main/package.json',
+  'https://cdn.jsdelivr.net/gh/cold-report/deepsaga@main/package.json',
 ]
 
 /** 版本号只比较数字段；预发布后缀不参与，避免 0.9.1-beta 被误判成更高 */
