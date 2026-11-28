@@ -736,7 +736,7 @@ public final class MainActivity extends Activity {
 
         /**
          * 角色卡作者/作品链接：只放行 http/https，交给系统浏览器而不是在当前 WebView 内跳走。
-         * 返回 true 表示已受理；没有可用浏览器时返回 false，由网页端决定是否新开标签页。
+         * 返回 true 表示已受理；没有可用浏览器时返回 false，由前端回退路径决定是否新开标签页。
          */
         @JavascriptInterface
         public boolean openExternalUrl(String url) {

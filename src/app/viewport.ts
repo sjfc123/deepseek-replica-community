@@ -12,7 +12,7 @@ import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { android } from './android.js'
 
 /* ---- 01 类型、契约与依赖 ---- */
-/** Web 端窄于 768px 按移动端布局；Android 客户端始终保持移动端交互壳层 */
+/** 窄于 768px 按移动端布局；Android 客户端始终保持移动端交互壳层 */
 const query = window.matchMedia('not all and (min-width: 768px)')
 
 /** 与官方 Android 客户端一致：窗口宽度达到 840dp 时切换为横屏/平板分栏布局 */

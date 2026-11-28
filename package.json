@@ -8,7 +8,6 @@
   "scripts": {
     "dev": "rspack serve -c rspack.config.ts",
     "build": "rspack build -c rspack.config.ts",
-    "web:serve": "node scripts/web-server.mjs",
     "type": "tsc -p tsconfig.json",
     "lint": "oxlint src rspack.config.ts",
     "format": "oxfmt --write .",

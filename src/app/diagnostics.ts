@@ -219,8 +219,8 @@ export const installDiagnostics = () => {
   )
 
   // 以下高频交互采样、帧看门狗、长任务观察者与周期落盘只在 Android 壳启用。
-  // 桌面浏览器自带 DevTools 性能面板，常驻 rAF / longtask 回调只会增加主线程负担，
-  // 网页端因此跳过这部分诊断循环，错误摘要仍保留在内存中供主动诊断读取。
+  // 非 Android 环境自带 DevTools 性能面板，常驻 rAF / longtask 回调只会增加主线程负担，
+  // 因此跳过这部分诊断循环，错误摘要仍保留在内存中供主动诊断读取。
   if (!android) {
     return
   }

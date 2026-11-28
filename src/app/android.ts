@@ -89,7 +89,7 @@ type AndroidBridge = {
 export const android = (window as Window & { DeepSeekAndroid?: AndroidBridge }).DeepSeekAndroid
 
 /**
- * 角色卡来源链接统一出口：Android 交给系统浏览器，网页端新开标签页。
+ * 角色卡来源链接统一出口：Android 交给系统浏览器，非 Android 环境新开标签页。
  * 原生桥接只接受 http/https；调用方仍应先经过 normalizeSourceUrl。
  */
 export const openExternalUrl = (url: string) => {
@@ -100,7 +100,7 @@ export const openExternalUrl = (url: string) => {
         return
       }
     } catch {
-      // 旧包或浏览器没有可用 Activity 时走网页端路径。
+      // 旧包或没有可用 Activity 时走浏览器回退路径。
     }
   }
   window.open(url, '_blank', 'noopener,noreferrer')
