@@ -647,4 +647,26 @@ assert.equal(
   '只出现一个检索相关词时不能误伤人物叙述'
 )
 
+
+assert.equal(
+  sanitizeThinkingText('阿岚让我猜开心的事，没有给线索。', '阿岚'),
+  '',
+  '只有任务备注、没有人物态度的短句应整句隐藏'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚分享升职高兴事，我该真诚庆祝。', '阿岚'),
+  '',
+  '“我该真诚庆祝”属于答题计划，整句隐藏'
+)
+assert.equal(
+  sanitizeThinkingText('他让我猜，我偏不猜，看他急不急。', '阿岚'),
+  '他让我猜，我偏不猜，看他急不急。',
+  '带人物态度的“让我猜”不能误伤'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚问我上海的天气，晚上要出门。阿岚问的是“今天上海的天气”，也就是2026年11月28日。', '阿岚'),
+  '',
+  '检索轮把日期再复述一遍仍是工作笔记，整段隐藏'
+)
+
 console.log('default prompt regression: ok')
