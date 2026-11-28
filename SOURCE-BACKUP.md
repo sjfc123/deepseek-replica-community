@@ -18,7 +18,7 @@
 - 前端源码：`src/`、构建配置与 `package.json` / `pnpm-lock.yaml`
 - Android 源码：`android/`，含 Gradle 配置、Java 源码、资源与图标
 - 测试脚本：`scripts/`
-- 文档：`README.md`、`NOTICE.md`、`SOURCE-BACKUP.md`、`PERFORMANCE-AUDIT.md`、`SYSTEM-PROMPT-PIPELINE.md`、`FEATURE-GUIDE.md`
+- 文档：`README.md`、`NOTICE.md`、`DISCLAIMER.md`、`SOURCE-BACKUP.md`、`PERFORMANCE-AUDIT.md`、`SYSTEM-PROMPT-PIPELINE.md`、`FEATURE-GUIDE.md`
 - 许可证：`LICENSE`、`licenses/MIT-DeepSeek.txt`
 - 网页图标：`src/assets/favicon.png`、`src/assets/apple-touch-icon.png`、`src/assets/app-icon.png`
 - 安卓图标：`mipmap-*` 多密度 PNG、自适应背景层与前景层、`mipmap-anydpi-v26/ic_launcher.xml`
