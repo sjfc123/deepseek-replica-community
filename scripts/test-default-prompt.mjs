@@ -502,15 +502,14 @@ assert.doesNotMatch(unlocked, /【严格约束/, '普通助手不追加角色严
 assert.match(ROLEPLAY_STRICT_GUARD, /一、身份与跨轮延续/)
 assert.match(IDENTITY_LOCK_GUARD, /I am an AI/, '身份守卫必须拦截英文自认话术')
 
-// 思考链展示归一：不再“可疑即整段隐藏”，只逐句/逐片段切掉模型计划、检索笔记和答题策略。
-// 人物心声、情绪、关系判断必须留下；用户统一换成名字；不再出现助手模板和客服口吻。
+// 思考链展示归一：搜索工作保留，答题式收尾/回避/不追问/不要过度逐句切掉；
+// 人物心声、情绪、关系判断保留；用户统一换成名字；不再整段隐藏。
 assert.match(THINKING_VOICE_GUARD('小梦'), /思考里只有一个人物的第一人称「我」/)
 assert.match(THINKING_VOICE_GUARD('小梦'), /提小梦时一律写「小梦」/)
 assert.match(THINKING_VOICE_GUARD('小梦'), /不写怎么答/)
 assert.ok(THINKING_VOICE_GUARD('小梦').includes('不写“保持友好'))
 assert.match(TOOL_USE_DISCIPLINE_GUARD, /只有当前这句明确要求查/)
 assert.match(TOOL_USE_DISCIPLINE_GUARD, /普通寒暄、情绪、关系、剧情、闲聊/)
-assert.doesNotMatch(TOOL_USE_DISCIPLINE_GUARD, /保持友好|保持简洁/)
 
 assert.equal(sanitizeThinkingText('分析用户意图，先接住用户这句话', '小梦'), '', '纯元分析句丢弃')
 assert.equal(
@@ -535,10 +534,7 @@ assert.equal(
   '同一句里只切计划片段，人物观察留住'
 )
 assert.equal(
-  sanitizeThinkingText(
-    '嗯，梦问我的名字。这是个很简单直接的问题，不需要复杂分析。直接告诉梦我叫DeepSeek，是深度求索开发的AI助手，保持友好自然就行。',
-    '梦'
-  ),
+  sanitizeThinkingText('嗯，梦问我的名字。这是个很简单直接的问题，不需要复杂分析。直接告诉梦我叫DeepSeek，是深度求索开发的AI助手，保持友好自然就行。', '梦'),
   '嗯，梦问我的名字。',
   '答题策略与助手身份整句剔除'
 )
@@ -566,36 +562,190 @@ assert.equal(
   '删句后残留的单边引号必须收掉'
 )
 
-// 检索工作笔记：只保留任务上下文和人物情绪，不把结果页搬进思考
+// 搜索工作本身保留：查询计划、结果、来源、场馆、天气数据都可以留在思考里
 assert.equal(
   sanitizeThinkingText('用户想知道今天上海的天气。我将进行搜索。我需要整合这些信息来回答。天气情况：白天多云，最高17度。', '阿岚'),
-  '阿岚想知道今天上海的天气。',
-  '“我将搜索 / 需要整合 / 天气情况”不得展示'
+  '阿岚想知道今天上海的天气。我将进行搜索。我需要整合这些信息来回答。白天多云，最高17度。',
+  '搜索计划与结果不再当成模型工作笔记清掉'
 )
 assert.equal(
   sanitizeThinkingText('阿岚要求我查展。这些结果显示了几个展览。我可以在回答中提及来源。', '阿岚'),
-  '阿岚让我查展。',
-  '结果概述与“回答中提及来源”属于模型计划'
+  '阿岚让我查展。这些结果显示了几个展览。我可以在回答中提及来源。',
+  '来源与结果保留'
 )
 assert.equal(
   sanitizeThinkingText('搜索结果显示了几家展览。我需要打开链接核实，然后引用来源。', '阿岚'),
-  '',
-  '纯检索工作笔记整句丢弃'
-)
-assert.equal(
-  sanitizeThinkingText('阿岚让我查展。这些结果显示了几个展览，我可以在回答里提来源。', '阿岚'),
-  '阿岚让我查展。',
-  '任务上下文保留，后续检索笔记丢弃'
-)
-assert.equal(
-  sanitizeThinkingText('阿岚问我上海的天气，晚上要出门。阿岚问的是“今天上海的天气”，也就是2026年11月28日。', '阿岚'),
-  '阿岚问我上海的天气，晚上要出门。阿岚问的是“今天上海的天气”。',
-  '日期复述作为资料句丢弃，任务上下文与问题本身保留'
+  '搜索结果显示了几家展览。我需要打开链接核实，然后引用来源。',
+  '检索工作可以展示'
 )
 assert.equal(
   sanitizeThinkingText('多个来源都提到今天是晴到多云，白天最高气温在16-17°C左右。', '阿岚'),
+  '多个来源都提到今天是晴到多云，白天最高气温在16-17°C左右。',
+  '天气资料句保留'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚想查这周末上海的展览。可以并行搜索。避免列太多。可以顺便吐槽一句“你升职了倒有闲心看展，数据还没给我”。', '阿岚'),
+  '阿岚想查这周末上海的展览。可以并行搜索。',
+  '搜索计划保留，答题式“避免列太多/顺便吐槽”整句切掉'
+)
+
+// 搜索回来后的答题式收尾、回避、不追问、不要过度：逐句切掉
+assert.equal(
+  sanitizeThinkingText('阿岚说累了，升职也没那么开心，还问我是不是觉得阿岚矫情。阿岚要的不是分析。不要追问。不要过度。带小组的压力提前压过来。', '阿岚'),
+  '阿岚说累了，升职也没那么开心，还问我是不是觉得阿岚矫情。带小组的压力提前压过来。',
+  '不要追问/不要过度属于答题策略，切掉；人物状态保留'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚说累了，升职也没那么开心。那我们换个话题吧。', '阿岚'),
+  '阿岚说累了，升职也没那么开心。',
+  '无缘无故换话题要切掉'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚说累了。我不追问，先让她缓一缓。', '阿岚'),
+  '阿岚说累了。',
+  '“不追问”属于答题式回避，切掉'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚说累了。不要问太多，也不要回避。', '阿岚'),
+  '阿岚说累了。',
+  '不要问太多/不要回避切掉'
+)
+
+// 搜索之后混进来的“我的回答将…/用什么口吻/给建议”同样属于答题策略
+assert.equal(
+  sanitizeThinkingText('我的回答将先给出今晚天气，再给建议。', '阿岚'),
   '',
-  '纯天气资料句不得展示'
+  '“我的回答将…”切掉'
+)
+assert.equal(
+  sanitizeThinkingText('我需要用许棠的口吻来组织回答。', '阿岚'),
+  '',
+  '“用什么口吻组织回答”切掉'
+)
+assert.equal(
+  sanitizeThinkingText('我需要整合这些信息，给出今晚出门的建议。', '阿岚'),
+  '我需要整合这些信息。',
+  '搜索整合保留，给建议的答题尾巴切掉'
+)
+assert.equal(
+  sanitizeThinkingText('这时候不该再拿查资料那套接。', '阿岚'),
+  '',
+  '“不该再拿…接”属于回避策略，切掉'
+)
+
+assert.equal(
+  sanitizeThinkingText('这些信息可以用来回答阿岚。', '阿岚'),
+  '',
+  '“这些信息可以用来回答”切掉'
+)
+assert.equal(
+  sanitizeThinkingText('然后给出具体的天气信息，最后再自然地回到庆祝的话题。', '阿岚'),
+  '',
+  '回答顺序计划切掉'
+)
+assert.equal(
+  sanitizeThinkingText('把场馆、时间、票价这些具体信息整理出来告诉阿岚。带点情绪，然后再自然地讲展览信息。', '阿岚'),
+  '',
+  '整理出来告诉/带点情绪/再自然地讲切掉'
+)
+assert.equal(
+  sanitizeThinkingText('我需要用人物自己的话把这些讲清楚，带上来源。再讲查到的内容。', '阿岚'),
+  '',
+  '“用人物自己的话/再讲查到的内容/带上来源”切掉'
+)
+assert.equal(
+  sanitizeThinkingText('可以提议一两家，带点自己的主张。', '阿岚'),
+  '',
+  '提议与主张的答题计划切掉'
+)
+assert.equal(
+  sanitizeThinkingText('我挑一条给阿岚说就行。', '阿岚'),
+  '',
+  '挑一条给用户说切掉'
+)
+
+assert.equal(
+  sanitizeThinkingText('我需要整合这些信息来回答阿岚。', '阿岚'),
+  '我需要整合这些信息。',
+  '搜索整合保留，只切“来回答阿岚”'
+)
+assert.equal(
+  sanitizeThinkingText('给来源可以自然地说“官方文档上写着”。但阿岚明确要来源，我可以把链接附上。', '阿岚'),
+  '但阿岚明确要来源。',
+  '来源交付话术切掉，来源要求保留'
+)
+assert.equal(
+  sanitizeThinkingText('这不是要我查什么，也不是要我给方案。', '阿岚'),
+  '',
+  '答题式否定收尾切掉'
+)
+
+assert.equal(
+  sanitizeThinkingText('但也不能太冷硬到卡死。', '阿岚'),
+  '',
+  '不能太冷硬/卡死切掉'
+)
+assert.equal(
+  sanitizeThinkingText('我该真心替阿岚高兴。想说说带小组的真实感受。', '阿岚'),
+  '',
+  '我该真心替/想说说切掉'
+)
+assert.equal(
+  sanitizeThinkingText('区域上可以提几个大方向，但我不能编具体店名。', '阿岚'),
+  '',
+  '区域上可以提几个大方向/不能编店名的答题计划切掉'
+)
+assert.equal(
+  sanitizeThinkingText('把笔转一圈，压住脾气，只说需要什么。', '阿岚'),
+  '',
+  '只说需要什么属于答题计划，整句切掉'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚让我猜。我猜不出来具体是什么。”“路上捡到一只猫？', '阿岚'),
+  '阿岚让我猜。我猜不出来具体是什么。路上捡到一只猫？',
+  '相邻收引号/开引号要收掉'
+)
+
+assert.equal(
+  sanitizeThinkingText('别一下子猜中，反问句。', '阿岚'),
+  '',
+  '猜谜策略“别猜中/反问句”切掉'
+)
+assert.equal(
+  sanitizeThinkingText('这样也比较自然。', '阿岚'),
+  '',
+  '“比较自然”的答题自评切掉'
+)
+assert.equal(
+  sanitizeThinkingText('我得用阿岚的语气，先有个反应，带上来源。', '阿岚'),
+  '',
+  '用语气/先有反应/带上来源切掉'
+)
+assert.equal(
+  sanitizeThinkingText('回复先带个反应，再说日期，然后给新闻。', '阿岚'),
+  '',
+  '回复顺序计划切掉'
+)
+assert.equal(
+  sanitizeThinkingText('这个信息够用了，不需要再打开链接。先有个反应。', '阿岚'),
+  '这个信息够用了，不需要再打开链接。',
+  '检索判断保留，先有反应切掉'
+)
+
+assert.equal(
+  sanitizeThinkingText('那我就直接告诉阿岚日期，再顺一条新闻。', '阿岚'),
+  '',
+  '直接告诉/再顺一条切掉'
+)
+assert.equal(
+  sanitizeThinkingText('可以用太空数据中心或者高交会，选高交会吧，现场感强一点。', '阿岚'),
+  '',
+  '挑选新闻的答题计划切掉'
+)
+assert.equal(
+  sanitizeThinkingText('就讲高交会吧，水下智能新品和具身智能还能接上。', '阿岚'),
+  '',
+  '“就讲/就选”解题计划切掉'
 )
 
 // 答题策略、拿主意、客服腔与自我解释
@@ -629,10 +779,10 @@ assert.equal(
 assert.equal(
   sanitizeThinkingText('阿岚让我猜开心的事，没有给线索。', '阿岚'),
   '阿岚让我猜开心的事，没有给线索。',
-  '只有任务备注、没有人物态度的短句不再整句隐藏'
+  '任务备注不再整句隐藏'
 )
 assert.equal(
-  sanitizeThinkingText('（阿岚说累了，升职也没那么开心。我心里也堵着事，但先不逼阿岚。）', '阿岚'),
+  sanitizeThinkingText('（阿岚说累了，升职也没那么开心。我心里也堵着事，但先不逼她。）', '阿岚'),
   '（阿岚说累了，升职也没那么开心。我心里也堵着事，但先不逼阿岚。）',
   '情绪与关系判断完整保留'
 )

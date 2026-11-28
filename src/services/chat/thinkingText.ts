@@ -336,33 +336,6 @@ const EXTRA_PLAN_CLAUSE_PATTERNS: readonly RegExp[] = [
   /^(够了|行了)[。！？]?$/,
 ]
 
-/** 检索工作笔记的判别：同一句出现两个以上资料词，且没有人物情绪，就整句丢弃。 */
-const SEARCH_NOTE_TERMS =
-  /(搜索|检索|query|搜一下|查一下|打开结果|结果[0-9]|搜索结果|来源|引用|链接|资料|信息|页面|场馆|日期|科技新闻|模型|发布|版本|天气|气温|票价|新闻|结果|空气质量|轻度污染|西北风|东南风|东北风|西南风|阵风|\d{4}年|\d{1,2}月\d{1,2}日|星期[一二三四五六日天]|周[一二三四五六日天])/gi
-const PERSONAL_MARKERS =
-  /(心疼|担心|害怕|吓|喜欢|讨厌|愣|笑了|笑了一下|苦笑|笑出声|皱眉|叹气|犹豫|好奇|难受|委屈|得意|紧张|累了|好累|心累|啧|唉|嚯|行啊|算了|其实|反倒|倒是|偏不|偏要|干脆|总不能|舍不得|在意|烦死|好烦|心烦|嫌烦|生气|来气|气死)/
-const TASK_CONTEXT =
-  /^[^，。；！？\n]{0,12}(让|叫|要|问|想|需要|希望|要求)[^，。；！？\n]{0,10}(我)?[^，。；！？\n]{0,10}(查|搜|找|确认|了解|知道|天气|日期|资料|信息|展览|模型)/
-
-const isWorkNoteSentence = (sentence: string): boolean => {
-  if (TASK_CONTEXT.test(sentence)) {
-    return false
-  }
-  const terms = sentence.match(SEARCH_NOTE_TERMS)?.length ?? 0
-  return terms >= 2 && !PERSONAL_MARKERS.test(sentence)
-}
-
-/** 纯资料句：两个以上事实/单位词，又没有人物情绪，整句丢弃，避免思考面板变成检索结果页。 */
-const FACT_TERMS =
-  /(℃|°C|AQI|阵风|风力|风大|气温|降温|空气|票价|开放时间|闭馆|展到|展览|宝可梦|博物馆|美术馆|艺术馆|画廊|开幕|发布|版本|模型|V\d|月\d|日|点\d|元|号线|路\d|号|公里|米|级)/gi
-const isFactSentence = (sentence: string): boolean => {
-  if (TASK_CONTEXT.test(sentence)) {
-    return false
-  }
-  const terms = sentence.match(FACT_TERMS)?.length ?? 0
-  return terms >= 2 && !PERSONAL_MARKERS.test(sentence)
-}
-
 /** 整句都是答题策略：有明显策略开场，又堆了两个以上策略词，且没有人物情绪。 */
 const STRATEGY_START =
   /^(这种|这|那|这时候|这时候|现在|其实|首先|需要|应该|可以|要|得|我(可以|要|得|应该|会|先|想)|轻松点|放轻松|别|不要|不用|不能|不该|先|然后|再|猜|给|列|按|从|如果|或者|但(也)?要)/
@@ -378,6 +351,13 @@ const isStrategySentence = (sentence: string): boolean => {
   const terms = sentence.match(PLAN_TERMS)?.length ?? 0
   return terms >= 2 && !EMOTION_MARKERS.test(sentence)
 }
+
+/** 搜索工作本身不算“出戏”：查询计划、结果、来源、场馆和日期都可以留在思考里。 */
+const SEARCH_CONTEXT =
+  /(搜索|检索|query|搜一下|查一下|搜索结果|结果[0-9]|来源|引用|链接|打开结果|打开链接|打开页面|工具调用|关键词|查询|搜到|查到|联网|网页|页面|资料|信息|整合|汇总|天气|气温|日期|新闻|展览|场馆|门票|票价|开放时间|免费|预约|展期|科技新闻|℃|AQI)/i
+/** 搜索回来后不该混进角色心声的答题式收尾、回避和“别追问/别过度”。 */
+const ANSWER_STRATEGY =
+  /((不要|不用|别|不必|无需)(追问|问太多|多问|连问|过度|勉强|逼问|给建议|急着给建议|展开|解释|啰嗦)|(不|别)(追问|问太多|连问|过度|勉强)|回避|绕开|躲开|换个话题|聊点别的|说点别的|不想说|不勉强|不用勉强|答题|标准答案|按点|分点|列点|三点|几点|保持友好|保持简洁|不要过长|直接答|简洁回应|先给结论|别太热情|有温度|三四段|结尾|开头|(我的|这个|这次|接下来|下面)(回答|回复)(将|会|要|需要|先|再)|(用|以)[^。]{0,8}(口吻|语气|身份)[^。]{0,8}(组织|回答|说|讲)|(组织|整理)(一下)?(回答|回复|措辞|语言)|(给出|提供)[^。]{0,8}(建议|回答|方案|结论)|(我可以|需要)选择[^。]{0,8}(一条|一个|结果|新闻)|(不该|不要|别)(再)?拿[^。]{0,6}(接|回答|应付|堵)|再给信息|先有反应|(可以)?(挑选|挑)[^。]{0,8}(几个|重点|场馆)|(按|分)(场馆|类型|类别)[^。]{0,8}(组织|列|讲)|回答时[^。]{0,10}(先|再|给|列|说)|然后提供|信息足够回答|足够回答|可以用来回答|然后给出具体|最后(再)?(自然地|自然)?(回到|讲|说|收尾)|整理出来告诉|带点情绪|再(自然地|自然)?讲|用人物(自己)?的话|再讲查到|可以提议|带点自己的主张|(我)?挑一条[^。]{0,6}(说|讲|回答)|带(场馆|时间|地点)|包含(场馆|时间|地点|简要)|核心：|分为几类|我可以将[^。]{0,8}(分为|分成)|然后(讲述|给出|给出一条)|保持人物(口吻|语气|身份)|注意(不要|别)[^。]{0,8}(替|用|说|给|让)|留(个)?口子|给到具体|语气上|别太(热|淡|扫兴)|接稳就行|附带条件|回答中需要|篇幅别|关键点：|需要提醒|整理出|说具体的|讲具体的|可以吐槽|吐槽一句|来回答阿岚|来回答用户|来回答对方|给来源可以|自然地说|把链接附上|这不是要我|也不是要我|(给|给她|给阿岚)(一个|个)?机会|把[^。]{0,8}(摆出来|说清楚|讲清楚)|或者(调侃|吐槽|打趣)|别的先排队|这样(既|带|就|才|显得|不会)|先问两句|我该替|不冷淡|不装作|不啰嗦|不套模板|带点(撒娇|玩笑|好奇|情绪|温度|脾气|偏心)|顺着猜就好|等(阿岚|她)揭晓|扣住主题|场景卡死|把时间成本|不能太冷硬|我该(真心|不耐烦|替)|想说说|区域上可以|可以提几个|只说需要什么|卡死|别一下子猜中|反问句|比较自然|名字就顺着说|(用|以)[^。]{0,8}语气|先有个反应|先带个反应|带上来源|回复先|再说日期|然后给新闻|我该先接住|直接告诉|再顺一条|可以用[^。]{0,12}选|就讲|就选|选[^。]{0,6}吧)/i
 
 const SENTENCE_RE = /[^。；！？\n]+[。；！？]?/g
 
@@ -427,25 +407,26 @@ const stripLabelPrefix = (clause: string): string =>
 
 /** 只删句子里的计划片段，保留同一句里的人物反应与判断。 */
 const cleanSentence = (sentence: string, name: string): string => {
-  const trimmed = sentence.trim()
+  let trimmed = sentence.trim()
   if (!trimmed) {
     return ''
   }
   if (HARD_META_SENTENCE_PATTERNS.some((pattern) => pattern.test(trimmed))) {
     return ''
   }
-  // 检索工作笔记：只有资料词、没有人物情绪，整句丢弃
-  if (isWorkNoteSentence(trimmed)) {
+  // 纯答题式收尾、回避、不追问、不要过度：整句丢弃；含搜索工作的句子留给逐片段处理
+  const hasSearchWork = SEARCH_CONTEXT.test(trimmed)
+  if (hasSearchWork) {
+    trimmed = trimmed.replace(/(整合[^。]{0,12})来回答(?:阿岚|用户|对方|他|她)/g, '$1').trim()
+  }
+  if (ANSWER_STRATEGY.test(trimmed) && !hasSearchWork) {
     return ''
   }
-  if (isFactSentence(trimmed)) {
+  if (!hasSearchWork && isStrategySentence(trimmed)) {
     return ''
   }
-  if (isStrategySentence(trimmed)) {
-    return ''
-  }
-  // 整句都是写作计划/检索调度时整句丢弃；只丢这一句，不连带整段人物心声
-  if (META_SENTENCE_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+  // 搜索工作计划、结果和来源保留；只有不带搜索工作的整句才继续按模型计划丢弃
+  if (!hasSearchWork && META_SENTENCE_PATTERNS.some((pattern) => pattern.test(trimmed))) {
     return ''
   }
   const end = trimmed.match(/[。；！？]?$/)?.[0] ?? ''
@@ -466,6 +447,14 @@ const cleanSentence = (sentence: string, name: string): string => {
       continue
     }
     if (nameInstruction?.test(normalized)) {
+      continue
+    }
+    if (ANSWER_STRATEGY.test(normalized)) {
+      continue
+    }
+    // 搜索、检索、来源、场馆、天气等工作片段原样保留，不用答题策略正则误伤
+    if (SEARCH_CONTEXT.test(normalized)) {
+      kept.push(normalized)
       continue
     }
     if (EXTRA_PLAN_CLAUSE_PATTERNS.some((pattern) => pattern.test(normalized))) {
@@ -584,6 +573,7 @@ export const sanitizeThinkingText = (raw: string, userName: string): string => {
     .map((line) => (line.startsWith('（') ? line : line.replace(/[）)】][。；，、]?$/, '')))
     .join('\n')
     .replace(/[。；，、]{2,}/g, '。')
+    .replace(/([。！？])[”’"]+[“"](?=\S)/g, '$1')
     .trim()
   return text
 }
