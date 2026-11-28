@@ -124,8 +124,10 @@ type Settings = {
   fontSize: number | null
   foldThinking: boolean
   pinnedSessions: string[]
-  /** 系统提示词：作为 system 前缀随每次请求下发，自定义网关同样生效 */
+  /** 系统提示词：只对选中会话生效；null 表示旧版未迁移记录，暂按全部会话继承 */
   systemPrompt: string
+  /** 系统提示词绑定的会话 id；显式数组外的会话不再收到该提示词 */
+  promptSessionIds: string[] | null
   /** 采样参数，null 表示沿用服务端默认值 */
   temperature: number | null
   topP: number | null
@@ -278,6 +280,8 @@ const KEYS = {
   systemPrompt: 'replica:system-prompt',
   /** 用户主动清空过提示词：区分「没设置过」和「设置为空」 */
   systemPromptEmpty: 'replica:system-prompt-empty',
+  /** 系统提示词按会话绑定；null 表示旧版全局记录，尚未在选择弹窗里落盘 */
+  promptSessionIds: 'replica:prompt-session-ids',
   temperature: 'replica:temperature',
   topP: 'replica:top-p',
   maxTokens: 'replica:max-tokens',
@@ -747,6 +751,17 @@ const initialSystemPrompt = () => {
   return saved
 }
 
+const initialPromptSessionIds = (): string[] | null => {
+  const raw = readJson(KEYS.promptSessionIds)
+  if (raw === null) {
+    return null
+  }
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  return raw.filter((item): item is string => typeof item === 'string')
+}
+
 /** 推理强度：非法或未保存时返回 null，表示不向接口发送 reasoning_effort */
 const initialThinkingEffort = (): 'low' | 'high' | 'max' | null => {
   const saved = read(KEYS.thinkingEffort)
@@ -827,6 +842,7 @@ export const useSettings = create<Settings>(() => ({
   foldThinking: read(KEYS.foldThinking) !== 'false',
   pinnedSessions: initialPinnedSessions(),
   systemPrompt: initialSystemPrompt(),
+  promptSessionIds: initialPromptSessionIds(),
   temperature: readNumberParam(KEYS.temperature, 0, 2),
   topP: readNumberParam(KEYS.topP, 0, 1),
   maxTokens: readNumberParam(KEYS.maxTokens, 1, 1_000_000, true),
@@ -1008,9 +1024,23 @@ export const setSiderCollapsed = (siderCollapsed: boolean) => {
 export const setSystemPrompt = (systemPrompt: string) => {
   const cleared = !systemPrompt.trim()
   const isDefault = !cleared && systemPrompt === DEFAULT_SYSTEM_PROMPT
+  const previous = useSettings.getState().systemPrompt.trim()
   write(KEYS.systemPromptEmpty, cleared ? '1' : null)
   write(KEYS.systemPrompt, cleared || isDefault ? null : systemPrompt)
-  useSettings.setState({ systemPrompt: cleared ? '' : systemPrompt })
+  // 新填入的提示词先不继承旧版全局范围；进入选择弹窗并确认后才绑定到具体会话。
+  const nextBinding = cleared
+    ? []
+    : previous
+      ? useSettings.getState().promptSessionIds
+      : []
+  write(KEYS.promptSessionIds, nextBinding ? JSON.stringify(nextBinding) : null)
+  useSettings.setState({ systemPrompt: cleared ? '' : systemPrompt, promptSessionIds: nextBinding })
+}
+
+/** 保存提示词与历史会话的绑定关系；null 仅用于内部旧版继承状态，界面确认后落盘为数组 */
+export const setSystemPromptBinding = (promptSessionIds: string[] | null) => {
+  write(KEYS.promptSessionIds, promptSessionIds === null ? null : JSON.stringify(promptSessionIds))
+  useSettings.setState({ promptSessionIds })
 }
 
 export const setTemperature = (temperature: number | null) => {

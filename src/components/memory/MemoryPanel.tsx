@@ -161,6 +161,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const characterName = useSettings((state) => state.characterName)
   const systemPrompt = useSettings((state) => state.systemPrompt)
   const systemPromptEnabled = useSettings((state) => state.systemPromptEnabled)
+  const promptSessionIds = useSettings((state) => state.promptSessionIds)
   const displayCard = resolveSessionCharacterCard(
     characterCards,
     session,
@@ -172,7 +173,8 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     characterName,
     custom: false,
   })
-  const handwrittenActive = systemPromptEnabled && Boolean(systemPrompt.trim())
+  const promptBound = promptSessionIds === null || promptSessionIds.includes(session.id)
+  const handwrittenActive = systemPromptEnabled && Boolean(systemPrompt.trim()) && promptBound
   const characterMemoryActive =
     handwrittenActive &&
     memoryPoolForDisplayName(resolvedCharacterName) === 'character'

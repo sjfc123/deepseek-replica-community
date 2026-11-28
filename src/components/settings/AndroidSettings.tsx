@@ -179,6 +179,7 @@ import {
   setThinking,
   setWorldbookInject,
   setSystemPrompt,
+  setSystemPromptBinding,
   setTemperature,
   setThemePreference,
   setTopP,
@@ -254,6 +255,7 @@ type Popup =
   | 'logout'
   | 'delete'
   | 'import'
+  | 'promptSessions'
 
 const parentPage: Record<Page, Page | null> = {
   root: null,
@@ -841,6 +843,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     ttsVoice,
     chatConfig,
     systemPrompt,
+    promptSessionIds,
     temperature,
     topP,
     maxTokens,
@@ -1026,6 +1029,23 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const [editingGreeting, setEditingGreeting] = useState<number | null>(null)
   const updateGreetingDraft = (index: number, value: string) =>
     setGreetingDraft((lines) => lines.map((line, i) => (i === index ? value : line)))
+  const persistedGreetings = homeGreetings.length ? homeGreetings : builtInGreetings
+  const saveGreetingLine = () => {
+    const saved = normalizeHomeGreetings(greetingDraft)
+    setHomeGreetings(saved)
+    setGreetingDraft(saved.length ? saved : builtInGreetings)
+    setEditingGreeting(null)
+  }
+  const cancelGreetingLine = (index: number) => {
+    if (index >= persistedGreetings.length) {
+      setGreetingDraft((lines) => lines.filter((_, lineIndex) => lineIndex !== index))
+    } else {
+      setGreetingDraft((lines) => lines.map((line, i) => (i === index ? persistedGreetings[i] ?? line : line)))
+    }
+    setEditingGreeting(null)
+  }
+  /** 提示词会话选择弹窗的草稿；null 表示沿用旧版继承范围，打开弹窗时再展开为全选。 */
+  const [promptDraftIds, setPromptDraftIds] = useState<string[] | null>(null)
   const chooseHomeLogo = async (event: { target: HTMLInputElement }) => {
     const picked = event.target.files?.[0]
     event.target.value = ''
@@ -1069,7 +1089,21 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const motionRef = useRef<ReturnType<typeof createSettingsPageMotion>>()
   const enterNext = useRef(true)
   const exiting = useRef(false)
-  const sessions = useChatStore((state) => state.sessions.length)
+  const sessionSummaries = useChatStore((state) => state.sessions)
+  const sessions = sessionSummaries.length
+  const promptBoundCount = promptSessionIds === null ? sessions : promptSessionIds.length
+  const openPromptSessionPicker = () => {
+    setPromptDraftIds(
+      promptSessionIds === null ? sessionSummaries.map((session) => session.id) : [...promptSessionIds]
+    )
+    setPopup('promptSessions')
+  }
+  const togglePromptSession = (sessionId: string) => {
+    setPromptDraftIds((current) => {
+      const base = current ?? sessionSummaries.map((session) => session.id)
+      return base.includes(sessionId) ? base.filter((id) => id !== sessionId) : [...base, sessionId]
+    })
+  }
   const editor = useApiKeyEditor()
 
   // 音色试听只存在于弹层内：切换页面、关闭弹层或改选音色都必须立刻释放音频上下文。
@@ -2495,10 +2529,20 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   </span>
                 </div>
               </div>
+              <Row
+                label={tr('生效对话', 'Affected chats')}
+                value={
+                  systemPrompt.trim()
+                    ? tr(`${promptBoundCount} 个对话`, `${promptBoundCount} chats`)
+                    : tr('未填写', 'Not set')
+                }
+                arrow={false}
+                onClick={openPromptSessionPicker}
+              />
               <FoldNote tone="caption">
                 {tr(
-                  '各可写提示词同级互斥：关闭哪一条即停止发送该条，身份不会在 system 中冲突。本开关关闭后，文本保留在本机但不注入，按空提示词判定身份，重新开启后恢复注入。\n模式口径：内置助手提示词开启时为普通助手；关闭后直接进入角色，依次按系统提示词、基础扮演预设、角色卡、档案或兜底人设出演。遇越界、违法或伤害性要求，由角色身份本身拒绝，不出戏转为客服说明。',
-                  'The writable prompts are mutually exclusive at the same level: whichever one you disable stops being sent, so identities never fight inside system. When this switch is off, your text stays locally but is not injected; identity is treated as an empty prompt, and injection resumes once you turn it back on. Mode: with the built-in assistant prompt on you are a plain assistant; once off you go straight into character, following your system prompt, basic preset, card, profile or fallback persona. Boundary-crossing, illegal or harmful requests are refused in-character instead of breaking out into customer-service mode.'
+                  '这段提示词只对「生效对话」里选中的会话生效，未选中的对话不受影响。各可写提示词同级互斥：关闭哪一条即停止发送该条，身份不会在 system 中冲突。本开关关闭后，文本保留在本机但不注入，按空提示词判定身份，重新开启后恢复注入。\n模式口径：内置助手提示词开启时为普通助手；关闭后直接进入角色，依次按系统提示词、基础扮演预设、角色卡、档案或兜底人设出演。遇越界、违法或伤害性要求，由角色身份本身拒绝，不出戏转为客服说明。',
+                  'This prompt affects only chats selected under "Affected chats"; unselected chats are untouched. The writable prompts are mutually exclusive at the same level: whichever one you disable stops being sent, so identities never fight inside system. When this switch is off, your text stays locally but is not injected; identity is treated as an empty prompt, and injection resumes once you turn it back on. Mode: with the built-in assistant prompt on you are a plain assistant; once off you go straight into character, following your system prompt, basic preset, card, profile or fallback persona. Boundary-crossing, illegal or harmful requests are refused in-character instead of breaking out into customer-service mode.'
                 )}
               </FoldNote>
             </Group>
@@ -3229,17 +3273,25 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <div className={styles.eggList}>
                 {greetingDraft.map((line, index) =>
                   editingGreeting === index ? (
-                    <textarea
-                      key={index}
-                      className={styles.eggInput}
-                      value={line}
-                      rows={2}
-                      autoFocus
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      onChange={(event) => updateGreetingDraft(index, event.target.value)}
-                      onBlur={() => setEditingGreeting(null)}
-                    />
+                    <div key={index} className={styles.eggItemEditing}>
+                      <textarea
+                        className={styles.eggInput}
+                        value={line}
+                        rows={2}
+                        autoFocus
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        onChange={(event) => updateGreetingDraft(index, event.target.value)}
+                      />
+                      <div className={styles.eggInlineActions}>
+                        <button type="button" className={styles.eggCancel} onClick={() => cancelGreetingLine(index)}>
+                          {tr('取消', 'Cancel')}
+                        </button>
+                        <button type="button" className={styles.primary} onClick={saveGreetingLine}>
+                          {tr('保存', 'Save')}
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <button
                       type="button"
@@ -3263,23 +3315,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 >
                   {tr('＋ 添加一条', '+ Add a line')}
                 </button>
-                <button
-                  type="button"
-                  className={styles.primary}
-                  onClick={() => {
-                    const saved = normalizeHomeGreetings(greetingDraft)
-                    setHomeGreetings(saved)
-                    setGreetingDraft(saved.length ? saved : builtInGreetings)
-                    setEditingGreeting(null)
-                  }}
-                >
-                  {tr('保存台词', 'Save lines')}
-                </button>
               </div>
               <p className={styles.eggHint}>
                 {tr(
-                  '逐条编辑后点保存才生效；把所有台词清空再保存，会恢复内置台词池。',
-                  'Edits apply only after Save. Clear every line and save to restore the built-in pool.'
+                  '点哪一条就只改哪一条；保存和取消按钮贴在这条台词下方。把所有台词清空并保存后，会恢复内置台词池。',
+                  'Tap one line to edit only it; Save and Cancel stay under that line. Clear every line and save to restore the built-in pool.'
                 )}
               </p>
               <ResetRow
@@ -4650,6 +4690,63 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           }}
           dismiss={back}
         />
+      ) : null}
+      {popup === 'promptSessions' ? (
+        <div
+          className={styles.overlay}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setPopup(null)
+            }
+          }}
+        >
+          <section className={styles.choice} role="dialog" aria-modal="true" aria-label={tr('选择生效对话', 'Choose affected chats')}>
+            <header>{tr('选择生效对话', 'Choose affected chats')}</header>
+            <p className={styles.choiceHint}>
+              {tr('只有勾选的历史会话会使用这段提示词；不勾选的对话继续使用原有身份与规则。', 'Only checked chats use this prompt; unchecked chats keep their existing identity and rules.')}
+            </p>
+            <div className={styles.promptSessionActions}>
+              <button type="button" onClick={() => setPromptDraftIds(sessionSummaries.map((session) => session.id))}>
+                {tr('全选', 'All')}
+              </button>
+              <button type="button" onClick={() => setPromptDraftIds([])}>
+                {tr('全不选', 'None')}
+              </button>
+            </div>
+            <div className={styles.options} role="listbox" aria-multiselectable="true" aria-label={tr('历史对话', 'Chats')}>
+              {sessionSummaries.length === 0 ? (
+                <p className={styles.message}>{tr('暂无历史对话', 'No chats yet')}</p>
+              ) : (
+                sessionSummaries.map((session) => {
+                  const checked = (promptDraftIds ?? []).includes(session.id)
+                  return (
+                    <button
+                      key={session.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={checked}
+                      onClick={() => togglePromptSession(session.id)}
+                    >
+                      <span className={styles.optionText}>
+                        <span>{session.title || t('untitledChat')}</span>
+                      </span>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+            <button
+              type="button"
+              className={styles.confirm}
+              onClick={() => {
+                setSystemPromptBinding(promptDraftIds ?? [])
+                setPopup(null)
+              }}
+            >
+              {tr('保存选择', 'Save selection')}
+            </button>
+          </section>
+        </div>
       ) : null}
       {popup === 'tokenLimit' ? (
         <div

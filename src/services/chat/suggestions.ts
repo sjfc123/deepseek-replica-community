@@ -167,8 +167,9 @@ export const generateReplySuggestions = async ({
   }
   const settings = useSettings.getState()
   const prompt = settings.systemPrompt.trim()
-  // 系统提示词开关关闭时视同空提示词，与主请求装配保持同一口径。
-  const handwrittenActive = settings.systemPromptEnabled && Boolean(prompt)
+  const promptBound = settings.promptSessionIds === null || settings.promptSessionIds.includes(sessionId)
+  // 系统提示词未绑定到本会话时视同空提示词，与主请求装配保持同一口径。
+  const handwrittenActive = settings.systemPromptEnabled && Boolean(prompt) && promptBound
   const promptEmpty = !handwrittenActive
   const promptIsDefault = !promptEmpty && prompt === SYSTEM_PROMPT
   const activeCard = findSessionCharacterCard(settings.characterCards, session)

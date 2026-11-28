@@ -43,6 +43,7 @@ import {
   SYSTEM_PROMPT,
 } from './systemPrompt.js'
 import { replaceUserNickname } from './nickname.js'
+import { containsUrl, hasExplicitSearchRequest } from './searchIntent.js'
 import {
   formatCharacterIdentity,
   formatCharacterProfile,
@@ -203,12 +204,13 @@ const HISTORY_OVERFLOW_RETRIES = 3
 /** 流式正文合帧间隔：约 15fps，兼顾观感与主线程空闲，避免每帧复制整段会话。 */
 const STREAM_UI_INTERVAL_MS = 66
 
-/** 阅读链接始终开启，智能搜索开关控制是否另行声明搜索工具（含边想边搜）。 */
+/** 只有明确检索才声明搜索工具；只有消息里带链接才声明读链接工具。 */
 /* ---- 01 状态模型与持久化基础设施 ---- */
-const serverTools = (search: boolean) => {
-  const tools: NonNullable<CreateMessageRequest['tools']> = [
-    { type: 'deepseek_read_url', name: 'deepseek_read_url' },
-  ]
+const serverTools = (search: boolean, readUrl: boolean) => {
+  const tools: NonNullable<CreateMessageRequest['tools']> = []
+  if (readUrl) {
+    tools.push({ type: 'deepseek_read_url', name: 'deepseek_read_url' })
+  }
   if (search) {
     tools.push({ type: 'deepseek_web_search', name: 'deepseek_web_search' })
   }
@@ -2107,11 +2109,13 @@ const recordTurnMemory = (
 const usesCharacterMemory = (sessionId?: string) => {
   const settings = useSettings.getState()
   const prompt = settings.systemPrompt.trim()
-  // 系统提示词开关关闭时视同空提示词，与主请求装配保持同一口径。
-  const handwrittenActive = settings.systemPromptEnabled && Boolean(prompt)
+  const session = sessionId ? getSession(sessionId) : null
+  const promptBound =
+    settings.promptSessionIds === null || settings.promptSessionIds.includes(sessionId ?? '')
+  // 系统提示词只在被选中的会话生效；开关关闭或未绑定时视同空提示词，与主请求装配保持同一口径。
+  const handwrittenActive = settings.systemPromptEnabled && Boolean(prompt) && promptBound
   const promptEmpty = !handwrittenActive
   const promptDefault = prompt === SYSTEM_PROMPT
-  const session = sessionId ? getSession(sessionId) : null
   const card = resolveTurnCharacterCard(
     settings.characterCards,
     session,
@@ -2802,6 +2806,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     apiKey: storedKey,
     chatConfig,
     systemPrompt,
+    promptSessionIds,
     temperature,
     topP,
     maxTokens,
@@ -2847,17 +2852,20 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 否则残留的角色身份会单独留在 system，默认助手会被带成冷淡角色。
   const promptRawEmpty = !systemPrompt.trim()
   const promptIsDefault = !promptRawEmpty && systemPrompt.trim() === SYSTEM_PROMPT
-  // 手写系统提示词开关关闭时视同空提示词：文本保留在本机，但不注入、不参与身份判定；
+  const sessionForMemory = getSession(sessionId)
+  // 提示词按会话绑定：null 是旧版未迁移记录，暂按全部继承；显式数组只覆盖选中会话。
+  const promptBound = promptSessionIds === null || promptSessionIds.includes(sessionId)
+  // 手写系统提示词开关关闭或未绑定到本会话时视同空提示词：文本保留在本机，但不注入、不参与身份判定；
   // 各可写提示词同级互斥，关闭哪一条就停止发送哪一条，避免两段身份在 system 里打架。
-  const handwrittenPromptActive = systemPromptEnabled && !promptRawEmpty
+  const handwrittenPromptActive = systemPromptEnabled && !promptRawEmpty && promptBound
   const promptEmpty = !handwrittenPromptActive
   const promptIsCustom = handwrittenPromptActive && !promptIsDefault
-  const sessionForMemory = getSession(sessionId)
   // 场景按会话取；旧会话没有快照就按空场景处理，不从全局设置补，避免旧物件跨新对话。
   const sessionScene = sessionForMemory?.scene
     ? normalizeScene(sessionForMemory.scene)
     : { ...EMPTY_SCENE }
   const visibleForRoleplay = sessionForMemory ? getVisibleMessages(sessionForMemory) : []
+  const sessionHasMessages = visibleForRoleplay.length > 0
   const resolvedCard = resolveTurnCharacterCard(
     characterCards,
     sessionForMemory,
@@ -2867,12 +2875,15 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 会话已绑定人物时优先沿用该卡：关闭全局开关只影响新会话，不会中途换回系统人格。
   // 提示词清空时角色层整体暂停；只有压制设定开启才改用内置/自定义基础角色扮演。
   const activeCard = promptEmpty ? undefined : resolvedCard
-  const suppressionActive = basicRoleplayActive({
-    basicRoleplayEnabled,
-    promptEmpty,
-    promptIsDefault,
-    hasActiveCard: Boolean(activeCard),
-  })
+  // 内置基础扮演只用于空白新会话；已有历史的会话不被全局内置预设反向覆盖，避免污染既有角色。
+  const suppressionActive =
+    !sessionHasMessages &&
+    basicRoleplayActive({
+      basicRoleplayEnabled,
+      promptEmpty,
+      promptIsDefault,
+      hasActiveCard: Boolean(activeCard),
+    })
   const roleplayActive = suppressionActive || (!promptEmpty && Boolean(activeCard))
   // 记忆落池按显示名判断，不跟角色卡开关绑定：显示 AI / DeepSeek 走普通池，
   // 显示角色名（卡名或手写档案名）走角色池，避免普通问答被默认写成角色剧情。
@@ -2984,7 +2995,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 互斥只作用于身份来源；角色卡、档案、世界书、场景、记忆等既有设定仍按既有优先级叠加。
   // 默认提示关闭、又没有系统提示词/角色卡/档案/基础扮演时，用内置兜底人设代替默认官方助手，
   // 避免不发送默认提示词后模型回退成预设客服助手。
+  // 兜底人设同样只补空白新会话；已有历史角色由历史消息、角色卡、档案或绑定提示词延续，不被内置兜底覆盖。
   const fallbackBaseline =
+    !sessionHasMessages &&
     !defaultPromptEnabled &&
     !suppressionActive &&
     !promptIsCustom &&
@@ -3047,23 +3060,15 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   ]
     .filter(Boolean)
     .join('\n\n')
-  // 检索轮在背景资料末尾补一句硬提醒：实测仅在 system 里写“必须检索”无效，
-  // 而把资料追加在提问后会让模型把整条当成背景、用手机/记忆假装查过；
-  // 这句贴着提问末尾，才能把工具路由拉回来（记忆、场景、世界书正文仍保留）。
-  const searchTurnGuard = initial.search
-    ? '（注意：上面那段只是背景资料；对方刚才这句是明确的检索请求，必须实际调用联网搜索工具，拿到结果再回答，不能假装查手机，也不能用记忆或猜测补。）'
+  // 不向本轮硬塞“必须检索”提醒；是否声明搜索/读链接工具只看最后一句是否明确要求查资料或发来链接。
+  const explicitSearchRequest = hasExplicitSearchRequest(request.question.content)
+  const explicitReadUrl = containsUrl(request.question.content)
+  const turnContext = dynamicContext
+    ? [
+        '（以下是这一轮附带的背景资料，不是对方新说的话，也不属于对话正文；回答仍按最后一条发言继续。）',
+        applyPlaceholders(dynamicContext, { userName, charName: promptCharName }),
+      ].join('\n')
     : ''
-  const turnContext = [
-    dynamicContext
-      ? [
-          '（以下是这一轮附带的背景资料，不是对方新说的话，也不属于对话正文；回答仍按最后一条发言继续。）',
-          applyPlaceholders(dynamicContext, { userName, charName: promptCharName }),
-        ].join('\n')
-      : '',
-    searchTurnGuard,
-  ]
-    .filter(Boolean)
-    .join('\n\n')
   /* 前缀探针只记录指纹和长度：system 应是静态段，turnContext/记忆/场景/世界书/提醒都只进尾部。 */
   const systemAudit: SystemAudit = auditSystemText(baseSystemResolved)
   const endpointHash = hashPromptText(chatConfig.endpoint || 'official')
@@ -3395,7 +3400,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           messages,
           thinking: { type: thinkingEnabled ? 'enabled' : 'disabled' },
           ...(safetyCheck ? { safety_check: SAFETY_CHECK } : {}),
-          tools: serverTools(initial.search ?? false),
+          tools: serverTools(Boolean(initial.search) && explicitSearchRequest, explicitReadUrl),
           ...(effectiveTemperature !== null ? { temperature: effectiveTemperature } : {}),
           ...(effectiveTopP !== null ? { top_p: effectiveTopP } : {}),
           ...(thinkingEffort && chatConfig.format !== 'messages'

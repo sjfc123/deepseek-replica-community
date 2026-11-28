@@ -144,6 +144,7 @@ export const MessageList = ({
   const cardAvatars = useSettings((state) => state.cardAvatars)
   const systemPrompt = useSettings((state) => state.systemPrompt)
   const systemPromptEnabled = useSettings((state) => state.systemPromptEnabled)
+  const promptSessionIds = useSettings((state) => state.promptSessionIds)
   // 只在会话身份/分支结构变化时重查角色卡；流式正文每帧更新时不再重复扫整段消息。
   /* oxlint-disable react-hooks/exhaustive-deps -- 会话对象来自 getState，这些字段仅作为失效信号 */
   const displayCard = useMemo(() => {
@@ -166,16 +167,20 @@ export const MessageList = ({
   // 基础扮演接管空/默认提示词时没有实体卡，按角色池写记忆，口径与 store 发送链路保持一致。
   const basicRoleplayEnabled = useSettings((state) => state.basicRoleplayEnabled)
   const promptText = systemPrompt.trim()
-  // 系统提示词开关关闭时视同空提示词，与主请求装配保持同一口径。
-  const handwrittenActive = systemPromptEnabled && Boolean(promptText)
+  const promptBound = promptSessionIds === null || promptSessionIds.includes(session.id)
+  const sessionHasMessages = session.messages.length > 0
+  // 系统提示词未绑定到本会话时视同空提示词；内置基础扮演不反向覆盖已有历史角色。
+  const handwrittenActive = systemPromptEnabled && Boolean(promptText) && promptBound
   const promptEmpty = !handwrittenActive
   const promptIsDefault = !promptEmpty && promptText === SYSTEM_PROMPT
-  const suppressionActive = basicRoleplayActive({
-    basicRoleplayEnabled,
-    promptEmpty,
-    promptIsDefault,
-    hasActiveCard: Boolean(displayCard),
-  })
+  const suppressionActive =
+    !sessionHasMessages &&
+    basicRoleplayActive({
+      basicRoleplayEnabled,
+      promptEmpty,
+      promptIsDefault,
+      hasActiveCard: Boolean(displayCard),
+    })
   const characterMemoryActive =
     suppressionActive ||
     memoryPoolForDisplayName(

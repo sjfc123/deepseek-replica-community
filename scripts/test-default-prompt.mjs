@@ -68,8 +68,8 @@ assert.match(DEFAULT_SYSTEM_PROMPT, /角色与扮演/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /角色卡与世界书/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /生成与请求/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /数据管理/)
-assert.match(DEFAULT_SYSTEM_PROMPT, /当前版本没有这个入口|我无法确认/)
-assert.match(DEFAULT_SYSTEM_PROMPT, /不得补页面名、按钮名或多级菜单/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /当前版本无法确认|我无法确认/)
+assert.match(DEFAULT_SYSTEM_PROMPT, /不要补页面名、按钮名、路径、第三方来源/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /显示名是 AI \/ DeepSeek 时自动写普通记忆/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /【功能偏好与选择】/)
 assert.match(DEFAULT_SYSTEM_PROMPT, /没有绝对最好/)
@@ -441,6 +441,25 @@ assert.match(locked, /「小梦」/, '称呼锁定必须动态填入玩家昵称
 assert.match(locked, /【情绪反应，不要复述本段】/)
 assert.match(locked, /【人物语气与态度，不要复述本段】/)
 assert.match(locked, /【事实与剧情边界，不要复述本段】/)
+const sameNamed = composeSystemPrompt({
+  savedPrompt: DEFAULT_SYSTEM_PROMPT,
+  suppressMetaTalk: false,
+  userName: '小夜',
+  charName: '小夜',
+  roleplayContext: true,
+  assistantWarmth: true,
+})
+assert.match(sameNamed, /【同名细节，不要复述本段】/, '玩家名与角色名完全相同时才注入同名反应')
+assert.match(sameNamed, /他的名字居然和我同名|这也太罕见了/)
+const differentName = composeSystemPrompt({
+  savedPrompt: DEFAULT_SYSTEM_PROMPT,
+  suppressMetaTalk: false,
+  userName: '小梦',
+  charName: '小夜',
+  roleplayContext: true,
+  assistantWarmth: true,
+})
+assert.doesNotMatch(differentName, /【同名细节/, '名字不同时不触发同名反应')
 for (const phrase of ['死不承认', '责怪', '居高临下', '客服式模板', '上帝视角', '我不会道歉']) {
   assert.match(ROLEPLAY_TONE_GUARD, new RegExp(phrase), `态度护栏必须覆盖「${phrase}」`)
 }
@@ -514,7 +533,7 @@ assert.match(THINKING_VOICE_GUARD('小梦'), /思考里只有一个人物的第�
 assert.match(THINKING_VOICE_GUARD('小梦'), /提小梦时一律写「小梦」/)
 assert.match(THINKING_VOICE_GUARD('小梦'), /不写怎么答/)
 assert.ok(THINKING_VOICE_GUARD('小梦').includes('不写“保持友好'))
-assert.match(TOOL_USE_DISCIPLINE_GUARD, /只有当前这句明确要求查/)
+assert.match(TOOL_USE_DISCIPLINE_GUARD, /只有当前这句明确要求“帮我查查 \/ 搜一下 \/ 找资料 \/ 检索 \/ 核实”/)
 assert.match(TOOL_USE_DISCIPLINE_GUARD, /普通寒暄、情绪、关系、剧情、闲聊/)
 
 assert.equal(sanitizeThinkingText('分析用户意图，先接住用户这句话', '小梦'), '', '纯元分析句丢弃')

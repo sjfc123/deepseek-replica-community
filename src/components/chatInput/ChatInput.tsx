@@ -168,20 +168,25 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const characterCards = useSettings((state) => state.characterCards)
   const systemPrompt = useSettings((state) => state.systemPrompt)
   const systemPromptEnabled = useSettings((state) => state.systemPromptEnabled)
+  const promptSessionIds = useSettings((state) => state.promptSessionIds)
   const basicRoleplayEnabled = useSettings((state) => state.basicRoleplayEnabled)
   const activeCard = findSessionCharacterCard(characterCards, session)
   // 基础扮演接管空/默认提示词时，没有角色卡也属于基础角色扮演，建议入口照常可用。
   const promptText = systemPrompt.trim()
-  // 系统提示词开关关闭时视同空提示词，与主请求装配保持同一口径。
-  const handwrittenActive = systemPromptEnabled && Boolean(promptText)
+  const promptBound = promptSessionIds === null || (sessionId ? promptSessionIds.includes(sessionId) : false)
+  const sessionHasMessages = Boolean(session?.messages.length)
+  // 系统提示词未绑定到本会话时视同空提示词；内置基础扮演不反向覆盖已有历史角色。
+  const handwrittenActive = systemPromptEnabled && Boolean(promptText) && promptBound
   const promptEmpty = !handwrittenActive
   const promptIsDefault = !promptEmpty && promptText === SYSTEM_PROMPT
-  const suppressionRoleplay = basicRoleplayActive({
-    basicRoleplayEnabled,
-    promptEmpty,
-    promptIsDefault,
-    hasActiveCard: Boolean(activeCard),
-  })
+  const suppressionRoleplay =
+    !sessionHasMessages &&
+    basicRoleplayActive({
+      basicRoleplayEnabled,
+      promptEmpty,
+      promptIsDefault,
+      hasActiveCard: Boolean(activeCard),
+    })
   const suggestionReady = Boolean(activeCard || suppressionRoleplay)
   const story = activeCard?.story
   const storyLocked = isStoryLocked(session)

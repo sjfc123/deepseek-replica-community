@@ -1249,6 +1249,22 @@ a.row:active,
   line-height: 1.5;
 }
 
+.promptSessionActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 10px 18px 0;
+
+  button {
+    border: 0;
+    background: transparent;
+    color: var(--dsw-alias-brand-text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+}
+
 /* ---- 04 角色基础档案 ---- */
 /* 角色基础档案：一个字段一块，标签在上、输入在下，避免长文本横向挤压 */
 .profileField {
@@ -2497,8 +2513,45 @@ a.row:active,
 .eggActions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
+}
+
+.eggItemEditing {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-brand-primary, #4d6bfe);
+  border-radius: 12px;
+  background: var(--settings-button, rgb(127 127 127 / 6%));
+}
+
+.eggInlineActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.eggCancel {
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--settings-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.eggInlineActions .primary {
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: var(--dsw-alias-brand-primary, #4d6bfe);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .eggAdd {
