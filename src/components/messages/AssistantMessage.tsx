@@ -211,6 +211,12 @@ export const AssistantMessage = memo(function AssistantMessage({
           未命中{' '}
           {formatTokenCount(message.usage.input_tokens + message.usage.cache_creation_input_tokens)}
         </span>
+        {typeof message.usage.reasoning_tokens === 'number' ? (
+          <span>思考 {formatTokenCount(message.usage.reasoning_tokens)}</span>
+        ) : null}
+        {typeof message.usage.safety_tokens === 'number' ? (
+          <span>安全 {formatTokenCount(message.usage.safety_tokens)}</span>
+        ) : null}
         <span>
           {t('cacheHitRateShort')} {cacheHitRate.toFixed(1)}%
         </span>

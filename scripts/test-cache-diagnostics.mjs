@@ -271,6 +271,18 @@ assert.equal(deepseekUsage?.cache_read_input_tokens, 80, '顶层 prompt_cache_hi
 assert.equal(deepseekUsage?.input_tokens, 20, '缓存命中要从输入总量中扣除，避免重复计算')
 assert.equal(deepseekUsage?.cache_fields_present, true, '顶层缓存字段应标记为存在')
 
+const detailedUsage = readOpenAIFrame('chat', {
+  choices: [{ delta: {} }],
+  usage: {
+    prompt_tokens: 100,
+    completion_tokens: 20,
+    prompt_cache_hit_tokens: 40,
+    completion_tokens_details: { reasoning_tokens: 8, safety_tokens: 3 },
+  },
+}).usage
+assert.equal(detailedUsage?.reasoning_tokens, 8, 'OpenAI 兼容格式应读取思考 Token')
+assert.equal(detailedUsage?.safety_tokens, 3, 'OpenAI 兼容格式应读取安全 Token')
+
 const noCacheFields = readOpenAIFrame('chat', {
   choices: [{ delta: {} }],
   usage: { prompt_tokens: 50, completion_tokens: 1 },

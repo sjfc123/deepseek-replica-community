@@ -226,6 +226,10 @@ export type MessageUsage = {
   cache_read_input_tokens: number
   /** message_start 中为 0，message_delta 中为全轮累计值 */
   output_tokens: number
+  /** 深度思考 Token；上游未返回时缺省，不本地估算 */
+  reasoning_tokens?: number
+  /** 安全审核 Token；仅上游明确返回时出现 */
+  safety_tokens?: number
   /** 上游是否真的返回了缓存字段；缺字段与真实 0 命中必须分开 */
   cache_fields_present?: boolean
   /** 仅当 message_delta 中有对外输出的搜索结果块时出现 */

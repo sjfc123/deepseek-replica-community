@@ -27,6 +27,10 @@ export type UsageTotals = {
   cacheWrite: number
   /** 上游明确没有返回缓存字段的请求数；用于区分“真实 0 命中”和“字段缺失” */
   cacheFieldMissing: number
+  /** 深度思考 Token；只累加上游明确返回的数值 */
+  reasoning: number
+  /** 安全审核 Token；只累加上游明确返回的数值 */
+  safety: number
 }
 
 export type SessionUsageSummary = {
@@ -47,6 +51,8 @@ const emptyTotals = (): UsageTotals => ({
   cacheMiss: 0,
   cacheWrite: 0,
   cacheFieldMissing: 0,
+  reasoning: 0,
+  safety: 0,
 })
 
 /* ---- 02 核心实现：usageEntries、addUsage、summarizeSessionUsage ---- */
@@ -73,6 +79,8 @@ const addUsage = (totals: UsageTotals, usage: MessageUsage) => {
   if (usage.cache_fields_present === false) {
     totals.cacheFieldMissing += 1
   }
+  totals.reasoning += Math.max(0, usage.reasoning_tokens ?? 0)
+  totals.safety += Math.max(0, usage.safety_tokens ?? 0)
 }
 
 /* ---- 03 对外入口与收尾 ---- */

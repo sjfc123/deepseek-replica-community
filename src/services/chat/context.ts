@@ -43,6 +43,8 @@ export const cachedTextTokens = (text: string) => {
 }
 
 export const WINDOW_TOKENS = 1_048_576
+/** 官方当前模型最大输出预算：384K（含思考 Token），仅作容量参考，不参与本地金额估算。 */
+export const MAX_OUTPUT_TOKENS = 384 * 1024
 /** 自定义网关（自带 endpoint）按保守窗口估算，避免按官方百万级窗口误判余量。 */
 export const CUSTOM_CONTEXT_WINDOW = 128 * 1024
 /** 参考 Codex CLI：有效窗口留 5% 缓冲，自动压缩在 90% 触发。 */

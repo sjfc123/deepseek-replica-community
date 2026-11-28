@@ -17,8 +17,9 @@ import {
 } from '../../services/settings.js'
 import { useBalanceStore } from '../../services/balanceStore.js'
 import { useChatStore } from '../../services/chat/store.js'
-import { resolveContextWindow } from '../../services/chat/context.js'
+import { MAX_OUTPUT_TOKENS, resolveContextWindow } from '../../services/chat/context.js'
 import { contextSnapshot, formatTokenCount, type ContextSnapshot } from '../../services/chat/tokenUsage.js'
+import { getPeakHint } from '../../services/peak.js'
 import {
   currencySymbol,
   formatBalanceAmount,
@@ -125,12 +126,17 @@ export const BalanceUsageAnchor = ({ session, context, layout = 'floating' }: Pr
         ? tr('余额读取失败', 'Balance load failed')
         : loading
           ? tr('读取中…', 'Loading…')
-          : tr('无余额数据', 'No balance')
+          : status === 'idle'
+            ? tr('未配置 API Key', 'No API key')
+            : tr('无余额数据', 'No balance')
 
   const inline = layout === 'inline'
   // 对话页行内形态：不悬浮、不带胶囊背景，与消息 / 输入文字同排版；点击仍展开明细。
   const flow = context === 'chat' && !inline
-  const windowLimit = resolveContextWindow(Boolean(chatConfig.endpoint))
+  const customEndpoint = Boolean(chatConfig.endpoint)
+  const windowLimit = resolveContextWindow(customEndpoint)
+  const maxOutputTokens = customEndpoint ? 0 : MAX_OUTPUT_TOKENS
+  const peakHint = getPeakHint()
   const contextRatio = windowLimit > 0 ? Math.min(1, usageTokens / windowLimit) : 0
   const nearLimit = contextRatio >= 0.9
   const placedPoint = inline || flow ? null : placed
@@ -249,6 +255,7 @@ export const BalanceUsageAnchor = ({ session, context, layout = 'floating' }: Pr
         >
           {balanceLabel}
         </span>
+        <span className={styles.chipLabel}>{peakHint.peak ? tr('高峰', 'Peak') : tr('空闲', 'Off-peak')}</span>
       </span>
       {showUsage && contextSegment ? (
         <>
@@ -274,6 +281,9 @@ export const BalanceUsageAnchor = ({ session, context, layout = 'floating' }: Pr
               contextUsed={usageTokens}
               contextRatio={contextRatio}
               nearLimit={nearLimit}
+              maxOutputTokens={maxOutputTokens}
+              peakPhase={peakHint.peak ? tr('高峰时段', 'Peak') : tr('空闲时段', 'Off-peak')}
+              peakRange={peakHint.rangeLabel}
               loading={loading}
               onClose={() => setPanelOpen(false)}
               onRefresh={() => refresh(true)}
@@ -296,6 +306,9 @@ const BalanceUsagePanel = ({
   contextUsed,
   contextRatio,
   nearLimit,
+  maxOutputTokens,
+  peakPhase,
+  peakRange,
   loading,
   onClose,
   onRefresh,
@@ -309,6 +322,9 @@ const BalanceUsagePanel = ({
   contextUsed: number
   contextRatio: number
   nearLimit: boolean
+  maxOutputTokens: number
+  peakPhase: string
+  peakRange: string
   loading: boolean
   onClose: () => void
   onRefresh: () => void
@@ -380,6 +396,7 @@ const BalanceUsagePanel = ({
                 <div className={styles.balanceMeta}>
                   <span>{tr('赠金', 'Granted')} {formatBalanceAmount(info.granted) || '—'}</span>
                   <span>{tr('充值', 'Topped up')} {formatBalanceAmount(info.toppedUp) || '—'}</span>
+                  <span>{tr('当前计价', 'Billing phase')} {peakPhase}</span>
                   <span className={styles.availability} data-off={data?.available === false ? '' : undefined}>
                     {data?.available === false ? tr('余额不足', 'Insufficient') : tr('余额可用', 'Available')}
                   </span>
@@ -387,6 +404,12 @@ const BalanceUsagePanel = ({
               </div>
             ))
           )}
+          <p className={styles.footnote} style={{ marginTop: 10 }}>
+            {tr(
+              '余额取自官方余额接口；高峰/空闲只标记当前计价时段，并不是两个独立余额池。',
+              'Balance comes from the official balance endpoint. Peak/off-peak labels mark the current billing phase, not separate balance pools.'
+            )}
+          </p>
         </section>
 
         <section className={styles.section}>
@@ -409,6 +432,12 @@ const BalanceUsagePanel = ({
                     className={nearLimit ? styles.warn : ''}
                     style={{ width: `${Math.round(contextRatio * 100)}%` }}
                   />
+                </div>
+                <div className={styles.balanceMeta}>
+                  {maxOutputTokens > 0 ? (
+                    <span>{tr('最大输出', 'Max output')} {formatTokenCount(maxOutputTokens)}</span>
+                  ) : null}
+                  <span>{peakRange}</span>
                 </div>
               </div>
               <div className={styles.grid}>
@@ -436,6 +465,14 @@ const BalanceUsagePanel = ({
                   <span>{tr('缓存写入', 'Cache write')}</span>
                   <strong>{formatTokenCount(snapshot.totals.cacheWrite)}</strong>
                 </div>
+                <div className={styles.cell}>
+                  <span>{tr('思考 Token', 'Reasoning')}</span>
+                  <strong>{formatTokenCount(snapshot.totals.reasoning)}</strong>
+                </div>
+                <div className={styles.cell}>
+                  <span>{tr('安全 Token', 'Safety')}</span>
+                  <strong>{formatTokenCount(snapshot.totals.safety)}</strong>
+                </div>
               </div>
               <div className={styles.balanceMeta} style={{ marginTop: 10 }}>
                 <span>{tr('请求次数', 'Requests')} {snapshot.requests}</span>
@@ -448,8 +485,8 @@ const BalanceUsagePanel = ({
 
         <p className={styles.footnote}>
           {tr(
-            '用量按接口返回的用量字段统计；后台标题、摘要、场景更新等请求不计入本段对话。',
-            'Figures are based on API-reported usage; background title, summary and scene requests are excluded.'
+            'Token 数量按接口返回的用量字段统计；后台标题、摘要、场景更新等请求不计入本段对话。这里不按本地费率估算金额，实际扣费以官方账单为准。',
+            'Token counts are based on API-reported usage; background title, summary and scene requests are excluded. No local fee estimate is shown; official billing remains authoritative.'
           )}
         </p>
         </div>

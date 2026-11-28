@@ -30,10 +30,10 @@ let inFlight: Promise<AccountBalance> | null = null
 
 /* ---- 02 状态与刷新 ---- */
 const runFetch = async (): Promise<AccountBalance> => {
-  const { apiKey, chatConfig } = useSettings.getState()
   if (inFlight) {
     return inFlight
   }
+  const { apiKey, chatConfig } = useSettings.getState()
   const controller = new AbortController()
   inFlight = fetchAccountBalance(chatConfig, apiKey, controller.signal).finally(() => {
     inFlight = null
@@ -48,6 +48,11 @@ export const useBalanceStore = create<BalanceState>((set, get) => ({
   message: '',
   refresh: (force = false) => {
     const { data, status } = get()
+    const { apiKey, chatConfig } = useSettings.getState()
+    if (!(chatConfig.apiKey || apiKey)) {
+      set({ data: null, status: 'idle', message: '' })
+      return
+    }
     const fresh = data && Date.now() - data.updatedAt < TTL_MS
     if (status === 'loading') {
       return

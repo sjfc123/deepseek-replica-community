@@ -54,6 +54,8 @@ const session = {
         cache_creation_input_tokens: 20,
         cache_read_input_tokens: 0,
         output_tokens: 30,
+        reasoning_tokens: 10,
+        safety_tokens: 2,
         cache_fields_present: true,
       },
     },
@@ -67,6 +69,7 @@ const session = {
           cache_creation_input_tokens: 10,
           cache_read_input_tokens: 120,
           output_tokens: 40,
+          reasoning_tokens: 5,
           cache_fields_present: true,
         },
       ],
@@ -83,6 +86,8 @@ assert.equal(snapshot.totals.total, 350)
 assert.equal(snapshot.totals.cacheRead, 120)
 assert.equal(snapshot.totals.cacheMiss, 130)
 assert.equal(snapshot.totals.cacheWrite, 30)
+assert.equal(snapshot.totals.reasoning, 15)
+assert.equal(snapshot.totals.safety, 2)
 assert.ok(snapshot.last)
 const lastInput =
   snapshot.last.input_tokens +

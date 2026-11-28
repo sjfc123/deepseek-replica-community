@@ -121,34 +121,36 @@ const record = (value: unknown): Record<string, unknown> =>
   typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
 
 const asString = (value: unknown) => (typeof value === 'string' ? value : undefined)
+const nonnegativeNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : undefined
 
 const openAIUsage = (value: unknown, format: OpenAIFormat): MessageUsage | undefined => {
   const usage = record(value)
-  const input = format === 'chat' ? usage.prompt_tokens : usage.input_tokens
-  const output = format === 'chat' ? usage.completion_tokens : usage.output_tokens
-  const details = format === 'chat' ? usage.prompt_tokens_details : usage.input_tokens_details
-  const cached = record(details).cached_tokens
-  const hitTop = usage.prompt_cache_hit_tokens
-  const missTop = usage.prompt_cache_miss_tokens
-  if (typeof input !== 'number' || typeof output !== 'number') {
+  const input = nonnegativeNumber(format === 'chat' ? usage.prompt_tokens : usage.input_tokens)
+  const output = nonnegativeNumber(format === 'chat' ? usage.completion_tokens : usage.output_tokens)
+  if (input === undefined || output === undefined) {
     return
   }
-  // DeepSeek 同时在顶层给 prompt_cache_hit_tokens；只读嵌套字段会在部分网关漏掉命中。
-  const cache =
-    typeof cached === 'number'
-      ? cached
-      : typeof hitTop === 'number'
-        ? hitTop
-        : typeof missTop === 'number'
-          ? Math.max(0, input - missTop)
-          : 0
-  const present =
-    typeof cached === 'number' || typeof hitTop === 'number' || typeof missTop === 'number'
+
+  const inputDetails = record(format === 'chat' ? usage.prompt_tokens_details : usage.input_tokens_details)
+  const outputDetails = record(format === 'chat' ? usage.completion_tokens_details : usage.output_tokens_details)
+  const cached = nonnegativeNumber(inputDetails.cached_tokens)
+  const hitTop = nonnegativeNumber(usage.prompt_cache_hit_tokens)
+  const missTop = nonnegativeNumber(usage.prompt_cache_miss_tokens)
+  const cacheRead = cached ?? hitTop ?? (missTop !== undefined ? Math.max(0, input - missTop) : 0)
+  const inputTokens = missTop ?? Math.max(0, input - cacheRead)
+  const present = cached !== undefined || hitTop !== undefined || missTop !== undefined
+
+  const reasoning = nonnegativeNumber(outputDetails.reasoning_tokens)
+  const safety = nonnegativeNumber(outputDetails.safety_tokens)
+
   return {
-    input_tokens: Math.max(0, input - cache),
+    input_tokens: inputTokens,
     cache_creation_input_tokens: 0,
-    cache_read_input_tokens: cache,
+    cache_read_input_tokens: cacheRead,
     output_tokens: output,
+    ...(reasoning === undefined ? {} : { reasoning_tokens: reasoning }),
+    ...(safety === undefined ? {} : { safety_tokens: safety }),
     cache_fields_present: present,
   }
 }

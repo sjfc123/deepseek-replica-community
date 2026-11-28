@@ -24,6 +24,8 @@ const isString = (value: unknown): value is string => typeof value === 'string'
 const isOptionalString = (value: unknown) => value === undefined || isString(value)
 const isNullableString = (value: unknown) => value == null || isString(value)
 const isIndex = (value: unknown) => Number.isSafeInteger(value) && (value as number) >= 0
+const nonnegativeNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : undefined
 
 const isCitation = (value: unknown): value is TextCitation =>
   isRecord(value) &&
@@ -183,26 +185,36 @@ const readUsage = (value: unknown): MessageUsage | undefined => {
   if (!isRecord(value)) {
     return undefined
   }
-  const input = value.input_tokens
-  const output = value.output_tokens
-  if (
-    typeof input !== 'number' ||
-    !Number.isFinite(input) ||
-    typeof output !== 'number' ||
-    !Number.isFinite(output)
-  ) {
+  const input = nonnegativeNumber(value.input_tokens)
+  const output = nonnegativeNumber(value.output_tokens)
+  if (input === undefined || output === undefined) {
     return undefined
   }
-  const present =
-    ['cache_creation_input_tokens', 'cache_read_input_tokens'].some(
-      (key) => typeof value[key] === 'number' && Number.isFinite(value[key])
-    )
+
+  const inputDetails = isRecord(value.input_tokens_details) ? value.input_tokens_details : {}
+  const outputDetails = isRecord(value.output_tokens_details) ? value.output_tokens_details : {}
+  const cacheRead =
+    nonnegativeNumber(value.cache_read_input_tokens) ??
+    nonnegativeNumber(inputDetails.cached_tokens) ??
+    0
+  const cacheCreation = nonnegativeNumber(value.cache_creation_input_tokens) ?? 0
+  const cacheMiss = Math.max(0, input - cacheRead)
+  const cacheFieldsPresent =
+    typeof value.cache_read_input_tokens === 'number' ||
+    typeof value.cache_creation_input_tokens === 'number' ||
+    inputDetails.cached_tokens !== undefined
+
+  const reasoning = nonnegativeNumber(value.reasoning_tokens) ?? nonnegativeNumber(outputDetails.reasoning_tokens)
+  const safety = nonnegativeNumber(value.safety_tokens) ?? nonnegativeNumber(outputDetails.safety_tokens)
+
   return {
-    input_tokens: input,
-    cache_creation_input_tokens: present ? Number(value.cache_creation_input_tokens ?? 0) : 0,
-    cache_read_input_tokens: present ? Number(value.cache_read_input_tokens ?? 0) : 0,
+    input_tokens: cacheMiss,
+    cache_creation_input_tokens: cacheCreation,
+    cache_read_input_tokens: cacheRead,
     output_tokens: output,
-    cache_fields_present: present,
+    ...(reasoning === undefined ? {} : { reasoning_tokens: reasoning }),
+    ...(safety === undefined ? {} : { safety_tokens: safety }),
+    cache_fields_present: cacheFieldsPresent,
   }
 }
 

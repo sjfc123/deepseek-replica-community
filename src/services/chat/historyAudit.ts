@@ -95,6 +95,8 @@ const emptyUsage = (): HistoryAuditStats['usage'] => ({
   cacheMiss: 0,
   cacheWrite: 0,
   cacheFieldMissing: 0,
+  reasoning: 0,
+  safety: 0,
   requests: 0,
   replies: 0,
   legacyReplies: 0,

@@ -243,6 +243,14 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
                     <strong>{formatNumber(totals.cacheWrite, locale)}</strong>
                   </div>
                   <div className={styles.cell}>
+                    <span>{t('思考 Token', 'Reasoning')}</span>
+                    <strong>{formatNumber(totals.reasoning, locale)}</strong>
+                  </div>
+                  <div className={styles.cell}>
+                    <span>{t('安全 Token', 'Safety')}</span>
+                    <strong>{formatNumber(totals.safety, locale)}</strong>
+                  </div>
+                  <div className={styles.cell}>
                     <span>{t('请求次数', 'Requests')}</span>
                     <strong>{formatNumber(report.requests, locale)}</strong>
                   </div>
@@ -335,8 +343,8 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
                       ) : null}
                       <p>
                         {t(
-                          '不含上下文摘要、自动标题、场景更新等后台请求；这些不写入消息 usage。',
-                          'Excludes background title, summary and scene requests.'
+                          '不含上下文摘要、自动标题、场景更新等后台请求；这些不写入消息 usage。这里只统计上游返回的 Token，不按本地费率估算金额。',
+                          'Excludes background title, summary and scene requests. Only upstream-reported tokens are counted; no local fee estimate is shown.'
                         )}
                       </p>
                     </div>
