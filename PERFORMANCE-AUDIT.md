@@ -2,6 +2,15 @@
 
 本文档对应 DeepSaga `1.0.0` / versionCode `153`。审计对象为 Android WebView 壳与 `src/` 前端，覆盖长历史导入、消息渲染、Markdown 解析、持久化写入、流式状态锁、桥接调用和弹层遮挡路径。
 
+> **维护状态**：自 `1.0.0` 正式版起仓库闭关归档，不再跟进本文列出的性能改造或缺陷修复。本审计只记录当前源码可追踪的路径与残余风险，不构成在弱机、长会话或特定机型下流畅运行的承诺。遇到卡顿需由使用者自行重构结构、自行定位与修复，责任口径见 [DISCLAIMER.md](DISCLAIMER.md) 第 5 节。
+
+## 0. 结构性风险（卡顿敏感者先读）
+
+- 会话主状态 `src/services/chat/store.ts` 约 3,759 行、被约 41 个文件引用，会话、消息、分支、身份、记忆、请求与流式状态耦合；设置状态 `src/services/settings.ts` 约 2,046 行、被约 39 个文件引用。这是长会话与流式更新成本偏高的结构性来源。
+- 消息列表不是真正的虚拟列表，仅靠可见窗口封顶控制工作集；Worker 不可用时 Markdown 解析与历史导入回退主线程。
+- 无组件级 / 端到端测试框架，审计结论只覆盖仓库内脚本与当前构建环境，不等于真机无缺陷。
+- 详细结构债务与自助方向见 [README.md](README.md) 第 2 节、[DISCLAIMER.md](DISCLAIMER.md) 第 4–5 节。
+
 ## 1. 判定标准
 
 性能问题按以下路径判断：
@@ -103,7 +112,7 @@
 
 ## 9. 未完成的性能改造
 
-以下事项仍未合入：
+以下事项仍未合入，且**仓库闭关后不再跟进**：
 
 - 真正的虚拟列表：上下 spacer 与视口附近挂载，需回归滚动锚点、搜索跳转、版本切换和长按多选。
 - 会话结构版本号与增量持久化：减少每帧扫描和整份 IndexedDB PUT。
@@ -116,7 +125,7 @@
 
 - `pnpm type`
 - `pnpm lint`（0 warning / 0 error）
-- 17 项仓库回归脚本：system、roleplay、story、auto-backup、data、import-attach、prompt、memory、memory-routing、memory-view、memory-layers、groups、suggestions、cache、balance、search-intent、theme
+- 18 项仓库回归脚本：system、roleplay、story、auto-backup、data、import-attach、prompt、prompt-binding、memory、memory-routing、memory-view、memory-layers、groups、suggestions、cache、balance、search-intent、theme
 - `pnpm build`
 - `./gradlew assembleRelease`
 
