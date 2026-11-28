@@ -16,8 +16,8 @@ DeepSaga 是基于上游 Android WebView 容器与 React / TypeScript 前端改�
 
 | 用途 | 地址 | 说明 |
 | --- | --- | --- |
-| 源码仓库 | <https://github.com/sjfc123/deepseek-replica-community> | 当前 `main` 分支，归档基线 `1.0.0` / `153` |
-| 发布页 | <https://github.com/sjfc123/deepseek-replica-community/releases> | 仓库不附预编译 APK，发布页仅用于版本与变更记录 |
+| 源码仓库 | <https://github.com/sjfc123/deepsaga> | 当前 `main` 分支，归档基线 `1.0.0` / `153` |
+| 发布页 | <https://github.com/sjfc123/deepsaga/releases> | 仓库不附预编译 APK，发布页仅用于版本与变更记录 |
 
 ### 上游项目
 
