@@ -3047,12 +3047,23 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   ]
     .filter(Boolean)
     .join('\n\n')
-  const turnContext = dynamicContext
-    ? [
-        '（以下是这一轮附带的背景资料，不是对方新说的话，也不属于对话正文；回答仍按最后一条发言继续。）',
-        applyPlaceholders(dynamicContext, { userName, charName: promptCharName }),
-      ].join('\n')
+  // 检索轮在背景资料末尾补一句硬提醒：实测仅在 system 里写“必须检索”无效，
+  // 而把资料追加在提问后会让模型把整条当成背景、用手机/记忆假装查过；
+  // 这句贴着提问末尾，才能把工具路由拉回来（记忆、场景、世界书正文仍保留）。
+  const searchTurnGuard = initial.search
+    ? '（注意：上面那段只是背景资料；对方刚才这句是明确的检索请求，必须实际调用联网搜索工具，拿到结果再回答，不能假装查手机，也不能用记忆或猜测补。）'
     : ''
+  const turnContext = [
+    dynamicContext
+      ? [
+          '（以下是这一轮附带的背景资料，不是对方新说的话，也不属于对话正文；回答仍按最后一条发言继续。）',
+          applyPlaceholders(dynamicContext, { userName, charName: promptCharName }),
+        ].join('\n')
+      : '',
+    searchTurnGuard,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
   /* 前缀探针只记录指纹和长度：system 应是静态段，turnContext/记忆/场景/世界书/提醒都只进尾部。 */
   const systemAudit: SystemAudit = auditSystemText(baseSystemResolved)
   const endpointHash = hashPromptText(chatConfig.endpoint || 'official')

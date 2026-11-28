@@ -609,4 +609,42 @@ assert.equal(
 const repeatedMessages = [{ role: 'user', content: [{ type: 'text', text: '用户用户你好' }] }]
 assert.match(replaceUserNickname(repeatedMessages, '小满')[0].content[0].text, /^小满你好$/)
 
+// 0.9.4 实网检索思考残留：模型视角搜索计划、结果概述、资料清单不得出现在思考面板
+assert.equal(
+  sanitizeThinkingText('用户想知道今天上海的天气。我将进行搜索。我需要整合这些信息来回答。天气情况：白天多云，最高17度。', '阿岚'),
+  '',
+  '「用户想知道 / 我将搜索 / 天气情况：」属于模型笔记，整段不得展示'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚要求我查展。这些结果显示了几个展览。我可以在回答中提及来源。', '阿岚'),
+  '',
+  '结果概述与「在回答中提及」属于模型计划，整段不得展示'
+)
+assert.equal(
+  sanitizeThinkingText('我得拿主意，像真会做决定的人。想想附近有什么。不能编太细的店名吧。稳妥点。', '阿岚'),
+  '',
+  '拿主意/编细节/稳妥点属于写戏计划，整段不得展示'
+)
+assert.equal(
+  sanitizeThinkingText('不需要友好。简洁友好一点。保持友好自然。', '阿岚'),
+  '',
+  '用户点名的友好/简洁口径必须清掉'
+)
+assert.equal(
+  sanitizeThinkingText('她今天对我挺友好，我笑了笑。', '阿岚'),
+  '她今天对我挺友好，我笑了笑。',
+  '人物叙述里的“友好”不能误伤'
+)
+
+assert.equal(
+  sanitizeThinkingText('搜索结果显示了几家展览。我需要打开链接核实，然后引用来源。', '阿岚'),
+  '',
+  '检索工作笔记不得当成人物心声展示'
+)
+assert.equal(
+  sanitizeThinkingText('她发了个链接给我，我点开看了一眼。', '阿岚'),
+  '她发了个链接给我，我点开看了一眼。',
+  '只出现一个检索相关词时不能误伤人物叙述'
+)
+
 console.log('default prompt regression: ok')

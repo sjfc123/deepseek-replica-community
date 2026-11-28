@@ -33,8 +33,8 @@ android {
         applicationId = 'io.github.sjfc123.deepsaga'
         minSdk = 29
         targetSdk = 36
-        versionCode = 146
-        versionName = '0.9.3'
+        versionCode = 147
+        versionName = '0.9.4'
     }
 
     signingConfigs {
