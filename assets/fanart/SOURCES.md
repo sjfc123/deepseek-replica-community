@@ -47,9 +47,8 @@
 
 应用代码的 GPL-3.0 与图片的 CC BY-NC-SA 4.0 分别适用。再分发时不得删除本文件、作者署名与许可说明。
 
-## 4. 已移除资源
+## 4. 当前资源状态
 
-- 已删除上游蓝色鲸鱼 SVG：`src/assets/deepseek-whale.svg`
-- 已删除旧头像源文件：`src/assets/builtin-avatars/whale.webp`
-- 已替换欢迎页、API Key 设置页、内置「大肥鱼」头像与内置「鲸鱼娘」头像
-- 项目内不再保留原版鲸鱼插图资源
+- 项目内不保留上游蓝色鲸鱼 SVG 与旧鲸鱼头像源文件。
+- `src/assets/dafeiyu-icon.png` 用于内部插图；`src/assets/builtin-avatars/dafeiyu.webp` 与 `src/assets/builtin-avatars/whale-girl.webp` 用于内置角色头像。
+- 其他内置头像位于 `src/assets/builtin-avatars/`，按源码内引用关系使用。

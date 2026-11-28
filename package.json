@@ -1,7 +1,7 @@
 {
   "name": "deepsaga",
   "version": "0.9.9",
-  "description": "DeepSaga：基于上游 deepseek-app-replica 工程与 DeepChat 部分功能移植的 Android 角色扮演客户端；仓库保存源码，编译、签名与分发由操作者自行承担。",
+  "description": "DeepSaga：基于上游 WebView 容器与 DeepChat 部分功能改造的 Android 本地对话和角色扮演客户端；仓库保存源码，编译、签名与分发由操作者自行承担。",
   "license": "GPL-3.0-or-later",
   "private": true,
   "type": "module",
