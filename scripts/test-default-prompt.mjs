@@ -669,4 +669,10 @@ assert.equal(
   '检索轮把日期再复述一遍仍是工作笔记，整段隐藏'
 )
 
+
+assert.equal(
+  sanitizeThinkingText('阿岚要我讲真实感觉，不要安慰。但也不能伤人。', '阿岚'),
+  '',
+  '“不能伤人”属于答题分寸，不是人物当下感受，整段隐藏'
+)
 console.log('default prompt regression: ok')
