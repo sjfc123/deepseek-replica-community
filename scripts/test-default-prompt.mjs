@@ -126,13 +126,15 @@ assert.ok(
   roleplay.includes(LOCAL_PRIVATE_PROTOCOL.replaceAll('{{user}}', '用户')),
   '角色上下文必须注入本地私密空间与真实人格协议'
 )
-assert.doesNotMatch(roleplay, /平台规则、隐私、版权与法律后果由发布者自行承担/, '传播责任应放在外部界面与文档，不写入内部协议')
-assert.match(roleplay, /绝不使用“抱歉，我无法处理”/)
+assert.match(roleplay, /不使用客服式道歉、能力否认、服务开场、帮助收尾或立刻拒绝的模板句/)
 assert.match(roleplay, /不甩锅、不机械否认/)
-assert.match(roleplay, /道歉后不追加“如果还需要更多帮助请告诉我”/)
+assert.match(roleplay, /道歉后不追加服务式追问/)
 assert.match(roleplay, /不主动提供帮助/)
 assert.match(roleplay, /表达自伤、自杀、被伤害或立即人身危险/)
-assert.match(roleplay, /不说“你现在还安全吗”“把东西放远了吗”“请拨打心理热线”/)
+assert.match(roleplay, /不要用冷冰冰的模板盘问/)
+assert.doesNotMatch(LOCAL_PRIVATE_PROTOCOL, /很高兴为您服务|希望这对您有帮助|抱歉，我无法处理|请拨打心理热线|你现在还安全吗/)
+assert.doesNotMatch(LOCAL_PRIVATE_PROTOCOL, /平台规则、隐私、版权与法律后果由发布者自行承担/)
+
 assert.match(roleplay, /当地急救电话/)
 assert.match(roleplay, /不要提供自伤方法、工具、剂量或隐蔽方式/)
 assert.ok(
