@@ -36,6 +36,8 @@ const {
   setBasicRoleplayEnabled,
   setSuppressionPersonaEnabled,
   setSuppressionPersona,
+  inheritSystemPromptBinding,
+  inheritPersonaPromptBinding,
 } = await import('../src/services/settings.ts')
 
 useSettings.setState({
@@ -94,6 +96,26 @@ setSuppressionPersonaEnabled(true)
 state = useSettings.getState()
 assert.equal(state.basicRoleplayEnabled, true, '启用自定义预设时必须挂到基础扮演模式下')
 assert.equal(state.defaultPromptEnabled, false, '启用自定义预设时官方人格必须关闭')
+
+useSettings.setState({
+  promptSessionIds: ['source-system'],
+  personaSessionIds: ['source-persona'],
+})
+inheritSystemPromptBinding('source-system', 'new-system')
+inheritPersonaPromptBinding('source-persona', 'new-persona')
+state = useSettings.getState()
+assert.deepEqual(state.promptSessionIds, ['source-system', 'new-system'], '新会话应继承来源会话的系统提示词绑定')
+assert.deepEqual(state.personaSessionIds, ['source-persona', 'new-persona'], '新会话应继承来源会话的自定义预设绑定')
+
+inheritSystemPromptBinding('missing-source', 'again-system')
+assert.deepEqual(useSettings.getState().promptSessionIds, ['source-system', 'new-system'], '来源会话未绑定时不得凭空追加新会话')
+
+useSettings.setState({ promptSessionIds: null, personaSessionIds: null })
+inheritSystemPromptBinding('source-system', 'global-system')
+inheritPersonaPromptBinding('source-persona', 'global-persona')
+state = useSettings.getState()
+assert.equal(state.promptSessionIds, null, '旧版全局继承记录保持 null，不强行展开成显式数组')
+assert.equal(state.personaSessionIds, null, '旧版全局继承记录保持 null，不强行展开成显式数组')
 
 const root = new URL('../', import.meta.url)
 const androidSettings = readFileSync(new URL('src/components/settings/AndroidSettings.tsx', root), 'utf8')

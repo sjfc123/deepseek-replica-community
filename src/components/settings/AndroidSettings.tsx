@@ -2571,8 +2571,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <FoldNote tone="caption">
                 {tr(
-                  '这段提示词只对「生效对话」里选中的会话生效，未选中的对话不受影响。它与自定义角色扮演预设同级互斥：两侧已选会话不能重复，自定义预设已选的对话会在本侧置灰。本开关关闭后，文本保留在本机但不注入，按空提示词判定身份，重新开启后恢复注入。\n写入任意有效内容后，官方助手人格开关自动关闭；这里写明的 DeepSeek、GPT、Claude、千问、豆包、Kimi、Gemini、Grok 等模型或产品身份都会按所写身份生效，内部角色锁定不会覆盖。全部身份来源关闭时，才使用内置兜底人设。',
-                  'This prompt affects only chats selected under "Affected chats"; unselected chats are untouched. It is the same level as the custom roleplay preset and their ranges are mutually exclusive: the two sides cannot share a chat, and chats chosen by the custom preset are greyed out here. When this switch is off, your text stays locally but is not injected; identity is treated as an empty prompt, and injection resumes once you turn it back on. Once you write any valid identity, the official assistant persona switch turns off automatically. A stated identity such as DeepSeek, GPT, Claude, Qwen, Doubao, Kimi, Gemini or Grok wins; internal role locking does not override it. The built-in fallback persona is used only when every identity source is off.'
+                  '这段提示词只对「生效对话」里选中的会话生效，未选中的对话不受影响。从绑定会话新建对话或复制分支时，新会话自动继承这份绑定。它与自定义角色扮演预设同级互斥：两侧已选会话不能重复，自定义预设已选的对话会在本侧置灰。本开关关闭后，文本保留在本机但不注入，按空提示词判定身份，重新开启后恢复注入。\n写入任意有效内容后，官方助手人格开关自动关闭；这里写明的 DeepSeek、GPT、Claude、千问、豆包、Kimi、Gemini、Grok 等模型或产品身份都会按所写身份生效，内部角色锁定不会覆盖。全部身份来源关闭时，才使用内置兜底人设。',
+                  'This prompt affects only chats selected under "Affected chats"; unselected chats are untouched. A new chat or fork created from a bound chat inherits this binding automatically. It is the same level as the custom roleplay preset and their ranges are mutually exclusive: the two sides cannot share a chat, and chats chosen by the custom preset are greyed out here. When this switch is off, your text stays locally but is not injected; identity is treated as an empty prompt, and injection resumes once you turn it back on. Once you write any valid identity, the official assistant persona switch turns off automatically. A stated identity such as DeepSeek, GPT, Claude, Qwen, Doubao, Kimi, Gemini or Grok wins; internal role locking does not override it. The built-in fallback persona is used only when every identity source is off.'
                 )}
               </FoldNote>
             </Group>
@@ -2649,8 +2649,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 <div className={styles.promptMeta}>
                   <span>
                     {tr(
-                      '与系统提示词同级且范围互斥：系统提示词已选的对话会置灰，不能重复勾选。可以用 {{user}} 指代玩家；写清名字、关系、性格、说话方式和边界，不要写剧情线索或系统规则；与角色卡、档案、世界书或记忆冲突时，以那些既有描述为准。',
-                      'This is the same level as the system prompt and their chat ranges are mutually exclusive: chats already chosen by the system prompt are greyed out and cannot be checked again. Use {{user}} for the player; describe name, relationship, temperament, speech and boundaries, not plot clues or system rules. On conflict with cards, profiles, worldbook or memory, those existing descriptions win.'
+                      '与系统提示词同级且范围互斥：系统提示词已选的对话会置灰，不能重复勾选。从绑定会话新建对话或复制分支时，新会话自动继承这份预设绑定。可以用 {{user}} 指代玩家；写清名字、关系、性格、说话方式和边界，不要写剧情线索或系统规则；与角色卡、档案、世界书或记忆冲突时，以那些既有描述为准。',
+                      'This is the same level as the system prompt and their chat ranges are mutually exclusive: chats already chosen by the system prompt are greyed out and cannot be checked again. A new chat or fork created from a bound chat inherits this preset binding automatically. Use {{user}} for the player; describe name, relationship, temperament, speech and boundaries, not plot clues or system rules. On conflict with cards, profiles, worldbook or memory, those existing descriptions win.'
                     )}
                   </span>
                 </div>

@@ -1089,6 +1089,40 @@ export const setPersonaPromptBinding = (personaSessionIds: string[] | null) => {
   useSettings.setState({ personaSessionIds: next, promptSessionIds: other })
 }
 
+const appendInheritedSessionId = (
+  current: string[] | null,
+  sourceSessionId: string,
+  targetSessionId: string
+): string[] | null => {
+  if (current === null) {
+    return null
+  }
+  if (!current.includes(sourceSessionId) || current.includes(targetSessionId)) {
+    return current
+  }
+  return [...current, targetSessionId]
+}
+
+/** 从已绑定系统提示词的会话新建 / 分叉会话时，把新会话继承到同一份绑定；全局旧记录保持 null。 */
+export const inheritSystemPromptBinding = (sourceSessionId: string, targetSessionId: string) => {
+  const current = useSettings.getState().promptSessionIds
+  const next = appendInheritedSessionId(current, sourceSessionId, targetSessionId)
+  if (next !== current) {
+    write(KEYS.promptSessionIds, JSON.stringify(next))
+    useSettings.setState({ promptSessionIds: next })
+  }
+}
+
+/** 从已绑定自定义预设的会话新建 / 分叉会话时，把新会话继承到同一份绑定；全局旧记录保持 null。 */
+export const inheritPersonaPromptBinding = (sourceSessionId: string, targetSessionId: string) => {
+  const current = useSettings.getState().personaSessionIds
+  const next = appendInheritedSessionId(current, sourceSessionId, targetSessionId)
+  if (next !== current) {
+    write(KEYS.personaSessionIds, JSON.stringify(next))
+    useSettings.setState({ personaSessionIds: next })
+  }
+}
+
 export const setTemperature = (temperature: number | null) => {
   write(KEYS.temperature, temperature === null ? null : String(temperature))
   useSettings.setState({ temperature })

@@ -107,6 +107,8 @@ import {
   matchRefusalKeyword,
   clearScene,
   setPinnedSessions,
+  inheritSystemPromptBinding,
+  inheritPersonaPromptBinding,
   useSettings,
 } from '../settings.js'
 import {
@@ -298,6 +300,8 @@ let accessSequence = 0
 let jumpSequence = 0
 let historyEpoch = 0
 let initTask: Promise<void> | undefined
+/** 从欢迎页创建新会话前，记住上一段会话，用于继承系统提示词 / 自定义预设绑定。 */
+let pendingNewChatSourceId: string | null = null
 const sessionLoads = new Map<string, { promise: Promise<void> }>()
 
 const touchSession = (id: string) => sessionAccess.set(id, ++accessSequence)
@@ -934,6 +938,7 @@ export const newChat = () => {
   cancelMessageEdit()
   // 先在切走前抓住当前会话：结算要覆盖首条到末条，切到欢迎页后再读就拿不到完整快照了。
   const outgoing = get().activeId ? getSession(get().activeId as string) : undefined
+  const sourceSessionId = outgoing?.id ?? null
   // 场景跟随会话：新对话从空白开始，先把旧版全局场景草稿清掉，避免上一段的物件和关系被带进来。
   clearScene()
   // 开启角色卡时，“开启新对话”也走开场流程：新会话立即绑定该卡并写入剧情说明与开场白。
@@ -945,6 +950,7 @@ export const newChat = () => {
   if (card) {
     const created = startCharacterIntro(card)
     if (created) {
+      pendingNewChatSourceId = null
       set({ pendingJump: null })
       trimSessionCache()
       showToast({ key: 'newChatWithCard', params: { name: card.name } })
@@ -954,6 +960,7 @@ export const newChat = () => {
       return
     }
   }
+  pendingNewChatSourceId = sourceSessionId
   set({ activeId: null, pendingJump: null })
   trimSessionCache()
   if (outgoing) {
@@ -1014,6 +1021,8 @@ export const forkSession = async (sessionId: string, title?: string): Promise<st
       ? source.contextCheckpoints.map((checkpoint) => ({ ...checkpoint }))
       : undefined,
   }
+  inheritSystemPromptBinding(source.id, next.id)
+  inheritPersonaPromptBinding(source.id, next.id)
   touchSession(next.id)
   set((state) => ({
     sessions: [toSessionSummary(next), ...state.sessions],
@@ -1028,6 +1037,7 @@ export const forkSession = async (sessionId: string, title?: string): Promise<st
 export const selectSession = (id: string) => {
   if (!get().importingHistory && get().sessions.some((session) => session.id === id)) {
     cancelMessageEdit()
+    pendingNewChatSourceId = null
     touchSession(id)
     set({ activeId: id, pendingJump: null })
     void ensureSessionLoaded(id)
@@ -1215,6 +1225,7 @@ export const sendMessage = (targetSessionId: string | null) => {
   const { text, files } = prepared
   const now = Date.now()
   let sessionId = targetSessionId
+  const newChatSourceId = pendingNewChatSourceId ?? get().activeId
   if (
     sessionId !== null &&
     (deletingSessions.has(sessionId) || getStreamController(sessionId) || !getSession(sessionId))
@@ -1232,6 +1243,11 @@ export const sendMessage = (targetSessionId: string | null) => {
       scene: { ...EMPTY_SCENE },
     }
     sessionId = session.id
+    if (newChatSourceId) {
+      inheritSystemPromptBinding(newChatSourceId, session.id)
+      inheritPersonaPromptBinding(newChatSourceId, session.id)
+    }
+    pendingNewChatSourceId = null
     touchSession(session.id)
     set((state) => ({
       sessions: [toSessionSummary(session), ...state.sessions],
@@ -1407,6 +1423,7 @@ export const sendVoicePrompt = (
   }
   const now = Date.now()
   let sessionId = targetSessionId
+  const newChatSourceId = pendingNewChatSourceId ?? get().activeId
   if (
     sessionId !== null &&
     (deletingSessions.has(sessionId) || getStreamController(sessionId) || !getSession(sessionId))
@@ -1424,6 +1441,11 @@ export const sendVoicePrompt = (
       scene: { ...EMPTY_SCENE },
     }
     sessionId = session.id
+    if (newChatSourceId) {
+      inheritSystemPromptBinding(newChatSourceId, session.id)
+      inheritPersonaPromptBinding(newChatSourceId, session.id)
+    }
+    pendingNewChatSourceId = null
     touchSession(session.id)
     set((state) => ({
       sessions: [toSessionSummary(session), ...state.sessions],
