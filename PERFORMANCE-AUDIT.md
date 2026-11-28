@@ -1,6 +1,6 @@
 # WebView 长历史与渲染路径性能审计
 
-本文档对应 DeepSaga `0.9.9` / versionCode `152`。审计对象为 Android WebView 壳与 `src/` 前端，覆盖长历史导入、消息渲染、Markdown 解析、持久化写入、流式状态锁、桥接调用和弹层遮挡路径。
+本文档对应 DeepSaga `1.0.0` / versionCode `153`。审计对象为 Android WebView 壳与 `src/` 前端，覆盖长历史导入、消息渲染、Markdown 解析、持久化写入、流式状态锁、桥接调用和弹层遮挡路径。
 
 ## 1. 判定标准
 

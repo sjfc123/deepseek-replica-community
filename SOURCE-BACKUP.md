@@ -5,8 +5,8 @@
 ## 1. 版本标识
 
 - 应用名：`DeepSaga`
-- 版本：`0.9.9`
-- versionCode：`152`
+- 版本：`1.0.0`
+- versionCode：`153`
 - 包名 / namespace：`io.github.sjfc123.deepsaga`
 - 构建基线：Gradle 9.7.1、AGP 9.4.0、JDK 17 编译目标、minSdk 29、targetSdk 36、compileSdk 36
 
@@ -70,12 +70,12 @@ cd android
 
 发布或分发前，构建者应核对：
 
-- `aapt2 dump badging`：包名 `io.github.sjfc123.deepsaga`、versionCode `152`、versionName `0.9.9`、application-label `DeepSaga`。
+- `aapt2 dump badging`：包名 `io.github.sjfc123.deepsaga`、versionCode `153`、versionName `1.0.0`、application-label `DeepSaga`。
 - 启动 Activity：`io.github.sjfc123.deepsaga.MainActivity`。
 - APK 内 `ic_launcher.png` 为星空图标，不是上游蓝色鲸鱼。
 - `dist/index.html` 标题为 `DeepSaga`。
 - `pnpm type`、`pnpm lint`、`pnpm build` 通过。
-- 回归脚本通过：`system`、`roleplay`、`story`、`auto-backup`、`data`、`import-attach`、`prompt`、`memory`、`memory-routing`、`memory-view`、`memory-layers`、`groups`、`suggestions`、`cache`、`balance`、`search-intent`、`theme`。
+- 回归脚本通过：`system`、`roleplay`、`story`、`auto-backup`、`data`、`import-attach`、`prompt`、`prompt-binding`、`memory`、`memory-routing`、`memory-view`、`memory-layers`、`groups`、`suggestions`、`cache`、`balance`、`search-intent`、`theme`。
 - APK 签名证书指纹与发布记录一致；不一致时不得作为同一应用的升级包分发。
 
 校验结果只证明该次构建的输入与产物，不证明第三方修改版、转载包或非官方渠道产物。

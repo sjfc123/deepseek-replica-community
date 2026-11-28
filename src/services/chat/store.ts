@@ -2112,6 +2112,8 @@ const usesCharacterMemory = (sessionId?: string) => {
   const session = sessionId ? getSession(sessionId) : null
   const promptBound =
     settings.promptSessionIds === null || settings.promptSessionIds.includes(sessionId ?? '')
+  const personaBound =
+    settings.personaSessionIds === null || settings.personaSessionIds.includes(sessionId ?? '')
   // 系统提示词只在被选中的会话生效；开关关闭或未绑定时视同空提示词，与主请求装配保持同一口径。
   const handwrittenActive = settings.systemPromptEnabled && Boolean(prompt) && promptBound
   const promptEmpty = !handwrittenActive
@@ -2122,13 +2124,23 @@ const usesCharacterMemory = (sessionId?: string) => {
     settings.activeCharacterId,
     settings.roleplayEnabled
   )
+  const sessionHasMessages = (session?.messages.length ?? 0) > 0
+  const personaConfigured = Boolean(
+    settings.suppressionPersonaEnabled &&
+      settings.basicRoleplayEnabled &&
+      settings.suppressionPersona.trim()
+  )
+  const personaExplicit = settings.personaSessionIds !== null
+  const personaActive = (personaExplicit || !sessionHasMessages) && personaBound && personaConfigured && !card
   // 空提示词或默认提示词 + 基础扮演模式：没有角色卡也按基础角色扮演写角色记忆。
-  const suppressionActive = basicRoleplayActive({
-    basicRoleplayEnabled: settings.basicRoleplayEnabled,
-    promptEmpty,
-    promptIsDefault: promptDefault,
-    hasActiveCard: Boolean(card),
-  })
+  const suppressionActive =
+    personaActive ||
+    basicRoleplayActive({
+      basicRoleplayEnabled: settings.basicRoleplayEnabled,
+      promptEmpty,
+      promptIsDefault: promptDefault,
+      hasActiveCard: Boolean(card),
+    })
   if (suppressionActive) {
     return true
   }
@@ -2807,6 +2819,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     chatConfig,
     systemPrompt,
     promptSessionIds,
+    personaSessionIds,
     temperature,
     topP,
     maxTokens,
@@ -2855,11 +2868,13 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const sessionForMemory = getSession(sessionId)
   // 提示词按会话绑定：null 是旧版未迁移记录，暂按全部继承；显式数组只覆盖选中会话。
   const promptBound = promptSessionIds === null || promptSessionIds.includes(sessionId)
+  const personaBound = personaSessionIds === null || personaSessionIds.includes(sessionId)
+  const personaConfigured = Boolean(
+    suppressionPersonaEnabled && basicRoleplayEnabled && storedSuppressionPersona.trim()
+  )
   // 手写系统提示词开关关闭或未绑定到本会话时视同空提示词：文本保留在本机，但不注入、不参与身份判定；
   // 各可写提示词同级互斥，关闭哪一条就停止发送哪一条，避免两段身份在 system 里打架。
   const handwrittenPromptActive = systemPromptEnabled && !promptRawEmpty && promptBound
-  const promptEmpty = !handwrittenPromptActive
-  const promptIsCustom = handwrittenPromptActive && !promptIsDefault
   // 场景按会话取；旧会话没有快照就按空场景处理，不从全局设置补，避免旧物件跨新对话。
   const sessionScene = sessionForMemory?.scene
     ? normalizeScene(sessionForMemory.scene)
@@ -2872,18 +2887,23 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     activeCharacterId,
     roleplayEnabled
   )
-  // 会话已绑定人物时优先沿用该卡：关闭全局开关只影响新会话，不会中途换回系统人格。
-  // 提示词清空时角色层整体暂停；只有压制设定开启才改用内置/自定义基础角色扮演。
-  const activeCard = promptEmpty ? undefined : resolvedCard
+  // 显式绑定的自定义预设对选中会话生效；遗留的全局旧记录仍只作用于空白新会话，实体角色卡优先。
+  const personaExplicit = personaSessionIds !== null
+  const personaActive = (personaExplicit || !sessionHasMessages) && personaBound && personaConfigured && !resolvedCard
+  const effectiveHandwrittenActive = handwrittenPromptActive && !personaActive
+  const activeCard = effectiveHandwrittenActive ? resolvedCard : undefined
+  const promptEmpty = !effectiveHandwrittenActive
+  const promptIsCustom = effectiveHandwrittenActive && !promptIsDefault
   // 内置基础扮演只用于空白新会话；已有历史的会话不被全局内置预设反向覆盖，避免污染既有角色。
   const suppressionActive =
-    !sessionHasMessages &&
-    basicRoleplayActive({
-      basicRoleplayEnabled,
-      promptEmpty,
-      promptIsDefault,
-      hasActiveCard: Boolean(activeCard),
-    })
+    personaActive ||
+    (!sessionHasMessages &&
+      basicRoleplayActive({
+        basicRoleplayEnabled,
+        promptEmpty,
+        promptIsDefault,
+        hasActiveCard: Boolean(activeCard),
+      }))
   const roleplayActive = suppressionActive || (!promptEmpty && Boolean(activeCard))
   // 记忆落池按显示名判断，不跟角色卡开关绑定：显示 AI / DeepSeek 走普通池，
   // 显示角色名（卡名或手写档案名）走角色池，避免普通问答被默认写成角色剧情。
@@ -2975,9 +2995,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       })
     : ''
   // 压制设定打开且提示词为空/默认时：已填基础档案就沿用档案；档案为空则给内置青梅竹马。
-  // 自定义预设文本框非空且开关打开时，整段替换内置预设。
+  // 自定义预设在绑定会话内整段替换内置预设。
   const suppressionPersona =
-    suppressionPersonaEnabled && storedSuppressionPersona.trim()
+    personaActive && storedSuppressionPersona.trim()
       ? storedSuppressionPersona.trim()
       : DEFAULT_SUPPRESSION_PERSONA
   // 档案关闭或为空时不读取整份档案，但仍保留姓名这一条身份展示；

@@ -168,18 +168,29 @@ export const generateReplySuggestions = async ({
   const settings = useSettings.getState()
   const prompt = settings.systemPrompt.trim()
   const promptBound = settings.promptSessionIds === null || settings.promptSessionIds.includes(sessionId)
+  const personaBound = settings.personaSessionIds === null || settings.personaSessionIds.includes(sessionId)
   // 系统提示词未绑定到本会话时视同空提示词，与主请求装配保持同一口径。
   const handwrittenActive = settings.systemPromptEnabled && Boolean(prompt) && promptBound
   const promptEmpty = !handwrittenActive
   const promptIsDefault = !promptEmpty && prompt === SYSTEM_PROMPT
   const activeCard = findSessionCharacterCard(settings.characterCards, session)
+  const sessionHasMessages = (session.messages.length ?? 0) > 0
+  const personaExplicit = settings.personaSessionIds !== null
+  const personaConfigured = Boolean(
+    settings.suppressionPersonaEnabled &&
+      settings.basicRoleplayEnabled &&
+      settings.suppressionPersona.trim()
+  )
+  const personaActive = (personaExplicit || !sessionHasMessages) && personaBound && personaConfigured && !activeCard
   // 基础扮演接管空/默认提示词时没有实体卡，这里补一张只用于读懂语气的轻量卡。
-  const basicRoleplay = basicRoleplayActive({
-    basicRoleplayEnabled: settings.basicRoleplayEnabled,
-    promptEmpty,
-    promptIsDefault,
-    hasActiveCard: Boolean(activeCard),
-  })
+  const basicRoleplay =
+    personaActive ||
+    basicRoleplayActive({
+      basicRoleplayEnabled: settings.basicRoleplayEnabled,
+      promptEmpty,
+      promptIsDefault,
+      hasActiveCard: Boolean(activeCard),
+    })
   const card =
     activeCard ??
     (basicRoleplay

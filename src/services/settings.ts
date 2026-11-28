@@ -128,6 +128,8 @@ type Settings = {
   systemPrompt: string
   /** 系统提示词绑定的会话 id；显式数组外的会话不再收到该提示词 */
   promptSessionIds: string[] | null
+  /** 自定义角色扮演预设绑定的会话 id；与系统提示词同级，两侧范围互斥 */
+  personaSessionIds: string[] | null
   /** 采样参数，null 表示沿用服务端默认值 */
   temperature: number | null
   topP: number | null
@@ -189,9 +191,9 @@ type Settings = {
   basicRoleplayEnabled: boolean
   /** 角色扮演时在 system 末尾追加强制约束，压制「按设定」「分析用户意图」这类元叙述 */
   suppressMetaTalk: boolean
-  /** 压制设定开启且提示词为空/默认时，用自定义预设替换内置大学青梅竹马 */
+  /** 自定义角色扮演预设开关：开启后按绑定会话作为同级 system 身份来源 */
   suppressionPersonaEnabled: boolean
-  /** 自定义基础角色扮演预设；只在内置预设被替换时生效 */
+  /** 自定义基础角色扮演预设；只在开关开启且会话绑定时生效 */
   suppressionPersona: string
   /** 聊天区外观：卡片或气泡（气泡只换配色，结构一套） */
   chatLayout: ChatLayout
@@ -282,6 +284,8 @@ const KEYS = {
   systemPromptEmpty: 'replica:system-prompt-empty',
   /** 系统提示词按会话绑定；null 表示旧版全局记录，尚未在选择弹窗里落盘 */
   promptSessionIds: 'replica:prompt-session-ids',
+  /** 自定义角色扮演预设按会话绑定；与系统提示词范围互斥 */
+  personaSessionIds: 'replica:persona-session-ids',
   temperature: 'replica:temperature',
   topP: 'replica:top-p',
   maxTokens: 'replica:max-tokens',
@@ -762,6 +766,17 @@ const initialPromptSessionIds = (): string[] | null => {
   return raw.filter((item): item is string => typeof item === 'string')
 }
 
+const initialPersonaSessionIds = (): string[] | null => {
+  const raw = readJson(KEYS.personaSessionIds)
+  if (raw === null) {
+    return null
+  }
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  return raw.filter((item): item is string => typeof item === 'string')
+}
+
 /** 推理强度：非法或未保存时返回 null，表示不向接口发送 reasoning_effort */
 const initialThinkingEffort = (): 'low' | 'high' | 'max' | null => {
   const saved = read(KEYS.thinkingEffort)
@@ -843,6 +858,7 @@ export const useSettings = create<Settings>(() => ({
   pinnedSessions: initialPinnedSessions(),
   systemPrompt: initialSystemPrompt(),
   promptSessionIds: initialPromptSessionIds(),
+  personaSessionIds: initialPersonaSessionIds(),
   temperature: readNumberParam(KEYS.temperature, 0, 2),
   topP: readNumberParam(KEYS.topP, 0, 1),
   maxTokens: readNumberParam(KEYS.maxTokens, 1, 1_000_000, true),
@@ -1037,10 +1053,24 @@ export const setSystemPrompt = (systemPrompt: string) => {
   useSettings.setState({ systemPrompt: cleared ? '' : systemPrompt, promptSessionIds: nextBinding })
 }
 
-/** 保存提示词与历史会话的绑定关系；null 仅用于内部旧版继承状态，界面确认后落盘为数组 */
+/** 保存系统提示词绑定；与自定义预设同级互斥，两侧已选会话不得重复 */
 export const setSystemPromptBinding = (promptSessionIds: string[] | null) => {
-  write(KEYS.promptSessionIds, promptSessionIds === null ? null : JSON.stringify(promptSessionIds))
-  useSettings.setState({ promptSessionIds })
+  const currentOther = useSettings.getState().personaSessionIds ?? []
+  const next = (promptSessionIds ?? []).filter((id) => !currentOther.includes(id))
+  const other = currentOther.filter((id) => !next.includes(id))
+  write(KEYS.promptSessionIds, JSON.stringify(next))
+  write(KEYS.personaSessionIds, JSON.stringify(other))
+  useSettings.setState({ promptSessionIds: next, personaSessionIds: other })
+}
+
+/** 保存自定义角色扮演预设绑定；与系统提示词同级互斥，两侧已选会话不得重复 */
+export const setPersonaPromptBinding = (personaSessionIds: string[] | null) => {
+  const currentOther = useSettings.getState().promptSessionIds ?? []
+  const next = (personaSessionIds ?? []).filter((id) => !currentOther.includes(id))
+  const other = currentOther.filter((id) => !next.includes(id))
+  write(KEYS.personaSessionIds, JSON.stringify(next))
+  write(KEYS.promptSessionIds, JSON.stringify(other))
+  useSettings.setState({ personaSessionIds: next, promptSessionIds: other })
 }
 
 export const setTemperature = (temperature: number | null) => {
@@ -1710,17 +1740,27 @@ export const setBasicRoleplayEnabled = (basicRoleplayEnabled: boolean) => {
   useSettings.setState({ basicRoleplayEnabled })
 }
 
-/** 自定义压制预设开关：关闭后立刻回到内置的大学青梅竹马，不改已写文本 */
+/** 自定义角色扮演预设开关；开启时同级接管，内置助手提示词自动关闭 */
 export const setSuppressionPersonaEnabled = (suppressionPersonaEnabled: boolean) => {
   write(KEYS.suppressionPersonaEnabled, String(suppressionPersonaEnabled))
-  useSettings.setState({ suppressionPersonaEnabled })
+  const nextState: Partial<Settings> = { suppressionPersonaEnabled }
+  if (suppressionPersonaEnabled) {
+    write(KEYS.defaultPromptEnabled, '0')
+    nextState.defaultPromptEnabled = false
+  }
+  useSettings.setState(nextState)
 }
 
-/** 自定义预设正文；清空后再开启自定义会继续用内置预设，不会变成空人设 */
+/** 自定义预设正文；填写后同级接管并关闭内置助手提示词，清空后保留文本状态但不注入 */
 export const setSuppressionPersona = (suppressionPersona: string) => {
   const trimmed = suppressionPersona.trim()
   write(KEYS.suppressionPersona, trimmed ? suppressionPersona : null)
-  useSettings.setState({ suppressionPersona: trimmed ? suppressionPersona : '' })
+  const nextState: Partial<Settings> = { suppressionPersona: trimmed ? suppressionPersona : '' }
+  if (trimmed) {
+    write(KEYS.defaultPromptEnabled, '0')
+    nextState.defaultPromptEnabled = false
+  }
+  useSettings.setState(nextState)
 }
 
 /**
@@ -1765,6 +1805,7 @@ export const resetCharacterSettings = () => {
   setSuppressMetaTalk(false)
   setSuppressionPersonaEnabled(false)
   setSuppressionPersona('')
+  setPersonaPromptBinding([])
   setFriendlyTone(true)
   setDefaultPromptEnabled(true)
   setSystemPromptEnabled(true)

@@ -169,24 +169,34 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const systemPrompt = useSettings((state) => state.systemPrompt)
   const systemPromptEnabled = useSettings((state) => state.systemPromptEnabled)
   const promptSessionIds = useSettings((state) => state.promptSessionIds)
+  const personaSessionIds = useSettings((state) => state.personaSessionIds)
+  const suppressionPersonaEnabled = useSettings((state) => state.suppressionPersonaEnabled)
+  const suppressionPersona = useSettings((state) => state.suppressionPersona)
   const basicRoleplayEnabled = useSettings((state) => state.basicRoleplayEnabled)
   const activeCard = findSessionCharacterCard(characterCards, session)
   // 基础扮演接管空/默认提示词时，没有角色卡也属于基础角色扮演，建议入口照常可用。
   const promptText = systemPrompt.trim()
   const promptBound = promptSessionIds === null || (sessionId ? promptSessionIds.includes(sessionId) : false)
+  const personaBound = personaSessionIds === null || (sessionId ? personaSessionIds.includes(sessionId) : false)
   const sessionHasMessages = Boolean(session?.messages.length)
   // 系统提示词未绑定到本会话时视同空提示词；内置基础扮演不反向覆盖已有历史角色。
   const handwrittenActive = systemPromptEnabled && Boolean(promptText) && promptBound
   const promptEmpty = !handwrittenActive
   const promptIsDefault = !promptEmpty && promptText === SYSTEM_PROMPT
+  const personaExplicit = personaSessionIds !== null
+  const personaConfigured = Boolean(
+    suppressionPersonaEnabled && basicRoleplayEnabled && suppressionPersona.trim()
+  )
+  const personaActive = (personaExplicit || !sessionHasMessages) && personaBound && personaConfigured && !activeCard
   const suppressionRoleplay =
-    !sessionHasMessages &&
-    basicRoleplayActive({
-      basicRoleplayEnabled,
-      promptEmpty,
-      promptIsDefault,
-      hasActiveCard: Boolean(activeCard),
-    })
+    personaActive ||
+    (!sessionHasMessages &&
+      basicRoleplayActive({
+        basicRoleplayEnabled,
+        promptEmpty,
+        promptIsDefault,
+        hasActiveCard: Boolean(activeCard),
+      }))
   const suggestionReady = Boolean(activeCard || suppressionRoleplay)
   const story = activeCard?.story
   const storyLocked = isStoryLocked(session)

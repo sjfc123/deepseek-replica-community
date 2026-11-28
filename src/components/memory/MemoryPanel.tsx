@@ -162,6 +162,10 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const systemPrompt = useSettings((state) => state.systemPrompt)
   const systemPromptEnabled = useSettings((state) => state.systemPromptEnabled)
   const promptSessionIds = useSettings((state) => state.promptSessionIds)
+  const personaSessionIds = useSettings((state) => state.personaSessionIds)
+  const suppressionPersonaEnabled = useSettings((state) => state.suppressionPersonaEnabled)
+  const suppressionPersona = useSettings((state) => state.suppressionPersona)
+  const basicRoleplayEnabled = useSettings((state) => state.basicRoleplayEnabled)
   const displayCard = resolveSessionCharacterCard(
     characterCards,
     session,
@@ -174,9 +178,16 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
     custom: false,
   })
   const promptBound = promptSessionIds === null || promptSessionIds.includes(session.id)
+  const personaBound = personaSessionIds === null || personaSessionIds.includes(session.id)
   const handwrittenActive = systemPromptEnabled && Boolean(systemPrompt.trim()) && promptBound
+  const sessionHasMessages = (session.messages.length ?? 0) > 0
+  const personaExplicit = personaSessionIds !== null
+  const personaConfigured = Boolean(
+    suppressionPersonaEnabled && basicRoleplayEnabled && suppressionPersona.trim()
+  )
+  const personaActive = (personaExplicit || !sessionHasMessages) && personaBound && personaConfigured && !displayCard
   const characterMemoryActive =
-    handwrittenActive &&
+    (handwrittenActive || personaActive) &&
     memoryPoolForDisplayName(resolvedCharacterName) === 'character'
   // 旧卡没有 speaker 字段时，用当前玩家名与角色名补上归属，不再统一显示「用户」。
   const memoryNames = {

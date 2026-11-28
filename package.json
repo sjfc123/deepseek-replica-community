@@ -1,6 +1,6 @@
 {
   "name": "deepsaga",
-  "version": "0.9.9",
+  "version": "1.0.0",
   "description": "DeepSaga：基于上游 WebView 容器与 DeepChat 部分功能改造的 Android 本地对话和角色扮演客户端；仓库保存源码，编译、签名与分发由操作者自行承担。",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -18,6 +18,7 @@
     "test:data": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-data-management.mjs",
     "test:import-attach": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-import-attachments.mjs",
     "test:prompt": "node --experimental-strip-types scripts/test-default-prompt.mjs",
+    "test:prompt-binding": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-prompt-binding.mjs",
     "test:memory": "node --experimental-strip-types scripts/test-memory-prune.mjs",
     "test:memory-routing": "node --experimental-strip-types scripts/test-memory-routing.mjs",
     "test:memory-view": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-memory-view.mjs",

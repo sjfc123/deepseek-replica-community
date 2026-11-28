@@ -180,6 +180,7 @@ import {
   setWorldbookInject,
   setSystemPrompt,
   setSystemPromptBinding,
+  setPersonaPromptBinding,
   setTemperature,
   setThemePreference,
   setTopP,
@@ -256,6 +257,7 @@ type Popup =
   | 'delete'
   | 'import'
   | 'promptSessions'
+  | 'personaSessions'
 
 const parentPage: Record<Page, Page | null> = {
   root: null,
@@ -844,6 +846,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     chatConfig,
     systemPrompt,
     promptSessionIds,
+    personaSessionIds,
     temperature,
     topP,
     maxTokens,
@@ -1046,6 +1049,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   }
   /** 提示词会话选择弹窗的草稿；null 表示沿用旧版继承范围，打开弹窗时再展开为全选。 */
   const [promptDraftIds, setPromptDraftIds] = useState<string[] | null>(null)
+  const [personaDraftIds, setPersonaDraftIds] = useState<string[] | null>(null)
   const chooseHomeLogo = async (event: { target: HTMLInputElement }) => {
     const picked = event.target.files?.[0]
     event.target.value = ''
@@ -1091,16 +1095,42 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const exiting = useRef(false)
   const sessionSummaries = useChatStore((state) => state.sessions)
   const sessions = sessionSummaries.length
-  const promptBoundCount = promptSessionIds === null ? sessions : promptSessionIds.length
+  const allSessionIds = sessionSummaries.map((session) => session.id)
+  const systemBoundIds = promptSessionIds ?? []
+  const personaBoundIds = personaSessionIds ?? []
+  const promptBoundCount = promptSessionIds === null ? sessions : systemBoundIds.length
+  const personaBoundCount = personaSessionIds === null ? sessions : personaBoundIds.length
   const openPromptSessionPicker = () => {
     setPromptDraftIds(
-      promptSessionIds === null ? sessionSummaries.map((session) => session.id) : [...promptSessionIds]
+      promptSessionIds === null
+        ? allSessionIds.filter((id) => !personaBoundIds.includes(id))
+        : systemBoundIds.filter((id) => !personaBoundIds.includes(id))
     )
     setPopup('promptSessions')
   }
+  const openPersonaSessionPicker = () => {
+    setPersonaDraftIds(
+      personaSessionIds === null
+        ? allSessionIds.filter((id) => !systemBoundIds.includes(id))
+        : personaBoundIds.filter((id) => !systemBoundIds.includes(id))
+    )
+    setPopup('personaSessions')
+  }
   const togglePromptSession = (sessionId: string) => {
+    if (personaBoundIds.includes(sessionId)) {
+      return
+    }
     setPromptDraftIds((current) => {
-      const base = current ?? sessionSummaries.map((session) => session.id)
+      const base = current ?? allSessionIds.filter((id) => !personaBoundIds.includes(id))
+      return base.includes(sessionId) ? base.filter((id) => id !== sessionId) : [...base, sessionId]
+    })
+  }
+  const togglePersonaSession = (sessionId: string) => {
+    if (systemBoundIds.includes(sessionId)) {
+      return
+    }
+    setPersonaDraftIds((current) => {
+      const base = current ?? allSessionIds.filter((id) => !systemBoundIds.includes(id))
       return base.includes(sessionId) ? base.filter((id) => id !== sessionId) : [...base, sessionId]
     })
   }
@@ -2541,8 +2571,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <FoldNote tone="caption">
                 {tr(
-                  '这段提示词只对「生效对话」里选中的会话生效，未选中的对话不受影响。各可写提示词同级互斥：关闭哪一条即停止发送该条，身份不会在 system 中冲突。本开关关闭后，文本保留在本机但不注入，按空提示词判定身份，重新开启后恢复注入。\n模式口径：内置助手提示词开启时为普通助手；关闭后直接进入角色，依次按系统提示词、基础扮演预设、角色卡、档案或兜底人设出演。遇越界、违法或伤害性要求，由角色身份本身拒绝，不出戏转为客服说明。',
-                  'This prompt affects only chats selected under "Affected chats"; unselected chats are untouched. The writable prompts are mutually exclusive at the same level: whichever one you disable stops being sent, so identities never fight inside system. When this switch is off, your text stays locally but is not injected; identity is treated as an empty prompt, and injection resumes once you turn it back on. Mode: with the built-in assistant prompt on you are a plain assistant; once off you go straight into character, following your system prompt, basic preset, card, profile or fallback persona. Boundary-crossing, illegal or harmful requests are refused in-character instead of breaking out into customer-service mode.'
+                  '这段提示词只对「生效对话」里选中的会话生效，未选中的对话不受影响。它与自定义角色扮演预设同级互斥：两侧已选会话不能重复，自定义预设已选的对话会在本侧置灰。本开关关闭后，文本保留在本机但不注入，按空提示词判定身份，重新开启后恢复注入。\n模式口径：内置助手提示词开启时为普通助手；关闭后直接进入角色，依次按系统提示词、自定义预设、角色卡、档案或兜底人设出演。遇越界、违法或伤害性要求，由角色身份本身拒绝，不出戏转为客服说明。',
+                  'This prompt affects only chats selected under "Affected chats"; unselected chats are untouched. It is the same level as the custom roleplay preset and their ranges are mutually exclusive: the two sides cannot share a chat, and chats chosen by the custom preset are greyed out here. When this switch is off, your text stays locally but is not injected; identity is treated as an empty prompt, and injection resumes once you turn it back on. Mode: with the built-in assistant prompt on you are a plain assistant; once off you go straight into character, following your system prompt, custom preset, card, profile or fallback persona. Boundary-crossing, illegal or harmful requests are refused in-character instead of breaking out into customer-service mode.'
                 )}
               </FoldNote>
             </Group>
@@ -2587,8 +2617,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <FoldNote tone="caption">
                 {tr(
-                  '开启后，在系统提示词为空或保持默认、且无角色卡或基础档案时，使用内置青梅竹马预设（或下方自定义预设）进入扮演；关闭后空/默认提示词回到普通助手。已有角色卡、系统提示词或基础档案不受此开关影响。\n基础扮演预设与系统提示词同级互斥：填写自定义系统提示词后，本预设自动失效，二者不会同时进入 system。预设仅补充人物底色；角色卡、档案、世界书、场景与记忆中的既有描述优先级更高，冲突时以其为准。',
-                  'When on: an empty or default prompt, with no active card or base profile, enters roleplay using the built-in childhood-friend preset (or your custom preset below). When off, empty/default prompts return to the plain assistant. Existing cards, system prompts and base profiles are unaffected. The basic preset and your system prompt are mutually exclusive: once you write a custom system prompt, this preset stops applying, so the two never enter system together and do not fight. The preset only fills in the persona base; descriptions from cards, profiles, worldbook, scenes and memory take priority and win any conflict.'
+                  '开启后，在无角色卡或基础档案时，使用内置青梅竹马预设或下方自定义预设进入扮演；关闭后回到普通助手。已有角色卡、系统提示词或基础档案不受此开关影响。\n自定义预设与系统提示词同级互斥：两者已选会话不能重复，一侧已选的对话在另一侧置灰。预设仅补充人物底色；角色卡、档案、世界书、场景与记忆中的既有描述优先级更高，冲突时以其为准。',
+                  'When on: with no active card or base profile, roleplay uses the built-in childhood-friend preset or the custom preset below. When off, chats return to the plain assistant. Existing cards, system prompts and base profiles are unaffected. The custom preset and system prompt are mutually exclusive at the same level: they cannot share selected chats, and chats chosen on one side are greyed out on the other. The preset only fills in the persona base; descriptions from cards, profiles, worldbook, scenes and memory take priority and win any conflict.'
                 )}
               </FoldNote>
               <Row
@@ -2610,21 +2640,31 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   value={suppressionPersona}
                   disabled={!suppressionPersonaEnabled}
                   placeholder={tr(
-                    '留空或关闭自定义时使用内置预设：大学时期的青梅竹马「沈知夏」。开启自定义并填写后，整段替换内置预设；关闭自定义立即回到内置预设，已写文本保留。',
-                    'Leave empty or turn custom off to use the built-in preset: college childhood friend “沈知夏”. Custom text replaces it while enabled; turning custom off returns to the built-in preset and keeps the text.'
+                    '填写后作为同级角色扮演预设，只对下方生效对话生效；内置助手提示词会自动关闭。',
+                    'When filled, this acts as a same-level roleplay preset only for selected chats; the built-in assistant prompt turns off automatically.'
                   )}
-                  aria-label={tr('使用自定义基础扮演提示词', 'Use custom basic roleplay prompt')}
+                  aria-label={tr('自定义角色扮演预设提示词', 'Custom roleplay preset prompt')}
                   onChange={(event) => setSuppressionPersona(event.target.value)}
                 />
                 <div className={styles.promptMeta}>
                   <span>
                     {tr(
-                      '仅在基础扮演模式开启、提示词为空或保持默认时生效。可以用 {{user}} 指代玩家；写清名字、关系、性格、说话方式和边界，不要写剧情线索或系统规则；与角色卡、档案、世界书或记忆冲突时，以那些既有描述为准。',
-                      'Only applies when basic roleplay is on and the prompt is empty or default. Use {{user}} for the player; describe name, relationship, temperament, speech and boundaries, not plot clues or system rules. On conflict with cards, profiles, worldbook or memory, those existing descriptions win.'
+                      '与系统提示词同级且范围互斥：系统提示词已选的对话会置灰，不能重复勾选。可以用 {{user}} 指代玩家；写清名字、关系、性格、说话方式和边界，不要写剧情线索或系统规则；与角色卡、档案、世界书或记忆冲突时，以那些既有描述为准。',
+                      'This is the same level as the system prompt and their chat ranges are mutually exclusive: chats already chosen by the system prompt are greyed out and cannot be checked again. Use {{user}} for the player; describe name, relationship, temperament, speech and boundaries, not plot clues or system rules. On conflict with cards, profiles, worldbook or memory, those existing descriptions win.'
                     )}
                   </span>
                 </div>
               </div>
+              <Row
+                label={tr('生效对话', 'Affected chats')}
+                value={
+                  suppressionPersona.trim()
+                    ? tr(`${personaBoundCount} 个对话`, `${personaBoundCount} chats`)
+                    : tr('未填写', 'Not set')
+                }
+                arrow={false}
+                onClick={openPersonaSessionPicker}
+              />
             </Group>
             <Group label={tr('出戏压制', 'Stay in character')} collapsible>
               <Row
@@ -4700,13 +4740,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             }
           }}
         >
-          <section className={styles.choice} role="dialog" aria-modal="true" aria-label={tr('选择生效对话', 'Choose affected chats')}>
-            <header>{tr('选择生效对话', 'Choose affected chats')}</header>
+          <section className={styles.choice} role="dialog" aria-modal="true" aria-label={tr('选择系统提示词生效对话', 'Choose chats for system prompt')}>
+            <header>{tr('选择系统提示词生效对话', 'Choose chats for system prompt')}</header>
             <p className={styles.choiceHint}>
-              {tr('只有勾选的历史会话会使用这段提示词；不勾选的对话继续使用原有身份与规则。', 'Only checked chats use this prompt; unchecked chats keep their existing identity and rules.')}
+              {tr('只有勾选的历史会话会使用这段提示词；已由自定义预设生效的对话会置灰，不能重复勾选。', 'Only checked chats use this prompt; chats already used by the custom preset are greyed out and cannot be checked again.')}
             </p>
             <div className={styles.promptSessionActions}>
-              <button type="button" onClick={() => setPromptDraftIds(sessionSummaries.map((session) => session.id))}>
+              <button type="button" onClick={() => setPromptDraftIds(allSessionIds.filter((id) => !personaBoundIds.includes(id)))}>
                 {tr('全选', 'All')}
               </button>
               <button type="button" onClick={() => setPromptDraftIds([])}>
@@ -4719,16 +4759,19 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               ) : (
                 sessionSummaries.map((session) => {
                   const checked = (promptDraftIds ?? []).includes(session.id)
+                  const disabled = personaBoundIds.includes(session.id)
                   return (
                     <button
                       key={session.id}
                       type="button"
                       role="checkbox"
                       aria-checked={checked}
+                      disabled={disabled}
                       onClick={() => togglePromptSession(session.id)}
                     >
                       <span className={styles.optionText}>
                         <span>{session.title || t('untitledChat')}</span>
+                        {disabled ? <small>{tr('已由自定义预设生效', 'Used by custom preset')}</small> : null}
                       </span>
                     </button>
                   )
@@ -4740,6 +4783,66 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               className={styles.confirm}
               onClick={() => {
                 setSystemPromptBinding(promptDraftIds ?? [])
+                setPopup(null)
+              }}
+            >
+              {tr('保存选择', 'Save selection')}
+            </button>
+          </section>
+        </div>
+      ) : null}
+      {popup === 'personaSessions' ? (
+        <div
+          className={styles.overlay}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setPopup(null)
+            }
+          }}
+        >
+          <section className={styles.choice} role="dialog" aria-modal="true" aria-label={tr('选择自定义预设生效对话', 'Choose chats for custom preset')}>
+            <header>{tr('选择自定义预设生效对话', 'Choose chats for custom preset')}</header>
+            <p className={styles.choiceHint}>
+              {tr('只有勾选的历史会话会使用这段自定义预设；已由系统提示词生效的对话会置灰，不能重复勾选。', 'Only checked chats use this custom preset; chats already used by the system prompt are greyed out and cannot be checked again.')}
+            </p>
+            <div className={styles.promptSessionActions}>
+              <button type="button" onClick={() => setPersonaDraftIds(allSessionIds.filter((id) => !systemBoundIds.includes(id)))}>
+                {tr('全选', 'All')}
+              </button>
+              <button type="button" onClick={() => setPersonaDraftIds([])}>
+                {tr('全不选', 'None')}
+              </button>
+            </div>
+            <div className={styles.options} role="listbox" aria-multiselectable="true" aria-label={tr('历史对话', 'Chats')}>
+              {sessionSummaries.length === 0 ? (
+                <p className={styles.message}>{tr('暂无历史对话', 'No chats yet')}</p>
+              ) : (
+                sessionSummaries.map((session) => {
+                  const checked = (personaDraftIds ?? []).includes(session.id)
+                  const disabled = systemBoundIds.includes(session.id)
+                  return (
+                    <button
+                      key={session.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={checked}
+                      disabled={disabled}
+                      onClick={() => togglePersonaSession(session.id)}
+                    >
+                      <span className={styles.optionText}>
+                        <span>{session.title || t('untitledChat')}</span>
+                        {disabled ? <small>{tr('已由系统提示词生效', 'Used by system prompt')}</small> : null}
+                      </span>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+            <button
+              type="button"
+              className={styles.confirm}
+              onClick={() => {
+                setPersonaPromptBinding(personaDraftIds ?? [])
                 setPopup(null)
               }}
             >

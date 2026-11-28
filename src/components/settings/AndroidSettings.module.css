@@ -741,6 +741,11 @@ a.row:active,
       color: var(--settings-muted);
       color: color-mix(in srgb, currentColor 62%, var(--settings-muted));
     }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.42;
+    }
   }
 }
 
