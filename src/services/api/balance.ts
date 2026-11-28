@@ -1,6 +1,6 @@
 /* ============================================================================
  * 功能区：模型接口 / balance · 账号余额查询
- * 职责：按当前聊天配置请求官方 /user/balance 或同网关兼容余额接口，归一化余额明细。
+ * 职责：按当前聊天配置请求端点原生 /user/balance 或同网关兼容余额接口，归一化余额明细。
  * 分区：01 类型、契约与依赖；02 地址推导；03 对外入口与收尾
  * 关联：依赖 services/api/chatConfig、services/api/client、services/api/balanceFormat；
  *    被 services/balanceStore 引用。
@@ -68,7 +68,7 @@ const balanceBaseUrl = (endpoint: string): string => {
 
 /* ---- 03 对外入口与收尾 ---- */
 /**
- * GET /user/balance。官方 DeepSeek 与兼容网关共用 Bearer 鉴权；
+ * GET /user/balance。DeepSeek 端点与兼容网关共用 Bearer 鉴权；
  * 响应字段以 balance_infos 为准，兼容旧名 balance_inf。
  */
 export const fetchAccountBalance = async (

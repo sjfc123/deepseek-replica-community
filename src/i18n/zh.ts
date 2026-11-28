@@ -309,7 +309,7 @@ export const zh = {
   advancedProtocol: '端点格式',
   advancedEndpointKey: '端点 API Key（可选）',
   advancedDefaultHint:
-    '端点留空时按所选格式使用 DeepSeek 官方服务。模型名称留空时使用 DeepSeek Flash。',
+    '端点留空时按所选格式使用 DeepSeek 默认端点。模型名称留空时使用 DeepSeek Flash。',
   advancedEndpointHint: '填写 HTTP 或 HTTPS 基础地址，App 会按所选格式补齐请求路径。',
   advancedProviderHint: '请填写此端点的 API Key。自定义端点的推理和联网能力由服务商决定。',
   advancedInvalidEndpoint: '请输入有效的 HTTP 或 HTTPS 基础地址，地址中不能包含登录信息或片段。',
