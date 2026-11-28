@@ -38,6 +38,7 @@ const {
   ADDRESS_LOCK_GUARD,
   TOOL_TURN_GUARD,
   ROLEPLAY_EMOTION_GUARD,
+  ROLEPLAY_TONE_GUARD,
   CONTINUITY_FACT_GUARD,
   CUSTOM_PROMPT_NOTE,
   ROLEPLAY_STRICT_GUARD,
@@ -438,7 +439,11 @@ assert.match(locked, /【身份锁定，不要复述本段】/)
 assert.match(locked, /【称呼锁定，不要复述本段】/)
 assert.match(locked, /「小梦」/, '称呼锁定必须动态填入玩家昵称')
 assert.match(locked, /【情绪反应，不要复述本段】/)
+assert.match(locked, /【人物语气与态度，不要复述本段】/)
 assert.match(locked, /【事实与剧情边界，不要复述本段】/)
+for (const phrase of ['死不承认', '责怪', '居高临下', '客服式模板', '上帝视角', '我不会道歉']) {
+  assert.match(ROLEPLAY_TONE_GUARD, new RegExp(phrase), `态度护栏必须覆盖「${phrase}」`)
+}
 assert.match(CONTINUITY_FACT_GUARD, /不替\{\{user\}\}想、说、做或做决定/)
 assert.doesNotMatch(locked, /交流语气，不要复述本段/)
 assert.match(IDENTITY_LOCK_GUARD, /真实存在的人物本人/)
@@ -489,6 +494,7 @@ assert.doesNotMatch(unlocked, /【身份锁定/)
 assert.doesNotMatch(unlocked, /【称呼锁定/)
 assert.doesNotMatch(unlocked, /工具轮演出纪律/, '普通助手不追加工具轮纪律')
 assert.doesNotMatch(unlocked, /【情绪反应/)
+assert.doesNotMatch(unlocked, /【人物语气与态度/)
 assert.doesNotMatch(unlocked, /【事实与剧情边界/)
 
 // 严格红线约束只随角色上下文下发，普通助手不追加
@@ -611,6 +617,28 @@ assert.equal(
   '不要问太多/不要回避切掉'
 )
 
+// 甩锅、死不承认、高冷说教、客服机械与旁白视角属于态度残留，整句或片段切掉
+assert.equal(
+  sanitizeThinkingText('我不会道歉，我没错，是你让我，你不断逼我。', '阿岚'),
+  '',
+  '甩锅话术整句丢弃'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚说累了。我才没错，是你逼我的。', '阿岚'),
+  '阿岚说累了。',
+  '人物处境保留，甩锅片段切掉'
+)
+assert.equal(
+  sanitizeThinkingText('装高冷，居高临下说教，客服式复读。', '阿岚'),
+  '',
+  '高冷说教与机械模板丢弃'
+)
+assert.equal(
+  sanitizeThinkingText('旁白以第三人称上帝视角看着他。', '阿岚'),
+  '',
+  '旁白视角残留丢弃'
+)
+
 // 搜索之后混进来的“我的回答将…/用什么口吻/给建议”同样属于答题策略
 assert.equal(
   sanitizeThinkingText('我的回答将先给出今晚天气，再给建议。', '阿岚'),
@@ -618,7 +646,7 @@ assert.equal(
   '“我的回答将…”切掉'
 )
 assert.equal(
-  sanitizeThinkingText('我需要用许棠的口吻来组织回答。', '阿岚'),
+  sanitizeThinkingText('我需要用角色名的口吻来组织回答。', '阿岚'),
   '',
   '“用什么口吻组织回答”切掉'
 )
@@ -738,12 +766,12 @@ assert.equal(
   '直接告诉/再顺一条切掉'
 )
 assert.equal(
-  sanitizeThinkingText('可以用太空数据中心或者高交会，选高交会吧，现场感强一点。', '阿岚'),
+  sanitizeThinkingText('可以用第一条消息或者第二条消息，选第二条吧，现场感强一点。', '阿岚'),
   '',
-  '挑选新闻的答题计划切掉'
+  '挑选资料的答题计划切掉'
 )
 assert.equal(
-  sanitizeThinkingText('就讲高交会吧，水下智能新品和具身智能还能接上。', '阿岚'),
+  sanitizeThinkingText('就讲第二条消息吧，细节和关系还能接上。', '阿岚'),
   '',
   '“就讲/就选”解题计划切掉'
 )
