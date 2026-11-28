@@ -1,7 +1,7 @@
 {
   "name": "deepsaga",
   "version": "1.0.0",
-  "description": "DeepSaga：基于上游 WebView 容器与 DeepChat 部分功能改造的 Android 本地对话和角色扮演客户端；仓库保存源码，编译、签名与分发由操作者自行承担。",
+  "description": "DeepSaga：基于上游 Android WebView 容器与 React/TypeScript 前端改造的本地聊天与角色扮演客户端；仅提供源码，按现状归档，非 DeepSeek 官方项目，不提供在线服务、预编译包或维护承诺。",
   "license": "GPL-3.0-or-later",
   "private": true,
   "type": "module",
