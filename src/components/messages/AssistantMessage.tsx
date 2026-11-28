@@ -28,12 +28,11 @@ import {
 } from '../base/icons.js'
 import { formatTokenCount } from '../../services/chat/tokenUsage.js'
 import { describeReply } from '../../services/chat/describe.js'
-import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
+import type { CharacterCard } from '../../services/chat/roleplay.js'
 import {
   deleteMessage,
   editAssistantMessage,
   regenerateReply,
-  useChatStore,
 } from '../../services/chat/store.js'
 import {
   describeReadAloudError,
@@ -80,6 +79,10 @@ export const AssistantMessage = memo(function AssistantMessage({
   isLast,
   streaming,
   busy,
+  activeCard,
+  cardAvatar = null,
+  characterAvatar = null,
+  characterName = '',
   searchHighlightNonce = null,
   versions,
   onSelectVersion,
@@ -90,33 +93,26 @@ export const AssistantMessage = memo(function AssistantMessage({
   isLast: boolean
   streaming: boolean
   busy: boolean
+  /** 由 MessageList 统一解析后下传，避免每条消息各订阅一次 sessionCache */
+  activeCard?: CharacterCard
+  cardAvatar?: string | null
+  characterAvatar?: string | null
+  characterName?: string
   searchHighlightNonce?: number | null
   versions: MessageVersions
   onSelectVersion: SelectMessageVersion
   /** 长按菜单进入记忆选择：one=本轮，all=当前分支全部 */
-  onStartMemorySelect?: (scope: 'one' | 'all') => void
+  onStartMemorySelect?: (messageId: string, scope: 'one' | 'all') => void
 }) {
   const t = useTranslate()
   const customEndpoint = useSettings((state) => Boolean(state.chatConfig.endpoint))
   const avatarInChat = useSettings((state) => state.avatarInChat)
   const showUsage = useSettings((state) => state.showUsage)
   const usageBelow = useSettings((state) => state.usageBelow)
-  const roleplayEnabled = useSettings((state) => state.roleplayEnabled)
-  const characterCards = useSettings((state) => state.characterCards)
-  const activeCharacterId = useSettings((state) => state.activeCharacterId)
-  const session = useChatStore((state) => state.sessionCache[sessionId])
-  // 会话已绑定人物时优先沿用它；关闭全局开关不会把头像和称呼切回手写角色
-  const activeCard =
-    findSessionCharacterCard(characterCards, session) ??
-    (roleplayEnabled ? findActiveCharacterCard(characterCards, activeCharacterId) : undefined)
-  const cardAvatars = useSettings((state) => state.cardAvatars)
-  const characterAvatar = useSettings((state) => state.characterAvatar)
-  const cardAvatar = activeCard ? (cardAvatars[activeCard.id] ?? null) : null
   // 开场旁白、错误模板这类只有模板正文的消息不是角色发言，顶部不挂头像和名字。
   const templateOnly =
     message.blocks.length > 0 &&
     message.blocks.every((block) => block.type === 'text' && block.isTemplate)
-  const characterName = useSettings((state) => state.characterName)
   const thoughtAside = useSettings((state) => state.thoughtAside)
   const memoryInline = useSettings((state) => state.memoryInline)
   const canReadAloud = useSettings((state) => Boolean(state.apiKey))
@@ -395,7 +391,7 @@ export const AssistantMessage = memo(function AssistantMessage({
                         onSelect: () => {
                           stopSelecting()
                           stopReadAloud()
-                          onStartMemorySelect('one')
+                          onStartMemorySelect(message.id, 'one')
                         },
                       },
                       {
@@ -405,7 +401,7 @@ export const AssistantMessage = memo(function AssistantMessage({
                         onSelect: () => {
                           stopSelecting()
                           stopReadAloud()
-                          onStartMemorySelect('all')
+                          onStartMemorySelect(message.id, 'all')
                         },
                       },
                     ]

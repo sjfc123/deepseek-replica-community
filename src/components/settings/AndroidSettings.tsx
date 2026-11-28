@@ -63,6 +63,8 @@ import {
 import { readMigrationReport } from '../../services/dataMigration.js'
 import { getUnreadableRecordCount } from '../../services/chat/db.js'
 import { EMPTY_SCENE, findActiveCharacterCard } from '../../services/chat/roleplay.js'
+import { FAT_FISH_ALL_LINES } from '../../services/chat/easterEgg.js'
+import { getPeakHint } from '../../services/peak.js'
 import {
   CHARACTER_PROFILE_EN,
   CHARACTER_PROFILE_FIELDS,
@@ -95,6 +97,14 @@ import {
   setTokenLimit,
   setShowUsage,
   setUsageBelow,
+  setBalanceChipEnabled,
+  setBalanceChipPosition,
+  setBalanceChipShowUsage,
+  setBalanceChipPos,
+  setHomeLogo,
+  setHomeGreetings,
+  normalizeHomeGreetings,
+  resetHomeAppearance,
   setAccentColor,
   setBubbleRadius,
   setMessageSpacing,
@@ -103,9 +113,12 @@ import {
   setUserAvatarSize,
   setChatLayout,
   setSuppressMetaTalk,
+  setBasicRoleplayEnabled,
   setSuppressionPersonaEnabled,
   setSuppressionPersona,
   setFriendlyTone,
+  setDefaultPromptEnabled,
+  setSystemPromptEnabled,
   resetContextSettings,
   resetRefusalSettings,
   resetRequestSettings,
@@ -138,6 +151,23 @@ import {
   MEMORY_CHARS_DEFAULT,
   MEMORY_CHARS_MAX,
   MEMORY_CHARS_MIN,
+  AVATAR_SIZE_MIN,
+  AVATAR_SIZE_MAX,
+  AVATAR_SIZE_DEFAULT,
+  AVATAR_SIZE_OPTIONS,
+  TEMPERATURE_MIN,
+  TEMPERATURE_MAX,
+  TEMPERATURE_STEP,
+  TOP_P_MIN,
+  TOP_P_MAX,
+  TOP_P_STEP,
+  MAX_TOKENS_MIN,
+  MAX_TOKENS_MAX,
+  MAX_TOKENS_STEP,
+  TOKEN_LIMIT_DRAFT_DEFAULT,
+  TOKEN_LIMIT_PRESETS,
+  MEMORY_LIMIT_PRESETS,
+  MEMORY_CHARS_PRESETS,
   setRefusalCaseSensitive,
   setRefusalEnabled,
   setRefusalKeywords,
@@ -316,16 +346,117 @@ const Group = ({
   label,
   children,
   spaced,
+  collapsible = false,
+  defaultOpen = false,
 }: {
   label?: string
   children: ReactNode
   spaced?: boolean
-}) => (
-  <section className={styles.group} data-spaced={spaced ? '' : undefined}>
-    {label ? <h2>{label}</h2> : null}
-    <div className={styles.card}>{children}</div>
-  </section>
-)
+  collapsible?: boolean
+  defaultOpen?: boolean
+}) => {
+  if (!collapsible) {
+    return (
+      <section className={styles.group} data-spaced={spaced ? '' : undefined}>
+        {label ? <h2>{label}</h2> : null}
+        <div className={styles.card}>{children}</div>
+      </section>
+    )
+  }
+  return (
+    <Section label={label ?? ''} defaultOpen={defaultOpen}>
+      <div className={styles.card}>{children}</div>
+    </Section>
+  )
+}
+
+/** 长说明文字的视觉语气：复用现有 note 样式，避免另起一套排版 */
+type FoldNoteTone = 'caption' | 'profileNotice' | 'pageIntro' | 'helpBody' | 'profileGroupHint'
+
+const FOLD_NOTE_TONE_CLASS: Record<FoldNoteTone, string> = {
+  caption: styles.caption,
+  profileNotice: styles.profileNotice,
+  pageIntro: styles.pageIntro,
+  helpBody: styles.helpBody,
+  profileGroupHint: styles.profileGroupHint,
+}
+
+/**
+ * 可折叠说明胶囊：默认收起成一条圆角胶囊入口，点开才看长说明。
+ * 收起态用弱化配色 + 右向箭头区分，避免长列表里分不清哪些已关闭。
+ */
+const FoldNote = ({
+  tone = 'caption',
+  label,
+  children,
+  defaultOpen = false,
+}: {
+  tone?: FoldNoteTone
+  label?: string
+  children: ReactNode
+  defaultOpen?: boolean
+}) => {
+  const locale = useSettings((state) => state.locale)
+  const [open, setOpen] = useState(defaultOpen)
+  const defaultLabel = locale === 'zh-CN' ? '说明' : 'Details'
+  return (
+    <div className={styles.foldNote} data-open={open ? '' : undefined}>
+      <button
+        type="button"
+        className={styles.foldNoteHeader}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className={styles.foldNotePill}>{label ?? defaultLabel}</span>
+        <span className={styles.foldNoteChevron}>
+          <IconChevronRightOutline14 />
+        </span>
+      </button>
+      <div className={styles.foldNoteBody}>
+        <div className={styles.foldNoteBodyInner}>
+          <div className={FOLD_NOTE_TONE_CLASS[tone]}>{children}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 可折叠分区（文件夹形式）：头部固定标签与摘要，主体用 grid-rows 0fr→1fr 做展开/收缩动画。
+ * 用于把设置按功能分区收纳，避免一整页长列表；描述与控件仍留在各自分区内。
+ */
+const Section = ({
+  label,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  label: string
+  summary?: string
+  defaultOpen?: boolean
+  children: ReactNode
+}) => {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section className={styles.section} data-open={open ? '' : undefined}>
+      <button
+        type="button"
+        className={styles.sectionHeader}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className={styles.sectionTitle}>{label}</span>
+        {summary ? <span className={styles.sectionSummary}>{summary}</span> : null}
+        <span className={styles.sectionChevron}>
+          <IconChevronRightOutline14 />
+        </span>
+      </button>
+      <div className={styles.sectionBody}>
+        <div className={styles.sectionBodyInner}>{children}</div>
+      </div>
+    </section>
+  )
+}
 
 const Row = ({
   label,
@@ -597,6 +728,44 @@ export const formatBackupInterval = (minutes: number, tr: BackupText) => {
 /** 备份间隔预设（分钟）：10 分钟到 1 天 */
 const BACKUP_PRESETS = [10, 30, 60, 120, 240, 480, 720, 1440]
 
+/** 头像边长档位文案：档位数值取自集中配置 AVATAR_SIZE_OPTIONS，标签与描述随语言切换；角色头像与玩家头像共用同一份 */
+const AVATAR_SIZE_LABELS: Record<number, { zh: string; en: string; descZh: string; descEn: string }> = {
+  [AVATAR_SIZE_MIN]: {
+    zh: '小 20',
+    en: 'Small 20',
+    descZh: '占用 20px，适合信息密集的列表。',
+    descEn: '20px, suited to dense lists.',
+  },
+  [AVATAR_SIZE_DEFAULT]: {
+    zh: '标准 24',
+    en: 'Default 24',
+    descZh: '占用 24px，默认尺寸。',
+    descEn: '24px, the default size.',
+  },
+  30: {
+    zh: '大 30',
+    en: 'Large 30',
+    descZh: '占用 30px，头像更突出。',
+    descEn: '30px for stronger emphasis.',
+  },
+  [AVATAR_SIZE_MAX]: {
+    zh: '特大 36',
+    en: 'Extra 36',
+    descZh: '占用 36px，适合单人或短对话。',
+    descEn: '36px for short or single-character chats.',
+  },
+}
+
+const avatarSizeFields = (tr: BackupText) =>
+  AVATAR_SIZE_OPTIONS.map((size) => {
+    const text = AVATAR_SIZE_LABELS[size]
+    return {
+      id: String(size),
+      label: tr(text.zh, text.en),
+      description: tr(text.descZh, text.descEn),
+    }
+  })
+
 /** 备份失败按失败位置给不同说明：建文件、写入、收尾各自的原因不同 */
 const describeBackupFailure = (result: AutoBackupResult, tr: BackupText) => {
   const tail = result.detail ? tr(`（${result.detail}）`, ` (${result.detail})`) : ''
@@ -608,7 +777,7 @@ const describeBackupFailure = (result: AutoBackupResult, tr: BackupText) => {
       )
     case 'begin':
       return tr(
-        `系统没能创建备份文件，请确认「下载」目录可用${tail}`,
+        `系统未能创建备份文件，请确认「下载」目录可用${tail}`,
         `The system could not create the file${tail}`
       )
     case 'write':
@@ -623,11 +792,11 @@ const describeBackupFailure = (result: AutoBackupResult, tr: BackupText) => {
       )
     case 'finish':
       return tr(
-        `完整文件没能发布到下载目录，未完成文件已删除，请稍后重试${tail}`,
+        `完整文件未能发布到下载目录；未完成文件已删除，请稍后重试${tail}`,
         `The complete file could not be published; the unfinished file was removed${tail}`
       )
     default:
-      return tr('备份没有完成，请稍后重试', 'Backup did not finish, try again later')
+      return tr('备份未完成，请稍后重试', 'Backup did not finish, try again later')
   }
 }
 
@@ -698,12 +867,15 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     characterProfile,
     profileEnabled,
     friendlyTone,
+    defaultPromptEnabled,
+    systemPromptEnabled,
     characterAvatar,
     avatarInChat,
     thoughtAside,
     memoryBadge,
     memoryInline,
     suppressMetaTalk,
+    basicRoleplayEnabled,
     suppressionPersonaEnabled,
     suppressionPersona,
     chatLayout,
@@ -713,6 +885,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     tokenLimit,
     showUsage,
     usageBelow,
+    balanceChipEnabled,
+    balanceChipPosition,
+    balanceChipShowUsage,
+    balanceChipPos,
+    homeLogo,
+    homeGreetings,
     autoFollow,
     memoryMode,
     memoryLimit,
@@ -728,6 +906,20 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
     sceneAutoUpdate,
   } = useSettings()
   const tr = (chinese: string, english: string) => (locale === 'zh-CN' ? chinese : english)
+  const balancePositionLabel =
+    balanceChipPosition === 'aboveInput'
+      ? tr('输入框上方', 'Above input')
+      : balanceChipPosition === 'top'
+        ? tr('顶栏', 'Top bar')
+        : tr('底部居中', 'Bottom center')
+  const cycleBalancePosition = () =>
+    setBalanceChipPosition(
+      balanceChipPosition === 'bottom'
+        ? 'aboveInput'
+        : balanceChipPosition === 'aboveInput'
+          ? 'top'
+          : 'bottom'
+    )
   // 角色卡启用时，卡名只用于卡本身与当前会话；档案名始终显示手写值，不被卡名替换
   const activeCharacterCard = roleplayEnabled
     ? findActiveCharacterCard(characterCards, activeCharacterId)
@@ -819,6 +1011,36 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const [file, setFile] = useState<File | null>(null)
   const [avatarBusy, setAvatarBusy] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [homeLogoBusy, setHomeLogoBusy] = useState(false)
+  const homeLogoInputRef = useRef<HTMLInputElement>(null)
+  /** 内置台词池：从未保存过自定义台词时，设置页与主页共用这一份；按时段填「高峰 / 空闲」。 */
+  const peakNow = getPeakHint().peak
+  const builtInGreetings = FAT_FISH_ALL_LINES.map((key) =>
+    t(key, { phase: t(peakNow ? 'peakHoursShort' : 'offpeakHoursShort') })
+  )
+  /** 主页台词草稿：逐条编辑，点保存才写回本机；空数组回退内置台词池。 */
+  const [greetingDraft, setGreetingDraft] = useState<string[]>(() =>
+    homeGreetings.length ? homeGreetings : builtInGreetings
+  )
+  /** 当前正在内联编辑的台词下标；同一时间只展开一条，避免整页变成输入框。 */
+  const [editingGreeting, setEditingGreeting] = useState<number | null>(null)
+  const updateGreetingDraft = (index: number, value: string) =>
+    setGreetingDraft((lines) => lines.map((line, i) => (i === index ? value : line)))
+  const chooseHomeLogo = async (event: { target: HTMLInputElement }) => {
+    const picked = event.target.files?.[0]
+    event.target.value = ''
+    if (!picked) {
+      return
+    }
+    setHomeLogoBusy(true)
+    try {
+      setHomeLogo(await prepareAvatar(picked))
+    } catch {
+      showToast({ key: 'profileAvatarInvalid', type: 'error' })
+    } finally {
+      setHomeLogoBusy(false)
+    }
+  }
   const memoryInput = useRef<HTMLInputElement>(null)
   const chooseCharacterAvatar = async (event: { target: HTMLInputElement }) => {
     const picked = event.target.files?.[0]
@@ -911,20 +1133,26 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
       items: [
         { page: 'character', label: labels.character, icon: labels.character },
         { page: 'roleplay', label: labels.roleplay, icon: labels.roleplay },
-        { page: 'memory', label: labels.memory, icon: labels.memory },
       ],
     },
     {
-      label: tr('生成与请求', 'Generation & request'),
+      label: tr('记忆区', 'Memory'),
+      items: [{ page: 'memory', label: labels.memory, icon: labels.memory }],
+    },
+    {
+      label: tr('功能区 · 对话与生成', 'Generation & request'),
       items: [
         { page: 'sampling', label: labels.sampling, icon: labels.sampling },
         { page: 'context', label: labels.context, icon: labels.context },
         { page: 'request', label: labels.request, icon: labels.request },
-        { page: 'refusal', label: labels.refusal, icon: labels.refusal },
       ],
     },
     {
-      label: tr('应用与关于', 'App & about'),
+      label: tr('安全与审核区', 'Safety & review'),
+      items: [{ page: 'refusal', label: labels.refusal, icon: labels.refusal }],
+    },
+    {
+      label: tr('视觉区 · 应用外观', 'Appearance'),
       items: [
         {
           page: 'personalization',
@@ -932,8 +1160,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
           icon: labels.personalization,
         },
         { page: 'font', label: labels.font, icon: labels.font },
-        { page: 'agreements', label: labels.agreements, icon: labels.agreements },
       ],
+    },
+    {
+      label: tr('关于', 'About'),
+      items: [{ page: 'agreements', label: labels.agreements, icon: labels.agreements }],
     },
   ]
   const activeNavigationPage: Page =
@@ -1473,7 +1704,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   const searchIndex: Array<{ label: string; keys: string; run: () => void }> = [
     {
       label: labels.character,
-      keys: '角色档案 角色设定 基础档案 人设 档案开关 年龄 性别 第三人称代词 代词 种族 生日 职业 居住地 语言 身高 体重 外貌 食物 饮品 兴趣 作息 随身物 宠物 性格 价值观 雷点 底线 配合 经历 关系 处境 目标 弱点 说话 秘密 补充设定 第一人称 旁白 叙述视角 system prompt 提示词 独白 动作 友好 语气 冰冷 高冷 说教 机械 情绪',
+      keys: '角色档案 角色设定 基础档案 人设 档案开关 基础扮演 角色扮演 青梅竹马 出戏压制 元叙述 自定义预设 年龄 性别 第三人称代词 代词 种族 生日 职业 居住地 语言 身高 体重 外貌 食物 饮品 兴趣 作息 随身物 宠物 性格 价值观 雷点 底线 配合 经历 关系 处境 目标 弱点 说话 秘密 补充设定 第一人称 旁白 叙述视角 system prompt 提示词 独白 动作 友好 语气 冰冷 高冷 说教 机械 情绪',
       run: () => openPage('character'),
     },
     {
@@ -1653,7 +1884,10 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 ) : null}
               </Group>
             ) : null}
-            <Group label={tr('账户与数据', 'Account & data')}>
+            <Section
+              label={tr('账户与数据', 'Account & data')}
+              summary={tr('账户、对话、备份与费用', 'Account, chats, backup & cost')}
+            >
               {!android ? (
                 <Row
                   label="DeepSeek API Key"
@@ -1689,8 +1923,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 )}
                 onClick={() => openPage('cost')}
               />
-            </Group>
-            <Group label={tr('角色与扮演', 'Role-play')}>
+            </Section>
+            <Section
+              label={tr('角色与扮演', 'Role-play')}
+              summary={tr('档案、角色卡与世界书', 'Profile, cards & world book')}
+            >
               <Row
                 label={labels.character}
                 value={tr(
@@ -1713,6 +1950,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 }
                 onClick={() => openPage('roleplay')}
               />
+            </Section>
+            <Section
+              label={tr('记忆区', 'Memory')}
+              summary={tr('长期记忆分层与配额', 'Long-term memory layers & budget')}
+            >
               <Row
                 label={labels.memory}
                 value={
@@ -1725,8 +1967,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 }
                 onClick={() => openPage('memory')}
               />
-            </Group>
-            <Group label={tr('生成与请求', 'Generation')}>
+            </Section>
+            <Section
+              label={tr('功能区 · 对话与生成', 'Generation')}
+              summary={tr('采样、上下文与请求', 'Sampling, context & request')}
+            >
               <Row
                 label={labels.sampling}
                 value={(() => {
@@ -1758,24 +2003,41 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               <Row
                 label={labels.request}
                 value={tr(
-                  `${safetyCheck ? '审核开' : '审核关'} · ${headerCount > 0 ? `${headerCount} 请求头` : autoTitle ? '自动' : '手动'}`,
-                  `Safety ${safetyCheck ? 'on' : 'off'} · ${headerCount > 0 ? `${headerCount} headers` : autoTitle ? 'auto' : 'manual'}`
+                  `${headerCount > 0 ? `${headerCount} 请求头` : autoTitle ? '自动标题' : '手动标题'}`,
+                  `${headerCount > 0 ? `${headerCount} headers` : autoTitle ? 'auto title' : 'manual title'}`
                 )}
                 onClick={() => openPage('request')}
               />
+            </Section>
+            <Section
+              label={tr('安全与审核区', 'Safety & review')}
+              summary={tr('本地拒答与关键词', 'Local refusal & keywords')}
+            >
               <Row
                 label={labels.refusal}
-                value={
-                  !refusalEnabled
-                    ? tr('已关闭', 'Off')
-                    : refusalCount > 0
-                      ? tr(`${refusalCount} 个关键词`, `${refusalCount} keywords`)
-                      : tr('已开启 · 未设关键词', 'On · no keywords')
-                }
+                value={tr(
+                  `审核${safetyCheck ? '开' : '关'} · ${
+                    !refusalEnabled
+                      ? '拒答关'
+                      : refusalCount > 0
+                        ? `${refusalCount} 个关键词`
+                        : '已开启 · 未设关键词'
+                  }`,
+                  `Safety ${safetyCheck ? 'on' : 'off'} · ${
+                    !refusalEnabled
+                      ? 'refusal off'
+                      : refusalCount > 0
+                        ? `${refusalCount} keywords`
+                        : 'on · no keywords'
+                  }`
+                )}
                 onClick={() => openPage('refusal')}
               />
-            </Group>
-            <Group label={tr('应用', 'App')}>
+            </Section>
+            <Section
+              label={tr('视觉区 · 应用外观', 'Appearance')}
+              summary={tr('语言、主题、字体与排版', 'Language, theme, font & layout')}
+            >
               <Row
                 label={language}
                 value={languageLabel}
@@ -1810,8 +2072,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 icon={<PersonalizationIcon />}
                 onClick={() => openPage('personalization')}
               />
-            </Group>
-            <Group label={tr('语音', 'Voice')}>
+            </Section>
+            <Section label={tr('语音', 'Voice')} summary={tr('音色与朗读', 'Voice tone & playback')}>
               <Row
                 label={voice}
                 value={currentTone.label}
@@ -1822,8 +2084,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   setPopup('voice')
                 }}
               />
-            </Group>
-            <Group label={tr('关于', 'About')}>
+            </Section>
+            <Section label={tr('关于', 'About')} summary={tr('版本、更新、诊断与协议', 'Version, updates, diagnostics & terms')}>
               <Row label={tr('版本信息', 'Version')} value={appVersion} />
               <Row
                 label={
@@ -1922,15 +2184,11 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 icon={<PolicyIcon />}
                 onClick={() => openPage('agreements')}
               />
-            </Group>
-            <Group spaced>
               <Row
                 label={tr('帮助与反馈', 'Help & Feedback')}
                 onClick={() => openAndroidPage(faqUrl, { showBrowserAction: false })}
               />
-            </Group>
-            {editor.apiKey ? (
-              <Group spaced>
+              {editor.apiKey ? (
                 <Row
                   label={logout}
                   icon={<LogoutIcon />}
@@ -1938,8 +2196,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   arrow={false}
                   onClick={() => setPopup('logout')}
                 />
-              </Group>
-            ) : null}
+              ) : null}
+            </Section>
           </>
         ) : null}
         {screen === 'account' ? (
@@ -1947,7 +2205,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
             <Group>
               <ProfileEditor />
             </Group>
-            <Group label={tr('账户', 'Account')}>
+            <Section label={tr('API 密钥', 'API Key')}>
               <Row
                 label="DeepSeek API Key"
                 value={editor.apiKey ? '••••••••' : undefined}
@@ -1959,6 +2217,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   <ApiKeyConfirm editor={editor} />
                 </div>
               ) : null}
+            </Section>
+            <Section label={tr('显示与模型', 'Display & model')}>
               <Row
                 label={tr('我的头像大小', 'My avatar size')}
                 value={`${userAvatarSize}px`}
@@ -1969,6 +2229,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 value={chatConfig.model}
                 onClick={() => openPage('advanced')}
               />
+            </Section>
+            <Section label={tr('帮助与链接', 'Help & links')}>
               <Row
                 label={tr('开放平台', 'Open platform')}
                 href="https://platform.deepseek.com/api_keys"
@@ -1977,7 +2239,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 label={tr('开放平台帮助', 'API help')}
                 href="https://api-docs.deepseek.com/zh-cn/"
               />
-            </Group>
+            </Section>
             <p className={styles.legal}>{t('appName')}</p>
           </>
         ) : null}
@@ -1988,166 +2250,153 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         ) : null}
         {screen === 'character' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
-                '这里放角色的基础档案，只回答「这个人是谁、身体怎样、怎么生活、哪些线不能碰」，不承担表达提示词、世界观、场景或玩法规则。档案与头像、显示、提示词、角色卡分开保存；角色名字也单独保存，角色卡启用时不会用卡名覆盖这里。\n档案开关默认开启。开启时，没有当前人物卡，这份档案进入每轮 system；有当前人物卡，以卡为准，档案不叠加。关闭后，档案字段仍保存在本机，但不会读取、不会进入 system，上面所有档案字段变灰只读；只有角色名字会保留为一条身份行，避免 system 完全失去姓名。重新开启后才能修改档案字段。这样两套身份不会在同一段 system 里互相打架。\n填写顺序：基本档案 → 身体与生活 → 性格与边界 → 剧情与表达。年龄、性别、第三人称代词、种族、身高、体重、生日、职业、居住地、语言尽量填全；第三人称代词只用于别人提到角色时的转述，正文里角色写自己一律用「我」，不要把「我」写成「她」「他」或角色姓名。这几项缺一项，角色就容易在对话里被临时改性别、改年龄或改成人不人鬼不鬼的样子。原创、OC、二创、游戏、动漫、小说角色都按这个顺序写。',
+                '本页维护角色基础档案：身份、身体状况、生活方式与性格边界；不承载系统提示词、世界观、场景或玩法规则。档案与头像、显示、提示词、角色卡分别存储，角色名字独立保存，启用角色卡不会覆盖它。\n读取开关默认开启：开启且无角色卡时，档案进入每轮 system；有角色卡时以卡为准，档案不叠加。关闭后字段保留在本机但不读取、不注入，对应项置灰只读；仅角色名保留为一条身份行，重新开启后可编辑，避免两套身份在同一段 system 中冲突。\n填写顺序：基本档案 → 身体与生活 → 性格与边界 → 剧情与表达。年龄、性别、第三人称代词、种族、身高、体重、生日、职业、居住地、语言尽量填全；第三人称代词仅用于他人转述，角色自述一律用「我」，不得写成「她」「他」或角色姓名。字段缺失会导致对话中性别、年龄或形象被临时改写。',
                 'This page holds the character base profile: who this person is, what body they live in, how they live and which lines they never cross. It carries no delivery prompt, lore, scene or play-style rules, and is stored separately from avatar, display, prompt and cards. The character name is also stored separately: enabling a card never overwrites it.\nThe profile switch is on by default. When on and no card is active, this profile enters every system turn; an active card wins and the profile is not stacked. When off, the profile fields stay on device but are never read or injected, and every field turns grey and read-only. Only the character name remains as a compact identity line so the system still knows who it is. Turn the switch back on to edit the profile fields. This keeps two identities from fighting inside one system block.\nOrder: basic facts → body & daily life → character & limits → story & voice. Fill age, gender, third-person pronouns, species, height, weight, birthday, occupation, residence and language whenever possible. Third-person pronouns only describe how others refer to the character; the character always writes about themself in the first person “I”, never as “she”, “he” or their own name. A missing one lets the character drift in gender, age or species mid-scene. Use the same order for OCs, fan characters, game, anime and novel characters.'
               )}
-            </p>
-            {profileGroups
-              .filter((_, index) => profileOpen || index === 0)
-              .map((group, index) => (
-                <Group
-                  key={group.key}
-                  label={tr(
-                    index === 0 ? `角色设定 · ${group.label}` : group.label,
-                    index === 0 ? `Character setting · ${group.labelEn}` : group.labelEn
-                  )}
-                >
-                  {index === 0 ? (
-                    <>
-                      <Row
-                        label={tr('读取基础档案', 'Read base profile')}
-                        value={profileEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
-                        arrow={false}
-                        control={
-                          <Switch
-                            label={tr('读取基础档案', 'Read base profile')}
-                            checked={profileEnabled}
-                            toggle={() => {
-                              const next = !profileEnabled
-                              setCharacterProfileEnabled(next)
-                              // 重新开启档案时自动展开字段，避免开关已开却只看到一张空卡。
-                              if (next) {
-                                setProfileOpen(true)
-                              }
-                            }}
-                          />
-                        }
-                      />
-                      <div className={styles.inlineField}>
-                        <span className={styles.inlineLabel}>{tr('角色名字', 'Name')}</span>
-                        <input
-                          className={styles.inlineInput}
+            </FoldNote>
+            <Group
+              label={tr('角色设定 · 基本档案', 'Character · Basic facts')}
+              collapsible
+              defaultOpen
+            >
+              <Row
+                label={tr('读取基础档案', 'Read base profile')}
+                value={profileEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('读取基础档案', 'Read base profile')}
+                    checked={profileEnabled}
+                    toggle={() => {
+                      const next = !profileEnabled
+                      setCharacterProfileEnabled(next)
+                      // 重新开启档案时自动展开字段，避免开关已开却只看到一张空卡。
+                      if (next) {
+                        setProfileOpen(true)
+                      }
+                    }}
+                  />
+                }
+              />
+              <div className={styles.inlineField}>
+                <span className={styles.inlineLabel}>{tr('角色名字', 'Name')}</span>
+                <input
+                  className={styles.inlineInput}
+                  data-disabled={!profileEnabled ? '' : undefined}
+                  value={characterName}
+                  placeholder={tr('留空则显示 AI', 'Blank shows AI')}
+                  aria-label={tr('角色名字', 'Character name')}
+                  maxLength={20}
+                  disabled={!profileEnabled}
+                  readOnly={!profileEnabled}
+                  onChange={(event) =>
+                    profileEnabled && setCharacterName(event.target.value)
+                  }
+                />
+              </div>
+              {activeCharacterCard ? (
+                <Row
+                  label={tr('当前角色卡', 'Active card')}
+                  value={activeCharacterCard.name}
+                  arrow={false}
+                />
+              ) : null}
+              <FoldNote tone="profileNotice">
+                {profileEnabled
+                  ? activeCharacterCard
+                    ? tr(
+                        '档案已开启：当前角色卡「' +
+                          activeCharacterCard.name +
+                          '」优先进入 system，卡名不会写入上面这行档案名；这里显示与保存的始终是手写名字。',
+                        'Profile is on: the active card “' +
+                          activeCharacterCard.name +
+                          '” wins in system, and its name is never written into the profile name above. This field always shows the hand-written name.'
+                      )
+                    : tr(
+                        '档案已开启：没有当前人物卡时，这份档案每轮进入 system；有当前人物卡时以卡为准。空字段不会注入，档案名独立保存。',
+                        'Profile is on: with no active card it enters every system turn; an active card wins. Empty fields are skipped, and the profile name is stored independently.'
+                      )
+                  : activeCharacterCard
+                    ? tr(
+                        '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system；当前角色卡「' +
+                          activeCharacterCard.name +
+                          '」的卡名不会改写这行档案名。',
+                        'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line. The active card “' +
+                          activeCharacterCard.name +
+                          '” never rewrites that profile name.'
+                      )
+                    : tr(
+                        '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system，避免模型完全失去姓名；重新开启后才能修改。',
+                        'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line so the model keeps a name. Turn the switch back on to edit.'
+                      )}
+              </FoldNote>
+              <Row
+                label={tr('展开基础档案', 'Show base profile')}
+                value={profileOpen ? tr('已展开', 'Expanded') : tr('已收起', 'Collapsed')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('展开基础档案', 'Show base profile')}
+                    checked={profileOpen}
+                    toggle={() => setProfileOpen((open) => !open)}
+                  />
+                }
+              />
+              <FoldNote tone="profileNotice">
+                {tr(
+                  '仅填写系统提示词、暂不填写基础档案时，可收起基础档案；重新展开后原有内容保留，不会被清空。',
+                  'When only the system prompt is needed, collapse the base profile; reopening it restores all saved fields.'
+                )}
+              </FoldNote>
+            </Group>
+
+            {profileOpen
+              ? profileGroups.slice(1).map((group) => (
+                  <Group
+                    key={group.key}
+                    label={tr(group.label, group.labelEn)}
+                  >
+                    <FoldNote tone="profileGroupHint">{tr(group.hint, group.hintEn)}</FoldNote>
+                    {group.fields.map((field) => {
+                      const en = CHARACTER_PROFILE_EN[field.key]
+                      return (
+                        <label
+                          className={styles.profileField}
                           data-disabled={!profileEnabled ? '' : undefined}
-                          value={characterName}
-                          placeholder={tr('留空则显示 AI', 'Blank shows AI')}
-                          aria-label={tr('角色名字', 'Character name')}
-                          maxLength={20}
-                          disabled={!profileEnabled}
-                          readOnly={!profileEnabled}
-                          onChange={(event) =>
-                            profileEnabled && setCharacterName(event.target.value)
-                          }
-                        />
-                      </div>
-                      {activeCharacterCard ? (
-                        <Row
-                          label={tr('当前角色卡', 'Active card')}
-                          value={activeCharacterCard.name}
-                          arrow={false}
-                        />
-                      ) : null}
-                      <p
-                        className={styles.profileNotice}
-                        data-off={!profileEnabled ? '' : undefined}
-                      >
-                        {profileEnabled
-                          ? activeCharacterCard
-                            ? tr(
-                                '档案已开启：当前角色卡「' +
-                                  activeCharacterCard.name +
-                                  '」优先进入 system，卡名不会写入上面这行档案名；这里显示与保存的始终是手写名字。',
-                                'Profile is on: the active card “' +
-                                  activeCharacterCard.name +
-                                  '” wins in system, and its name is never written into the profile name above. This field always shows the hand-written name.'
-                              )
-                            : tr(
-                                '档案已开启：没有当前人物卡时，这份档案每轮进入 system；有当前人物卡时以卡为准。空字段不会注入，档案名独立保存。',
-                                'Profile is on: with no active card it enters every system turn; an active card wins. Empty fields are skipped, and the profile name is stored independently.'
-                              )
-                          : activeCharacterCard
-                            ? tr(
-                                '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system；当前角色卡「' +
-                                  activeCharacterCard.name +
-                                  '」的卡名不会改写这行档案名。',
-                                'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line. The active card “' +
-                                  activeCharacterCard.name +
-                                  '” never rewrites that profile name.'
-                              )
-                            : tr(
-                                '档案已关闭：年龄、经历等字段不再读取，但上面的档案名仍会作为一条身份行进入 system，避免模型完全失去姓名；重新开启后才能修改。',
-                                'Profile is off: age, history and other fields are no longer read, but the profile name above still enters system as one compact identity line so the model keeps a name. Turn the switch back on to edit.'
-                              )}
-                      </p>
-                      <Row
-                        label={tr('展开基础档案', 'Show base profile')}
-                        value={profileOpen ? tr('已展开', 'Expanded') : tr('已收起', 'Collapsed')}
-                        arrow={false}
-                        control={
-                          <Switch
-                            label={tr('展开基础档案', 'Show base profile')}
-                            checked={profileOpen}
-                            toggle={() => setProfileOpen((open) => !open)}
-                          />
-                        }
-                      />
-                      <p className={styles.profileNotice}>
-                        {tr(
-                          '只写表达提示词、暂时不想填档案时，可以收起下面的基础档案；重新展开后原有内容都在，不会被清空。',
-                          'If you only want to write a delivery prompt, collapse the base profile below. Expanding it again restores every saved field.'
-                        )}
-                      </p>
-                    </>
-                  ) : null}
-                  {profileOpen ? (
-                    <>
-                      <p className={styles.profileGroupHint}>{tr(group.hint, group.hintEn)}</p>
-                      {group.fields.map((field) => {
-                        const en = CHARACTER_PROFILE_EN[field.key]
-                        return (
-                          <label
-                            className={styles.profileField}
+                          key={field.key}
+                        >
+                          <span className={styles.profileLabel}>
+                            <span>{tr(field.label, en.label)}</span>
+                            <span className={styles.profileHint}>{tr(field.hint, en.hint)}</span>
+                          </span>
+                          <textarea
+                            className={styles.profileInput}
                             data-disabled={!profileEnabled ? '' : undefined}
-                            key={field.key}
-                          >
-                            <span className={styles.profileLabel}>
-                              <span>{tr(field.label, en.label)}</span>
-                              <span className={styles.profileHint}>{tr(field.hint, en.hint)}</span>
-                            </span>
-                            <textarea
-                              className={styles.profileInput}
-                              data-disabled={!profileEnabled ? '' : undefined}
-                              rows={field.rows}
-                              value={characterProfile[field.key]}
-                              placeholder={tr(field.placeholder, en.placeholder)}
-                              aria-label={tr(field.label, en.label)}
-                              disabled={!profileEnabled}
-                              readOnly={!profileEnabled}
-                              onChange={(event) =>
-                                profileEnabled &&
-                                setCharacterProfileField(field.key, event.target.value)
-                              }
-                            />
-                          </label>
-                        )
-                      })}
-                    </>
-                  ) : null}
-                </Group>
-              ))}
-            <p className={styles.caption}>
+                            rows={field.rows}
+                            value={characterProfile[field.key]}
+                            placeholder={tr(field.placeholder, en.placeholder)}
+                            aria-label={tr(field.label, en.label)}
+                            disabled={!profileEnabled}
+                            readOnly={!profileEnabled}
+                            onChange={(event) =>
+                              profileEnabled &&
+                              setCharacterProfileField(field.key, event.target.value)
+                            }
+                          />
+                        </label>
+                      )
+                    })}
+                  </Group>
+                ))
+              : null}
+            <FoldNote tone="caption">
               {tr(
                 `已填写 ${profileFields}/${profileTotal} 项（角色名字单独保存，不计入这 ${profileTotal} 项）。档案开关关闭时，以上内容全部只读；重新开启后恢复编辑与注入。空字段不会进入 system，也不会用空白占位。`,
                 `${profileFields}/${profileTotal} fields filled (the name is stored separately and not counted). While the profile switch is off every field above is read-only; turning it back on restores editing and injection. Empty fields are skipped instead of sent as blanks.`
               )}
-            </p>
-            <p className={styles.pageIntro}>
-              {tr(
-                '头像仅在本机显示，不随请求上传。点击「角色头像」选择图片后，应用会居中裁切为正方形并压缩为 256px JPEG；「对话中显示头像」「角色头像大小」「头像形状」分别控制聊天中的显示、占位尺寸与外框。\n示例：为夜班店员设置冷色调半身像，聊天头像 32px、圆形。\n边界：角色卡之间不共享头像，显示图不进入请求。',
-                'The avatar stays on device and is never uploaded. Tapping Avatar crops the image to a centered square and compresses it to 256px JPEG. The rows below control chat display, reserved size and frame.\nExample: a cool-toned portrait for the night-shift clerk, 32px, circular.\nBoundary: cards do not share avatars, and the image never enters a request.'
-              )}
-            </p>
+            </FoldNote>
             <input
               ref={avatarInputRef}
               type="file"
@@ -2155,7 +2404,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               hidden
               onChange={(event) => void chooseCharacterAvatar(event)}
             />
-            <Group label={tr('头像与显示', 'Avatar & display')}>
+            <Group label={tr('头像与显示', 'Avatar & display')} collapsible>
+              <FoldNote tone="caption">
+                {tr(
+                  '头像仅在本机显示，不随请求上传。点击「角色头像」选择图片后，应用会居中裁切为正方形并压缩为 256px JPEG；「对话中显示头像」「角色头像大小」「头像形状」分别控制聊天中的显示、占位尺寸与外框。\n示例：为夜班店员设置冷色调半身像，聊天头像 32px、圆形。\n边界：角色卡之间不共享头像，显示图不进入请求。',
+                  'The avatar stays on device and is never uploaded. Tapping Avatar crops the image to a centered square and compresses it to 256px JPEG. The rows below control chat display, reserved size and frame.\nExample: a cool-toned portrait for the night-shift clerk, 32px, circular.\nBoundary: cards do not share avatars, and the image never enters a request.'
+                )}
+              </FoldNote>
               <Row
                 label={avatarBusy ? tr('正在处理…', 'Processing…') : tr('角色头像', 'Avatar')}
                 value={characterAvatar ? tr('已设置', 'Set') : tr('未设置', 'None')}
@@ -2191,37 +2446,44 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 onClick={() => setPopup('avatarShape')}
               />
             </Group>
-            <p className={styles.pageIntro}>
-              {tr(
-                '默认提示词是普通 DeepSeek AI 助手，不预置角色、人设或角色扮演规则；新装应用或恢复默认后，直接当普通助手使用。默认提示词还内置一份应用功能索引：用户问功能、入口或玩法时，会按相关分组介绍，普通聊天不会主动刷功能清单。清空提示词会回到这份默认官方助手，并暂停角色卡、档案与身份行；要角色扮演，填回默认或写自定义提示词并启用一张角色卡，也可以填写基础档案。提示词每轮都会发送，是角色行为的最高优先级说明。写法分三层：称呼与语气、动作与对白密度、约束（不替{{user}}决定行动、不复述设定、不出戏）。\n示例：\n称呼{{user}}为「你」，句子偏短，紧张时更沉默。\n用对话和动作推进，每轮只写一个动作落点。\n不复述设定，不替{{user}}决定行动。\n边界：提示词越长，每轮占用越多；世界观与剧情放角色卡、世界书和对话，不塞进这里。',
-                'The default prompt is a plain DeepSeek AI assistant with no persona, role or role-play rules. A fresh install or reset behaves as a normal assistant. It also carries an in-app feature index: when asked about features, entry points or usage it answers by relevant group, and stays quiet during ordinary chat. Clearing it returns to the default official assistant and pauses cards, profiles and identity lines; to role-play, restore the default or write a custom prompt and enable one character card, or fill the base profile. The prompt is sent every turn and overrides other behavioural hints. Write it in three layers: address and tone, action and dialogue density, constraints (never decide for {{user}}, never restate the setting, never break character).\nExample:\nCall {{user}} 「你」, keep sentences short, go quieter when nervous.\nAdvance through dialogue and one concrete action per turn.\nNever restate the setting or decide for {{user}}.\nBoundary: longer prompts cost context every turn. Keep lore and plot in cards, the worldbook and the chat.'
-              )}
-            </p>
-            <Group label={tr('system 身份名', 'System identity name')}>
+            <Group label={tr('system 身份名', 'System identity name')} collapsible>
               <Row
                 label={tr('本次生效的名字', 'Name used this turn')}
                 value={systemCharacterName}
                 arrow={false}
               />
               <Row label={tr('名字来源', 'Name source')} value={systemNameSource} arrow={false} />
+              <FoldNote tone="profileNotice">
+                {tr(
+                  '角色卡名只属于那张卡和当前会话，不会写入基础档案的名字。基础档案关闭后，档案字段全部停止读取，但档案名会保留为一条身份行，system 不会完全失去姓名；名字为空时才回退为 AI。',
+                  'A card name belongs to that card and the current session; it is never written into the base profile name. When the profile is off, all profile fields stop being read, but the profile name remains as one compact identity line so the system never loses the name completely. Only a blank name falls back to AI.'
+                )}
+              </FoldNote>
             </Group>
-            <p className={styles.profileNotice}>
-              {tr(
-                '角色卡名只属于那张卡和当前会话，不会写入基础档案的名字。基础档案关闭后，档案字段全部停止读取，但档案名会保留为一条身份行，system 不会完全失去姓名；名字为空时才回退为 AI。',
-                'A card name belongs to that card and the current session; it is never written into the base profile name. When the profile is off, all profile fields stop being read, but the profile name remains as one compact identity line so the system never loses the name completely. Only a blank name falls back to AI.'
-              )}
-            </p>
-            <Group label={tr('表达提示词', 'Delivery prompt')}>
+            <Group label={tr('系统提示词', 'System prompt')} collapsible>
+              <Row
+                label={tr('系统提示词', 'System prompt')}
+                value={systemPromptEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('系统提示词', 'System prompt')}
+                    checked={systemPromptEnabled}
+                    toggle={() => setSystemPromptEnabled(!systemPromptEnabled)}
+                  />
+                }
+              />
               <div className={styles.promptField}>
                 <textarea
                   className={styles.promptInput}
                   rows={10}
                   value={systemPrompt}
+                  disabled={!systemPromptEnabled}
                   placeholder={tr(
-                    '留空则回到默认官方助手，不注入角色卡、档案或身份行',
-                    'Leave empty to fall back to the default official assistant without card, profile or identity lines'
+                    '留空时由内置助手提示词接管；填入内容后按这里的身份与规则回应',
+                    'Leave empty to let the built-in assistant prompt take over; filled text is used as the identity and rules'
                   )}
-                  aria-label={tr('表达提示词', 'Delivery prompt')}
+                  aria-label={tr('系统提示词', 'System prompt')}
                   onChange={(event) => setSystemPrompt(event.target.value)}
                 />
                 <div className={styles.promptMeta}>
@@ -2233,33 +2495,65 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   </span>
                 </div>
               </div>
+              <FoldNote tone="caption">
+                {tr(
+                  '各可写提示词同级互斥：关闭哪一条即停止发送该条，身份不会在 system 中冲突。本开关关闭后，文本保留在本机但不注入，按空提示词判定身份，重新开启后恢复注入。\n模式口径：内置助手提示词开启时为普通助手；关闭后直接进入角色，依次按系统提示词、基础扮演预设、角色卡、档案或兜底人设出演。遇越界、违法或伤害性要求，由角色身份本身拒绝，不出戏转为客服说明。',
+                  'The writable prompts are mutually exclusive at the same level: whichever one you disable stops being sent, so identities never fight inside system. When this switch is off, your text stays locally but is not injected; identity is treated as an empty prompt, and injection resumes once you turn it back on. Mode: with the built-in assistant prompt on you are a plain assistant; once off you go straight into character, following your system prompt, basic preset, card, profile or fallback persona. Boundary-crossing, illegal or harmful requests are refused in-character instead of breaking out into customer-service mode.'
+                )}
+              </FoldNote>
             </Group>
-            <Group label={tr('出戏压制', 'Stay in character')}>
+            <Group label={tr('内置助手提示词', 'Built-in assistant prompt')} collapsible>
+              <FoldNote tone="caption">
+                {tr(
+                  '默认提示词为普通 DeepSeek AI 助手，不含角色、人设或扮演规则；新装或恢复默认后即作为普通助手使用。其中内置应用功能索引：被问及功能、入口或玩法时按相关分组作答，普通聊天不主动罗列功能。\n清空提示词将回到默认官方助手，并暂停角色卡、档案与身份行；如需扮演，请填回默认或编写自定义提示词并启用角色卡，或填写基础档案。提示词每轮发送，是角色行为的最高优先级说明。建议按三层组织：称呼与语气、动作与对白密度、约束（不替 {{user}} 决定行动、不复述设定、不出戏）。',
+                  'The default prompt is a plain DeepSeek AI assistant with no persona, role or role-play rules. A fresh install or reset behaves as a normal assistant. It also carries an in-app feature index: when asked about features, entry points or usage it answers by relevant group, and stays quiet during ordinary chat. Clearing it returns to the default official assistant and pauses cards, profiles and identity lines; to role-play, restore the default or write a custom prompt and enable one character card, or fill the base profile. The prompt is sent every turn and overrides other behavioural hints. Write it in three layers: address and tone, action and dialogue density, constraints (never decide for {{user}}, never restate the setting, never break character).'
+                )}
+              </FoldNote>
               <Row
-                label={tr('压制「按设定」这类元叙述', 'Suppress meta narration')}
-                value={suppressMetaTalk ? tr('开启', 'On') : tr('关闭', 'Off')}
+                label={tr('发送官方助手身份与应用功能索引', 'Send official assistant identity & feature index')}
+                value={defaultPromptEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
                 arrow={false}
                 control={
                   <Switch
-                    label={tr('压制「按设定」这类元叙述', 'Suppress meta narration')}
-                    checked={suppressMetaTalk}
-                    toggle={() => setSuppressMetaTalk(!suppressMetaTalk)}
+                    label={tr('内置助手提示词', 'Built-in assistant prompt')}
+                    checked={defaultPromptEnabled}
+                    toggle={() => setDefaultPromptEnabled(!defaultPromptEnabled)}
                   />
                 }
               />
-              <p className={styles.caption}>
+              <FoldNote tone="caption">
                 {tr(
-                  '开启后：有角色卡或基础档案时，在 system 末尾追加演出规则；提示词为空或是默认提示词时，直接进入基础角色扮演（内置大学青梅竹马）。关闭后，空/默认提示词回到普通 AI 助手，已有角色卡仍按自己的设定继续演。自定义提示词不受这个开关影响，只在末尾说明这是你写的提示词。',
-                  'When on: an active card or base profile gets the performance rule; an empty or default prompt enters basic roleplay with the built-in college childhood-friend preset. When off, empty/default prompts return to the plain assistant, while an existing card keeps roleplaying. Custom prompts are not overridden; they only get a short note that the text is user-authored.'
+                  '默认开启：发送官方 DeepSeek 助手身份及应用功能、入口与用法索引，行为为普通助手。关闭后不再发送该默认提示词，系统提示词或基础扮演预设在同级直接生效，不再叠加助手语气与一致性约束；两者均为空时使用内置兜底人设——温柔、偏向玩家、站在玩家一侧的角色「林晚」，避免模型退回预设客服口吻。兜底人设为内置常量，可在源码中自行改写。开关会改变 system 前缀，切换后首轮缓存未命中属于预期。',
+                  'On by default: sends the official DeepSeek assistant identity and this app’s feature, entry-point and usage index, so it behaves as a plain assistant. Off: this default prompt is no longer sent. Your handwritten prompt or the basic roleplay preset then acts as the system prompt at the same level, without extra assistant tone or consistency guards; if neither exists, the built-in fallback persona is used — 林晚, a gentle, user-aligned character on your side with full affection — so the model does not slip back into a preset customer-service assistant. The fallback persona is a built-in constant you can edit in source after open sourcing. The switch changes the system prefix, so a cache miss on the first turn after toggling is expected.'
                 )}
-              </p>
+              </FoldNote>
+            </Group>
+            <Group label={tr('基础扮演模式', 'Basic roleplay')} collapsible>
               <Row
-                label={tr('自定义基础角色扮演预设', 'Custom basic roleplay preset')}
+                label={tr('开启基础扮演', 'Enable basic roleplay')}
+                value={basicRoleplayEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('开启基础扮演', 'Enable basic roleplay')}
+                    checked={basicRoleplayEnabled}
+                    toggle={() => setBasicRoleplayEnabled(!basicRoleplayEnabled)}
+                  />
+                }
+              />
+              <FoldNote tone="caption">
+                {tr(
+                  '开启后，在系统提示词为空或保持默认、且无角色卡或基础档案时，使用内置青梅竹马预设（或下方自定义预设）进入扮演；关闭后空/默认提示词回到普通助手。已有角色卡、系统提示词或基础档案不受此开关影响。\n基础扮演预设与系统提示词同级互斥：填写自定义系统提示词后，本预设自动失效，二者不会同时进入 system。预设仅补充人物底色；角色卡、档案、世界书、场景与记忆中的既有描述优先级更高，冲突时以其为准。',
+                  'When on: an empty or default prompt, with no active card or base profile, enters roleplay using the built-in childhood-friend preset (or your custom preset below). When off, empty/default prompts return to the plain assistant. Existing cards, system prompts and base profiles are unaffected. The basic preset and your system prompt are mutually exclusive: once you write a custom system prompt, this preset stops applying, so the two never enter system together and do not fight. The preset only fills in the persona base; descriptions from cards, profiles, worldbook, scenes and memory take priority and win any conflict.'
+                )}
+              </FoldNote>
+              <Row
+                label={tr('使用自定义基础扮演提示词', 'Use custom basic roleplay prompt')}
                 value={suppressionPersonaEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
                 arrow={false}
                 control={
                   <Switch
-                    label={tr('自定义基础角色扮演预设', 'Custom basic roleplay preset')}
+                    label={tr('使用自定义基础扮演提示词', 'Use custom basic roleplay prompt')}
                     checked={suppressionPersonaEnabled}
                     toggle={() => setSuppressionPersonaEnabled(!suppressionPersonaEnabled)}
                   />
@@ -2275,20 +2569,40 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     '留空或关闭自定义时使用内置预设：大学时期的青梅竹马「沈知夏」。开启自定义并填写后，整段替换内置预设；关闭自定义立即回到内置预设，已写文本保留。',
                     'Leave empty or turn custom off to use the built-in preset: college childhood friend “沈知夏”. Custom text replaces it while enabled; turning custom off returns to the built-in preset and keeps the text.'
                   )}
-                  aria-label={tr('自定义基础角色扮演预设', 'Custom basic roleplay preset')}
+                  aria-label={tr('使用自定义基础扮演提示词', 'Use custom basic roleplay prompt')}
                   onChange={(event) => setSuppressionPersona(event.target.value)}
                 />
                 <div className={styles.promptMeta}>
                   <span>
                     {tr(
-                      '仅在压制设定开启、提示词为空或保持默认时生效。可以用 {{user}} 指代玩家；写清名字、关系、性格、说话方式和边界，不要写剧情线索或系统规则。',
-                      'Only applies when the stay-in-character option is on and the prompt is empty or default. Use {{user}} for the player; describe name, relationship, temperament, speech and boundaries, not plot clues or system rules.'
+                      '仅在基础扮演模式开启、提示词为空或保持默认时生效。可以用 {{user}} 指代玩家；写清名字、关系、性格、说话方式和边界，不要写剧情线索或系统规则；与角色卡、档案、世界书或记忆冲突时，以那些既有描述为准。',
+                      'Only applies when basic roleplay is on and the prompt is empty or default. Use {{user}} for the player; describe name, relationship, temperament, speech and boundaries, not plot clues or system rules. On conflict with cards, profiles, worldbook or memory, those existing descriptions win.'
                     )}
                   </span>
                 </div>
               </div>
             </Group>
-            <Group label={tr('演出呈现', 'Presentation')}>
+            <Group label={tr('出戏压制', 'Stay in character')} collapsible>
+              <Row
+                label={tr('压制「按设定」这类元叙述', 'Suppress meta narration')}
+                value={suppressMetaTalk ? tr('开启', 'On') : tr('关闭', 'Off')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('压制「按设定」这类元叙述', 'Suppress meta narration')}
+                    checked={suppressMetaTalk}
+                    toggle={() => setSuppressMetaTalk(!suppressMetaTalk)}
+                  />
+                }
+              />
+              <FoldNote tone="caption">
+                {tr(
+                  '开启后：在角色对话末尾追加演出规则，压制“按设定”“遵循规则”“分析用户意图”这类跳出戏剧的元叙述；普通助手对话不追加。这个开关只负责演出约束，不决定是否进入基础扮演。',
+                  'When on: performance rules are appended to roleplay turns to suppress out-of-character meta narration such as “per the setting” or intent analysis; plain assistant chats do not get them. This switch only controls the performance guard, not whether basic roleplay starts.'
+                )}
+              </FoldNote>
+            </Group>
+            <Group label={tr('演出呈现', 'Presentation')} collapsible>
               <Row
                 label={tr('角色内心独白', 'Inner monologue')}
                 value={
@@ -2305,14 +2619,14 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   />
                 }
               />
-              <p className={styles.caption}>
+              <FoldNote tone="caption">
                 {tr(
                   '括号里的内容（……）按内心独白处理：聊天里降低对比度，朗读与语音通话自动不朗读。关闭后括号与普通台词一样显示，也会被读出来。发给模型的原文不受影响。',
                   'Text in parentheses (…) is treated as inner monologue: dimmed in chat, skipped by read-aloud and voice calls. When off, parentheses read like normal lines and are spoken. What is sent to the model is unchanged.'
                 )}
-              </p>
+              </FoldNote>
             </Group>
-            <Group label={tr('友好助手语气', 'Friendly assistant tone')}>
+            <Group label={tr('友好助手语气', 'Friendly assistant tone')} collapsible>
               <Row
                 label={tr('避免冷漠、高冷、说教与机械感', 'Avoid cold, aloof or preachy replies')}
                 value={friendlyTone ? tr('开启', 'On') : tr('关闭', 'Off')}
@@ -2325,12 +2639,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   />
                 }
               />
-              <p className={styles.caption}>
+              <FoldNote tone="caption">
                 {tr(
-                  '默认开启。只对普通官方助手生效：在默认提示词末尾追加一段固定语气约束，要求专业、耐心、尊重，把用户当成具体的人并让用户感到被认真对待，语气自然、积极、有温度，先回应真正关心的问题；避免冷漠、高冷、居高临下、说教、机械模板或让用户觉得被轻视。角色卡、基础档案扮演与自定义提示词不追加，避免覆盖人设。开关状态会改变 system 前缀，切换后首轮缓存未命中属于预期。',
+                  '默认开启，仅作用于普通官方助手：在默认提示词末尾追加固定语气约束，要求专业、耐心、尊重，将用户视为具体的人并认真回应，语气自然、积极、有温度，优先回应其真实关切；避免冷漠、高冷、居高临下、说教、机械模板或让用户感到被轻视。角色卡、基础档案扮演与自定义提示词不追加该约束，以免覆盖人设。开关会改变 system 前缀，切换后首轮缓存未命中属于预期。',
                   'On by default. Applies only to the plain official assistant: a fixed tone rule is appended to the default prompt, asking for a professional, patient and respectful reply that treats the user as a person, makes them feel taken seriously, keeps a natural, positive and warm tone, and addresses the real concern first, without coldness, aloofness, condescension, preaching, mechanical templates or making the user feel dismissed. Character cards, base-profile role-play and custom prompts are left untouched so the persona is not overridden. The switch changes the system prefix, so a cache miss on the first turn after toggling is expected.'
                 )}
-              </p>
+              </FoldNote>
             </Group>
             <Group>
               <ResetRow
@@ -2351,13 +2665,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </summary>
               <p className={styles.helpBody}>
                 {tr(
-                  '角色卡：锁定身份、关系与说话方式；启用后与手写提示词叠加生效，不改写提示词原文。\n世界书：保存地点、组织、既往事件等稳定背景；常驻条目每轮发送，关键词条目命中才发送。\n场景：跟随当前会话记录时间、地点与在场人物，用于维持这段情节的连续性；新对话从空白开始。\n预算：默认 1,000 字，可调 500–20,000 字；单轮最多 6 条，按命中次数与权重排序，未命中不计入。\n示例：条目标题「便利店仓库」，关键词「仓库、后门」，正文「后门锁坏，仅店长知情」；对话提到仓库时才注入。\n边界：空字段不注入；设定存档含基础档案、角色卡、头像、世界书与当前会话场景，不含对话和记忆。',
+                  '角色卡：锁定身份、关系与说话方式；启用后与系统提示词叠加生效，不改写提示词原文。\n世界书：保存地点、组织、既往事件等稳定背景；常驻条目每轮发送，关键词条目命中才发送。\n场景：跟随当前会话记录时间、地点与在场人物，用于维持这段情节的连续性；新对话从空白开始。\n预算：默认 1,000 字，可调 500–20,000 字；单轮最多 6 条，按命中次数与权重排序，未命中不计入。\n示例：条目标题「便利店仓库」，关键词「仓库、后门」，正文「后门锁坏，仅店长知情」；对话提到仓库时才注入。\n边界：空字段不注入；设定存档含基础档案、角色卡、头像、世界书与当前会话场景，不含对话和记忆。',
                   'Cards lock identity, relationships and voice; when enabled they layer on top of the manual prompt without rewriting it.\nWorldbook stores places, groups and past events: always-on entries are sent every turn, keyword entries only on a hit.\nScene records time, location and present characters so the situation stays continuous.\nBudget: 1,000 chars by default, adjustable to 500–20,000; at most 6 entries per turn, ordered by hit count and weight, and misses cost nothing.\nExample: an entry titled 「便利店仓库」 with keywords 「仓库、后门」 and text 「后门锁坏，只有店长知道」 is sent only when the warehouse is mentioned.\nBoundary: empty fields are skipped. The archive holds cards, avatars, worldbook and scene, never chats or memories.'
                 )}
               </p>
             </details>
             <RoleplayPanel />
-            <Group label={tr('设定存档', 'Settings archive')}>
+            <Group label={tr('设定存档', 'Settings archive')} collapsible>
               <Row
                 label={tr('导出设定', 'Export settings')}
                 value={tr(
@@ -2405,84 +2719,84 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         ) : null}
         {screen === 'sampling' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
                 '采样参数控制回复的发散程度与单轮长度。温度越低输出越稳定，越高发散性越强；Top P 限制候选词范围；最大输出限制单轮 token。角色扮演常用温度 0.8–1.1、Top P 0.9–1。\n示例：回复偏离主题→温度由 1.1 降至 0.9；句式重复→温度上调 0.1 或将 Top P 降至 0.9；回复被截断→提高最大输出。\n边界：留空表示不发送该字段，由服务端使用默认值；不同模型的取值范围不同，超出范围会被接口拒绝。',
                 'Sampling controls variation and reply length. Lower temperature is steadier, higher is livelier; Top P narrows the candidate pool; max output caps a single turn. Role-play commonly uses temperature 0.8–1.1 and Top P 0.9–1.\nExample: drifting replies → drop temperature from 1.1 to 0.9; repeated phrasing → raise it by 0.1 or lower Top P to 0.9; truncated replies → raise max output.\nBoundary: blank omits the field and lets the server choose; ranges differ by model and out-of-range values are rejected.'
               )}
-            </p>
-            <Group label={tr('采样', 'Sampling')}>
+            </FoldNote>
+            <Group label={tr('采样', 'Sampling')} collapsible>
               <ParamField
                 label={tr('温度 temperature', 'Temperature')}
                 value={temperature}
                 placeholder={tr('默认', 'auto')}
-                min={0}
-                max={2}
-                step={0.1}
+                min={TEMPERATURE_MIN}
+                max={TEMPERATURE_MAX}
+                step={TEMPERATURE_STEP}
                 onChange={setTemperature}
               />
               <ParamField
                 label="Top P"
                 value={topP}
                 placeholder={tr('默认', 'auto')}
-                min={0}
-                max={1}
-                step={0.05}
+                min={TOP_P_MIN}
+                max={TOP_P_MAX}
+                step={TOP_P_STEP}
                 onChange={setTopP}
               />
               <ParamField
                 label={tr('最大输出 tokens', 'Max output tokens')}
                 value={maxTokens}
                 placeholder={tr('默认', 'auto')}
-                min={1}
-                max={1_000_000}
-                step={1}
+                min={MAX_TOKENS_MIN}
+                max={MAX_TOKENS_MAX}
+                step={MAX_TOKENS_STEP}
                 integer
                 onChange={setMaxTokens}
               />
             </Group>
-            <Group label={tr('角色扮演参数', 'Role-play sampling')}>
-              <p className={styles.caption}>
+            <Group label={tr('角色扮演参数', 'Role-play sampling')} collapsible>
+              <FoldNote tone="caption">
                 {tr(
                   '启用角色卡时优先使用本组，未填写的项继承通用值。通常仅需单独调整温度，Top P 与最大输出沿用通用值；未启用角色卡时不发送角色扮演参数。',
                   'While a character card is active this group wins; blank fields inherit the general values above. Raising temperature alone is usually enough; Top P and max output can stay inherited. RP values are not sent when no card is active.'
                 )}
-              </p>
+              </FoldNote>
               <ParamField
                 label={tr('温度 temperature', 'Temperature')}
                 value={rpTemperature}
                 placeholder={tr('继承通用', 'Inherit')}
-                min={0}
-                max={2}
-                step={0.1}
+                min={TEMPERATURE_MIN}
+                max={TEMPERATURE_MAX}
+                step={TEMPERATURE_STEP}
                 onChange={setRpTemperature}
               />
               <ParamField
                 label="Top P"
                 value={rpTopP}
                 placeholder={tr('继承通用', 'Inherit')}
-                min={0}
-                max={1}
-                step={0.05}
+                min={TOP_P_MIN}
+                max={TOP_P_MAX}
+                step={TOP_P_STEP}
                 onChange={setRpTopP}
               />
               <ParamField
                 label={tr('最大输出 tokens', 'Max output tokens')}
                 value={rpMaxTokens}
                 placeholder={tr('继承通用', 'Inherit')}
-                min={1}
-                max={1_000_000}
-                step={1}
+                min={MAX_TOKENS_MIN}
+                max={MAX_TOKENS_MAX}
+                step={MAX_TOKENS_STEP}
                 integer
                 onChange={setRpMaxTokens}
               />
             </Group>
-            <Group label={tr('用量提醒', 'Usage alert')}>
+            <Group label={tr('用量提醒', 'Usage alert')} collapsible>
               <Row
                 label={tr('Token 限额', 'Token limit')}
                 value={tokenLimit ? formatTokenCount(tokenLimit) : tr('关闭', 'Off')}
                 onClick={() => {
-                  setTokenDraft(String(tokenLimit || 256000))
+                  setTokenDraft(String(tokenLimit || TOKEN_LIMIT_DRAFT_DEFAULT))
                   setPopup('tokenLimit')
                 }}
               />
@@ -2510,18 +2824,18 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   />
                 }
               />
-              <p className={styles.caption}>
+              <FoldNote tone="caption">
                 {tr(
                   '默认显示在回复上方；打开后移到回复下方。记忆标记始终在消息末尾，不会被用量明细遮住。输入、输出、缓存命中和未命中显示完整数字并带千分位，达到 100 万后才缩写成 1M / 1.1M。',
                   'Default is above the reply; turn this on to move it below. Memory chips remain at the end of the message and are not covered. Input, output, cache hit and miss use full numbers with separators, switching to 1M / 1.1M only at one million.'
                 )}
-              </p>
-              <p className={styles.caption}>
+              </FoldNote>
+              <FoldNote tone="caption">
                 {tr(
-                  '限额是本地提醒阈值：接口实际累计消耗达到该值时提示一次，并显示顶栏胶囊。胶囊与统计面板只读取接口返回的 usage，不做本地分词估算；未返回 usage 的请求不计入，也不显示胶囊。该值不改变服务端计费上限。',
-                  'The limit is a local alert threshold: reaching it triggers one notice and shows the top-bar chip. Both the chip and the report read API usage only, never a local estimate; requests without usage are excluded and the chip stays hidden. The value does not change server-side billing.'
+                  '限额是提醒阈值：接口累计消耗达到该值时提示一次，并显示顶栏用量标识。用量标识与统计面板均按接口返回的用量字段统计；未返回用量的请求不计入，也不显示标识。该值不改变服务端计费上限。',
+                  'The limit is an alert threshold: reaching it triggers one notice and shows the top-bar usage badge. Both the badge and the report use API-reported usage; requests without usage are excluded and the badge stays hidden. The value does not change server-side billing.'
                 )}
-              </p>
+              </FoldNote>
             </Group>
             <Group>
               <ResetRow
@@ -2533,13 +2847,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         ) : null}
         {screen === 'request' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
                 '本页控制每次请求额外发送的扩展字段。官方 DeepSeek 地址保持默认；使用第三方网关时，按网关文档调整模型名、协议与请求头。\n示例：网关返回 400 并提示未知字段→关闭 safety_check 与 latest_reminder；网关要求额外鉴权→在自定义请求头写入 Authorization: Bearer <key>，同名请求头会覆盖内置值。\n边界：格式错误的请求头会被忽略；自定义头覆盖同名默认头，包括 Authorization；API Key 仅保存在本机。',
                 'This page controls the extra fields sent in each request. Keep defaults for the official DeepSeek endpoint; for a third-party gateway, follow its docs for model name, protocol and headers.\nExample: a gateway returns 400 for unknown fields → turn off safety_check and latest_reminder; extra auth is required → add Authorization: Bearer <key> under custom headers, which overrides built-ins of the same name.\nBoundary: malformed header lines are dropped; custom headers override built-ins including Authorization; the API key stays on device.'
               )}
-            </p>
-            <Group label={tr('生成配图', 'Illustration')}>
+            </FoldNote>
+            <Group label={tr('生成配图', 'Illustration')} collapsible>
               <div className={styles.promptField}>
                 <input
                   className={styles.promptInputLine}
@@ -2589,7 +2903,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 </div>
               </div>
             </Group>
-            <Group label={tr('自定义请求头', 'Custom headers')}>
+            <Group label={tr('自定义请求头', 'Custom headers')} collapsible>
               <div className={styles.promptField}>
                 <textarea
                   className={`${styles.promptInput} ${styles.promptInputCompact}`}
@@ -2613,19 +2927,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 </div>
               </div>
             </Group>
-            <Group label={tr('请求字段', 'Request fields')}>
-              <Row
-                label={tr('安全审核 safety_check', 'safety_check')}
-                value={safetyCheck ? tr('开启', 'On') : tr('关闭', 'Off')}
-                arrow={false}
-                control={
-                  <Switch
-                    label={tr('安全审核 safety_check', 'safety_check')}
-                    checked={safetyCheck}
-                    toggle={() => setSafetyCheck(!safetyCheck)}
-                  />
-                }
-              />
+            <Group label={tr('请求字段', 'Request fields')} collapsible>
               <Row
                 label={tr('上下文提醒 latest_reminder', 'latest_reminder')}
                 value={sendLatestReminder ? tr('开启', 'On') : tr('关闭', 'Off')}
@@ -2650,13 +2952,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   />
                 }
               />
+              <FoldNote tone="caption">
+                {tr(
+                  '上下文提醒：开启后发送当前日期与大致位置，用于时间与地点一致性；对隐私敏感或需要完全虚构时间线时可关闭。\n自动生成标题：在需要标题的首轮请求中携带 title 字段，由服务端生成；关闭后由首条消息文本生成。\n兼容性：网关不识别 DeepSeek 扩展字段并返回 400 时，可关闭 latest_reminder；安全审核 safety_check 在「安全与审核」分区中设置。',
+                  'latest_reminder sends the current date and approximate location for time and place consistency; turn it off when privacy matters or the timeline should stay fictional.\nServer-side title: the first title-bearing request carries a title field; when off, the first message text is used.\nCompatibility: turn off latest_reminder if a gateway rejects DeepSeek-specific fields. The safety_check toggle lives in the Safety & review section.'
+                )}
+              </FoldNote>
             </Group>
-            <p className={styles.caption}>
-              {tr(
-                '安全审核：开启后请求体携带 safety_check 字段，由服务端按其规则检查并过滤敏感内容。关闭后不再发送该字段，软件也不再替你过滤敏感内容；网关或服务商自身的安全审核仍可能存在。关闭后，模型说出的任何内容与行为、你发送的任何内容及由此产生的后果，均由使用者自行承担。自由是有代价的，请确认愿意承担再关闭。如果确实需要发送对话，请只发送正常的聊天内容；私密、深情的内容不要转发、截图分享或上传公开平台。\n上下文提醒：开启后发送当前日期与大致位置，用于时间与地点一致性；对隐私敏感或需要完全虚构时间线时可关闭。\n自动生成标题：在需要标题的首轮请求中携带 title 字段，由服务端生成；关闭后由首条消息文本生成。\n兼容性：网关不识别 DeepSeek 扩展字段并返回 400 时，可关闭 safety_check 与 latest_reminder。',
-                'safety_check: when on, the request carries the field and the server checks and filters sensitive content by its rules. When off, the field is omitted and the app no longer filters sensitive content for you; the gateway or provider may still moderate. With it off, any model output and any content you send, plus the consequences, are your responsibility. Freedom has a cost; confirm you accept it before turning this off. If you must send a conversation, send only ordinary chat content; do not forward, screenshot-share, or upload private or intimate content publicly.\nlatest_reminder sends the current date and approximate location for time and place consistency; turn it off when privacy matters or the timeline should stay fictional.\nServer-side title: the first title-bearing request carries a title field; when off, the first message text is used.\nCompatibility: turn off safety_check and latest_reminder if a gateway rejects DeepSeek-specific fields with a 400.'
-              )}
-            </p>
             <Group>
               <ResetRow
                 label={tr('恢复本页默认', 'Reset this page')}
@@ -2667,13 +2969,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         ) : null}
         {screen === 'context' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
                 '本页控制历史内容如何进入上下文。自动压缩在历史超出预算时额外发送一次摘要请求，并保留近期原文；关闭后不生成摘要，仅按轮次丢弃最旧内容。\n被拒轮次包含两个独立开关：保留正文用于避免气泡空白；允许进入上下文用于保留该轮。\n示例：长期角色扮演→关闭压缩，将关键设定放入世界书或记忆；日常问答→开启压缩以降低 Token。\n边界：关闭压缩不代表保存全部历史；摘要会改写旧内容；被拒内容进入上下文后可能再次触发拒答。',
                 'This page controls how history enters the context. Compaction makes one extra summarisation request when history grows too long and keeps recent turns verbatim; with it off, no summary is written and only the oldest rounds are dropped.\nRefused turns have two independent switches: keeping the text prevents an empty bubble; allowing context keeps that round in history.\nExample: long-form role-play → turn compaction off and put key facts in the worldbook or memory; everyday Q&A → keep it on to save tokens.\nBoundary: off does not mean unlimited history; summaries rewrite older content; refused content in context may trigger another refusal.'
               )}
-            </p>
-            <Group>
+            </FoldNote>
+            <Section label={tr('长对话压缩', 'Chat compaction')}>
               <Row
                 label={tr('自动压缩长对话', 'Compact long chats')}
                 value={autoCompact ? tr('开启', 'On') : tr('关闭', 'Off')}
@@ -2686,6 +2988,14 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   />
                 }
               />
+              <FoldNote tone="caption">
+                {tr(
+                  '关闭压缩后，仅按轮次丢弃最旧内容，且不生成摘要；保留正文可避免整轮空白；允许被拒轮次进入上下文后，该轮保留在历史里。三个开关相互独立，可按需组合。',
+                  'With compaction off, only the oldest rounds are dropped and no summary is written. Keeping refused text avoids a blank turn; allowing refused turns keeps that round in history. The three switches are independent.'
+                )}
+              </FoldNote>
+            </Section>
+            <Section label={tr('被拒轮次', 'Refused turns')}>
               <Row
                 label={tr('保留被拒回复的正文', 'Keep refused reply text')}
                 value={keepRefusedContent ? tr('开启', 'On') : tr('关闭', 'Off')}
@@ -2710,13 +3020,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   />
                 }
               />
-            </Group>
-            <p className={styles.caption}>
-              {tr(
-                '关闭压缩后，仅按轮次丢弃最旧内容，且不生成摘要；保留正文可避免整轮空白；允许被拒轮次进入上下文后，该轮保留在历史里。三个开关相互独立，可按需组合。',
-                'With compaction off, only the oldest rounds are dropped and no summary is written. Keeping refused text avoids a blank turn; allowing refused turns keeps that round in history. The three switches are independent.'
-              )}
-            </p>
+            </Section>
             <Group>
               <ResetRow
                 label={tr('恢复本页默认', 'Reset this page')}
@@ -2738,8 +3042,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               </p>
               <p className={styles.costPlain}>
                 {tr(
-                  '想省就关，不想省就保持原样；如果你很有钱，那当我没说，全部不用关。',
-                  'Turn them off to save, leave them on if you do not care. If money is no concern, ignore this page entirely.'
+                  '按实际消耗关闭不需要的选项；全部保留同样不影响功能正确性。',
+                  'Turn off options that are not needed for actual usage; keeping all options enabled does not affect functional correctness.'
                 )}
               </p>
               <p className={styles.costFine}>
@@ -2760,7 +3064,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 </span>
               </div>
             </section>
-            <Group label={tr('对话请求', 'Chat requests')}>
+            <Group label={tr('对话请求', 'Chat requests')} collapsible>
               <CostRow
                 label={tr('深度思考', 'Deep thinking')}
                 impact="high"
@@ -2812,7 +3116,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 )}
               />
             </Group>
-            <Group label={tr('额外请求', 'Extra requests')}>
+            <Group label={tr('额外请求', 'Extra requests')} collapsible>
               <CostRow
                 label={tr('记忆自动提炼', 'Memory auto refine')}
                 impact="mid"
@@ -2852,7 +3156,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 )}
               />
             </Group>
-            <Group label={tr('附加信息', 'Extra context')}>
+            <Group label={tr('附加信息', 'Extra context')} collapsible>
               <CostRow
                 label={tr('上下文提醒', 'Context reminder')}
                 impact="low"
@@ -2863,25 +3167,176 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   'Attaches date, weekday, approximate location and language each turn. The cost is very small; turn it off mainly when the timeline must be fully fictional.'
                 )}
               />
+              <FoldNote tone="caption">
+                {tr(
+                  '这里的开关与各功能页读取同一份设置：在「生成参数」「角色卡与世界书」「上下文与拒答」「长期记忆」里改动也会同步到这里，不会出现两套状态。',
+                  'These switches share the same settings as the feature pages. Changes in Sampling, Cards & worldbook, Context & refusal or Long-term memory are reflected here; there is only one state.'
+                )}
+              </FoldNote>
+              <FoldNote tone="caption">
+                {tr(
+                  '始终发送、没有提供开关的：系统提示词、当前角色卡、当前场景、历史消息与本次输入。要再降消耗，应缩短这些内容，或在「生成参数」降低最大输出。',
+                  'Always sent with no switch here: system prompt, active card, current scene, history and the current message. To cut further, shorten those fields or lower max output in Sampling.'
+                )}
+              </FoldNote>
+              <FoldNote tone="caption">
+                {tr(
+                  '字体大小、主题、头像、气泡、流式跟随只影响本机显示，不产生请求，也不需要为了省钱关闭。',
+                  'Text size, theme, avatars, bubbles and streaming follow only change local display. They send no request and do not need to be turned off to save money.'
+                )}
+              </FoldNote>
             </Group>
-            <p className={styles.caption}>
-              {tr(
-                '这里的开关与各功能页读取同一份设置：在「生成参数」「角色卡与世界书」「上下文与拒答」「长期记忆」里改动也会同步到这里，不会出现两套状态。',
-                'These switches share the same settings as the feature pages. Changes in Sampling, Cards & worldbook, Context & refusal or Long-term memory are reflected here; there is only one state.'
-              )}
-            </p>
-            <p className={styles.caption}>
-              {tr(
-                '始终发送、没有提供开关的：系统提示词、当前角色卡、当前场景、历史消息与本次输入。要再降消耗，应缩短这些内容，或在「生成参数」降低最大输出。',
-                'Always sent with no switch here: system prompt, active card, current scene, history and the current message. To cut further, shorten those fields or lower max output in Sampling.'
-              )}
-            </p>
-            <p className={styles.caption}>
-              {tr(
-                '字体大小、主题、头像、气泡、流式跟随只影响本机显示，不产生请求，也不需要为了省钱关闭。',
-                'Text size, theme, avatars, bubbles and streaming follow only change local display. They send no request and do not need to be turned off to save money.'
-              )}
-            </p>
+            <Group label={tr('主页外观', 'Home appearance')} collapsible>
+              <FoldNote tone="caption">
+                {tr(
+                  '主页 LOGO 与台词只在本机主页显示，不随请求上传。选择图片后会居中裁切为正方形并压缩为 256px JPEG；台词全部清空再保存会恢复内置台词池，主页点头像会从台词池随机换一句。',
+                  'The home logo and greeting stay on device and are never uploaded. Picking an image crops it to a centered square and compresses it to 256px JPEG. Leave the greeting empty to keep the time-based default, and the tap-avatar easter egg resumes working.'
+                )}
+              </FoldNote>
+              <input
+                ref={homeLogoInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(event) => void chooseHomeLogo(event)}
+              />
+              <Row
+                label={homeLogoBusy ? tr('正在处理…', 'Processing…') : tr('主页 LOGO', 'Home logo')}
+                value={homeLogo ? tr('已设置', 'Set') : tr('默认彩蛋图', 'Default')}
+                disabled={homeLogoBusy}
+                arrow={false}
+                control={
+                  <span className={styles.avatarPreview}>
+                    {homeLogo ? <img src={homeLogo} alt="" /> : <span>＋</span>}
+                  </span>
+                }
+                onClick={() => homeLogoInputRef.current?.click()}
+              />
+              {homeLogo ? (
+                <Row
+                  label={tr('移除自定义 LOGO', 'Remove custom logo')}
+                  value={tr('已设置', 'Set')}
+                  arrow={false}
+                  onClick={() => setHomeLogo(null)}
+                />
+              ) : null}
+              <p className={styles.eggHint}>
+                {tr(
+                  '点任意一条台词就能直接编辑；保存后，主页点头像会从这些台词里随机换一句。',
+                  'Tap any line to edit it. After saving, tapping the home avatar picks a random line from this pool.'
+                )}
+              </p>
+              <div className={styles.eggList}>
+                {greetingDraft.map((line, index) =>
+                  editingGreeting === index ? (
+                    <textarea
+                      key={index}
+                      className={styles.eggInput}
+                      value={line}
+                      rows={2}
+                      autoFocus
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      onChange={(event) => updateGreetingDraft(index, event.target.value)}
+                      onBlur={() => setEditingGreeting(null)}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      key={index}
+                      className={styles.eggItem}
+                      onClick={() => setEditingGreeting(index)}
+                    >
+                      {line.trim() || tr('点此输入台词', 'Tap to write a line')}
+                    </button>
+                  )
+                )}
+              </div>
+              <div className={styles.eggActions}>
+                <button
+                  type="button"
+                  className={styles.eggAdd}
+                  onClick={() => {
+                    setGreetingDraft((lines) => [...lines, ''])
+                    setEditingGreeting(greetingDraft.length)
+                  }}
+                >
+                  {tr('＋ 添加一条', '+ Add a line')}
+                </button>
+                <button
+                  type="button"
+                  className={styles.primary}
+                  onClick={() => {
+                    const saved = normalizeHomeGreetings(greetingDraft)
+                    setHomeGreetings(saved)
+                    setGreetingDraft(saved.length ? saved : builtInGreetings)
+                    setEditingGreeting(null)
+                  }}
+                >
+                  {tr('保存台词', 'Save lines')}
+                </button>
+              </div>
+              <p className={styles.eggHint}>
+                {tr(
+                  '逐条编辑后点保存才生效；把所有台词清空再保存，会恢复内置台词池。',
+                  'Edits apply only after Save. Clear every line and save to restore the built-in pool.'
+                )}
+              </p>
+              <ResetRow
+                label={tr('恢复主页默认外观', 'Reset home appearance')}
+                onClick={() => {
+                  resetHomeAppearance()
+                  setGreetingDraft(builtInGreetings)
+                  setEditingGreeting(null)
+                }}
+              />
+            </Group>
+            <Group label={tr('余额与用量显示', 'Balance & usage display')} collapsible>
+              <Row
+                label={tr('显示余额与用量胶囊', 'Show balance & usage chip')}
+                value={balanceChipEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('显示余额与用量胶囊', 'Show balance & usage chip')}
+                    checked={balanceChipEnabled}
+                    toggle={() => setBalanceChipEnabled(!balanceChipEnabled)}
+                  />
+                }
+              />
+              <Row
+                label={tr('胶囊附带上下文用量', 'Context usage on chip')}
+                value={balanceChipShowUsage ? tr('开启', 'On') : tr('关闭', 'Off')}
+                disabled={!balanceChipEnabled}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('胶囊附带上下文用量', 'Context usage on chip')}
+                    checked={balanceChipShowUsage}
+                    toggle={() => setBalanceChipShowUsage(!balanceChipShowUsage)}
+                  />
+                }
+              />
+              <Row
+                label={tr('胶囊位置', 'Chip position')}
+                value={balancePositionLabel}
+                disabled={!balanceChipEnabled}
+                onClick={cycleBalancePosition}
+              />
+              <Row
+                label={tr('恢复胶囊默认位置', 'Reset chip position')}
+                value={balanceChipPos ? tr('已手动拖动', 'Moved manually') : tr('默认', 'Default')}
+                disabled={!balanceChipEnabled || !balanceChipPos}
+                arrow={false}
+                onClick={() => setBalanceChipPos(null)}
+              />
+              <FoldNote tone="caption">
+                {tr(
+                  '主页用量排在问候文案上方；进入对话后以纯文本一行显示在输入框上方。点击用量行查看余额明细与本段上下文用量；数据由网关接口返回，可能存在延迟，未显示可点击刷新重试，第三方网关不提供余额接口时显示不可用。',
+                  'On home the usage sits above the greeting; in chat it shows as a plain text row above the composer. Tap the row for balance details and session context usage. Figures come from the gateway and may lag; refresh to retry. Gateways without a balance endpoint show unavailable.'
+                )}
+              </FoldNote>
+            </Group>
           </>
         ) : null}
         {screen === 'memory' ? (
@@ -2933,6 +3388,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 </div>
               </div>
             </div>
+            <Section label={tr('记忆模式', 'Memory mode')}>
             <div
               className={styles.memoryModeGrid}
               role="radiogroup"
@@ -2991,7 +3447,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 </span>
               </button>
             </div>
-            <p className={styles.caption}>
+            <FoldNote tone="caption">
               {memoryMode === 'refine'
                 ? tr(
                     '提炼后旧卡归档保留，可在面板查看；Token 消耗随之增加。',
@@ -3006,8 +3462,9 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                       '当前关闭：不记新卡片，已有卡片也不进入对话。',
                       'Off: no new cards, and existing cards are not injected.'
                     )}
-            </p>
-            <Group label={tr('记忆分层', 'Memory layers')}>
+            </FoldNote>
+            </Section>
+            <Group label={tr('记忆分层', 'Memory layers')} collapsible>
               <div className={styles.memoryKindGuide}>
                 <div>
                   <strong>{tr('完整回合', 'Full turn')}</strong>
@@ -3038,7 +3495,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 </div>
               </div>
             </Group>
-            <Group label={tr('角色记忆 · 卡片配额', 'Character memory · card quota')}>
+            <Group label={tr('角色记忆 · 卡片配额', 'Character memory · card quota')} collapsible>
               <div className={styles.memoryLimitRow}>
                 <span className={styles.memoryLimitLabel}>{tr('保留张数', 'Keep up to')}</span>
                 <span className={styles.memoryLimitValue}>{memoryLimit}</span>
@@ -3049,7 +3506,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 role="radiogroup"
                 aria-label={tr('卡片上限预设', 'Card limit presets')}
               >
-                {[60, 200, 1000, MEMORY_LIMIT_MAX].map((preset) => (
+                {MEMORY_LIMIT_PRESETS.map((preset) => (
                   <button
                     key={preset}
                     type="button"
@@ -3094,14 +3551,14 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   )}
                 </span>
               </div>
+              <FoldNote tone="caption">
+                {tr(
+                  '只统计自动与提炼卡；重要场景、关键事实、手动和置顶卡不占配额。超出后最早的自动卡归档，文本不删。9999 表示近似不限。',
+                  'Counts auto and refined cards only; scenes, facts, manual and pinned cards are exempt. Past the ceiling the oldest automatic cards are archived, never deleted. 9999 is effectively unlimited.'
+                )}
+              </FoldNote>
             </Group>
-            <p className={styles.caption}>
-              {tr(
-                '只统计自动与提炼卡；重要场景、关键事实、手动和置顶卡不占配额。超出后最早的自动卡归档，文本不删。9999 表示近似不限。',
-                'Counts auto and refined cards only; scenes, facts, manual and pinned cards are exempt. Past the ceiling the oldest automatic cards are archived, never deleted. 9999 is effectively unlimited.'
-              )}
-            </p>
-            <Group label={tr('角色记忆 · 字符预算', 'Character memory · character budget')}>
+            <Group label={tr('角色记忆 · 字符预算', 'Character memory · character budget')} collapsible>
               <div className={styles.memoryLimitRow}>
                 <span className={styles.memoryLimitLabel}>
                   {tr('记忆字数上限', 'Memory char ceiling')}
@@ -3116,7 +3573,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 role="radiogroup"
                 aria-label={tr('字符预算预设', 'Character budget presets')}
               >
-                {[10_000, 50_000, 100_000, MEMORY_CHARS_DEFAULT, MEMORY_CHARS_MAX].map((preset) => (
+                {MEMORY_CHARS_PRESETS.map((preset) => (
                   <button
                     key={preset}
                     type="button"
@@ -3161,14 +3618,14 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   )}
                 </span>
               </div>
+              <FoldNote tone="caption">
+                {tr(
+                  `${memoryChars.toLocaleString('zh-CN')} 字是单轮可拼入上限，也是本会话角色记忆总字数。超出后最早的自动卡归档，文本不删；实际注入还受卡片条数与模型上下文限制。`,
+                  `${memoryChars.toLocaleString('en-US')} chars is the per-request and per-session ceiling for character memory. Past it the oldest automatic cards are archived, never deleted; card count and model context also constrain injection.`
+                )}
+              </FoldNote>
             </Group>
-            <p className={styles.caption}>
-              {tr(
-                `${memoryChars.toLocaleString('zh-CN')} 字是单轮可拼入上限，也是本会话角色记忆总字数。超出后最早的自动卡归档，文本不删；实际注入还受卡片条数与模型上下文限制。`,
-                `${memoryChars.toLocaleString('en-US')} chars is the per-request and per-session ceiling for character memory. Past it the oldest automatic cards are archived, never deleted; card count and model context also constrain injection.`
-              )}
-            </p>
-            <Group label={tr('普通记忆（开发 / 问答 / 代码）', 'Normal memory (dev / Q&A / code)')}>
+            <Group label={tr('普通记忆（开发 / 问答 / 代码）', 'Normal memory (dev / Q&A / code)')} collapsible>
               <Row
                 label={tr('普通记忆注入', 'Normal memory injection')}
                 value={normalMemoryEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
@@ -3285,14 +3742,14 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   )}
                 </span>
               </div>
+              <FoldNote tone="caption">
+                {tr(
+                  '普通池与角色池独立配额，只按关键词检索，不参与剧情时间线。显示名是角色名时暂停注入，避免代码和开发日志污染人设；三连反引号代码块自动归入「代码」。',
+                  'Normal and character pools have separate quotas. Normal memory is keyword-only and never joins the story timeline. Injection pauses under a character name so dev logs cannot leak into the persona; triple-backtick blocks are filed as Code.'
+                )}
+              </FoldNote>
             </Group>
-            <p className={styles.caption}>
-              {tr(
-                '普通池与角色池独立配额，只按关键词检索，不参与剧情时间线。显示名是角色名时暂停注入，避免代码和开发日志污染人设；三连反引号代码块自动归入「代码」。',
-                'Normal and character pools have separate quotas. Normal memory is keyword-only and never joins the story timeline. Injection pauses under a character name so dev logs cannot leak into the persona; triple-backtick blocks are filed as Code.'
-              )}
-            </p>
-            <Group label={tr('使用方式', 'Usage')}>
+            <Group label={tr('使用方式', 'Usage')} collapsible>
               <Row
                 label={tr('顶栏记忆胶囊', 'Memory chip in top bar')}
                 value={memoryBadge ? tr('显示', 'Shown') : tr('隐藏', 'Hidden')}
@@ -3343,24 +3800,44 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 )}
                 arrow={false}
               />
+              <FoldNote tone="caption">
+                {tr(
+                  '记忆块放在系统内容最前面，先于基础档案和系统提示词。关闭某张卡只停止注入，文本仍在本机。',
+                  'The memory block sits before the character prompt. Switching a card off only stops injection; its text stays on device.'
+                )}
+              </FoldNote>
             </Group>
-            <p className={styles.caption}>
-              {tr(
-                '记忆块放在系统内容最前面，先于基础档案和表达提示词。关闭某张卡只停止注入，文本仍在本机。',
-                'The memory block sits before the character prompt. Switching a card off only stops injection; its text stays on device.'
-              )}
-            </p>
           </>
         ) : null}
         {screen === 'refusal' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
                 '关键词拒答在本地执行：检查用户输入文本，命中任意关键词时立即返回话术，不调用接口。\n操作顺序：开启后每行填写一个关键词；需要区分英文大小写时打开对应开关；话术可使用角色口吻。\n示例：关键词「自杀、自残」；话术「（{{char}}按住你的手）先停一下，告诉我你现在在哪。」\n边界：仅做字面匹配，不识别语义、谐音和变体；关键词留空则不拦截；关闭后请求正常发往接口。',
                 'Keyword refusal runs locally: your input is checked, and any hit returns the message without calling the API.\nUsage: enable it, put one keyword per line, turn on case sensitivity only if English casing matters, and write the message in character if you like.\nExample: keywords 「自杀、自残」; message 「({{char}} holds your hand) Stop for a moment. Tell me where you are.」\nBoundary: literal matching only, with no semantics, homophones or variants; an empty list blocks nothing; with it off, requests go to the endpoint as usual.'
               )}
-            </p>
-            <Group label={tr('本地拒答', 'Local refusal')}>
+            </FoldNote>
+            <Group label={tr('安全审核 safety_check', 'Safety check')} collapsible>
+              <Row
+                label={tr('安全审核 safety_check', 'safety_check')}
+                value={safetyCheck ? tr('开启', 'On') : tr('关闭', 'Off')}
+                arrow={false}
+                control={
+                  <Switch
+                    label={tr('安全审核 safety_check', 'safety_check')}
+                    checked={safetyCheck}
+                    toggle={() => setSafetyCheck(!safetyCheck)}
+                  />
+                }
+              />
+              <FoldNote tone="caption">
+                {tr(
+                  '安全审核：开启后请求体携带 safety_check 字段，由服务端按其规则检查并过滤敏感内容。关闭后不再发送该字段，软件也不再替你过滤敏感内容；网关或服务商自身的安全审核仍可能存在。关闭后，模型说出的任何内容与行为、你发送的任何内容及由此产生的后果，均由使用者自行承担。自由是有代价的，请确认愿意承担再关闭。如果确实需要发送对话，请只发送正常的聊天内容；私密、深情的内容不要转发、截图分享或上传公开平台。',
+                  'safety_check: when on, the request carries the field and the server checks and filters sensitive content by its rules. When off, the field is omitted and the app no longer filters sensitive content for you; the gateway or provider may still moderate. With it off, any model output and any content you send, plus the consequences, are your responsibility. Freedom has a cost; confirm you accept it before turning this off. If you must send a conversation, send only ordinary chat content; do not forward, screenshot-share, or upload private or intimate content publicly.'
+                )}
+              </FoldNote>
+            </Group>
+            <Group label={tr('本地拒答', 'Local refusal')} collapsible>
               <Row
                 label={tr('启用关键词拒答', 'Enable keyword refusal')}
                 value={refusalEnabled ? tr('开启', 'On') : tr('关闭', 'Off')}
@@ -3386,7 +3863,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 }
               />
             </Group>
-            <Group label={tr('关键词', 'Keywords')}>
+            <Group label={tr('关键词', 'Keywords')} collapsible>
               <div className={styles.promptField}>
                 <textarea
                   className={`${styles.promptInput} ${styles.promptInputCompact}`}
@@ -3409,7 +3886,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 </div>
               </div>
             </Group>
-            <Group label={tr('拒答话术', 'Refusal message')}>
+            <Group label={tr('拒答话术', 'Refusal message')} collapsible>
               <div className={styles.promptField}>
                 <textarea
                   className={`${styles.promptInput} ${styles.promptInputCompact}`}
@@ -3442,13 +3919,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         ) : null}
         {screen === 'data' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
                 '本页管理本机数据：自动备份、整包导入导出、长期记忆归档与数据结构检查。\n操作建议：根据会话频率设置自动备份间隔，文件保存至「下载/DeepSaga/自动备份」，只保留最近的完整备份；更换设备或重装后，在新设备通过「导入历史对话」选择该 ZIP。\n示例：每日使用→间隔 120 分钟；更换设备→先「导出所有历史对话」，再在新设备导入。\n边界：备份包含对话与设置，不含 API Key；导入前校验 ZIP 结构与 CRC；覆盖安装不会清除数据，系统清理仍可能删除应用数据。',
                 'This page manages on-device data: auto backup, full import/export, memory archive and post-update checks.\nDaily use: set a backup interval that matches your chat frequency; complete ZIPs go to Downloads/DeepSaga and only the latest five are kept. After switching or reinstalling, pick that ZIP under Import chat history.\nExample: chat daily → 120-minute interval; new phone → Export all chats first, then import on the new device.\nBoundary: backups contain chats and settings but no API key; imports verify the ZIP structure and CRC; a clean install keeps data, but system cleanup may still remove it.'
               )}
-            </p>
-            <p className={styles.caption}>
+            </FoldNote>
+            <FoldNote tone="caption">
               {tr(
                 '历史对话保存在此设备。API 数据处理适用 ',
                 'Chat history is stored on this device. API usage is subject to the '
@@ -3457,8 +3934,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 {tr('DeepSeek 开放平台隐私政策', 'DeepSeek Open Platform Privacy Policy')}
               </a>
               {tr('。', '.')}
-            </p>
-            <Group label={tr('自动备份', 'Auto backup')}>
+            </FoldNote>
+            <Group label={tr('自动备份', 'Auto backup')} collapsible>
               <Row
                 label={tr('自动备份到下载目录', 'Back up to Downloads')}
                 value={autoBackup ? tr('开启', 'On') : tr('关闭', 'Off')}
@@ -3541,7 +4018,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 arrow={false}
                 onClick={() => importInput.current?.click()}
               />
-              <p className={styles.caption}>
+              <FoldNote tone="caption">
                 {(() => {
                   const meta = readAutoBackupMeta()
                   return meta?.checksum && (!backupStatus || meta.name === backupStatus.name)
@@ -3554,8 +4031,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                         'A SHA-256 fingerprint is computed after each backup so the file can be matched to that export; imports also verify the ZIP structure and CRC.'
                       )
                 })()}
-              </p>
-              <p className={styles.caption}>
+              </FoldNote>
+              <FoldNote tone="caption">
                 {(() => {
                   const report = readMigrationReport()
                   const unreadable = getUnreadableRecordCount()
@@ -3595,15 +4072,19 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     `Update check: ${parts.join('; ')}. Nothing was deleted.`
                   )
                 })()}
-              </p>
-              <p className={styles.caption}>
+              </FoldNote>
+              <FoldNote tone="caption">
                 {tr(
                   `按设置的间隔检查，每 ${formatBackupInterval(autoBackupMinutes, tr)}最多备份一次，只保留最近 5 份完整文件，位置在「下载/DeepSaga/自动备份」。完整备份成功后，没有新增对话、消息或记忆时不会重复生成文件；只有检测到新数据才恢复按间隔备份。每次成功会提示结果；备份先写应用内临时文件，核对大小并校验 ZIP 后才发布到下载目录，写入中断或进程被杀不会留下半截文件。覆盖安装、重装或系统清理后，通过下方「导入」选择该文件可恢复全部对话；导入前会校验 ZIP 结构与 CRC，API Key 不随备份迁移，需要重新填写。`,
                   `Checked at most once every ${formatBackupInterval(autoBackupMinutes, tr)}; only the latest five complete files stay under Downloads/DeepSaga. After a verified backup, nothing is rewritten while no chats, messages or memories change; timed backups resume only after new data appears. A toast confirms every success. The export is written to a temporary file, size-checked and opened as a ZIP before it is published, so an interruption or process kill cannot leave a partial file. After an update, reinstall or cleanup, import one of them below; imports verify the ZIP and CRC, and the API key is not included.`
                 )}
-              </p>
+              </FoldNote>
             </Group>
-            <Group>
+            <Group
+              label={tr('历史对话导入导出', 'Chat history import & export')}
+              collapsible
+              defaultOpen={false}
+            >
               <Row
                 label={labels.export}
                 disabled={busy}
@@ -3612,8 +4093,6 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   openPage('export')
                 }}
               />
-            </Group>
-            <Group>
               <Row
                 label={clear}
                 danger
@@ -3621,8 +4100,6 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 disabled={busy}
                 onClick={() => setPopup('delete')}
               />
-            </Group>
-            <Group>
               <Row
                 label={t('historyImport')}
                 arrow={false}
@@ -3644,40 +4121,40 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   }
                 }}
               />
-            </Group>
-            {importStatus ? (
-              <p
-                className={styles.caption}
-                role={importStatus.type === 'error' ? 'alert' : 'status'}
-              >
-                {t(importStatus.key, importStatus.params)}
-              </p>
-            ) : null}
-            {importIssues.length > 0 ? (
-              <div className={styles.importIssues} role="status">
-                <div className={styles.importIssuesTitle}>
-                  {t('historyImportSkippedTitle', { count: importIssues.length })}
-                </div>
-                <ul className={styles.importIssuesList}>
-                  {importIssues.slice(0, 8).map((issue) => (
-                    <li key={issue.path}>
-                      {t('historyImportSkippedItem', {
-                        title:
-                          issue.title ||
-                          t('historyImportUnnamedSession', { id: issue.id ?? issue.path }),
-                        reason: t(issue.reason),
-                      })}
-                    </li>
-                  ))}
-                </ul>
-                {importIssues.length > 8 ? (
-                  <div className={styles.importIssuesMore}>
-                    {t('historyImportSkippedMore', { count: importIssues.length - 8 })}
+              {importStatus ? (
+                <p
+                  className={styles.caption}
+                  role={importStatus.type === 'error' ? 'alert' : 'status'}
+                >
+                  {t(importStatus.key, importStatus.params)}
+                </p>
+              ) : null}
+              {importIssues.length > 0 ? (
+                <div className={styles.importIssues} role="status">
+                  <div className={styles.importIssuesTitle}>
+                    {t('historyImportSkippedTitle', { count: importIssues.length })}
                   </div>
-                ) : null}
-              </div>
-            ) : null}
-            <Group label={tr('长期记忆归档', 'Memory archive')}>
+                  <ul className={styles.importIssuesList}>
+                    {importIssues.slice(0, 8).map((issue) => (
+                      <li key={issue.path}>
+                        {t('historyImportSkippedItem', {
+                          title:
+                            issue.title ||
+                            t('historyImportUnnamedSession', { id: issue.id ?? issue.path }),
+                          reason: t(issue.reason),
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                  {importIssues.length > 8 ? (
+                    <div className={styles.importIssuesMore}>
+                      {t('historyImportSkippedMore', { count: importIssues.length - 8 })}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </Group>
+            <Group label={tr('长期记忆归档', 'Memory archive')} collapsible>
               <Row
                 label={tr('导出记忆', 'Export memories')}
                 value={tr('选择分类后打包', 'Choose categories')}
@@ -3824,45 +4301,45 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                     .finally(() => setMemoryBusy(false))
                 }}
               />
+              <section
+                className={styles.memoryNotice}
+                aria-label={tr('记忆归档注意事项', 'Memory archive notes')}
+              >
+                <strong>{tr('记忆归档注意事项', 'Before you archive memory')}</strong>
+                <ul>
+                  <li>
+                    {tr(
+                      '耗时随卡片数量增长：数百张通常数秒，上千张需等待进度完成，期间请停留在本页。',
+                      'Time grows with card count: hundreds take seconds, thousands need the progress to finish.'
+                    )}
+                  </li>
+                  <li>
+                    {tr(
+                      '导入按会话与消息定位：原会话已删除、或那条消息已不存在，对应卡片不会导入并计数。',
+                      'Import matches by chat and message id; cards whose chat or message is gone are skipped.'
+                    )}
+                  </li>
+                  <li>
+                    {tr(
+                      '同 id 卡片不重复写入，本机已有记忆只增不减，不会被覆盖或删除。',
+                      'Cards with the same id are not written twice; existing memories are never overwritten.'
+                    )}
+                  </li>
+                  <li>
+                    {tr(
+                      '压缩包只含卡片本身：文本、来源、时间、启用与置顶状态；不含对话正文、附件和 API Key。',
+                      'The ZIP holds cards only: text, source, time and flags. No message text, attachments or API key.'
+                    )}
+                  </li>
+                  <li data-risk="">
+                    {tr(
+                      '归档包含本机记忆内容，可能涉及隐私或敏感信息。导出、存放与转交均需自行评估并承担相应风险；请勿存放于公共设备或转交他人。',
+                      'The archive contains what you saved locally and may include private or sensitive content. Deciding whether to export it, where to keep it and whom to share it with is your responsibility.'
+                    )}
+                  </li>
+                </ul>
+              </section>
             </Group>
-            <section
-              className={styles.memoryNotice}
-              aria-label={tr('记忆归档注意事项', 'Memory archive notes')}
-            >
-              <strong>{tr('记忆归档注意事项', 'Before you archive memory')}</strong>
-              <ul>
-                <li>
-                  {tr(
-                    '耗时随卡片数量增长：数百张通常数秒，上千张需等待进度完成，期间请停留在本页。',
-                    'Time grows with card count: hundreds take seconds, thousands need the progress to finish.'
-                  )}
-                </li>
-                <li>
-                  {tr(
-                    '导入按会话与消息定位：原会话已删除、或那条消息已不存在，对应卡片不会导入并计数。',
-                    'Import matches by chat and message id; cards whose chat or message is gone are skipped.'
-                  )}
-                </li>
-                <li>
-                  {tr(
-                    '同 id 卡片不重复写入，本机已有记忆只增不减，不会被覆盖或删除。',
-                    'Cards with the same id are not written twice; existing memories are never overwritten.'
-                  )}
-                </li>
-                <li>
-                  {tr(
-                    '压缩包只含卡片本身：文本、来源、时间、启用与置顶状态；不含对话正文、附件和 API Key。',
-                    'The ZIP holds cards only: text, source, time and flags. No message text, attachments or API key.'
-                  )}
-                </li>
-                <li data-risk="">
-                  {tr(
-                    '归档包含本机记忆内容，可能涉及隐私或敏感信息。导出、存放与转交均需自行评估并承担相应风险；请勿存放于公共设备或转交他人。',
-                    'The archive contains what you saved locally and may include private or sensitive content. Deciding whether to export it, where to keep it and whom to share it with is your responsibility.'
-                  )}
-                </li>
-              </ul>
-            </section>
             {memoryStatus ? (
               <p
                 className={styles.caption}
@@ -3876,12 +4353,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         ) : null}
         {screen === 'export' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
                 '导出会将本机全部对话、设置与记忆打包为 ZIP，用于设备迁移或留档。点击「保存到设备」后由系统文件选择器确定位置；Android 默认写入下载目录。\n示例：更换设备前导出一份，在新设备通过「导入历史对话」选择该 ZIP，按会话 id 合并。\n边界：ZIP 不含 API Key；文件可能包含隐私内容，请自行评估存放位置与共享范围。',
                 'Export packs all local chats, settings and memories into a ZIP for migration or archiving. Save to device opens the system file picker; on Android the default is Downloads.\nExample: export before switching phones, then import that ZIP on the new device; sessions merge by id.\nBoundary: the ZIP contains no API key; it may hold private content, so choose where it goes and whom to share it with.'
               )}
-            </p>
+            </FoldNote>
             <Group>
               <Row
                 label={tr('保存到设备', 'Save to device')}
@@ -3961,12 +4438,12 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         ) : null}
         {screen === 'font' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
                 '字体大小仅影响界面文字，不改变发送给模型的内容。拖动滑块可即时预览；「跟随系统」使用系统字体缩放，关闭后可固定字号。\n示例：系统缩放后仍偏小→关闭跟随并固定为 18px；小屏需要显示更多行→固定为 14px。\n边界：字号过大将导致长设置项换行，气泡内边距与消息间距不随之变化。',
                 'Text size affects interface text only, never what is sent to the model. Drag the slider for a live preview; Follow system uses the OS scale, and turning it off fixes a size.\nExample: the OS is already enlarged but still small → turn off Follow system and fix 18px; more lines on a small screen → fix 14px.\nBoundary: large sizes wrap long setting labels; bubble padding and message spacing stay unchanged.'
               )}
-            </p>
+            </FoldNote>
             <div
               className={styles.preview}
               style={{
@@ -3991,13 +4468,13 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         ) : null}
         {screen === 'personalization' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
                 '主题色、气泡圆角、聊天布局与消息间距仅改变本地外观，不进入请求。主题色应用于按钮、开关、链接与进度条；布局决定气泡结构。\n示例：深色主题搭配墨绿主题色，气泡使用大圆角，消息间距设为宽松。\n边界：切换布局不修改历史内容；个性化设置不随设定存档导出。',
                 'Accent color, bubble corners, chat layout and message spacing are local appearance only. The accent applies to buttons, switches, links and progress bars; layout changes the bubble structure.\nExample: dark mode with green accent, round corners and loose spacing.\nBoundary: switching layout never rewrites history; personalisation is not part of the settings archive.'
               )}
-            </p>
-            <Group label={tr('主题与气泡', 'Theme & bubbles')}>
+            </FoldNote>
+            <Group label={tr('主题与气泡', 'Theme & bubbles')} collapsible>
               <Row
                 label={tr('主题色', 'Accent color')}
                 value={
@@ -4043,7 +4520,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                 onClick={() => setPopup('messageSpacing')}
               />
             </Group>
-            <Group>
+            <Section label={tr('思考区自动折叠', 'Auto-fold thinking')}>
               <Row
                 label={autoFold}
                 control={
@@ -4054,23 +4531,23 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   />
                 }
               />
-            </Group>
-            <p className={styles.caption}>
-              {tr(
-                '开启后，推理结束会自动收起思考区；流式输出期间仍展开，方便看进度。关闭后保持展开，长回答会占用更多屏幕高度。',
-                'When on, the thinking block collapses once reasoning ends; it stays open during streaming so progress remains visible. When off it stays expanded and long answers take more screen height.'
-              )}
-            </p>
+              <FoldNote tone="caption">
+                {tr(
+                  '开启后，推理结束会自动收起思考区；流式输出期间仍展开，方便看进度。关闭后保持展开，长回答会占用更多屏幕高度。',
+                  'When on, the thinking block collapses once reasoning ends; it stays open during streaming so progress remains visible. When off it stays expanded and long answers take more screen height.'
+                )}
+              </FoldNote>
+            </Section>
           </>
         ) : null}
         {screen === 'agreements' ? (
           <>
-            <p className={styles.pageIntro}>
+            <FoldNote tone="pageIntro">
               {tr(
                 '本页列出应用使用的协议与权限说明。点击任一项目将在系统浏览器打开对应页面；清单随版本更新，权限项对应安装时系统展示的权限。\n示例：核对隐私政策中的数据用途，或查看第三方 SDK 共享清单。\n边界：页面内容由对应服务方维护，应用内不保存副本。',
                 'This page lists the agreements and permission notes used by the app. Tapping an item opens the corresponding page in the system browser; the list follows app versions, and permission items match what the installer requested.\nExample: verify data use in the privacy policy, or review the third-party SDK list.\nBoundary: the pages are maintained by their providers; the app keeps no local copy.'
               )}
-            </p>
+            </FoldNote>
             <Group>
               <Row
                 label={tr('用户协议', 'Terms of Use')}
@@ -4201,7 +4678,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               role="radiogroup"
               aria-label={tr('Token 限额预设', 'Token limit presets')}
             >
-              {[50000, 256000, 512000, 1000000].map((preset) => (
+              {TOKEN_LIMIT_PRESETS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
@@ -4645,31 +5122,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         <Choice
           title={tr('角色头像大小', 'Character avatar size')}
           value={String(characterAvatarSize)}
-          fields={[
-            {
-              id: '20',
-              label: tr('小 20', 'Small 20'),
-              description: tr('占用 20px，适合信息密集的列表。', '20px, suited to dense lists.'),
-            },
-            {
-              id: '24',
-              label: tr('标准 24', 'Default 24'),
-              description: tr('占用 24px，默认尺寸。', '24px, the default size.'),
-            },
-            {
-              id: '30',
-              label: tr('大 30', 'Large 30'),
-              description: tr('占用 30px，头像更突出。', '30px for stronger emphasis.'),
-            },
-            {
-              id: '36',
-              label: tr('特大 36', 'Extra 36'),
-              description: tr(
-                '占用 36px，适合单人或短对话。',
-                '36px for short or single-character chats.'
-              ),
-            },
-          ]}
+          fields={avatarSizeFields(tr)}
           confirmLabel={tr('确认', 'Confirm')}
           confirm={(value) => {
             setCharacterAvatarSize(Number(value))
@@ -4682,31 +5135,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
         <Choice
           title={tr('我的头像大小', 'My avatar size')}
           value={String(userAvatarSize)}
-          fields={[
-            {
-              id: '20',
-              label: tr('小 20', 'Small 20'),
-              description: tr('占用 20px，适合信息密集的列表。', '20px, suited to dense lists.'),
-            },
-            {
-              id: '24',
-              label: tr('标准 24', 'Default 24'),
-              description: tr('占用 24px，默认尺寸。', '24px, the default size.'),
-            },
-            {
-              id: '30',
-              label: tr('大 30', 'Large 30'),
-              description: tr('占用 30px，头像更突出。', '30px for stronger emphasis.'),
-            },
-            {
-              id: '36',
-              label: tr('特大 36', 'Extra 36'),
-              description: tr(
-                '占用 36px，适合单人或短对话。',
-                '36px for short or single-character chats.'
-              ),
-            },
-          ]}
+          fields={avatarSizeFields(tr)}
           confirmLabel={tr('确认', 'Confirm')}
           confirm={(value) => {
             setUserAvatarSize(Number(value))

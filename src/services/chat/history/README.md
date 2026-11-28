@@ -1,6 +1,6 @@
 # 历史会话归档：读写规则
 
-这份文档只说明历史会话 ZIP 是怎么读、怎么写、哪些内容能还原、哪些内容故意不还原。字段定义在 [format.ts](./format.ts)，校验规则在 [schema.ts](./schema.ts)，入口在 [../backup.ts](../backup.ts)。
+本文档规定历史会话 ZIP 的读取、写入、字段还原与明确丢弃规则。字段定义见 [format.ts](./format.ts)，校验规则见 [schema.ts](./schema.ts)，导入入口见 [../backup.ts](../backup.ts)。
 
 归档格式沿用 DeepSeek 的 `export_format_version: 3`，导出文件名是 `deepseek_data-日期.zip`。这不是一个新的私有格式；改的是导入后的本地消息模型和合并策略。
 

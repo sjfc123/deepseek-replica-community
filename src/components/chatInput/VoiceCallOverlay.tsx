@@ -12,7 +12,7 @@ import clsx from 'clsx'
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAndroidBackInterception } from '../../app/useAndroidBackInterception.js'
-import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
+import { resolveSessionCharacterCard } from '../../services/chat/roleplay.js'
 import { useChatStore } from '../../services/chat/store.js'
 import { useSettings } from '../../services/settings.js'
 import {
@@ -54,11 +54,14 @@ export const VoiceCallOverlay = () => {
   )
   const centerRef = useRef<HTMLDivElement | null>(null)
 
-  // 角色卡优先按本会话已绑定的人物判断；没有绑定时才看全局开关。
+  // 只有本会话绑定的角色卡才影响通话身份；空白新会话才继承全局启用卡。
   // 手写名字即使和某张卡同名也照常显示，不再用「卡名等于通用标题」的启发式误伤。
-  const activeCard =
-    findSessionCharacterCard(characterCards, callSession) ??
-    (roleplayEnabled ? findActiveCharacterCard(characterCards, activeCharacterId) : undefined)
+  const activeCard = resolveSessionCharacterCard(
+    characterCards,
+    callSession,
+    activeCharacterId,
+    roleplayEnabled
+  )
   const cardName = activeCard?.name?.trim() ?? ''
   const profileName = characterName.trim()
   const displayName = cardName || profileName

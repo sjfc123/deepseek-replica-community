@@ -18,6 +18,7 @@ import type {
   WebSearchToolResultBlock,
 } from '../api/types.js'
 import type { AssistantMessage, ThinkingPart } from './types.js'
+import { sanitizeThinkingText } from './thinkingText.js'
 
 /* ---- 01 类型、常量与模块依赖 ---- */
 /**
@@ -190,7 +191,7 @@ const joinTextBlocks = (
   return { markdown, text }
 }
 
-export const buildReplyView = (reply: AssistantMessage, streaming: boolean): ReplyView => {
+export const buildReplyView = (reply: AssistantMessage, streaming: boolean, userName = ''): ReplyView => {
   const results = new Map<string, WebSearchToolResultBlock | WebFetchToolResultBlock>()
   for (const block of reply.blocks) {
     if (block.type === 'web_search_tool_result' || block.type === 'web_fetch_tool_result') {
@@ -253,12 +254,17 @@ export const buildReplyView = (reply: AssistantMessage, streaming: boolean): Rep
       return
     }
     if (block.type === 'thinking') {
+      // 展示副本先归一：抹除元分析措辞，泛称换成昵称；原始块与签名不变。
+      const thinkingBlock: ThinkingPart = {
+        ...block,
+        thinking: sanitizeThinkingText(block.thinking, userName),
+      }
       // 相邻思考块沿用同一个圆点和 Markdown；原始块与签名不变。
       if (mergedThinking) {
-        mergedThinking.blocks.push(block)
-      } else if (block.thinking) {
+        mergedThinking.blocks.push(thinkingBlock)
+      } else if (thinkingBlock.thinking) {
         flushPreamble()
-        mergedThinking = { type: 'thinking', key: `thinking-${index}`, blocks: [block] }
+        mergedThinking = { type: 'thinking', key: `thinking-${index}`, blocks: [thinkingBlock] }
         steps.push(mergedThinking)
       }
       return

@@ -1,16 +1,29 @@
+/* ============================================================================
+ * 功能区：构建配置 / Android 应用模块
+ * 职责：声明应用 ID、版本、SDK 级别、发布签名与 Web 资源前置构建，产出可安装的 release APK。
+ * 分区：01 发布签名参数；02 Android 编译配置；03 Web 资源前置构建
+ * 关联：读取根工程 keystore.properties 与 release.jks；调用 pnpm build 生成 dist；被 settings.gradle 引入。
+ * 导出：无模块导出；Gradle 任务 assembleRelease、buildWeb。
+ * 边界：只描述 Android 构建参数与任务依赖；不包含签名文件、密钥内容或业务源码。
+ * ========================================================================== */
+
 plugins {
     id 'com.android.application' version '9.4.0'
 }
 
+/* ---- 01 发布签名参数 ---- */
 def releaseSigning = new Properties()
 def releaseSigningFile = rootProject.file('keystore.properties')
 if (releaseSigningFile.isFile()) {
     releaseSigningFile.withInputStream { releaseSigning.load(it) }
 }
 
+/* ---- 02 Android 编译配置 ---- */
 android {
     namespace = 'io.github.sjfc123.deepsaga'
-    compileSdk = 37
+    // 公网 SDK 仓库当前只提供到 android-36 平台；本工程 minSdk 29、targetSdk 36，
+    // 源码未使用 API 37 专属接口，因此编译平台对齐到 36。
+    compileSdk = 36
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -40,6 +53,7 @@ android {
     }
 }
 
+/* ---- 03 Web 资源前置构建 ---- */
 def webProject = rootProject.projectDir.parentFile
 def webOutput = new File(webProject, 'dist')
 

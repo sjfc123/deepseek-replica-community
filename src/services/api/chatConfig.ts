@@ -10,8 +10,10 @@
  * ========================================================================== */
 
 /* ---- 01 类型、契约与依赖 ---- */
+/** 默认模型名：仅在用户未填写模型时作为占位与回退，不强制服务端使用该模型 */
 export const DEFAULT_CHAT_MODEL = 'deepseek-flash'
 
+/** 支持的接口协议格式：键为内部标识，值为界面展示名 */
 export const CHAT_API_FORMATS = {
   messages: 'Anthropic Messages',
   chat: 'OpenAI Chat Completions',
@@ -31,12 +33,14 @@ export type ChatConfig = {
   imageSize?: string
 }
 
+/** 各协议格式对应的请求路径，拼接到端点地址之后 */
 export const CHAT_API_PATHS: Record<ChatApiFormat, string> = {
   messages: '/messages',
   chat: '/chat/completions',
   responses: '/responses',
 }
 
+/** 出厂默认配置：模型、端点、密钥与配图项均留空，由用户或本机存储填充 */
 export const DEFAULT_CHAT_CONFIG: ChatConfig = {
   model: '',
   endpoint: '',

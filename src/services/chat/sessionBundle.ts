@@ -14,7 +14,7 @@ import * as db from './db.js'
 import type { Session, SessionSummary } from './types.js'
 import type { MemoryCard } from './memory.js'
 import type { CharacterCard, WorldbookEntry, SceneState } from './roleplay.js'
-import { EMPTY_SCENE, findSessionCharacterCard, normalizeScene } from './roleplay.js'
+import { EMPTY_SCENE, normalizeScene, resolveSessionCharacterCard } from './roleplay.js'
 import { useSettings } from '../settings.js'
 import { useChatStore } from './store.js'
 import { createId } from '../../utils/id.js'
@@ -85,7 +85,7 @@ export const loadSessionForExport = async (id: string): Promise<Session | undefi
   return db.loadSession(id)
 }
 
-/** 组装单会话包：角色卡优先取本会话绑定人物，其次才用全局启用卡；世界书只带走相关或全局的可用条目 */
+/** 组装单会话包：只取本会话绑定人物；空白新会话才用全局启用卡，普通会话不附带角色卡 */
 export const buildSessionBundle = async (
   summary: SessionSummary,
   now = Date.now()
@@ -94,12 +94,15 @@ export const buildSessionBundle = async (
   if (!session) {
     return null
   }
-  const { characterCards, activeCharacterId, worldbook } = useSettings.getState()
+  const { characterCards, activeCharacterId, roleplayEnabled, worldbook } =
+    useSettings.getState()
   const card =
-    findSessionCharacterCard(characterCards, session) ??
-    (activeCharacterId
-      ? (characterCards.find((item) => item.id === activeCharacterId) ?? null)
-      : null)
+    resolveSessionCharacterCard(
+      characterCards,
+      session,
+      activeCharacterId,
+      roleplayEnabled
+    ) ?? null
   const related = worldbook.filter(
     (entry) => entry.enabled && (!entry.cardId || entry.cardId === (card?.id ?? ''))
   )

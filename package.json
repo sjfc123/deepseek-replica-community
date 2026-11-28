@@ -16,6 +16,7 @@
     "test:story": "node --experimental-strip-types scripts/test-story.mjs",
     "test:auto-backup": "node --experimental-strip-types scripts/test-auto-backup.mjs",
     "test:data": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-data-management.mjs",
+    "test:import-attach": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-import-attachments.mjs",
     "test:prompt": "node --experimental-strip-types scripts/test-default-prompt.mjs",
     "test:memory": "node --experimental-strip-types scripts/test-memory-prune.mjs",
     "test:memory-routing": "node --experimental-strip-types scripts/test-memory-routing.mjs",
@@ -23,7 +24,8 @@
     "test:memory-layers": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-memory-layers.mjs",
     "test:groups": "node --experimental-strip-types scripts/test-session-groups.mjs",
     "test:suggestions": "node --experimental-strip-types scripts/test-suggestions.mjs",
-    "test:cache": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-cache-diagnostics.mjs"
+    "test:cache": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-cache-diagnostics.mjs",
+    "test:balance": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-balance.mjs"
   },
   "dependencies": {
     "@formatjs/intl-displaynames": "8.0.3",

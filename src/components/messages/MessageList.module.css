@@ -135,6 +135,28 @@
   padding-bottom: 24px;
 }
 
+.loadEarlierRow {
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 6px;
+}
+
+.loadEarlierBtn {
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.loadEarlierBtn:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
 /* ---- 03 安卓列表对齐 ---- */
 /* 与官方 Android 端一致：正文最大内容宽度 768dp（含左右各 20px 内边距共 808px） */
 [data-android] .column {

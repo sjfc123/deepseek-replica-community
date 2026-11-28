@@ -35,6 +35,7 @@ import {
   WORLDBOOK_WEIGHT_DEFAULT,
   WORLDBOOK_MAX,
   findSessionCharacterCard,
+  resolveSessionCharacterCard,
   newRoleplayId,
   normalizeKeywords,
   normalizeSourceUrl,
@@ -587,8 +588,13 @@ export function RoleplayPanel() {
   const boundCard = findSessionCharacterCard(cards, activeSession)
   const activeCard = cards.find((card) => card.id === activeCharacterId)
   const globalRoleplayOn = roleplayEnabled && Boolean(activeCard)
-  /** 全局开关只决定新会话；已经绑定角色的会话继续沿用该卡 */
-  const previewCard = boundCard ?? (roleplayEnabled ? activeCard : undefined)
+  /** 全局开关只决定空白新会话；已经绑定角色的会话继续沿用该卡，已有消息的普通会话不被回填 */
+  const previewCard = resolveSessionCharacterCard(
+    cards,
+    activeSession,
+    activeCharacterId,
+    roleplayEnabled
+  )
   const roleplayOn = Boolean(previewCard)
   const isNewDraft = Boolean(cardDraft && !cards.some((card) => card.id === cardDraft.id))
   const { recentText, sessionText } = useMemo(() => {
@@ -1574,7 +1580,7 @@ export function RoleplayPanel() {
             />
           </label>
           <label className={styles.wide}>
-            <span>系统指令（卡内规则，低于手写系统提示）</span>
+            <span>系统指令（卡内规则，低于系统提示词）</span>
             <textarea
               rows={4}
               value={cardDraft.systemDirective}
@@ -1761,7 +1767,7 @@ export function RoleplayPanel() {
           <h2>角色卡 · 世界书 · 场景</h2>
           <p>
             角色卡保存身份、关系、情景、目标、秘密与玩法，可配置头像；世界书按分类、关键词、避触词和历史范围命中；
-            场景记录天气、气氛、在场人物、目标与冲突。三层内容追加在手写提示词之后，不改写原文。
+            场景记录天气、气氛、在场人物、目标与冲突。三层内容追加在系统提示词之后，不改写原文。
             人物一旦进入某个会话，后续即使关闭全局开关也沿用该卡，避免中途换人。
           </p>
         </div>
@@ -1899,11 +1905,11 @@ export function RoleplayPanel() {
             <p>
               {roleplayOn
                 ? globalRoleplayOn && previewCard?.id === activeCard?.id
-                  ? '每次请求会注入该卡设定与手写提示词，两者叠加生效。'
+                  ? '每次请求会注入该卡设定与系统提示词，两者叠加生效。'
                   : '该人物已经进入本会话；关闭全局开关只影响新会话，这里仍按卡设定继续，不会中途换回系统人格。'
                 : activeCard
-                  ? '全局开关已关闭：新会话回到手写提示词；已经绑定该角色的旧会话继续沿用卡设定与场景，不会中途换人。'
-                  : '当前仅发送手写提示词，不注入角色设定；启用任一张卡即可恢复角色扮演。'}
+                  ? '全局开关已关闭：新会话回到系统提示词；已经绑定该角色的旧会话继续沿用卡设定与场景，不会中途换人。'
+                  : '当前仅发送系统提示词，不注入角色设定；启用任一张卡即可恢复角色扮演。'}
             </p>
           </div>
           {activeCard ? (
@@ -2019,7 +2025,7 @@ export function RoleplayPanel() {
                             : inSession
                               ? '该人物已进入本会话，全局开关关闭也继续沿用'
                               : selected
-                                ? '全局开关已关，新会话回到手写提示词'
+                                ? '全局开关已关，新会话回到系统提示词'
                                 : card.builtin
                                   ? '内置角色卡，可直接编辑'
                                   : `${formatDate(card.updatedAt)} 更新`}
@@ -2152,7 +2158,7 @@ export function RoleplayPanel() {
           <p className={styles.sectionFoot}>
             最多保存 {CHARACTER_CARD_MAX}{' '}
             张，同一时间仅保留一张全局启用卡。关闭全局开关只影响新会话；
-            已经创建过该人物的会话会继续沿用卡设定、世界书、场景和角色记忆，不会突然切回手写人格。
+            已经创建过该人物的会话会继续沿用卡设定、世界书、场景和角色记忆，不会突然切回系统提示词人格。
           </p>
           <button type="button" className={styles.ghostButton} onClick={restoreBuiltinCards}>
             恢复内置角色卡（{BUILTIN_CHARACTER_CARD_TOTAL}）
@@ -2748,7 +2754,7 @@ export function RoleplayPanel() {
             <strong>删除「{confirm.name}」？</strong>
             <p>
               {confirm.kind === 'card'
-                ? '只删这张卡。手写的提示词和以前的对话都不动。'
+                ? '只删这张卡。系统提示词和以前的对话都不动。'
                 : '只删这条背景。已经聊过的消息不会变。'}
             </p>
             <div className={styles.confirmActions}>

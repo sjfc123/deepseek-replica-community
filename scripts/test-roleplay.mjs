@@ -35,6 +35,7 @@ const {
   formatWorldbookBlock,
   dedupeWorldbookEntries,
   findSessionCharacterCard,
+  resolveSessionCharacterCard,
   resolveTurnCharacterCard,
   selectWorldbookEntries,
   parseSceneUpdate,
@@ -490,6 +491,53 @@ assert.equal(
   '关闭全局开关后已绑定会话仍应沿用人物'
 )
 assert.equal(resolveTurnCharacterCard([], session, null, false), undefined)
+
+const plainSession = {
+  id: 's2',
+  title: 'DeepSeek自我介绍',
+  createdAt: 2,
+  updatedAt: 2,
+  messages: [
+    {
+      id: 'm2',
+      role: 'user',
+      content: '你是谁？',
+      createdAt: 2,
+    },
+    {
+      id: 'm3',
+      role: 'assistant',
+      createdAt: 2,
+      blocks: [
+        { type: 'text', text: '我是 DeepSeek，由深度求索开发的 AI 助手。' },
+      ],
+    },
+  ],
+  rootMessageId: 'm3',
+}
+assert.equal(
+  resolveSessionCharacterCard([cardWithAll], plainSession, cardWithAll.id, true),
+  undefined,
+  '已有消息的普通会话不能被全局启用卡回填'
+)
+assert.equal(
+  resolveTurnCharacterCard([cardWithAll], plainSession, cardWithAll.id, true),
+  undefined,
+  '普通会话不能因为全局启用卡而被写成角色对话'
+)
+const emptySession = {
+  id: 's3',
+  title: '',
+  createdAt: 3,
+  updatedAt: 3,
+  messages: [],
+  rootMessageId: null,
+}
+assert.equal(
+  resolveSessionCharacterCard([cardWithAll], emptySession, cardWithAll.id, true)?.id,
+  cardWithAll.id,
+  '空白新会话仍应继承全局启用卡'
+)
 
 const worldbook = [
   {

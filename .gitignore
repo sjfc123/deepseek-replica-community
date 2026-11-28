@@ -9,6 +9,7 @@ build/
 .env.*
 !.env.example
 tmp/
+reference/
 
 captures/
 /AGENTS.md

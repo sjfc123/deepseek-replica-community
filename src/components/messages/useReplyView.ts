@@ -10,6 +10,7 @@
 
 import { useMemo, useState } from 'react'
 import type { AssistantMessage } from '../../services/chat/types.js'
+import { resolveUserName } from '../../services/settings.js'
 import { buildReplyView, type Source } from '../../services/chat/view.js'
 
 /* ---- 01 类型、契约与依赖 ---- */
@@ -27,7 +28,10 @@ const sameSource = (a: Source, b: Source) =>
  * 来源内容未变时复用 sources 数组，避免流式文本更新绕过 Markdown 的解析节流。
  */
 export const useReplyView = (message: AssistantMessage, streaming: boolean) => {
-  const view = useMemo(() => buildReplyView(message, streaming), [message, streaming])
+  const view = useMemo(
+    () => buildReplyView(message, streaming, resolveUserName()),
+    [message, streaming]
+  )
   const [sources, setSources] = useState(view.sources)
 
   // 仅来源编号、顺序或元数据变化时更新状态，普通文本增量沿用已有数组。

@@ -1,16 +1,16 @@
 /* ============================================================================
- * 功能区：源码模块 / boot 开始
- * 职责：启动引导：在 ES5 环境补齐旧 WebView 缺失能力，先于主包执行。
+ * 功能区：源码模块 / boot · 启动引导层
+ * 职责：在 ES5 环境补齐旧 WebView 缺失的标准语言能力，先于主包挂载启动状态、失败提示与超时兜底。
+ * 分区：01 语言能力补齐；02 启动状态与失败提示
+ * 关联：由 src/index.html 在文档头以 defer 引入；主包由 HtmlRspackPlugin 注入并在 boot 之后执行。
+ * 导出：无模块导出；向 window 写入 __replicaCompat 与 __replicaBootDone，并读取 __replicaReady 判断主包是否完成首帧。
+ * 边界：只处理旧内核兼容与首屏启动状态；不读写会话数据，不发起网络请求，不承载业务逻辑。
  * ========================================================================== */
 
-/*
- * 启动引导层：先补齐旧 WebView 缺失的语言能力，再挂启动状态。
- * 这一层必须是 ES5，且比主包先执行；主包所需的新 API 在该层补齐，避免旧内核直接抛错白屏。
- */
 ;(function () {
   'use strict'
 
-  /* ===== 一、语言能力补齐（按缺失项逐个补齐，不覆盖原生实现） ===== */
+  /* ---- 01 语言能力补齐（按缺失项逐个补齐，不覆盖原生实现） ---- */
 
   var missing = []
 
@@ -358,7 +358,7 @@
 
   window.__replicaCompat = { patched: missing }
 
-  /* ===== 二、启动状态与失败提示（只在首屏阶段生效） ===== */
+  /* ---- 02 启动状态与失败提示（只在首屏阶段生效） ---- */
 
   var splash = document.getElementById('boot-splash')
   var title = document.getElementById('boot-title')
@@ -383,13 +383,13 @@
     }
     splash.setAttribute('data-failed', 'true')
     if (title) {
-      title.textContent = '没能打开'
+      title.textContent = '启动失败'
     }
     if (detail) {
       detail.textContent =
-        (message || '界面脚本没有跑起来') +
+        (message || '启动层未捕获到具体错误') +
         (extra ? '（' + extra + '）' : '') +
-        '。先试覆盖安装同一版本；仍打不开就在系统设置里清除本应用数据，这一步会删掉本机对话。'
+        '。请先覆盖安装同一版本；若仍无法启动，可在系统设置中清除应用数据，此操作会删除本机对话记录。'
     }
     try {
       localStorage.setItem(
@@ -454,7 +454,7 @@
     function (event) {
       var target = event.target
       if (target && target.tagName === 'SCRIPT') {
-        fail('界面脚本没加载出来', target.src || '')
+        fail('界面脚本加载失败', target.src || '')
         return
       }
       if (event.error && event.error.stack) {
@@ -462,7 +462,7 @@
         // oxlint-disable-next-line no-console -- 启动崩溃诊断只在控制台输出
         console.error(String(event.error.stack))
       }
-      fail(event.message || '界面脚本执行出错')
+      fail(event.message || '界面脚本执行失败')
     },
     true
   )
@@ -477,7 +477,7 @@
 
   timer = window.setTimeout(function () {
     if (!window.__replicaReady) {
-      fail('等了太久，主界面还没画出来')
+      fail('启动超时：主界面未在 8 秒内完成挂载')
     }
   }, 8000)
 })()

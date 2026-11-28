@@ -405,8 +405,30 @@ export const findSessionCharacterCard = (
 }
 
 /**
- * 一轮请求实际使用的角色卡：会话已绑定优先，其次才看全局启用卡。
- * 这样关闭开关只影响尚未绑定角色的新会话，不会把旧会话的人物突然换掉。
+ * 当前会话实际显示/使用的角色卡：已绑定卡优先。
+ * 全局启用卡只服务空白新会话；已有消息但没有 characterId 的普通会话不能被回填，
+ * 否则普通问答会突然显示角色卡的名字、头像，甚至被写进角色记忆。
+ */
+export const resolveSessionCharacterCard = (
+  cards: CharacterCard[],
+  session: Session | null | undefined,
+  activeCharacterId: string | null,
+  roleplayEnabled: boolean
+): CharacterCard | undefined => {
+  const bound = findSessionCharacterCard(cards, session)
+  if (bound) {
+    return bound
+  }
+  // 已有消息但未绑定卡的普通会话不回填全局卡；session 为 null 表示尚未落库的新会话，
+  // 与空消息数组一样允许继承全局启用卡。
+  if (session && session.messages.length > 0) {
+    return undefined
+  }
+  return roleplayEnabled ? findActiveCharacterCard(cards, activeCharacterId) : undefined
+}
+
+/**
+ * 一轮请求实际使用的角色卡：会话已绑定优先；空白新会话才继承全局启用卡。
  */
 export const resolveTurnCharacterCard = (
   cards: CharacterCard[],
@@ -414,8 +436,7 @@ export const resolveTurnCharacterCard = (
   activeCharacterId: string | null,
   roleplayEnabled: boolean
 ): CharacterCard | undefined =>
-  findSessionCharacterCard(cards, session) ??
-  (roleplayEnabled ? findActiveCharacterCard(cards, activeCharacterId) : undefined)
+  resolveSessionCharacterCard(cards, session, activeCharacterId, roleplayEnabled)
 
 export const CHARACTER_CARD_MAX = 50
 export const CHARACTER_TAG_MAX = 6

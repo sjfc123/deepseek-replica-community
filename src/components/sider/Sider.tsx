@@ -609,9 +609,13 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
       const anchor = rangeAnchorId
       const from = anchor ? ids.indexOf(anchor) : -1
       const to = ids.indexOf(session.id)
+      // 范围框选：锚点与目标都在可见列表内、且不是同一条时才按区间并入；
+      // 点锚点自身或逐条点按时走普通勾选，保证已选项可以被点按取消。
+      const useRange =
+        (range || rangeMode) && from >= 0 && to >= 0 && anchor !== session.id
       setChecked((previous) => {
         const next = new Set(previous)
-        if ((range || rangeMode) && from >= 0 && to >= 0) {
+        if (useRange) {
           const start = Math.min(from, to)
           const end = Math.max(from, to)
           for (let index = start; index <= end; index += 1) {
@@ -626,7 +630,13 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
         }
         return next
       })
-      setRangeAnchorId(session.id)
+      if (useRange) {
+        // 区间已一次性框选完成，退出范围模式回到逐条勾选，便于再点按取消任意一条。
+        setRangeMode(false)
+        setRangeAnchorId(null)
+      } else {
+        setRangeAnchorId(session.id)
+      }
     },
     [rangeAnchorId, rangeMode, selectableSessions]
   )
@@ -637,6 +647,7 @@ export const Sider = memo(function Sider({ mobile = false }: { mobile?: boolean 
     setChecked(
       allSelectableChecked ? new Set() : new Set(selectableSessions.map((session) => session.id))
     )
+    setRangeMode(false)
     setRangeAnchorId(null)
   }, [allSelectableChecked, selectableSessions])
   const [deletePending, setDeletePending] = useState(false)

@@ -10,11 +10,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslate } from '../../i18n/index.js'
 import { android } from '../../app/android.js'
 import { useIsMobile } from '../../app/viewport.js'
 import {
   buildMessageVersions,
   getVisibleMessages,
+  isContentOnlyChange,
   type MessageVersions,
 } from '../../services/chat/branches.js'
 import { cancelMessageEdit, useDrafts } from '../../services/chat/drafts.js'
@@ -37,7 +39,8 @@ import {
   type MemoryPool,
   type NormalMemoryKind,
 } from '../../services/chat/memory.js'
-import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
+import { resolveSessionCharacterCard } from '../../services/chat/roleplay.js'
+import { basicRoleplayActive, SYSTEM_PROMPT } from '../../services/chat/systemPrompt.js'
 import {
   memoryPoolForDisplayName,
   resolveMemoryDisplayName,
@@ -84,12 +87,35 @@ const JUMP_TO_BOTTOM_THRESHOLD = 48
 const JUMP_TO_BOTTOM_MIN_HEIGHT = 64
 const JUMP_SCROLL_STIFFNESS = 700
 const EMPTY_VERSIONS: MessageVersions = { ids: [], index: -1 }
-const INITIAL_MESSAGES = 4
-const OLDER_MESSAGES = 8
-const OLDER_THRESHOLD = 320
+/**
+ * 渲染窗口上限：普通游玩始终只挂最近 40 条；用户主动查看更早消息时最多扩到 80 条。
+ * 这不是内容截断，完整消息仍在 session 中，只是不把所有历史节点同时交给 React/WebView。
+ */
+const INITIAL_VISIBLE_MESSAGES = 40
+const LOAD_EARLIER_MESSAGES = 20
+const MAX_VISIBLE_MESSAGES = 80
+const SEARCH_WINDOW_BEFORE = 2
+const SEARCH_WINDOW_AFTER = 26
 const SEARCH_JUMP_TOP_OFFSET = 10
 const SEARCH_JUMP_SETTLE_MS = 650
 const SEARCH_HIGHLIGHT_MS = 1800
+
+type MessageWindowState = {
+  sessionId: string
+  /** 渲染切片起点，绝对消息下标 */
+  start: number
+  /** 渲染切片终点，不含该下标 */
+  end: number
+  /** true=始终跟住会话尾部；false=用户正在查看更早消息，保留当前切片 */
+  follow: boolean
+}
+
+const tailWindow = (sessionId: string, length: number): MessageWindowState => ({
+  sessionId,
+  start: Math.max(0, length - INITIAL_VISIBLE_MESSAGES),
+  end: length,
+  follow: true,
+})
 
 
 /* ---- 03 消息列表渲染与交互 ---- */
@@ -102,6 +128,7 @@ export const MessageList = ({
   streaming: boolean
   footer: React.ReactNode
 }) => {
+  const t = useTranslate()
   const isMobile = useIsMobile()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -113,15 +140,44 @@ export const MessageList = ({
   const activeCharacterId = useSettings((state) => state.activeCharacterId)
   const characterCards = useSettings((state) => state.characterCards)
   const characterName = useSettings((state) => state.characterName)
+  const characterAvatar = useSettings((state) => state.characterAvatar)
+  const cardAvatars = useSettings((state) => state.cardAvatars)
   const systemPrompt = useSettings((state) => state.systemPrompt)
-  const sessionCard = findSessionCharacterCard(characterCards, session)
-  const globalCard = roleplayEnabled
-    ? findActiveCharacterCard(characterCards, activeCharacterId)
-    : undefined
-  const displayCard = sessionCard ?? globalCard
+  const systemPromptEnabled = useSettings((state) => state.systemPromptEnabled)
+  // 只在会话身份/分支结构变化时重查角色卡；流式正文每帧更新时不再重复扫整段消息。
+  /* oxlint-disable react-hooks/exhaustive-deps -- 会话对象来自 getState，这些字段仅作为失效信号 */
+  const displayCard = useMemo(() => {
+    const current = useChatStore.getState().sessionCache[session.id]
+    return current
+      ? resolveSessionCharacterCard(characterCards, current, activeCharacterId, roleplayEnabled)
+      : undefined
+  }, [
+    characterCards,
+    session.id,
+    session.characterId,
+    session.title,
+    session.rootMessageId,
+    session.messages.length,
+    activeCharacterId,
+    roleplayEnabled,
+  ])
+  /* oxlint-enable react-hooks/exhaustive-deps */
   // 保存弹窗与面板只看最终显示名：AI / DeepSeek 走普通池，角色名走角色池。
+  // 基础扮演接管空/默认提示词时没有实体卡，按角色池写记忆，口径与 store 发送链路保持一致。
+  const basicRoleplayEnabled = useSettings((state) => state.basicRoleplayEnabled)
+  const promptText = systemPrompt.trim()
+  // 系统提示词开关关闭时视同空提示词，与主请求装配保持同一口径。
+  const handwrittenActive = systemPromptEnabled && Boolean(promptText)
+  const promptEmpty = !handwrittenActive
+  const promptIsDefault = !promptEmpty && promptText === SYSTEM_PROMPT
+  const suppressionActive = basicRoleplayActive({
+    basicRoleplayEnabled,
+    promptEmpty,
+    promptIsDefault,
+    hasActiveCard: Boolean(displayCard),
+  })
   const characterMemoryActive =
-    Boolean(systemPrompt.trim()) &&
+    suppressionActive ||
     memoryPoolForDisplayName(
       resolveMemoryDisplayName({
         cardName: displayCard?.name,
@@ -135,13 +191,31 @@ export const MessageList = ({
   useEffect(() => {
     setChipHidden(tokenUsageChipDismissed())
   }, [tokenLimit])
-  const actualUsed = tokenLimit > 0 ? sessionActualUsage(session) : 0
+  const [actualUsed, setActualUsed] = useState(0)
+  useEffect(() => {
+    if (tokenLimit <= 0) {
+      setActualUsed(0)
+      return
+    }
+    // 流式期间不逐帧重算整段分支用量；等这一轮结束再算一次，避免和消息渲染抢主线程。
+    if (streaming) {
+      return
+    }
+    const current = useChatStore.getState().sessionCache[session.id]
+    if (current) {
+      setActualUsed(sessionActualUsage(current))
+    }
+  }, [session.id, session.messages.length, tokenLimit, streaming])
   useEffect(() => {
     if (!tokenLimit || streaming) {
       setTokenWarning(null)
       return
     }
-    const used = sessionActualUsage(session)
+    const current = useChatStore.getState().sessionCache[session.id]
+    if (!current) {
+      return
+    }
+    const used = sessionActualUsage(current)
     if (used < tokenLimit) {
       return
     }
@@ -155,7 +229,7 @@ export const MessageList = ({
       // 存不进去也照常提醒一次
     }
     setTokenWarning({ limit: tokenLimit, used })
-  }, [session, tokenLimit, streaming])
+  }, [session.id, session.messages.length, tokenLimit, streaming])
   const autoFollowRef = useRef(autoFollow)
   const stickyRef = useRef(true)
   const jumpingRef = useRef(false)
@@ -199,29 +273,55 @@ export const MessageList = ({
   const pendingJumpIndex = pendingJump
     ? messages.findIndex((message) => message.id === pendingJump.messageId)
     : -1
-  const latestStart = Math.max(0, messages.length - INITIAL_MESSAGES)
-  const requiredStart =
-    pendingJumpIndex >= 0 ? Math.min(latestStart, Math.max(0, pendingJumpIndex - 1)) : latestStart
-  const [messageWindow, setMessageWindow] = useState({
-    sessionId: session.id,
-    start: requiredStart,
-  })
-  const start =
+  // 搜索定位时临时把窗口切到目标附近，避免为了显示一条旧消息把整段历史重新挂载。
+  const pendingJumpWindow =
+    pendingJumpIndex >= 0
+      ? {
+          start: Math.max(0, pendingJumpIndex - SEARCH_WINDOW_BEFORE),
+          end: Math.min(messages.length, pendingJumpIndex + SEARCH_WINDOW_AFTER),
+        }
+      : null
+  const [messageWindow, setMessageWindow] = useState<MessageWindowState>(() =>
+    tailWindow(session.id, messages.length)
+  )
+  if (messageWindow.sessionId !== session.id) {
+    setMessageWindow(tailWindow(session.id, messages.length))
+  }
+  const activeWindow =
     messageWindow.sessionId === session.id
-      ? Math.min(messageWindow.start, requiredStart)
-      : requiredStart
-  if (messageWindow.sessionId !== session.id || messageWindow.start !== start) {
-    setMessageWindow({ sessionId: session.id, start })
+      ? messageWindow
+      : tailWindow(session.id, messages.length)
+  let start = 0
+  let end = messages.length
+  if (pendingJumpWindow) {
+    // 搜索目标优先：即使当前停留在尾部，也先把目标附近切片渲染出来，再由定位副作用对齐。
+    start = pendingJumpWindow.start
+    end = pendingJumpWindow.end
+  } else if (activeWindow.follow) {
+    end = messages.length
+    start = Math.max(0, end - INITIAL_VISIBLE_MESSAGES)
+  } else {
+    end = Math.min(Math.max(0, activeWindow.end), messages.length)
+    start = Math.min(Math.max(0, activeWindow.start), end)
+    if (end - start > MAX_VISIBLE_MESSAGES) {
+      start = end - MAX_VISIBLE_MESSAGES
+    }
   }
   const prependAnchor = useRef<{ element: Element; top: number } | null>(null)
   const [showJumpToBottom, setShowJumpToBottom] = useState(false)
   const [previousVersions, setPreviousVersions] = useState(() =>
     buildMessageVersions(session, new Map())
   )
-  const versions = useMemo(
-    () => buildMessageVersions(session, previousVersions),
-    [session, previousVersions]
-  )
+  const versionInputRef = useRef<Message[] | null>(null)
+  const versions = useMemo(() => {
+    const previousMessages = versionInputRef.current
+    versionInputRef.current = session.messages
+    // 流式正文更新不改变分支结构：直接复用上一份版本表，避免每帧遍历整段历史。
+    if (previousMessages && isContentOnlyChange(previousMessages, session.messages)) {
+      return previousVersions
+    }
+    return buildMessageVersions(session, previousVersions)
+  }, [session, previousVersions])
   if (versions !== previousVersions) {
     setPreviousVersions(versions)
   }
@@ -333,6 +433,17 @@ export const MessageList = ({
     if (!el || jumpingRef.current) {
       return
     }
+    // 当前停留在更早的切片时，先恢复到尾部窗口；等新节点挂上后再滚到底。
+    if (!activeWindow.follow) {
+      stickyRef.current = true
+      setShowJumpToBottom(false)
+      setMessageWindow(tailWindow(session.id, messages.length))
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight
+        scrollTopRef.current = el.scrollTop
+      })
+      return
+    }
     const initialTarget = Math.max(0, el.scrollHeight - el.clientHeight)
     if (el.scrollTop >= initialTarget - 0.5 || prefersReducedMotion()) {
       el.scrollTop = el.scrollHeight
@@ -390,7 +501,7 @@ export const MessageList = ({
     }
     let jumpFrames = 0
     jumpFrameRef.current = requestAnimationFrame(step)
-  }, [cancelJump])
+  }, [activeWindow.follow, cancelJump, messages.length, session.id])
   // 内容、键盘和输入框高度变化时，继续遵循当前跟随状态，或刷新回到底部按钮的显示状态。
   useLayoutEffect(() => {
     const content = contentRef.current
@@ -543,7 +654,7 @@ export const MessageList = ({
     }
   }, [editingMessageId])
 
-  // 首屏从最近几条消息开始。向上浏览时逐批补齐，保持原来的阅读位置。
+  // 切片变化后只做滚动锚点修正。更早消息改为显式按钮，不再由滚动/ResizeObserver 自动无限补。
   useLayoutEffect(() => {
     const scroll = scrollRef.current
     const content = contentRef.current
@@ -556,41 +667,27 @@ export const MessageList = ({
       scroll.scrollTop += anchor.element.getBoundingClientRect().top - anchor.top
       scrollTopRef.current = scroll.scrollTop
     }
-    if (!start) {
+  }, [isMobile, session.id, start, end])
+
+  const loadEarlier = useCallback(() => {
+    if (start <= 0) {
       return
     }
-
-    let frame = 0
-    const loadOlder = () => {
-      if (frame || jumpingRef.current) {
-        return
-      }
-      frame = requestAnimationFrame(() => {
-        frame = 0
-        if (jumpingRef.current) {
-          return
-        }
-        const fits = scroll.scrollHeight - scroll.clientHeight <= STICKY_THRESHOLD
-        if (!fits && (stickyRef.current || scroll.scrollTop > OLDER_THRESHOLD)) {
-          return
-        }
-        const element = content.firstElementChild
-        if (element) {
-          prependAnchor.current = { element, top: element.getBoundingClientRect().top }
-        }
-        setMessageWindow({ sessionId: session.id, start: Math.max(0, start - OLDER_MESSAGES) })
-      })
+    // 第一个子节点在还有更早消息时是按钮行，锚定真正的首条消息才能保持阅读位置。
+    const first = contentRef.current?.children[start > 0 ? 1 : 0] as HTMLElement | undefined
+    if (first) {
+      prependAnchor.current = { element: first, top: first.getBoundingClientRect().top }
     }
-    const observer = new ResizeObserver(loadOlder)
-    observer.observe(scroll)
-    observer.observe(content)
-    scroll.addEventListener('scroll', loadOlder, { passive: true })
-    return () => {
-      cancelAnimationFrame(frame)
-      observer.disconnect()
-      scroll.removeEventListener('scroll', loadOlder)
-    }
-  }, [isMobile, session.id, start])
+    const nextStart = Math.max(0, start - LOAD_EARLIER_MESSAGES)
+    const nextEnd = Math.min(messages.length, Math.max(end, nextStart + 1))
+    setMessageWindow({
+      sessionId: session.id,
+      start: nextStart,
+      // 向前翻页时窗口整体向前滑；超过上限就丢掉已经离开视口的尾部，保持总数封顶。
+      end: Math.min(nextEnd, nextStart + MAX_VISIBLE_MESSAGES),
+      follow: false,
+    })
+  }, [end, messages.length, session.id, start])
 
   // 切换版本后将选择器留在原位置，避免回答长短变化导致操作区跳出视口。
   useLayoutEffect(() => {
@@ -614,8 +711,14 @@ export const MessageList = ({
     jumpAnchorRef.current = null
     cancelJump()
     stickyRef.current = true
-    scrollToBottom()
-  }, [session.id, lastMessageId, cancelJump, scrollToBottom, updateJumpVisibility])
+    // 新消息到达时回到尾部窗口。setState 后 DOM 才会重新挂上尾部消息，滚动放到下一帧。
+    setMessageWindow((current) =>
+      current.sessionId === session.id && current.follow
+        ? current
+        : tailWindow(session.id, messages.length)
+    )
+    requestAnimationFrame(scrollToBottom)
+  }, [session.id, lastMessageId, messages.length, cancelJump, scrollToBottom, updateJumpVisibility])
 
   // 消费来自搜索结果的消息定位请求：滚动到目标消息并显示短暂底色高亮，随后自动淡出。
   useLayoutEffect(() => {
@@ -628,6 +731,15 @@ export const MessageList = ({
     }
     cancelJump()
     stickyRef.current = false
+    // 把临时搜索窗口固化下来；清理 pendingJump 后目标消息仍留在当前切片里。
+    setMessageWindow((current) =>
+      current.sessionId === session.id &&
+      !current.follow &&
+      current.start === start &&
+      current.end === end
+        ? current
+        : { sessionId: session.id, start, end, follow: false }
+    )
     if (alignJumpTarget(pendingJump.messageId)) {
       jumpAnchorRef.current = {
         messageId: pendingJump.messageId,
@@ -652,6 +764,7 @@ export const MessageList = ({
     pendingJumpIndex,
     session.id,
     start,
+    end,
     updateJumpVisibility,
   ])
 
@@ -778,27 +891,33 @@ export const MessageList = ({
     })
   }
   // 长按任意一条都按“一轮”选择：用户消息带上紧邻的角色回复，角色回复带上紧邻的用户提问
-  const roundMessageIds = (id: string) => {
-    const index = messages.findIndex((message) => message.id === id)
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
+  const roundMessageIds = useCallback((id: string, list: Message[]) => {
+    const index = list.findIndex((message) => message.id === id)
     if (index < 0) {
       return [id]
     }
-    if (messages[index].role === 'user') {
-      const reply = messages[index + 1]
+    if (list[index].role === 'user') {
+      const reply = list[index + 1]
       return reply?.role === 'assistant' ? [id, reply.id] : [id]
     }
-    const prompt = messages[index - 1]
+    const prompt = list[index - 1]
     return prompt?.role === 'user' ? [prompt.id, id] : [id]
-  }
-  const startMemorySelect = (id: string, scope: 'one' | 'all') => {
-    setMemoryConfirm(false)
-    setMemoryPool('character')
-    setMemoryKind('auto')
-    setMemorySelect({
-      active: true,
-      ids: new Set(scope === 'all' ? messages.map((message) => message.id) : roundMessageIds(id)),
-    })
-  }
+  }, [])
+  const startMemorySelect = useCallback(
+    (id: string, scope: 'one' | 'all') => {
+      const list = messagesRef.current
+      setMemoryConfirm(false)
+      setMemoryPool('character')
+      setMemoryKind('auto')
+      setMemorySelect({
+        active: true,
+        ids: new Set(scope === 'all' ? list.map((message) => message.id) : roundMessageIds(id, list)),
+      })
+    },
+    [roundMessageIds]
+  )
   const selectAllMemory = () => {
     setMemorySelect((state) => ({
       ...state,
@@ -887,7 +1006,14 @@ export const MessageList = ({
               className={styles.column}
               data-editing-session={editingMessageId ? 'true' : undefined}
             >
-              {messages.slice(start).map((message, offset) => {
+              {start > 0 ? (
+                <div className={styles.loadEarlierRow}>
+                  <button type="button" className={styles.loadEarlierBtn} onClick={loadEarlier}>
+                    {t('loadEarlierMessages', { count: start })}
+                  </button>
+                </div>
+              ) : null}
+              {messages.slice(start, end).map((message, offset) => {
                 const index = start + offset
                 const highlightNonce =
                   searchHighlight?.sessionId === session.id &&
@@ -940,7 +1066,7 @@ export const MessageList = ({
                         searchHighlightNonce={highlightNonce}
                         versions={versions.get(message.id) ?? EMPTY_VERSIONS}
                         onSelectVersion={selectVersion}
-                        onStartMemorySelect={(scope) => startMemorySelect(message.id, scope)}
+                        onStartMemorySelect={startMemorySelect}
                       />
                     ) : (
                       <AssistantMessage
@@ -949,10 +1075,14 @@ export const MessageList = ({
                         isLast={index === lastIndex}
                         streaming={streaming && index === lastIndex}
                         busy={streaming}
+                        activeCard={displayCard}
+                        cardAvatar={displayCard ? (cardAvatars[displayCard.id] ?? null) : null}
+                        characterAvatar={characterAvatar}
+                        characterName={characterName}
                         searchHighlightNonce={highlightNonce}
                         versions={versions.get(message.id) ?? EMPTY_VERSIONS}
                         onSelectVersion={selectVersion}
-                        onStartMemorySelect={(scope) => startMemorySelect(message.id, scope)}
+                        onStartMemorySelect={startMemorySelect}
                       />
                     )}
                   </div>
@@ -1144,7 +1274,7 @@ export const MessageList = ({
                 ) : null}
                 <p className={styles.memoryConfirmText}>
                   {characterMemoryActive
-                    ? '当前显示名是角色名，代码和整轮内容只写入角色记忆，普通记忆暂停保存；要存普通开发记忆，先把角色名字恢复为 AI / DeepSeek，或清空表达提示词。'
+                    ? '当前显示名是角色名，代码和整轮内容只写入角色记忆，普通记忆暂停保存；要存普通开发记忆，先把角色名字恢复为 AI / DeepSeek，或清空系统提示词。'
                     : memoryPool === 'normal'
                       ? '自动识别会把三连反引号代码块归入「代码」，用户消息归入「用户原话」，AI 回复归入「AI 原话」；也可以手动指定。'
                       : memoryCharacterKind === 'scene'

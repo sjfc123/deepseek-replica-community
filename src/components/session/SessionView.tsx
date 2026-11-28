@@ -15,12 +15,12 @@ import { useIsMobile } from '../../app/viewport.js'
 import { useTranslate } from '../../i18n/index.js'
 import type { Session } from '../../services/chat/types.js'
 import { getVisibleMessages } from '../../services/chat/branches.js'
-import { activeMemoryCards } from '../../services/chat/memory.js'
 import { ChatInput } from '../chatInput/ChatInput.js'
 import { MessageList } from '../messages/MessageList.js'
 import { openMemoryPanel, useMemoryPanel } from '../memory/memoryPanelState.js'
 import { MemoryPanel } from '../memory/MemoryPanel.js'
 import { MemoryChip } from '../memory/MemoryChip.js'
+import { BalanceUsageAnchor } from '../balance/BalanceUsageAnchor.js'
 import { MobileHeader } from './MobileHeader.js'
 import styles from './SessionView.module.css'
 
@@ -39,10 +39,19 @@ export const SessionView = memo(function SessionView({
   const isMobile = useIsMobile()
   const title = session.title || t('untitledChat')
   const memoryOpen = useMemoryPanel((state) => state.open)
-  // 顶栏胶囊只统计真正会进对话的卡片，已归档或被关闭的不算
+  // 顶栏胶囊只统计真正会进对话的卡片，已归档或被关闭的不算。
+  // 这里只数启用卡片，不做 activeMemoryCards 的 flatMap/filter/sort；流式每帧都能省一次分配。
   const memoryCount = useMemo(() => {
     const messages = getVisibleMessages(session)
-    return activeMemoryCards(session, messages).length
+    let count = 0
+    for (const message of messages) {
+      for (const card of message.memories ?? []) {
+        if (card.enabled && !card.superseded) {
+          count += 1
+        }
+      }
+    }
+    return count
   }, [session])
   return (
     <div className={styles.view}>
@@ -71,7 +80,8 @@ export const SessionView = memo(function SessionView({
         streaming={streaming}
         footer={
           <div className={styles.inputContainer} data-side-shift={android ? 'center' : undefined}>
-            <ChatInput sessionId={session.id} />
+            <BalanceUsageAnchor session={session} context="chat" />
+          <ChatInput sessionId={session.id} />
             <div className={styles.caveatSlot}>
               <div className={styles.caveat}>
                 {t(android ? 'androidContentCaveat' : 'contentCaveat')}

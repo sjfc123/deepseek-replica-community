@@ -9,7 +9,8 @@
  * ========================================================================== */
 
 import { getVisibleMessages } from './branches.js'
-import { summarizeSessionUsage } from '../tokenUsage.js'
+import { summarizeSessionUsage, type UsageTotals } from '../tokenUsage.js'
+import type { MessageUsage } from '../api/types.js'
 import type { AssistantMessage, Session } from './types.js'
 
 /* ---- 01 类型、契约与依赖 ---- */
@@ -36,6 +37,38 @@ export const sessionActualUsage = (session: Session) => {
     (message): message is AssistantMessage => message.role === 'assistant'
   )
   return summarizeSessionUsage(assistants).totals.total
+}
+
+/** 当前上下文快照：最近一次请求用量 + 整段分支累计，供悬浮胶囊与明细面板复用。 */
+export type ContextSnapshot = {
+  /** 最近一条带用量的助手回复对应的最后一次请求；没有请求时为 null */
+  last: MessageUsage | null
+  totals: UsageTotals
+  requests: number
+  replies: number
+}
+
+const lastUsageOf = (message: AssistantMessage): MessageUsage | null => {
+  if (message.usageHistory?.length) {
+    return message.usageHistory[message.usageHistory.length - 1] ?? null
+  }
+  return message.usage ?? null
+}
+
+export const contextSnapshot = (session: Session): ContextSnapshot => {
+  const assistants = getVisibleMessages(session).filter(
+    (message): message is AssistantMessage => message.role === 'assistant'
+  )
+  const summary = summarizeSessionUsage(assistants)
+  let last: MessageUsage | null = null
+  for (let index = assistants.length - 1; index >= 0; index -= 1) {
+    const entry = lastUsageOf(assistants[index])
+    if (entry) {
+      last = entry
+      break
+    }
+  }
+  return { last, totals: summary.totals, requests: summary.requests, replies: summary.replies }
 }
 
 /* ============================================================================

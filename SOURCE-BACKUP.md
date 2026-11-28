@@ -13,9 +13,9 @@
 
 ## 2. 包内容
 
-源码包由 `git archive` 生成，包含：
+源码包由仓库工作树导出，包含：
 
-- 前端源码：`src/`、`public/`、配置文件与 `package.json` / `pnpm-lock.yaml`
+- 前端源码：`src/`、构建配置与 `package.json` / `pnpm-lock.yaml`
 - Android 源码：`android/`，含 Gradle 配置、Java 源码、资源与图标
 - 测试脚本：`scripts/`
 - 文档：`README.md`、`NOTICE.md`、`SOURCE-BACKUP.md`、`PERFORMANCE-AUDIT.md`、`SYSTEM-PROMPT-PIPELINE.md`
@@ -26,7 +26,7 @@
 - 内置角色头像：`src/assets/builtin-avatars/dafeiyu.webp`、`src/assets/builtin-avatars/whale-girl.webp`
 - 二创原图与署名：`assets/fanart/dafeiyu-eat.jpg`、`assets/fanart/whalegirl-full.jpg`、`assets/fanart/SOURCES.md`
 
-包内文件清单以 ZIP 实际内容为准。源码包注释记录构建时的 Git 提交号，用于核对来源。
+包内文件清单以 ZIP 实际内容为准。源码包以 `package.json` 的版本号与 versionCode 标识来源，不写入构建机路径、提交号或签名信息。
 
 ### 2.1 二创素材变更
 
@@ -72,7 +72,7 @@ cd android
 ```
 
 - JDK 21。
-- Android SDK 需包含 compileSdk 37、minSdk 29 及对应 build-tools。
+- Android SDK 需包含与 `compileSdk` 对应的平台、minSdk 29 及对应 build-tools；本次构建环境公网仓库仅提供 android-36，工程以 compileSdk 36、targetSdk 36 编译。
 - Gradle 9.7.1、AGP 9.4.0。
 - 构建者必须自行提供签名配置。仓库中的示例路径和别名不构成发布凭据。
 - 签名配置中的 `keyAlias 'dsreplica'` 是历史签名别名，不是应用品牌。更换别名会使既有签名链失效，是否更换由构建者自行决定。
@@ -87,7 +87,7 @@ cd android
 - `dist/index.html` 标题为 `DeepSaga`，版本 meta 为 `0.9.1`。
 - `dist/favicon.png` 与主脚本返回 HTTP 200。
 - `pnpm type`、`pnpm lint`、`pnpm build` 通过。
-- `pnpm test:system`、`test:roleplay`、`test:story`、`test:auto-backup`、`test:data`、`test:prompt`、`test:memory`、`test:memory-routing`、`test:memory-view`、`test:memory-layers`、`test:groups`、`test:suggestions` 通过。
+- `pnpm test:system`、`test:roleplay`、`test:story`、`test:auto-backup`、`test:data`、`test:import-attach`、`test:prompt`、`test:memory`、`test:memory-routing`、`test:memory-view`、`test:memory-layers`、`test:groups`、`test:suggestions`、`test:cache`、`test:balance` 通过。
 - APK 签名证书指纹与发布记录一致；不一致时不得作为同一应用的升级包分发。
 
 校验结果只证明该次构建的输入与产物，不证明第三方修改版、转载包或非官方渠道产物。

@@ -1,0 +1,447 @@
+/* ============================================================================
+ * 功能区：视图与交互 / BalanceUsage
+ * 职责：余额与上下文用量悬浮胶囊、明细面板的视觉实现；容器、槽位、状态、主题兼容。
+ * 分区：01 变量与胶囊主体；02 槽位定位；03 明细面板；04 主题兼容与动效
+ * 关联：使用方 components/balance/BalanceUsageAnchor；本文件不导入业务模块。
+ * 导出：CSS Modules 类名（由同名组件的 styles.* 引用）
+ * 边界：只定义视觉令牌与布局；数据通过 props / data-* 进入。
+ * ========================================================================== */
+
+/* ---- 01 变量与胶囊主体 ---- */
+.chip {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100vw - 24px);
+  padding: 7px 12px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 999px;
+  background: var(--ds-bg-elevated, #fff);
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  transition: box-shadow 150ms ease-out, transform 150ms ease-out;
+
+  &:hover {
+    box-shadow: 0 10px 26px rgb(0 0 0 / 18%);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.chipSegment {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chipLabel {
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-size: 11px;
+}
+
+.chipValue {
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.chipValue.muted,
+.muted {
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-weight: 500;
+}
+
+.chipDivider {
+  width: 1px;
+  height: 14px;
+  background: rgb(0 0 0 / 10%);
+}
+
+/* 对话页行内形态：纯文本一行，无胶囊背景 / 边框 / 阴影，与消息、输入文字同排版 */
+.flowRow {
+  position: static;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+
+  &:hover {
+    box-shadow: none;
+  }
+
+  &:active {
+    transform: none;
+  }
+}
+
+.flowRow .chipDivider {
+  height: 12px;
+  align-self: center;
+}
+
+.warn {
+  color: #d9534f;
+}
+
+/* 明细面板：上下文长度概览 */
+.windowRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 2%);
+}
+
+.windowHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.windowHead span {
+  font-size: 11px;
+  color: var(--dsw-alias-label-caption, #8c9097);
+}
+
+.windowHead strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, #1f2329);
+}
+
+.windowLimit {
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-weight: 500;
+}
+
+.windowRatio {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-caption, #8c9097);
+}
+
+.windowBar {
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 8%);
+  overflow: hidden;
+}
+
+.windowBar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--dsw-alias-brand-primary, #4d6bfe);
+}
+
+.windowBar > span.warn {
+  background: #d9534f;
+}
+
+.chipStatus {
+  color: var(--dsw-alias-label-caption, #8c9097);
+  font-size: 11px;
+}
+
+/* ---- 02 槽位定位 ---- */
+/* 欢迎页内联槽位：排在空闲时段卡片下方的文档流里，不悬浮、不压输入框 */
+.inlineSlot {
+  display: flex;
+  justify-content: center;
+  margin: 2px 0 14px;
+}
+
+.inlineChip {
+  position: static;
+  transform: none;
+}
+
+.chip[data-slot='bottom'] {
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.chip[data-slot='aboveInput'] {
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* 顶栏槽位：排在顶栏下方悬浮，不压住标题行与记忆胶囊。
+   桌面顶栏高 60px，Android 顶栏高 52px；另留 10px 间距。 */
+.chip[data-slot='top'] {
+  top: calc(60px + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+[data-android] .chip[data-slot='top'] {
+  top: calc(52px + 10px);
+}
+
+/* 长按拖拽后的自定义落点：按视口百分比定位，居中对齐指针，脱离槽位定位 */
+.chip.placed {
+  left: var(--chip-x);
+  top: var(--chip-y);
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  touch-action: none;
+}
+
+.chip.placed:active {
+  transform: translate(-50%, -50%) scale(0.97);
+}
+
+.chip.dragging {
+  cursor: grabbing;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 24%);
+}
+
+.chip[data-slot='bottom']:active,
+.chip[data-slot='aboveInput']:active,
+.chip[data-slot='top']:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
+/* ---- 03 明细面板 ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgb(0 0 0 / 32%);
+  cursor: default;
+}
+
+.sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: 90vh;
+  overflow: hidden;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 20px 20px 0 0;
+  background: var(--ds-bg-elevated, #fff);
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+  box-shadow: 0 -12px 36px rgb(0 0 0 / 22%);
+  padding: 18px 18px 28px;
+}
+
+.sheetBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.headerText h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, #1f2329);
+}
+
+.headerText p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-label-caption, #8c9097);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refreshButton,
+.closeButton {
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.refreshButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.section {
+  margin-top: 16px;
+}
+
+.sectionTitle {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, #1f2329);
+}
+
+.balanceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 14px;
+  background: rgb(0 0 0 / 2%);
+}
+
+.balanceRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.balanceRow strong {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+}
+
+.balanceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-caption, #8c9097);
+}
+
+.balanceMeta span {
+  font-variant-numeric: tabular-nums;
+}
+
+.availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.availability[data-off=''] {
+  color: #d9534f;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 2%);
+}
+
+.cell span {
+  font-size: 11px;
+  color: var(--dsw-alias-label-caption, #8c9097);
+}
+
+.cell strong {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-primary, #1f2329);
+}
+
+.state {
+  padding: 18px 4px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--dsw-alias-label-caption, #8c9097);
+}
+
+.footnote {
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-caption, #8c9097);
+}
+
+/* ---- 04 主题兼容与动效 ---- */
+body[data-ds-dark-theme] .chip,
+body[data-ds-dark-theme] .sheet {
+  border-color: rgb(255 255 255 / 10%);
+  background: #2a2d34;
+  color: #cfd3da;
+}
+
+body[data-ds-dark-theme] .flowRow {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-ds-dark-theme] .balanceCard,
+body[data-ds-dark-theme] .cell {
+  background: rgb(255 255 255 / 4%);
+  border-color: rgb(255 255 255 / 8%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip,
+  .chip:active {
+    transition: none;
+    transform: none;
+  }
+}

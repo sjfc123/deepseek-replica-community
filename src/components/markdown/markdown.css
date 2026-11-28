@@ -428,3 +428,10 @@
 .ds-markdown .ds-markdown-action {
   color: var(--dsw-alias-label-secondary);
 }
+
+/* ---- 06 Worker 解析占位 ---- */
+/* 历史消息首次打开时先渲染纯文本，Worker 返回 AST 后再替换为正式排版；保留换行避免高度突变。 */
+.ds-markdown-waiting {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

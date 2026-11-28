@@ -24,7 +24,27 @@ import type {
 export { estimateTextTokens }
 
 /* ---- 01 类型、常量与模块依赖 ---- */
+/**
+ * 逐条消息的 token 缓存：消息对象在流式之外是不可变的（更新时整体替换），
+ * 用 WeakMap 按对象缓存即可随版本自然失效，长会话每轮重新估算时不再重复逐字分词。
+ */
+const questionTokenCache = new WeakMap<UserMessage, number>()
+const replyTokenCache = new WeakMap<AssistantMessage, number>()
+/** system / 本轮背景这类整段文本的估算结果，只缓存最近一次，避免同一段文本每轮重算。 */
+let lastTextTokenCache: { text: string; tokens: number } | null = null
+/** 整段文本分词计数（带单条缓存）；用于 system、轮次背景与历史结算的同一口径。 */
+export const cachedTextTokens = (text: string) => {
+  if (lastTextTokenCache?.text === text) {
+    return lastTextTokenCache.tokens
+  }
+  const tokens = estimateTextTokens(text)
+  lastTextTokenCache = { text, tokens }
+  return tokens
+}
+
 export const WINDOW_TOKENS = 1_048_576
+/** 自定义网关（自带 endpoint）按保守窗口估算，避免按官方百万级窗口误判余量。 */
+export const CUSTOM_CONTEXT_WINDOW = 128 * 1024
 /** 参考 Codex CLI：有效窗口留 5% 缓冲，自动压缩在 90% 触发。 */
 const EFFECTIVE_WINDOW_RATIO = 0.95
 const AUTO_COMPACT_RATIO = 0.9
@@ -50,6 +70,10 @@ export const contextBudget = (outputReserve: number, window = WINDOW_TOKENS) => 
   }
 }
 
+/** 按是否走自定义网关解析模型上下文窗口上限；与发送链路同一口径。 */
+export const resolveContextWindow = (custom: boolean): number =>
+  custom ? CUSTOM_CONTEXT_WINDOW : WINDOW_TOKENS
+
 /** 按当前估算输入与 5% 安全缓冲动态收敛本轮 max_tokens，避免触发 input + max_tokens > window。 */
 export const resolveMaxOutputTokens = (
   requestedMaxOutput: number,
@@ -70,10 +94,19 @@ const estimateFileTokens = (file: FileAttachment) => {
   return file.isImage ? 4_096 : Math.min(131_072, Math.max(512, Math.ceil(file.size / 2)))
 }
 
-export const estimateQuestionTokens = ({ content, files }: UserMessage) =>
-  16 +
-  estimateTextTokens(content) +
-  files.reduce((total, file) => total + estimateFileTokens(file), 0)
+export const estimateQuestionTokens = (question: UserMessage) => {
+  const cached = questionTokenCache.get(question)
+  if (cached !== undefined) {
+    return cached
+  }
+  const { content, files } = question
+  const tokens =
+    16 +
+    estimateTextTokens(content) +
+    files.reduce((total, file) => total + estimateFileTokens(file), 0)
+  questionTokenCache.set(question, tokens)
+  return tokens
+}
 
 /** 返回可放入预算的前缀长度，优先在换行处结束，避免截断 Unicode 字符。 */
 export const textPrefixLength = (text: string, budget: number): number => {
@@ -107,8 +140,14 @@ type SummaryRequest = { previous?: string; excerpts: string[] }
 export type HistoryContext = { history: Message[]; summary?: string; tokens: number }
 
 const roundTokens = ([user, reply]: Round) => {
+  const cached = replyTokenCache.get(reply)
+  if (cached !== undefined) {
+    return cached + estimateQuestionTokens(user) + 32
+  }
   const links = reply.blocks.filter((block) => block.type === 'web_fetch_tool_result').length
-  return estimateQuestionTokens(user) + estimateTextTokens(getReplyText(reply)) + links * 8_192 + 32
+  const tokens = estimateTextTokens(getReplyText(reply)) + links * 8_192
+  replyTokenCache.set(reply, tokens)
+  return tokens + estimateQuestionTokens(user) + 32
 }
 
 const scaleTokens = (tokens: number, scale: number) =>

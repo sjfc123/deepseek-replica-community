@@ -43,17 +43,36 @@ const stalls: StallRecord[] = []
 let lastActionAt = performance.now()
 let lastFrameAt = performance.now()
 let persistTimer = 0
+/** 设备统计会递归扫目录，只能手动诊断或低频缓存读取，绝不能挂在卡顿热路径上 */
+const DEVICE_STATS_TTL_MS = 10 * 60 * 1000
+let deviceStatsCache: Record<string, unknown> | null = null
+let deviceStatsCachedAt = 0
+let deviceStatsReading = false
 
-const readDeviceStats = (): Record<string, unknown> | null => {
+const readDeviceStats = (force = false): Record<string, unknown> | null => {
+  if (!force) {
+    return deviceStatsCache && Date.now() - deviceStatsCachedAt <= DEVICE_STATS_TTL_MS
+      ? deviceStatsCache
+      : null
+  }
+  if (deviceStatsReading) {
+    return deviceStatsCache
+  }
   const bridge = (window as Window & { DeepSeekAndroid?: { deviceStats?: () => string } })
     .DeepSeekAndroid
   if (typeof bridge?.deviceStats !== 'function') {
     return null
   }
+  deviceStatsReading = true
   try {
-    return JSON.parse(bridge.deviceStats()) as Record<string, unknown>
+    const parsed = JSON.parse(bridge.deviceStats()) as Record<string, unknown>
+    deviceStatsCache = parsed
+    deviceStatsCachedAt = Date.now()
+    return parsed
   } catch {
-    return null
+    return deviceStatsCache
+  } finally {
+    deviceStatsReading = false
   }
 }
 
@@ -86,7 +105,7 @@ const persistSessionLog = (cleanExit = false) => {
       JSON.stringify({
         at: new Date().toISOString(),
         cleanExit,
-        device: readDeviceStats(),
+        device: readDeviceStats(false),
         interactions: interactions.slice(-40),
         stalls: stalls.slice(-20),
         errors: errors.slice(-10),
@@ -123,7 +142,7 @@ const recordInteraction = (action: string, target: EventTarget | null) => {
       if (stalls.length > 20) {
         stalls.shift()
       }
-      persistSessionLog()
+      schedulePersist()
       tapTimes = []
     }
   }
@@ -147,7 +166,8 @@ const recordStall = (ms: number, during: string) => {
   if (stalls.length > 20) {
     stalls.shift()
   }
-  persistSessionLog()
+  // 卡顿时只排队写一条轻量快照；绝不在这里同步调用 deviceStats，否则会形成“卡顿→扫描→更卡”的循环。
+  schedulePersist()
 }
 
 /** 主线程卡顿看门狗：两帧间隔超过 200ms 就记一次，能看出卡在哪个界面 */
@@ -542,7 +562,7 @@ export const collectDiagnosticReport = async () => {
       memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number }
     }
   ).memory
-  const device = readDeviceStats()
+  const device = readDeviceStats(true)
   if (device === null) {
     facts.push({ area: '设备资源', detail: '未执行：当前环境没有 deviceStats 桥（浏览器）' })
   } else if (typeof device.error === 'string') {
@@ -728,7 +748,7 @@ export const collectDiagnosticReport = async () => {
   const savedPromptAudit = auditSystemText(promptConfig.systemPrompt)
   facts.push({
     area: '手写与角色提示词',
-    detail: `手写提示词 ${promptConfig.systemPrompt.length} 字，动态标记 ${
+    detail: `系统提示词 ${promptConfig.systemPrompt.length} 字，动态标记 ${
       savedPromptAudit.dynamicMarkers.length
     } 个，未替换占位符 ${savedPromptAudit.unresolvedPlaceholders.length} 个；角色扮演=${
       promptConfig.roleplayEnabled ? '开' : '关'
@@ -739,8 +759,8 @@ export const collectDiagnosticReport = async () => {
   if (savedPromptAudit.dynamicMarkers.length > 0) {
     findings.push({
       level: 'problem',
-      area: '手写提示词',
-      detail: `手写提示词里含动态段：${savedPromptAudit.dynamicMarkers.join('、')}；它进入 system 后会逐轮改写前缀`,
+      area: '系统提示词',
+      detail: `系统提示词里含动态段：${savedPromptAudit.dynamicMarkers.join('、')}；它进入 system 后会逐轮改写前缀`,
     })
   }
   if (savedPromptAudit.unresolvedPlaceholders.length > 0) {

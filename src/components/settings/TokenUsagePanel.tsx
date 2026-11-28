@@ -9,8 +9,10 @@
  * ========================================================================== */
 
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useSettings } from '../../services/settings.js'
 import { loadSession, loadSessionSummaries } from '../../services/chat/db.js'
+import { getVisibleMessages } from '../../services/chat/branches.js'
 import type { AssistantMessage, SessionSummary } from '../../services/chat/types.js'
 import { summarizeSessionUsage, type SessionUsageSummary } from '../../services/tokenUsage.js'
 import {
@@ -43,7 +45,7 @@ const formatDate = (value: number, locale: string) =>
   }).format(new Date(value))
 
 /* ---- 04 对外入口与收尾 ---- */
-/** 会话级 Token 统计：只汇总接口返回的 usage，不把本地估算混进结果 */
+/** 会话级 Token 统计：按接口返回的用量字段汇总当前可见分支 */
 export const TokenUsagePanel = ({ open, onClose }: Props) => {
   const locale = useSettings((state) => state.locale)
   const zh = locale === 'zh-CN'
@@ -139,7 +141,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
       }
       setReport(
         summarizeSessionUsage(
-          session.messages.filter(
+          getVisibleMessages(session).filter(
             (message): message is AssistantMessage => message.role === 'assistant'
           )
         )
@@ -162,7 +164,7 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
     report && report.requests > 0 && report.totals.cacheFieldMissing >= report.requests
   )
 
-  return (
+  return createPortal(
     <div className={styles.overlay} role="dialog" aria-modal="true">
       <button
         type="button"
@@ -176,8 +178,8 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
             <h2>{t('Token 用量统计', 'Token usage')}</h2>
             <p>
               {t(
-                '只汇总接口返回的 usage，不做本地分词或估算',
-                'Only API-reported usage, no local estimates'
+                '按接口返回的用量字段统计当前可见分支',
+                'Usage figures are based on API-reported data for the visible branch'
               )}
             </p>
           </div>
@@ -400,7 +402,8 @@ export const TokenUsagePanel = ({ open, onClose }: Props) => {
           </div>
         )}
       </section>
-    </div>
+    </div>,
+    document.body
   )
 }
 

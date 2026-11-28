@@ -20,6 +20,7 @@ import {
   readBackupRevision,
 } from '../dataRevision.js'
 import { exportHistory } from './backup.js'
+import { useChatStore } from './store.js'
 
 /* ---- 01 类型、常量与模块依赖 ---- */
 /** 自动备份写入公共下载目录，卸载重装后仍可找到；本模块仅记录本机上次备份时间 */
@@ -257,6 +258,10 @@ export const maybeAutoBackup = () => {
   if (!target) {
     return
   }
+  // 流式输出期间不做全量导出：ZIP/JSON/base64 都在主线程，会和逐帧渲染抢同一份预算。
+  if (Object.keys(useChatStore.getState().streaming).length > 0) {
+    return
+  }
   flushDataRevision()
   const revision = currentDataRevision()
   const backupRevision = readBackupRevision()
@@ -280,6 +285,10 @@ export const maybeAutoBackup = () => {
   }
   // 启动阶段先让首屏与历史列表完成渲染，再在空闲时写盘。
   const start = () => {
+    // 定时器可能在排队后才进入流式输出，执行前再确认一次。
+    if (Object.keys(useChatStore.getState().streaming).length > 0) {
+      return
+    }
     void runAutoBackup({ notify: true }).catch(() => {
       window.dispatchEvent(new CustomEvent('replica:auto-backup-failed'))
     })

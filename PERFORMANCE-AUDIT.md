@@ -47,37 +47,29 @@
 
 ### 1. 长列表
 
-现状：
+现状（2026-11-27 收口后）：
 
-- `MessageList` 首屏只渲染最近 `INITIAL_MESSAGES = 4` 条，向上滚动按 `OLDER_MESSAGES = 8` 条补齐。
-- 但 `messageWindow.start` 只减不增，用户反复向上翻到会话开头后，DOM 会累积整个会话。
-- 原实现没有真正的虚拟列表，长会话下仍是“所有已加载消息都在 DOM 中”。
+- `MessageList` 首屏只挂载尾部 `INITIAL_VISIBLE_MESSAGES = 40` 条；跟随底部时窗口随新消息整体后移，DOM 始终约 40 条。
+- 向上查看历史改为显式“显示更早消息”按钮，每次向前扩 `LOAD_EARLIER_MESSAGES = 20` 条，窗口总数硬上限 `MAX_VISIBLE_MESSAGES = 80`；超过上限后丢弃已离开视口的尾部旧消息。
+- 搜索跳转只在目标前后取 `SEARCH_WINDOW_BEFORE = 2 / SEARCH_WINDOW_AFTER = 26` 条的临时窗口，定位后固化为非跟随窗口，不为一条旧消息挂载整段历史。
+- 已移除滚动与 ResizeObserver 自动无限补历史的逻辑；“回到底部”先恢复尾部窗口，再在下一帧滚到底。
 
-已修复：
+旧审计记录的修正：早期版本 `messageWindow.start` 只减不增，新会话从 `start = 0` 开始就会自然累积整个会话，并不需要用户先向上翻到开头；这一点在 2026-11-26 的根因审计中已确认。当前实现用带上下界的切片窗口取代了单调 `start`。
 
-`src/components/messages/MessageList.module.css` 对每行增加：
+样式层补充：`src/components/messages/MessageList.module.css` 对每行保留 `content-visibility: auto` 与 `contain-intrinsic-size`，离屏消息不参与布局与绘制。该属性只省绘制与布局，不减少 React 组件、DOM 节点、Markdown AST 与事件监听；工作集封顶由上面的切片窗口负责。
 
-```css
-.memorySelectRow {
-  position: relative;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 180px;
-}
-```
-
-作用：离屏消息不参与布局与绘制，只保留估算占位高度；滚动时按需恢复真实高度。它不能替代虚拟列表，但能把“长会话首次进入/快速滚动”的绘制成本压到视口附近。
-
-残余：`start` 没有上限。若单会话超过数千条且用户持续向上翻，DOM 节点仍会增长。彻底方案是把 `messageWindow` 改成带上下界的窗口 + 上下 spacer，并在 `pendingJump` 时按目标索引重设窗口；这会改动滚动锚点、搜索跳转、长按选择三条链路，未在本版强行合入。
+残余：还不是真正的虚拟列表（上下 spacer + 只挂载视口附近 ± 一屏）。窗口达到 80 条后，单会话消息量极大时仍只在 80 条以内工作；彻底方案需要同时处理滚动锚点、搜索跳转、长按多选、版本切换四条链路，列入后续版本。
 
 ### 2. 全局状态引发全量重排
 
-现状：
+现状（2026-11-27 收口后）：
 
 - `messages` 通过 `useMemo(() => getVisibleMessages(session), [session])` 派生。
 - 会话对象更新会重建消息数组，但消息行是稳定的 `key={message.id}`；新增消息只影响尾部。
-- 没有发现某个按钮 loading 状态触发整个消息树重渲染的全局 store 订阅。
+- 旧实现中每条 `AssistantMessage` 都订阅整个 `sessionCache[sessionId]`：流式逐帧生成新 session 对象后，`memo` 被整表新引用击穿，所有历史助手行都重渲染，成本随消息数线性增长。该订阅已移除，角色卡、头像、角色名由 `MessageList` 统一解析后作为稳定 props 下传；历史行的 `memo` 在流式期间不再被整表更新击穿，只有正在输出的最后一行重渲染。
+- `buildMessageVersions` 在兄弟版本列表未变化时复用旧版本对象与索引，历史行的版本 prop 引用保持稳定。
 
-结论：当前重排风险主要来自 DOM 数量，不是状态粒度。
+结论：重排风险已从“整棵消息树每帧重渲染”收敛为“最后一行 + 列表容器更新”；剩余的整表 `map` 与整份 IndexedDB 持久化列入后续增量改造。
 
 ## 三、内存泄漏、桥接与状态锁
 
@@ -122,11 +114,92 @@
 
 结论：未发现“透明遮罩残留”或“长列表批量滤镜导致 GPU OOM”的具体代码点。
 
-## 本轮实际改动
+## 2026-11-27 性能收口与缺陷修复
 
-1. `MemoryPanel.module.css`：桌面 `max-height` 从 `82vh/760px` 收到 `76vh/700px`；移动端从 `78dvh/660px` 收到 `66dvh/560px`，弹窗不再接近满屏。
-2. `MessageList.module.css`：消息行启用 `content-visibility: auto` 与 `contain-intrinsic-size`，降低长会话离屏绘制成本。
-3. `memoryView.ts`：兼容 `玩家提问：` / `角色回应：`，修复“有卡片但筛选为空”。
-4. 角色卡来源链接链路与来源公告，见 `README.md` 与 `NOTICE.md`。
+### 已落地的性能改动
 
-未合入的高风险改造：真正的虚拟列表窗口化。需要单独回归滚动锚点、搜索跳转、版本切换、长按多选四条链路，不能用一个 `slice` 直接替代。
+1. 消息窗口封顶（`MessageList.tsx`）：尾部 40 条起步，主动查看更早最多扩到 80 条；搜索跳转使用目标附近 2 / 26 条临时窗口；取消滚动自动无限补历史；回到底部先恢复尾部窗口。
+2. 流式订阅隔离（`AssistantMessage.tsx` / `UserMessage.tsx`）：移除每条助手消息对整个 `sessionCache[sessionId]` 的订阅；角色卡、头像、角色名由列表统一取值后下传；版本表在结构未变时复用旧对象。
+3. 诊断热路径（`diagnostics.ts`）：`recordStall` 只排队写轻量快照，卡顿当下不再同步调用 `deviceStats()`；目录递归扫描改为手动诊断强制刷新 + 10 分钟缓存，并带重入保护；30 秒定时落盘只写 localStorage 小快照。
+4. 自动备份避让（`autoBackup.ts`）：流式输出期间跳过全量导出；`requestIdleCallback` 排队后、真正执行前再检查一次流式状态；`onPause` 触发的备份同样受该守卫保护。
+5. 每帧派生减负：顶栏记忆计数改为直接遍历计数；token 用量改为流式结束后算一次，提醒 effect 依赖消息数量而非整个 session 对象；角色卡解析改为 `useMemo`；记忆选择回调与轮次 id 计算改为稳定 `useCallback`。
+
+### 本轮修复的缺陷
+
+1. `roleplay.ts` 的 `resolveSessionCharacterCard`：`session` 为 `null`（尚未落库的新会话）时被提前返回，导致空白新会话无法继承全局启用卡。已改为仅当会话存在且已有消息时不回填全局卡；`session = null` 与空消息数组一样允许继承全局卡。对应 `scripts/test-default-prompt.mjs` 的会话绑定优先 / 全局继承两条断言。
+2. `MessageList.tsx`：版本切换与新消息到达的 `useLayoutEffect` 读取了 `messages.length` 但未列入依赖数组，已补齐，避免依赖漏项导致的窗口状态滞后。
+
+### 验证结果
+
+- `pnpm type`、`pnpm lint`（0 warning / 0 error）通过。
+- `test:system`、`test:roleplay`、`test:story`、`test:auto-backup`、`test:data`、`test:prompt`、`test:memory`、`test:memory-routing`、`test:memory-view`、`test:memory-layers`、`test:groups`、`test:suggestions`、`test:cache` 全部通过。
+- `pnpm build`（Rspack）通过；`./gradlew assembleRelease`（JDK 21、AGP 9.4.0、Gradle 9.7.1）通过。
+- 尚未完成：真机 30 分钟以上连续角色扮演、500 / 1000 条消息窗口实测、流式滚动与重渲染的帧率与 JS 堆观测；这些需要中低配真机环境，见交接待办。
+
+### 未合入的后续改造（P3）
+
+- 真正的虚拟列表：上下 spacer + 只挂载视口附近 ± 一屏，需单独回归滚动锚点、搜索跳转、版本切换、长按多选四条链路。
+- 会话结构版本号与增量持久化：减少每帧 O(n) 扫描和整份 IndexedDB PUT。
+- 流式状态独立 slice：进一步降低 `sessionCache` 整表更新成本。
+- 诊断日志分级采样与自动上报。
+
+## 2026-11-27 基础扮演拆分与新会话角色提示（第二轮）
+
+### 业务拆分
+
+1. **基础扮演与出戏压制解耦**：旧设计里「出戏压制」开关同时承担基础扮演门控和元叙述压制两个职责。本轮把基础扮演拆成独立持久化开关 `basicRoleplayEnabled`（KEY `replica:basic-roleplay-enabled`），出戏压制 `suppressMetaTalk` 只负责在角色对话末尾追加演出约束；两者在设置页分属「基础扮演模式」「出戏压制」两组。
+2. **统一判定口径**：抽出纯函数 `basicRoleplayActive({ basicRoleplayEnabled, promptEmpty, promptIsDefault, hasActiveCard })`（`systemPrompt.ts`），store 发送链路、建议生成、输入框、消息列表四处共用同一条口径，消除重复条件与判定漂移。
+3. **预设升级**：`DEFAULT_SUPPRESSION_PERSONA` 在保留「沈知夏 / 青梅竹马 / 有时黏人 / 不要客服腔」既有契约 token 的前提下，新增「与既有设定的关系」分区（角色卡、基础档案、世界书、场景、长期记忆、本轮上下文优先级高于本预设，冲突以既有描述为准，不用本预设改掉既有身份/经历/关系/外貌/性格/禁忌）与「连续性与边界」分区；基础扮演提示词与系统提示词同级装配。
+4. **迁移口径**：新键缺失时从旧 `suppressMetaTalk` 取值，避免老用户基础扮演被静默关闭。
+
+### 新会话角色提示
+
+- `store.newChat()` 在全局角色卡启用并成功创建绑定卡的会话后，通过 toast 提示「已开启『{name}』角色的新对话」；文案走 i18n（`newChatWithCard`，中英两语）。
+
+### 本轮修复的缺陷
+
+1. **记忆池口径不一致**：`MessageList.tsx` 本地 `characterMemoryActive` 原先用 `Boolean(systemPrompt.trim())` 判断，基础扮演接管空/默认提示词的会话在保存记忆弹窗里会错误默认落到普通池。已改为 `suppressionActive || memoryPoolForDisplayName(...)`，与 store 发送链路一致。
+
+### 验证结果
+
+- `pnpm type`、`pnpm lint`（0 warning / 0 error）通过；13 个已挂载回归脚本全部通过；`pnpm build`（Rspack）与 `./gradlew assembleRelease` 通过。
+- `test-default-prompt.mjs` 新增 5 条 `basicRoleplayActive` 判定用例与预设 token 断言。
+- 未纳入维护回归集的补充脚本（`test-content-search` / `test-context-compaction` / `test-history-merge` / `test-android-onboarding`）受 Node strip-only 模式不支持构造参数属性所限，在基线即无法通过加载器执行，与本轮改动无关。
+- 真机长时角色扮演、大消息窗口、流式帧率与堆观测仍待中低配真机环境闭环。
+
+## 2026-11-27 真实接口对话实测（第三轮）
+
+- 以临时密钥对应用默认 Anthropic Messages 链路（`deepseek-flash`）做普通助手与基础扮演两轮实测。普通助手问答的功能分组、页签、按钮与操作步骤均与真实 UI 一致，未发现编造入口或未实现能力；能力边界（智能搜索仅默认端点、配图需自配绘图接口、API Key 不进备份）表述准确。
+- 基础扮演（沈知夏）5 轮居家对话保持第一人称、动作单星号、内心圆括号，前后文连续；逐轮建议的 detail/emotion/action/aside 方向错开，target 为本场角色，落点贴合当前台词与站位，未提前点破后续线索。
+- 修正建议提示词数量口径：`SUGGESTION_SYSTEM` 原写「四个对象」，与代码最终只展示 3 条不一致；已改为「3 条候选对象（可再备 1 条富余）」，ask 约束同步对齐为「3 到 4 条候选」。
+- 缓存：静态 system 前缀与轮次动态内容（记忆/场景/世界书/提醒）分离，动态上下文只挂最后一条用户消息尾部；预热后多轮缓存命中率约 88%–95%，未见前缀逐轮漂移导致的整段失效或消耗暴涨。`cacheDiagnostics` 已能识别 system 指纹变化与命中率骤降。
+
+## 2026-11-27 长会话缓存实测与提示词互斥隔离（第四轮）
+
+- 合并用户分卷导出（`.z01` + `.zip`），还原出完整对话备份；挑一条 176 轮长会话取最近 16 轮作为测试窗口（约 6.4 万字符），分三组各两轮：普通助手+深度思考开、普通助手+深度思考关、基础扮演（沈知夏）+思考关。
+- 缓存结果：冷启动首轮未命中属正常（建立缓存）；预热第二轮命中率 99.0%–99.3%，system 前缀与更早历史均被命中，未见前缀被逐轮内容污染导致整段失效或消耗暴涨。关闭思考时不产生思考块；长历史里既有角色人设会被模型延续，属历史连续性，不是前缀问题。
+- 提示词互斥隔离：表达提示词（手写系统提示词）与基础扮演预设同级互斥。基础扮演接管时，手写系统提示词不进入 system（compose 收到空提示词），只保留预设/档案身份；存在非默认手写提示词时 `basicRoleplayActive` 返回 false，预设不注入。二者不再同时拼进同一段 system，避免两段身份左右互搏；角色卡、档案、世界书、场景、记忆等既有设定仍按既有优先级叠加。
+- 回归：`pnpm type`、`pnpm lint` 0 警告 0 错误；13 个已挂载脚本全部通过；`test-default-prompt.mjs` 新增强制扮演剥离手写提示词的断言。
+
+## 2026-11-28 WebView 长会话首开与历史结算
+
+### 1. Android 历史消息 Markdown 解析
+
+- `src/components/markdown/Markdown.tsx` 在 Android WebView 下，历史消息与流式消息统一交给 `parseOffMainThread()` Worker 解析；首次打开长会话先渲染纯文本占位，Worker 返回 AST 后再替换为正式排版，主线程不执行整屏同步解析。
+- Worker 初始化失败时置 `workerFailed` 并回退 `toMdAst()` 同步路径；回退只发生在 Worker 不可用或初始化失败后，不在每条消息上重复探测。
+- `src/components/markdown/useThrottleMarkdownRender.ts` 按上次渲染耗时 × 2 计算下次允许更新时间，最长等待 2 秒；Android 流式最小间隔 50 ms，连续增量合并为最新内容，避免每个 token 都重建 AST。
+
+### 2. 会话持久化
+
+- `src/services/chat/store.ts` 的 `persist()` 用 `WeakSet` 记录已成功写入的会话对象；同一对象且无待写入附件时直接跳过，避免发送前快照与落盘连续触发重复结构化克隆。
+- 附件仍按 `pendingFiles` 合并，首次写盘后清除；会话对象变化或附件变化时才重新写入。
+
+### 3. 历史结算
+
+- `src/services/chat/historyAudit.ts` 按 `AUDIT_CHUNK = 24` 条分批统计，批间 `setTimeout(0)` 让出事件循环；结果缓存上限 8 条，按会话 id、更新时间与存储消息数失效。
+- 结算只读当前分支可见消息，统计字符、分词 Token、接口 usage 与最重消息；不写数据库、不发请求，不改变请求上下文。
+
+### 4. 验证结果
+
+- `pnpm type`、`pnpm lint`（0 warning / 0 error）与 `pnpm build` 通过。
+- `test:system`、`test:roleplay`、`test:story`、`test:auto-backup`、`test:data`、`test:import-attach`、`test:prompt`、`test:memory`、`test:memory-routing`、`test:memory-view`、`test:memory-layers`、`test:groups`、`test:suggestions`、`test:cache`、`test:balance` 共 15 项通过。

@@ -12,6 +12,7 @@
 import { create } from 'zustand'
 import { createId } from '../../utils/id.js'
 import { translate } from '../../i18n/index.js'
+import { showToast } from '../../components/base/toastState.js'
 import { markDataChanged } from '../dataRevision.js'
 import { DEFAULT_CHAT_MODEL } from '../api/chatConfig.js'
 import { ApiError, streamChatMessage } from '../api/client.js'
@@ -33,12 +34,15 @@ import {
 import { MANY_IMAGES_COUNT, MANY_IMAGES_MAX_EDGE, MAX_IMAGE_EDGE } from '../imageUpload.js'
 import { parseCustomHeaders } from '../api/headers.js'
 import {
+  basicRoleplayActive,
   composeSystemPrompt,
   DEFAULT_SUPPRESSION_PERSONA,
   DEFAULT_SUPPRESSION_PERSONA_NAME,
+  FALLBACK_PERSONA,
   ROLEPLAY_VIEWPOINT_REMINDER,
   SYSTEM_PROMPT,
 } from './systemPrompt.js'
+import { replaceUserNickname } from './nickname.js'
 import {
   formatCharacterIdentity,
   formatCharacterProfile,
@@ -113,14 +117,19 @@ import {
 } from './branches.js'
 import type { ImportArchiveResult } from './history/importArchive.js'
 import {
+  auditSessionHistory,
+  cachedHistoryAudit,
+  type HistoryAuditStats,
+} from './historyAudit.js'
+import {
+  cachedTextTokens,
   contextBudget,
   estimateBranchScale,
   estimateQuestionTokens,
-  estimateTextTokens,
   prepareHistoryContext,
+  resolveContextWindow,
   resolveMaxOutputTokens,
   saveContextCheckpoint,
-  WINDOW_TOKENS,
   type HistoryContext,
 } from './context.js'
 import {
@@ -177,7 +186,6 @@ const MAX_OUTPUT_TOKENS = 393_216
 const MIN_OUTPUT_RESERVE = 52_428
 const PROMPT_OVERHEAD_TOKENS = 256
 const CUSTOM_OUTPUT_TOKENS = 4_096
-const CUSTOM_CONTEXT_WINDOW = 128 * 1024
 /** 官方对纯算术首条保留原文标题，不进入服务端摘要通道。 */
 const SIMPLE_ARITHMETIC =
   /^\s*\d+(?:\.\d+)?(?:\s*[+\-*/×÷]\s*\d+(?:\.\d+)?)+(?:\s*(?:=|等于|\?|？))?\s*$/
@@ -192,6 +200,8 @@ const FILE_RETRY_BASE_DELAY = 1000
 /** 限制一次聊天轮次内自动压缩的历史请求数，已成功的批次留给下轮接着处理。 */
 const HISTORY_SUMMARY_LIMIT = 6
 const HISTORY_OVERFLOW_RETRIES = 3
+/** 流式正文合帧间隔：约 15fps，兼顾观感与主线程空闲，避免每帧复制整段会话。 */
+const STREAM_UI_INTERVAL_MS = 66
 
 /** 阅读链接始终开启，智能搜索开关控制是否另行声明搜索工具（含边想边搜）。 */
 /* ---- 01 状态模型与持久化基础设施 ---- */
@@ -230,6 +240,13 @@ type ChatState = {
   pendingJump: PendingMessageJump | null
   /** 正在生成回复的会话 */
   streaming: Record<string, AbortController>
+  /** 点新对话时对上一段会话做的整段结算；running 时先显示进度，完成后填入 stats */
+  historyAudit: {
+    sessionId: string
+    title: string
+    progress: number
+    stats?: HistoryAuditStats
+  } | null
 }
 
 export const useChatStore = create<ChatState>(() => ({
@@ -243,6 +260,7 @@ export const useChatStore = create<ChatState>(() => ({
   activeId: null,
   pendingJump: null,
   streaming: {},
+  historyAudit: null,
 }))
 
 const { getState: get, setState: set } = useChatStore
@@ -270,6 +288,8 @@ const pendingFiles = new Map<string, db.StoredFile[]>()
 const loadOriginalFile = async (sessionId: string, id: string) =>
   pendingFiles.get(sessionId)?.find((file) => file.id === id)?.blob ?? db.loadFile(id)
 const deletingSessions = new Set<string>()
+/** 已成功写入 IndexedDB 的会话对象；对象不变时重复 persist 直接跳过。 */
+const persistedSessions = new WeakSet<Session>()
 const deletionTasks = new Set<Promise<boolean>>()
 const streamFlushes = new Map<string, () => void>()
 let accessSequence = 0
@@ -343,19 +363,24 @@ const updateReply = (sessionId: string, reply: AssistantMessage) =>
 const persist = (sessionId: string) => {
   const session = getSession(sessionId)
   if (session) {
+    // 同一份会话对象连续保存（例如发送前写快照后又立刻落盘）只写一次，避免大历史被重复结构化克隆。
+    const files = pendingFiles.get(sessionId)
+    if (persistedSessions.has(session) && !files?.length) {
+      return
+    }
     markDataChanged()
     unsavedSessions.add(sessionId)
     if (deletingSessions.has(sessionId)) {
       return
     }
     const epoch = historyEpoch
-    const files = pendingFiles.get(sessionId)
     void db
       .saveSession(session, files)
       .then(() => {
         if (epoch !== historyEpoch || !getSession(sessionId)) {
           return
         }
+        persistedSessions.add(session)
         if (pendingFiles.get(sessionId) === files) {
           pendingFiles.delete(sessionId)
         }
@@ -860,11 +885,53 @@ export const mergeHistory = async (
 
 
 /* ---- 03 会话选择、分叉与增删改 ---- */
+/** 上一段会话的整段结算：结果按会话版本缓存，重复点新对话不重复遍历。 */
+const startHistoryAudit = (session: Session) => {
+  if (getVisibleMessages(session).length === 0) {
+    return
+  }
+  const cached = cachedHistoryAudit(session)
+  if (cached) {
+    set({
+      historyAudit: { sessionId: session.id, title: session.title, progress: 1, stats: cached },
+    })
+    return
+  }
+  set({ historyAudit: { sessionId: session.id, title: session.title, progress: 0 } })
+  void auditSessionHistory(session, (done, total) => {
+    set((state) =>
+      state.historyAudit?.sessionId === session.id
+        ? {
+            historyAudit: {
+              ...state.historyAudit,
+              progress: total > 0 ? done / total : 1,
+            },
+          }
+        : state
+    )
+  })
+    .then((stats) => {
+      set((state) =>
+        state.historyAudit?.sessionId === session.id
+          ? { historyAudit: { ...state.historyAudit, progress: 1, stats } }
+          : state
+      )
+    })
+    .catch(() => {
+      set((state) => (state.historyAudit?.sessionId === session.id ? { historyAudit: null } : state))
+    })
+}
+
+/** 关闭历史结算面板；只影响展示，不影响会话数据。 */
+export const dismissHistoryAudit = () => set({ historyAudit: null })
+
 export const newChat = () => {
   if (get().importingHistory) {
     return
   }
   cancelMessageEdit()
+  // 先在切走前抓住当前会话：结算要覆盖首条到末条，切到欢迎页后再读就拿不到完整快照了。
+  const outgoing = get().activeId ? getSession(get().activeId as string) : undefined
   // 场景跟随会话：新对话从空白开始，先把旧版全局场景草稿清掉，避免上一段的物件和关系被带进来。
   clearScene()
   // 开启角色卡时，“开启新对话”也走开场流程：新会话立即绑定该卡并写入剧情说明与开场白。
@@ -878,11 +945,18 @@ export const newChat = () => {
     if (created) {
       set({ pendingJump: null })
       trimSessionCache()
+      showToast({ key: 'newChatWithCard', params: { name: card.name } })
+      if (outgoing) {
+        startHistoryAudit(outgoing)
+      }
       return
     }
   }
   set({ activeId: null, pendingJump: null })
   trimSessionCache()
+  if (outgoing) {
+    startHistoryAudit(outgoing)
+  }
 }
 
 /**
@@ -2033,7 +2107,9 @@ const recordTurnMemory = (
 const usesCharacterMemory = (sessionId?: string) => {
   const settings = useSettings.getState()
   const prompt = settings.systemPrompt.trim()
-  const promptEmpty = !prompt
+  // 系统提示词开关关闭时视同空提示词，与主请求装配保持同一口径。
+  const handwrittenActive = settings.systemPromptEnabled && Boolean(prompt)
+  const promptEmpty = !handwrittenActive
   const promptDefault = prompt === SYSTEM_PROMPT
   const session = sessionId ? getSession(sessionId) : null
   const card = resolveTurnCharacterCard(
@@ -2042,8 +2118,14 @@ const usesCharacterMemory = (sessionId?: string) => {
     settings.activeCharacterId,
     settings.roleplayEnabled
   )
-  // 空提示词或默认提示词 + 压制设定：没有角色卡也按基础角色扮演写角色记忆。
-  if (settings.suppressMetaTalk && (promptEmpty || (promptDefault && !card))) {
+  // 空提示词或默认提示词 + 基础扮演模式：没有角色卡也按基础角色扮演写角色记忆。
+  const suppressionActive = basicRoleplayActive({
+    basicRoleplayEnabled: settings.basicRoleplayEnabled,
+    promptEmpty,
+    promptIsDefault: promptDefault,
+    hasActiveCard: Boolean(card),
+  })
+  if (suppressionActive) {
     return true
   }
   if (promptEmpty) {
@@ -2513,9 +2595,10 @@ const prepareFiles = async (sessionId: string, request: Request, signal: AbortSi
       const result = await Promise.race([ensureServerId(apiKey, file), aborted])
       if (result) {
         saveUploadedFiles(sessionId, new Map([[file.id, result]]))
-      } else {
-        attachmentFailures.push(`${file.name}：本地文件不存在或已被清理`)
       }
+      // result 为 null：本地已无原件（多为导入会话包 / 清理后残留的附件元数据）。
+      // 这类附件只在界面展示、不进入请求（与 toFileBlocks 口径一致），不阻断本轮对话；
+      // 只有原件存在但补传真正报错时才计入失败并中止发送。
     } catch (error) {
       signal.throwIfAborted()
       attachmentFailures.push(
@@ -2733,6 +2816,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     sendLatestReminder,
     autoTitle,
     suppressMetaTalk,
+    basicRoleplayEnabled,
     suppressionPersonaEnabled,
     suppressionPersona: storedSuppressionPersona,
     memoryMode,
@@ -2747,6 +2831,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     characterProfile,
     profileEnabled,
     friendlyTone,
+    defaultPromptEnabled,
+    systemPromptEnabled,
     roleplayEnabled,
     worldbook,
     worldbookInject,
@@ -2755,12 +2841,17 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   } = useSettings.getState()
   const apiKey = storedKey ?? ''
   const custom = Boolean(chatConfig.endpoint)
-  // 表达提示词必须随每次请求下发：自定义网关同样需要 system 字段，缺失时模型无表达约束。
+  // 系统提示词必须随每次请求下发：自定义网关同样需要 system 字段，缺失时模型无表达约束。
   // 手写文本原样使用，`{{user}}` 只在发请求时换成账号名字；打开出戏压制时再在后面追加演出规则。
-  // 表达提示词为空是用户主动清空：回到默认官方助手，并停用角色卡、档案与身份行。
+  // 系统提示词为空是用户主动清空：回到默认官方助手，并停用角色卡、档案与身份行。
   // 否则残留的角色身份会单独留在 system，默认助手会被带成冷淡角色。
-  const promptEmpty = !systemPrompt.trim()
-  const promptIsDefault = !promptEmpty && systemPrompt.trim() === SYSTEM_PROMPT
+  const promptRawEmpty = !systemPrompt.trim()
+  const promptIsDefault = !promptRawEmpty && systemPrompt.trim() === SYSTEM_PROMPT
+  // 手写系统提示词开关关闭时视同空提示词：文本保留在本机，但不注入、不参与身份判定；
+  // 各可写提示词同级互斥，关闭哪一条就停止发送哪一条，避免两段身份在 system 里打架。
+  const handwrittenPromptActive = systemPromptEnabled && !promptRawEmpty
+  const promptEmpty = !handwrittenPromptActive
+  const promptIsCustom = handwrittenPromptActive && !promptIsDefault
   const sessionForMemory = getSession(sessionId)
   // 场景按会话取；旧会话没有快照就按空场景处理，不从全局设置补，避免旧物件跨新对话。
   const sessionScene = sessionForMemory?.scene
@@ -2776,8 +2867,12 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 会话已绑定人物时优先沿用该卡：关闭全局开关只影响新会话，不会中途换回系统人格。
   // 提示词清空时角色层整体暂停；只有压制设定开启才改用内置/自定义基础角色扮演。
   const activeCard = promptEmpty ? undefined : resolvedCard
-  const suppressionActive =
-    suppressMetaTalk && !activeCard && (promptEmpty || promptIsDefault)
+  const suppressionActive = basicRoleplayActive({
+    basicRoleplayEnabled,
+    promptEmpty,
+    promptIsDefault,
+    hasActiveCard: Boolean(activeCard),
+  })
   const roleplayActive = suppressionActive || (!promptEmpty && Boolean(activeCard))
   // 记忆落池按显示名判断，不跟角色卡开关绑定：显示 AI / DeepSeek 走普通池，
   // 显示角色名（卡名或手写档案名）走角色池，避免普通问答被默认写成角色剧情。
@@ -2883,38 +2978,59 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           userName,
         })
       : ''
-  // 提示词清空时三种身份来源全部不参与，只保留默认官方助手。
+  // 系统提示词与基础扮演预设同级互斥，避免两段身份在同一段 system 里左右互搏：
+  // - 基础扮演接管时，手写系统提示词不进入 system（compose 收到空提示词），只保留预设/档案身份；
+  // - 反过来，存在非默认系统提示词时 basicRoleplayActive 已返回 false，预设不会注入。
+  // 互斥只作用于身份来源；角色卡、档案、世界书、场景、记忆等既有设定仍按既有优先级叠加。
+  // 默认提示关闭、又没有系统提示词/角色卡/档案/基础扮演时，用内置兜底人设代替默认官方助手，
+  // 避免不发送默认提示词后模型回退成预设客服助手。
+  const fallbackBaseline =
+    !defaultPromptEnabled &&
+    !suppressionActive &&
+    !promptIsCustom &&
+    !activeCard &&
+    !profileSystem
+  // 提示词清空时三种身份来源全部不参与；默认提示关闭且无其它身份时，只保留兜底人设与身份行。
   const identityBlock = suppressionActive
-    ? profileSystem || suppressionPersona
-    : promptEmpty
+    ? promptIsCustom
       ? ''
+      : profileSystem || suppressionPersona
+    : promptEmpty || promptIsDefault
+      ? fallbackBaseline
+        ? identitySystem
+        : ''
       : activeCard
         ? formatCharacterCard(activeCard, userName)
         : profileSystem || identitySystem
   // 三种身份来源互斥：一张卡、完整档案或轻量身份行，不会同时拼进 system。
   // 只有角色上下文才把默认助手提示替换成沉浸角色基底，并追加演出/格式规则。
   const roleplayContext =
-    suppressionActive || (!promptEmpty && Boolean(activeCard || profileSystem || identitySystem))
+    suppressionActive ||
+    fallbackBaseline ||
+    (!promptEmpty && Boolean(activeCard || profileSystem || identitySystem))
+  // 统一替换占位符：系统提示词、角色卡字段、世界书与记忆都走这一处
+  // 当前卡名优先，其次手写档案名；两者都空时用 AI 生成名，避免 {{char}} 原样漏进 system。
+  const promptCharName = suppressionActive
+    ? resolveSystemCharacterName(undefined, characterName || DEFAULT_SUPPRESSION_PERSONA_NAME)
+    : resolveSystemCharacterName(activeCard?.name, characterName)
   const baseSystem = [
     identityBlock,
     composeSystemPrompt({
-      savedPrompt: systemPrompt,
+      savedPrompt: suppressionActive ? '' : handwrittenPromptActive ? systemPrompt : '',
       suppressMetaTalk,
       userName,
       roleplayContext,
       assistantWarmth: friendlyTone,
       forcedRoleplay: suppressionActive,
       customPromptNote:
-        suppressMetaTalk && !promptEmpty && !promptIsDefault && !roleplayContext,
+        suppressMetaTalk && handwrittenPromptActive && !promptIsDefault && !roleplayContext,
+      fallbackPrompt: fallbackBaseline ? FALLBACK_PERSONA : '',
+      // 工具轮纪律按真实角色名决定是否追加名字条款：占位名 AI 视为没有设定名字。
+      charName: promptCharName,
     }),
   ]
     .filter(Boolean)
     .join('\n\n')
-  // 统一替换占位符：手写提示词、角色卡字段、世界书与记忆都走这一处
-  // 当前卡名优先，其次手写档案名；两者都空时用 AI 生成名，避免 {{char}} 原样漏进 system。
-  const promptCharName = suppressionActive
-    ? resolveSystemCharacterName(undefined, characterName || DEFAULT_SUPPRESSION_PERSONA_NAME)
-    : resolveSystemCharacterName(activeCard?.name, characterName)
   const baseSystemResolved = applyPlaceholders(baseSystem, {
     userName,
     charName: promptCharName,
@@ -2952,6 +3068,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     suppressionActive,
     suppressionHash: hashPromptText(storedSuppressionPersona),
     friendlyTone,
+    defaultPromptEnabled,
     suppressMetaTalk,
     roleplayEnabled,
     worldbookInject,
@@ -3078,11 +3195,31 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         search: false,
       }
     : initial
-  let frame = 0
+  // 流式正文按固定间隔合帧：60fps 每帧都复制整段 messages 并触发列表重算，在千条以上会话里会持续抢主线程。
+  let streamTimer = 0
+  let lastStreamPaint = 0
   const flush = () => {
-    cancelAnimationFrame(frame)
-    frame = 0
+    if (streamTimer) {
+      window.clearTimeout(streamTimer)
+      streamTimer = 0
+    }
+    lastStreamPaint = performance.now()
     updateReply(sessionId, reply)
+  }
+  const scheduleFlush = () => {
+    if (document.visibilityState === 'hidden') {
+      flush()
+      return
+    }
+    if (streamTimer) {
+      return
+    }
+    const wait = Math.max(0, STREAM_UI_INTERVAL_MS - (performance.now() - lastStreamPaint))
+    streamTimer = window.setTimeout(() => {
+      streamTimer = 0
+      lastStreamPaint = performance.now()
+      updateReply(sessionId, reply)
+    }, wait)
   }
   streamFlushes.set(sessionId, flush)
 
@@ -3094,8 +3231,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     effectiveMaxTokens ?? (custom ? CUSTOM_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS)
   const minOutputReserve = custom ? CUSTOM_OUTPUT_TOKENS : MIN_OUTPUT_RESERVE
   const defaultOutputTokens = custom ? 1_024 : initial.thinking ? 32_768 : 8_192
-  const window = custom ? CUSTOM_CONTEXT_WINDOW : undefined
-  const windowLimit = window ?? WINDOW_TOKENS
+  const windowLimit = resolveContextWindow(custom)
   const tokenScale = estimateBranchScale(
     request.history,
     requestModel,
@@ -3105,9 +3241,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     tokenScale === 1 ? tokens : Math.ceil(tokens * tokenScale)
   // system 固定参与前缀缓存，本轮背景只影响尾部；两者都占输入窗口，预算里必须算进去。
   const fixedInputTokens =
-    scaleEstimate(estimateTextTokens(baseSystemResolved)) +
-    scaleEstimate(estimateTextTokens(turnContext))
-  const budget = contextBudget(minOutputReserve, window)
+    scaleEstimate(cachedTextTokens(baseSystemResolved)) + scaleEstimate(cachedTextTokens(turnContext))
+  const budget = contextBudget(minOutputReserve, windowLimit)
   let historyBudget = Math.max(
     0,
     budget.input -
@@ -3184,7 +3319,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             0,
             Math.min(
               budget.recent,
-              contextBudget(Math.min(minOutputReserve, maxOutputTokens), window).input -
+              contextBudget(Math.min(minOutputReserve, maxOutputTokens), windowLimit).input -
                 scaleEstimate(estimateQuestionTokens(reducedInput.question)) -
                 fixedInputTokens -
                 PROMPT_OVERHEAD_TOKENS
@@ -3212,6 +3347,11 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           inlineFiles,
           turnContext
         )
+        // 角色上下文才把出站副本里硬编码的“用户 / 玩家 / User”换成账号昵称；普通助手沿用标准称谓。
+        // 只改发给接口的请求副本，不回写本地持久化记录，UI 渲染仍用原始文本。
+        if (roleplayContext) {
+          messages = replaceUserNickname(messages, userName)
+        }
         includeContextSummary(messages, context.summary)
         const requestFingerprint = fingerprintRequestMessages(messages)
         cacheAttemptMeta = {
@@ -3232,7 +3372,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           maxOutputTokens,
           estimatedInput,
           Math.min(minOutputReserve, maxOutputTokens),
-          window
+          windowLimit
         )
         const body: CreateMessageRequest = {
           model: requestModel,
@@ -3271,11 +3411,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             titleRequests.delete(controller)
           }
           reply = applyEvent(reply, event, Date.now(), blockIndexes)
-          if (document.visibilityState === 'hidden') {
-            flush()
-          } else {
-            frame ||= requestAnimationFrame(flush)
-          }
+          scheduleFlush()
         }
         reply = settleLocal(reply, 'done')
         if (
@@ -3388,7 +3524,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   } finally {
     titleRequests.delete(controller)
     streamFlushes.delete(sessionId)
-    cancelAnimationFrame(frame)
+    if (streamTimer) {
+      window.clearTimeout(streamTimer)
+      streamTimer = 0
+    }
     /* 记录最终一次请求的 usage；中断、上传失败或没有 usage 时不记录，不用估算冒充。 */
     if (reply.usage && cacheAttemptMeta) {
       recordPromptCacheSample({

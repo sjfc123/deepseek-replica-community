@@ -88,6 +88,12 @@ export type ThemePreference = 'light' | 'dark' | 'system'
 /** 聊天布局：原版卡片、微信式气泡、蓝白气泡；后两者共用一套气泡结构，只换配色 */
 export type ChatLayout = 'card' | 'wechat' | 'blue'
 
+/** 余额与用量悬浮胶囊位置：底部居中 / 输入框上方 / 顶栏 */
+export type BalanceChipPosition = 'bottom' | 'aboveInput' | 'top'
+
+/** 胶囊长按拖拽后的自定义落点；x/y 为视口百分比（0–100），null 表示走槽位默认位置 */
+export type BalanceChipPoint = { x: number; y: number }
+
 export { DEFAULT_SYSTEM_PROMPT, LEGACY_SYSTEM_PROMPT } from './chat/systemPrompt.js'
 
 type AccountProfile = {
@@ -118,7 +124,7 @@ type Settings = {
   fontSize: number | null
   foldThinking: boolean
   pinnedSessions: string[]
-  /** 表达提示词：作为 system 前缀随每次请求下发，自定义网关同样生效 */
+  /** 系统提示词：作为 system 前缀随每次请求下发，自定义网关同样生效 */
   systemPrompt: string
   /** 采样参数，null 表示沿用服务端默认值 */
   temperature: number | null
@@ -163,6 +169,10 @@ type Settings = {
   profileEnabled: boolean
   /** 普通官方助手友好语气：默认开启；只追加固定语气约束，不覆盖角色卡或自定义提示词 */
   friendlyTone: boolean
+  /** 默认系统提示词开关：开启时发送官方助手身份与应用功能索引；关闭后不发送，自定义提示词/基础扮演同级作为 system，都没有则用内置兜底人设 */
+  defaultPromptEnabled: boolean
+  /** 手写系统提示词开关：关闭后不注入手写 system 提示词（文本保留在本机），按空提示词走身份判定 */
+  systemPromptEnabled: boolean
   /** 角色头像，data URL；空表示用首字母占位 */
   characterAvatar: string | null
   /** 聊天区显示头像：助手用角色头像，用户用账号头像 */
@@ -173,6 +183,8 @@ type Settings = {
   memoryBadge: boolean
   /** 消息下方的记忆标记 */
   memoryInline: boolean
+  /** 基础扮演模式：空/默认提示词且没有角色卡、档案时，用内置或自定义基础扮演预设进入角色扮演；关闭后回到普通助手 */
+  basicRoleplayEnabled: boolean
   /** 角色扮演时在 system 末尾追加强制约束，压制「按设定」「分析用户意图」这类元叙述 */
   suppressMetaTalk: boolean
   /** 压制设定开启且提示词为空/默认时，用自定义预设替换内置大学青梅竹马 */
@@ -195,6 +207,19 @@ type Settings = {
   showUsage: boolean
   /** 用量明细显示在回复下方；默认 false，显示在回复上方 */
   usageBelow: boolean
+  /** 主页与对话页悬浮「余额 + 上下文用量」胶囊；关闭后不在界面显示 */
+  balanceChipEnabled: boolean
+  /** 悬浮胶囊的预设位置；主页默认底部居中，对话页按位置落到可见槽位 */
+  balanceChipPosition: BalanceChipPosition
+  /** 胶囊上是否附带当前上下文用量；关闭后只显示余额，点进面板仍可看明细 */
+  balanceChipShowUsage: boolean
+  /** 胶囊长按拖拽后的自定义落点；null 走槽位默认位置 */
+  balanceChipPos: BalanceChipPoint | null
+  /** 主页 LOGO 自定义图（data URL）；null 沿用内置彩蛋头像 */
+  homeLogo: string | null
+  /** 主页问候大标题自定义文字；空串沿用按时段 / 彩蛋的默认文案 */
+  /** 主页台词池：点头像随机取一条；空数组合集时回退内置台词 */
+  homeGreetings: string[]
   /** 长期记忆：关闭 / 每轮整段记录 / 每轮记录后模型提炼合并 */
   memoryMode: MemoryMode
   /** 长期记忆保留上限（自动卡片），10–9999；超出后最早的自动卡片归档 */
@@ -282,11 +307,16 @@ const KEYS = {
   profileEnabled: 'replica:character-profile-enabled',
   /** 普通助手友好语气开关：无历史值时默认开启，只有明确保存过 0 才算关闭 */
   friendlyTone: 'replica:friendly-tone',
+  /** 默认系统提示词开关：无历史值时默认开启，只有明确保存过 0 才算关闭 */
+  defaultPromptEnabled: 'replica:default-prompt-enabled',
+  /** 手写系统提示词开关：无历史值时默认开启，只有明确保存过 0 才算关闭 */
+  systemPromptEnabled: 'replica:system-prompt-enabled',
   characterAvatar: 'replica:character-avatar',
   avatarInChat: 'replica:avatar-in-chat',
   thoughtAside: 'replica:thought-aside',
   memoryBadge: 'replica:memory-badge',
   memoryInline: 'replica:memory-inline',
+  basicRoleplayEnabled: 'replica:basic-roleplay-enabled',
   suppressMetaTalk: 'replica:suppress-meta',
   suppressionPersonaEnabled: 'replica:suppression-persona-enabled',
   suppressionPersona: 'replica:suppression-persona',
@@ -300,6 +330,12 @@ const KEYS = {
   tokenLimit: 'replica:token-limit',
   showUsage: 'replica:show-usage',
   usageBelow: 'replica:usage-below',
+  balanceChipEnabled: 'replica:balance-chip-enabled',
+  balanceChipPosition: 'replica:balance-chip-position',
+  balanceChipShowUsage: 'replica:balance-chip-show-usage',
+  balanceChipPos: 'replica:balance-chip-pos',
+  homeLogo: 'replica:home-logo',
+  homeGreeting: 'replica:home-greeting',
   tokenChipClosed: 'replica:token-chip-closed',
   memoryMode: 'replica:memory-mode',
   memoryLimit: 'replica:memory-limit',
@@ -340,6 +376,49 @@ export const WORLDBOOK_BUDGET_MIN = 500
 export const WORLDBOOK_BUDGET_MAX = 20_000
 export const WORLDBOOK_BUDGET_DEFAULT = 1000
 
+/* ---- 02b 全局取值边界与默认档位 ---- */
+/* 本分区集中维护跨组件复用的数值边界、默认值与可选档位；设置页控件与服务端读写统一引用，
+   不在组件内重复硬编码。调整取值范围或档位时只改本分区，避免多处口径不一致。 */
+
+/** 聊天区头像边长（px）：允许 20–36，默认 24；角色头像与玩家头像共用同一档位 */
+export const AVATAR_SIZE_MIN = 20
+export const AVATAR_SIZE_MAX = 36
+export const AVATAR_SIZE_DEFAULT = 24
+/** 头像边长可选档位（px），与 min/max 边界一致 */
+export const AVATAR_SIZE_OPTIONS: readonly number[] = [20, 24, 30, 36]
+
+/** 采样参数 · 温度 temperature：允许 0–2，步进 0.1；null 表示不发送该字段，沿用服务端默认 */
+export const TEMPERATURE_MIN = 0
+export const TEMPERATURE_MAX = 2
+export const TEMPERATURE_STEP = 0.1
+
+/** 采样参数 · Top P：允许 0–1，步进 0.05；null 表示不发送该字段 */
+export const TOP_P_MIN = 0
+export const TOP_P_MAX = 1
+export const TOP_P_STEP = 0.05
+
+/** 采样参数 · 最大输出 tokens：允许 1–1,000,000，步进 1；null 表示不发送该字段 */
+export const MAX_TOKENS_MIN = 1
+export const MAX_TOKENS_MAX = 1_000_000
+export const MAX_TOKENS_STEP = 1
+
+/** Token 提醒上限：未设置（0，不提醒）时，输入框草稿填入的建议值 */
+export const TOKEN_LIMIT_DRAFT_DEFAULT = 256_000
+
+/** Token 提醒上限快捷档位（tokens），纯本地提醒阈值，不改变服务端计费 */
+export const TOKEN_LIMIT_PRESETS: readonly number[] = [50_000, 256_000, 512_000, 1_000_000]
+
+/** 长期记忆卡片上限快捷档位（张），末尾取允许上限 */
+export const MEMORY_LIMIT_PRESETS: readonly number[] = [60, 200, 1000, MEMORY_LIMIT_MAX]
+
+/** 长期记忆字符预算快捷档位（字），依次取常用值、默认值与允许上限 */
+export const MEMORY_CHARS_PRESETS: readonly number[] = [
+  10_000,
+  50_000,
+  100_000,
+  MEMORY_CHARS_DEFAULT,
+  MEMORY_CHARS_MAX,
+]
 
 /* ---- 03 本机存储读写与状态初始化 ---- */
 const read = (key: string) => {
@@ -384,18 +463,95 @@ const initialAccountProfile = (): AccountProfile => {
 
 const initialAvatarSize = (role: 'character' | 'user') => {
   const own = Number(read(role === 'user' ? KEYS.userAvatarSize : KEYS.characterAvatarSize))
-  if (Number.isFinite(own) && own >= 20 && own <= 36) {
+  if (Number.isFinite(own) && own >= AVATAR_SIZE_MIN && own <= AVATAR_SIZE_MAX) {
     return own
   }
   // 旧版只有一个统一尺寸，首次升级时两边都沿用它
   const legacy = Number(read(KEYS.avatarSizeLegacy))
-  return Number.isFinite(legacy) && legacy >= 20 && legacy <= 36 ? legacy : 24
+  return Number.isFinite(legacy) &&
+    legacy >= AVATAR_SIZE_MIN &&
+    legacy <= AVATAR_SIZE_MAX
+    ? legacy
+    : AVATAR_SIZE_DEFAULT
 }
 
 const initialChatLayout = (): ChatLayout => {
   const saved = read(KEYS.chatLayout)
   return saved === 'wechat' || saved === 'blue' ? saved : 'card'
 }
+
+const initialBalanceChipPosition = (): BalanceChipPosition => {
+  const saved = read(KEYS.balanceChipPosition)
+  return saved === 'aboveInput' || saved === 'top' ? saved : 'bottom'
+}
+
+const initialBalanceChipPos = (): BalanceChipPoint | null => {
+  const raw = readJson(KEYS.balanceChipPos)
+  if (!raw || typeof raw !== 'object') {
+    return null
+  }
+  const point = raw as Record<string, unknown>
+  const x = Number(point.x)
+  const y = Number(point.y)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null
+  }
+  return { x: Math.min(100, Math.max(0, x)), y: Math.min(100, Math.max(0, y)) }
+}
+
+const initialHomeLogo = (): string | null => {
+  const saved = read(KEYS.homeLogo)
+  return isAvatarDataUrl(saved) ? saved : null
+}
+
+/** 台词池上限：防止误粘贴超长清单把主页与设置页拖慢。 */
+export const HOME_GREETINGS_LIMIT = 30
+/** 单条台词上限；超出部分直接截断，避免主页一行铺满整屏。 */
+export const HOME_GREETING_CHARS = 200
+
+/**
+ * 兼容旧版单条台词与本机设置备份：
+ * - 旧值是非 JSON 的一段文字 → 视为一条台词；
+ * - 新值是 JSON 字符串数组 → 逐条清洗；
+ * - 其他非法值 → 空池，回退内置台词。
+ */
+export const normalizeHomeGreetings = (saved: unknown): string[] => {
+  let source: unknown = saved
+  if (typeof saved === 'string') {
+    const text = saved.trim()
+    if (!text) {
+      return []
+    }
+    if (text.startsWith('[')) {
+      try {
+        source = JSON.parse(text)
+      } catch {
+        source = [text]
+      }
+    } else {
+      source = [text]
+    }
+  }
+  if (!Array.isArray(source)) {
+    return []
+  }
+  const lines: string[] = []
+  for (const item of source) {
+    if (typeof item !== 'string') {
+      continue
+    }
+    const line = item.replace(/\r\n/g, '\n').trim().slice(0, HOME_GREETING_CHARS)
+    if (line && !lines.includes(line)) {
+      lines.push(line)
+    }
+    if (lines.length >= HOME_GREETINGS_LIMIT) {
+      break
+    }
+  }
+  return lines
+}
+
+const initialHomeGreetings = (): string[] => normalizeHomeGreetings(read(KEYS.homeGreeting))
 
 /** 布局落在根节点上，消息组件靠 CSS 属性选择器切换样式，避免每个组件重渲染判断 */
 const applyChatLayout = (chatLayout: ChatLayout) => {
@@ -577,15 +733,16 @@ const initialSystemPrompt = () => {
     return ''
   }
   const saved = read(KEYS.systemPrompt)
-  // 键不存在 = 新用户，给默认提示词；键存在但只有空白 = 主动清空，保持空。
+  // 键不存在 = 新用户：可编辑系统提示词默认留空，由内置助手提示词接管；
+  // 键存在但只有空白 = 主动清空，保持空。
   if (saved === null) {
-    return DEFAULT_SYSTEM_PROMPT
+    return ''
   }
   if (!saved.trim()) {
     return ''
   }
   if (saved === LEGACY_SYSTEM_PROMPT) {
-    return DEFAULT_SYSTEM_PROMPT
+    return ''
   }
   return saved
 }
@@ -694,11 +851,15 @@ export const useSettings = create<Settings>(() => ({
   characterProfile: initialCharacterProfile(),
   profileEnabled: initialProfileEnabled(),
   friendlyTone: initialFriendlyTone(),
+  defaultPromptEnabled: read(KEYS.defaultPromptEnabled) !== '0',
+  systemPromptEnabled: read(KEYS.systemPromptEnabled) !== '0',
   characterAvatar: initialCharacterAvatar(),
   avatarInChat: read(KEYS.avatarInChat) !== 'false',
   thoughtAside: read(KEYS.thoughtAside) !== 'false',
   memoryBadge: read(KEYS.memoryBadge) !== 'false',
   memoryInline: read(KEYS.memoryInline) !== 'false',
+  // 旧版「出戏压制」同时承担基础扮演开关；迁移时把旧值带入新开关，避免老用户基础扮演被静默关闭。
+  basicRoleplayEnabled: (read(KEYS.basicRoleplayEnabled) ?? read(KEYS.suppressMetaTalk)) === 'true',
   suppressMetaTalk: read(KEYS.suppressMetaTalk) === 'true',
   suppressionPersonaEnabled: read(KEYS.suppressionPersonaEnabled) === 'true',
   suppressionPersona: read(KEYS.suppressionPersona) ?? '',
@@ -710,6 +871,12 @@ export const useSettings = create<Settings>(() => ({
   tokenLimit: initialTokenLimit(),
   showUsage: read(KEYS.showUsage) === '0' ? false : true,
   usageBelow: read(KEYS.usageBelow) === 'true',
+  balanceChipEnabled: read(KEYS.balanceChipEnabled) !== '0',
+  balanceChipPosition: initialBalanceChipPosition(),
+  balanceChipShowUsage: read(KEYS.balanceChipShowUsage) !== '0',
+  balanceChipPos: initialBalanceChipPos(),
+  homeLogo: initialHomeLogo(),
+  homeGreetings: initialHomeGreetings(),
   memoryMode: readMemoryMode(),
   memoryLimit: readMemoryLimit(),
   memoryChars: readMemoryChars(),
@@ -969,7 +1136,7 @@ export const matchRefusalKeyword = (text: string): string | null => {
   )
 }
 
-/** 角色档案与表达页：只复位表达提示词 */
+/** 角色档案与表达页：只复位系统提示词 */
 
 
 /* ---- 05 角色卡、世界书与场景操作 ---- */
@@ -1251,6 +1418,18 @@ export const setCharacterName = (characterName: string) => {
   useSettings.setState({ characterName: value })
 }
 
+/** 默认系统提示词开关：关闭后不发送官方助手身份与功能索引；系统提示词/基础扮演同级作为 system，都没有则用内置兜底人设 */
+export const setDefaultPromptEnabled = (defaultPromptEnabled: boolean) => {
+  write(KEYS.defaultPromptEnabled, defaultPromptEnabled ? '1' : '0')
+  useSettings.setState({ defaultPromptEnabled })
+}
+
+/** 手写系统提示词开关：关闭后不注入手写 system 提示词，文本保留；重新开启才恢复注入 */
+export const setSystemPromptEnabled = (systemPromptEnabled: boolean) => {
+  write(KEYS.systemPromptEnabled, systemPromptEnabled ? '1' : '0')
+  useSettings.setState({ systemPromptEnabled })
+}
+
 /** 基础档案开关：关闭后文本保留但不注入，界面只读；重新开启才恢复编辑与注入 */
 export const setCharacterProfileEnabled = (profileEnabled: boolean) => {
   write(KEYS.profileEnabled, profileEnabled ? '1' : '0')
@@ -1418,6 +1597,43 @@ export const setUsageBelow = (usageBelow: boolean) => {
   useSettings.setState({ usageBelow })
 }
 
+export const setBalanceChipEnabled = (balanceChipEnabled: boolean) => {
+  write(KEYS.balanceChipEnabled, balanceChipEnabled ? '1' : '0')
+  useSettings.setState({ balanceChipEnabled })
+}
+
+export const setBalanceChipPosition = (balanceChipPosition: BalanceChipPosition) => {
+  write(KEYS.balanceChipPosition, balanceChipPosition)
+  useSettings.setState({ balanceChipPosition })
+}
+
+export const setBalanceChipShowUsage = (balanceChipShowUsage: boolean) => {
+  write(KEYS.balanceChipShowUsage, balanceChipShowUsage ? '1' : '0')
+  useSettings.setState({ balanceChipShowUsage })
+}
+
+export const setBalanceChipPos = (balanceChipPos: BalanceChipPoint | null) => {
+  write(KEYS.balanceChipPos, balanceChipPos ? JSON.stringify(balanceChipPos) : null)
+  useSettings.setState({ balanceChipPos })
+}
+
+export const setHomeLogo = (homeLogo: string | null) => {
+  write(KEYS.homeLogo, homeLogo && isAvatarDataUrl(homeLogo) ? homeLogo : null)
+  useSettings.setState({ homeLogo: homeLogo && isAvatarDataUrl(homeLogo) ? homeLogo : null })
+}
+
+export const setHomeGreetings = (homeGreetings: string[]) => {
+  const next = normalizeHomeGreetings(homeGreetings)
+  write(KEYS.homeGreeting, next.length ? JSON.stringify(next) : null)
+  useSettings.setState({ homeGreetings: next })
+}
+
+export const resetHomeAppearance = () => {
+  write(KEYS.homeLogo, null)
+  write(KEYS.homeGreeting, null)
+  useSettings.setState({ homeLogo: null, homeGreetings: [] })
+}
+
 export const setAvatarShape = (avatarShape: 'circle' | 'rounded') => {
   write(KEYS.avatarShape, avatarShape)
   useSettings.setState({ avatarShape })
@@ -1429,7 +1645,8 @@ export const setAutoFollow = (autoFollow: boolean) => {
   useSettings.setState({ autoFollow })
 }
 
-const clampAvatarSize = (size: number) => Math.min(36, Math.max(20, Math.round(size)))
+const clampAvatarSize = (size: number) =>
+  Math.min(AVATAR_SIZE_MAX, Math.max(AVATAR_SIZE_MIN, Math.round(size)))
 
 /** 角色档案页改的是 AI 头像，账户页改的是玩家自己的头像，两边互不影响 */
 export const setCharacterAvatarSize = (size: number) => {
@@ -1455,6 +1672,12 @@ export const setChatLayout = (chatLayout: ChatLayout) => {
 export const setSuppressMetaTalk = (suppressMetaTalk: boolean) => {
   write(KEYS.suppressMetaTalk, String(suppressMetaTalk))
   useSettings.setState({ suppressMetaTalk })
+}
+
+/** 基础扮演模式开关：关闭后空/默认提示词回到普通助手，已有角色卡不受影响 */
+export const setBasicRoleplayEnabled = (basicRoleplayEnabled: boolean) => {
+  write(KEYS.basicRoleplayEnabled, String(basicRoleplayEnabled))
+  useSettings.setState({ basicRoleplayEnabled })
 }
 
 /** 自定义压制预设开关：关闭后立刻回到内置的大学青梅竹马，不改已写文本 */
@@ -1507,12 +1730,14 @@ export const setThoughtAside = (thoughtAside: boolean) => {
 
 /** 角色档案与表达页：提示词、角色名与基础档案复位；头像和显示开关属于形象资产，保留 */
 export const resetCharacterSettings = () => {
-  setSystemPrompt(DEFAULT_SYSTEM_PROMPT)
+  setSystemPrompt('')
   setCharacterName('')
   setSuppressMetaTalk(false)
   setSuppressionPersonaEnabled(false)
   setSuppressionPersona('')
   setFriendlyTone(true)
+  setDefaultPromptEnabled(true)
+  setSystemPromptEnabled(true)
   clearCharacterProfile()
   setCharacterProfileEnabled(true)
 }

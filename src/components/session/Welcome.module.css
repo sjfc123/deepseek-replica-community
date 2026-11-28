@@ -91,6 +91,13 @@
   }
 }
 
+[data-android] .fatFishButton img[data-custom] {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 [data-android] .greetingText {
   display: block;
 }
@@ -161,7 +168,73 @@
   }
 }
 
-/* ---- 03 功能区 ---- */
+/* ---- 03 功能区：主页台词编辑弹层 ---- */
+.greetingEditor {
+  display: grid;
+  gap: 12px;
+  padding: 4px 2px;
+}
+
+.greetingHint {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.greetingInput {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+
+  &::placeholder {
+    color: var(--dsw-alias-label-tertiary);
+  }
+}
+
+.greetingOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.greetingOption {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: start;
+  cursor: pointer;
+
+  &[data-active=''] {
+    border-color: var(--dsw-alias-brand-primary);
+    background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
+  }
+}
+
+.greetingActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* ---- 04 欢迎页桌面扩展 ---- */
 .desktopExtras {
   display: none;

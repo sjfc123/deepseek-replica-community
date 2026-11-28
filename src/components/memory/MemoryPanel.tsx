@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { getVisibleMessages } from '../../services/chat/branches.js'
-import { findActiveCharacterCard, findSessionCharacterCard } from '../../services/chat/roleplay.js'
+import { resolveSessionCharacterCard } from '../../services/chat/roleplay.js'
 import {
   memoryPoolForDisplayName,
   resolveMemoryDisplayName,
@@ -160,18 +160,21 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
   const characterCards = useSettings((state) => state.characterCards)
   const characterName = useSettings((state) => state.characterName)
   const systemPrompt = useSettings((state) => state.systemPrompt)
-  const sessionCard = findSessionCharacterCard(characterCards, session)
-  const activeCard = roleplayEnabled
-    ? findActiveCharacterCard(characterCards, activeCharacterId)
-    : undefined
-  const displayCard = sessionCard ?? activeCard
+  const systemPromptEnabled = useSettings((state) => state.systemPromptEnabled)
+  const displayCard = resolveSessionCharacterCard(
+    characterCards,
+    session,
+    activeCharacterId,
+    roleplayEnabled
+  )
   const resolvedCharacterName = resolveMemoryDisplayName({
     cardName: displayCard?.name,
     characterName,
     custom: false,
   })
+  const handwrittenActive = systemPromptEnabled && Boolean(systemPrompt.trim())
   const characterMemoryActive =
-    Boolean(systemPrompt.trim()) &&
+    handwrittenActive &&
     memoryPoolForDisplayName(resolvedCharacterName) === 'character'
   // 旧卡没有 speaker 字段时，用当前玩家名与角色名补上归属，不再统一显示「用户」。
   const memoryNames = {
@@ -991,7 +994,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
                 disabled={normalDraftLocked}
                 placeholder={
                   normalDraftLocked
-                    ? '当前显示名是角色名，普通记忆暂停写入；把角色名恢复为 AI / DeepSeek 或清空表达提示词后再补开发代码。'
+                    ? '当前显示名是角色名，普通记忆暂停写入；把角色名恢复为 AI / DeepSeek 或清空系统提示词后再补开发代码。'
                     : pool === 'normal'
                       ? '记一条开发/问答参考，例如：报错原因、命令、接口字段；代码块会自动归入代码。'
                       : draftCharacterKind === 'scene'
@@ -1022,7 +1025,7 @@ export const MemoryPanel = ({ session }: { session: Session }) => {
           <div className={styles.footerMeta}>
             <p className={styles.footerHint}>
               {normalDraftLocked
-                ? '普通记忆暂停写入：把显示名恢复为 AI / DeepSeek 或清空表达提示词后恢复。'
+                ? '普通记忆暂停写入：把显示名恢复为 AI / DeepSeek 或清空系统提示词后恢复。'
                 : adding
                   ? '长按消息可保存对话；写好后按「添加」。'
                   : '长按消息可保存对话，也可手写一条。'}

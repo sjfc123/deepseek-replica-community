@@ -38,6 +38,7 @@ import { AndroidSettings } from '../components/settings/AndroidSettings.js'
 import { ApiKeyScreen } from '../components/settings/ApiKeyScreen.js'
 import { VoiceCallOverlay } from '../components/chatInput/VoiceCallOverlay.js'
 import { MemoryAddedToast } from '../components/memory/MemoryAddedToast.js'
+import { HistoryAuditDialog } from '../components/session/HistoryAuditDialog.js'
 import { installDiagnostics } from './diagnostics.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
@@ -444,6 +445,7 @@ export const App = () => {
       <AndroidSettings chatFrame={frameRef} />
       <Toast />
       <MemoryAddedToast />
+      <HistoryAuditDialog />
       <VoiceCallOverlay />
     </>
   )

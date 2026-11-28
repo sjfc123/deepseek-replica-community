@@ -64,9 +64,9 @@ export class CrashScreen extends Component<Props, State> {
       .join('\n')
     try {
       await navigator.clipboard.writeText(text)
-      this.setState({ info: `${info}\n（已复制，可直接粘贴反馈）` })
+      this.setState({ info: `${info}\n（已复制，可粘贴到反馈中）` })
     } catch {
-      this.setState({ info: `${info}\n（复制失败，可长按选中上面的文字）` })
+      this.setState({ info: `${info}\n（复制失败，可长按选中上方文字）` })
     }
   }
 
@@ -79,12 +79,12 @@ export class CrashScreen extends Component<Props, State> {
       <div className={styles.screen}>
         <div className={styles.card}>
           <span className={styles.mark}>!</span>
-          <h1>界面这次没画出来</h1>
+          <h1>界面渲染失败</h1>
           <p>
-            对话和设置都还在本机，没有丢。先点下面的「重新打开」；如果反复停在这一页，
-            把原因复制出来反馈，比直接清数据更能保住记录。
+            对话与设置仍保存在本机，不会因本页错误丢失。请先点击「重新打开」；若持续停在本页，
+            请复制原因并反馈，避免直接清除应用数据。
           </p>
-          <pre className={styles.detail}>{error.message || '没有拿到具体原因'}</pre>
+          <pre className={styles.detail}>{error.message || '未获取到具体错误信息'}</pre>
           {info ? <pre className={styles.stack}>{info}</pre> : null}
           <div className={styles.actions}>
             <button type="button" className={styles.primary} onClick={this.reload}>
@@ -95,7 +95,7 @@ export class CrashScreen extends Component<Props, State> {
             </button>
           </div>
           <p className={styles.note}>
-            清除应用数据能解决大部分异常，但会删掉本机全部对话，请先确认已有备份。
+            清除应用数据可解决多数异常，但会删除本机全部对话，操作前请确认已有备份。
           </p>
         </div>
       </div>

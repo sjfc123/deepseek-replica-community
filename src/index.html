@@ -1,4 +1,12 @@
 <!doctype html>
+<!-- ============================================================================
+  功能区：源码入口 / index.html · WebView 首屏入口
+  职责：提供文档元信息、首屏启动层样式与 DOM、主界面挂载点；由 rspack HtmlRspackPlugin 生成 dist/index.html。
+  分区：01 文档元信息与启动脚本；02 首屏启动层样式；03 启动层 DOM 与主界面挂载点
+  关联：boot.js 在文档头以 defer 引入并先于主包执行；主包由 HtmlRspackPlugin 注入；样式只引用本文件内联变量。
+  导出：无模块导出；构建输出为 dist/index.html。
+  边界：只承载文档元信息、启动层与挂载点；不写业务状态，不请求接口，不定义主界面组件。
+============================================================================ -->
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
@@ -9,6 +17,7 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <title>DeepSaga</title>
     <script defer src="static/js/boot.js"></script>
+    <!-- 02 首屏启动层样式 -->
     <style>
       :root {
         color-scheme: light dark;
@@ -362,6 +371,7 @@
     </style>
   </head>
   <body>
+    <!-- 03 启动层 DOM 与主界面挂载点 -->
     <div
       id="boot-splash"
       role="status"
@@ -392,6 +402,7 @@
         <div class="boot-hint">STORY · MEMORY · CHARACTER</div>
       </div>
     </div>
+    <!-- 主界面挂载点：React 根节点；启动层在其首帧绘制完成后移除 -->
     <div id="root"></div>
   </body>
 </html>

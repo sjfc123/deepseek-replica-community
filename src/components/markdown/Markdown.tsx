@@ -57,10 +57,8 @@ export const Markdown = memo(function Markdown({
   const [workerFailed, setWorkerFailed] = useState(false)
   const [parsed, setParsed] = useState<{ request: typeof request; result: ParsedMarkdown }>()
   const busy = useRef(false)
-  const workerKey = useRef<string>()
-  const useWorker = Boolean(
-    android && !workerFailed && request.content && (loading || workerKey.current === cacheKey)
-  )
+  // Android WebView 上历史消息同样走 Worker：首次打开长会话时不再由主线程同步解析整屏 Markdown。
+  const useWorker = Boolean(android && !workerFailed && request.content)
   const syncAst = useMemo(
     () => (!useWorker && request.content ? toMdAst(request.content, request.options) : null),
     [request, useWorker]
@@ -77,7 +75,6 @@ export const Markdown = memo(function Markdown({
       return
     }
     busy.current = true
-    workerKey.current = cacheKey
     const previous = parsed?.request.key === request.key ? parsed.result : undefined
     void parseOffMainThread(request.content, request.options, previous).then((result) => {
       busy.current = false
@@ -95,14 +92,22 @@ export const Markdown = memo(function Markdown({
   const ast = useWorker
     ? (previousAst ?? (matches(lastSync.current?.request) ? lastSync.current?.ast : undefined))
     : syncAst
-  return ast ? (
+  if (!ast) {
+    // 解析在 Worker 里进行时先按纯文本占位，保证打开长会话能立刻看到内容且主线程不被同步解析占住。
+    return request.content ? (
+      <div className={className ? `ds-markdown ds-markdown-waiting ${className}` : 'ds-markdown ds-markdown-waiting'}>
+        {request.content}
+      </div>
+    ) : null
+  }
+  return (
     <MarkdownAstRenderer
       key={cacheKey}
       className={className}
       ast={ast}
       loading={loading || (useWorker && parsed?.request !== request)}
     />
-  ) : null
+  )
 })
 
 /* ============================================================================

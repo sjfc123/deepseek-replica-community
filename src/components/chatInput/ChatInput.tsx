@@ -35,7 +35,7 @@ import {
   useChatStore,
   acknowledgeStoryClue,
 } from '../../services/chat/store.js'
-import { SYSTEM_PROMPT } from '../../services/chat/systemPrompt.js'
+import { basicRoleplayActive, SYSTEM_PROMPT } from '../../services/chat/systemPrompt.js'
 import { generateReplySuggestions } from '../../services/chat/suggestions.js'
 import type { ReplySuggestion } from '../../services/chat/suggestions.js'
 import {
@@ -167,12 +167,21 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const session = useChatStore((state) => (sessionId ? state.sessionCache[sessionId] : undefined))
   const characterCards = useSettings((state) => state.characterCards)
   const systemPrompt = useSettings((state) => state.systemPrompt)
-  const suppressMetaTalk = useSettings((state) => state.suppressMetaTalk)
+  const systemPromptEnabled = useSettings((state) => state.systemPromptEnabled)
+  const basicRoleplayEnabled = useSettings((state) => state.basicRoleplayEnabled)
   const activeCard = findSessionCharacterCard(characterCards, session)
-  // 压制设定接管空/默认提示词时，没有角色卡也属于基础角色扮演，建议入口照常可用。
+  // 基础扮演接管空/默认提示词时，没有角色卡也属于基础角色扮演，建议入口照常可用。
   const promptText = systemPrompt.trim()
-  const suppressionRoleplay =
-    suppressMetaTalk && !activeCard && (!promptText || promptText === SYSTEM_PROMPT)
+  // 系统提示词开关关闭时视同空提示词，与主请求装配保持同一口径。
+  const handwrittenActive = systemPromptEnabled && Boolean(promptText)
+  const promptEmpty = !handwrittenActive
+  const promptIsDefault = !promptEmpty && promptText === SYSTEM_PROMPT
+  const suppressionRoleplay = basicRoleplayActive({
+    basicRoleplayEnabled,
+    promptEmpty,
+    promptIsDefault,
+    hasActiveCard: Boolean(activeCard),
+  })
   const suggestionReady = Boolean(activeCard || suppressionRoleplay)
   const story = activeCard?.story
   const storyLocked = isStoryLocked(session)

@@ -17,7 +17,7 @@ import { useChatStore } from './store.js'
 import { getVisibleMessages } from './branches.js'
 import { findSessionCharacterCard } from './roleplay.js'
 import type { CharacterCard } from './roleplay.js'
-import { DEFAULT_SUPPRESSION_PERSONA_NAME, SYSTEM_PROMPT } from './systemPrompt.js'
+import { basicRoleplayActive, DEFAULT_SUPPRESSION_PERSONA_NAME, SYSTEM_PROMPT } from './systemPrompt.js'
 import {
   formatStoryClock,
   formatStorySuggestionContext,
@@ -167,25 +167,34 @@ export const generateReplySuggestions = async ({
   }
   const settings = useSettings.getState()
   const prompt = settings.systemPrompt.trim()
-  const basicRoleplay =
-    settings.suppressMetaTalk && (!prompt || prompt === SYSTEM_PROMPT)
-  // 压制设定接管空/默认提示词时没有实体卡，这里补一张只用于读懂语气的轻量卡。
+  // 系统提示词开关关闭时视同空提示词，与主请求装配保持同一口径。
+  const handwrittenActive = settings.systemPromptEnabled && Boolean(prompt)
+  const promptEmpty = !handwrittenActive
+  const promptIsDefault = !promptEmpty && prompt === SYSTEM_PROMPT
+  const activeCard = findSessionCharacterCard(settings.characterCards, session)
+  // 基础扮演接管空/默认提示词时没有实体卡，这里补一张只用于读懂语气的轻量卡。
+  const basicRoleplay = basicRoleplayActive({
+    basicRoleplayEnabled: settings.basicRoleplayEnabled,
+    promptEmpty,
+    promptIsDefault,
+    hasActiveCard: Boolean(activeCard),
+  })
   const card =
-    findSessionCharacterCard(settings.characterCards, session) ??
+    activeCard ??
     (basicRoleplay
       ? createSuppressionSuggestionCard(settings.characterName.trim() || DEFAULT_SUPPRESSION_PERSONA_NAME)
       : undefined)
   if (!card) {
     throw new Error('当前会话没有角色卡')
   }
-  // 实际对话只看最近两轮，避免旧轮次把建议拉回已经过去的情节。
+  // 建议依据最近若干轮对话：既保持当前节拍与剧情走向，又不让过早的旧情节把话题拉回。
   const visible = getVisibleMessages(session)
   const allMessages = visible
     .map((message) => ({ role: message.role, content: messageText(message).trim() }))
     .filter((message): message is { role: 'user' | 'assistant'; content: string } =>
       Boolean(message.content)
     )
-  const transcriptMessages = allMessages.slice(-4)
+  const transcriptMessages = allMessages.slice(-6)
   const presenceMessages = allMessages.slice(-20)
   const transcript = buildSuggestionTranscript(card.name, transcriptMessages)
   const lastCharacterLine =

@@ -8,19 +8,20 @@
  * 边界：只处理该组件的视图、交互状态与受控副作用；业务规则与持久化由 services 承担。
  * ========================================================================== */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
 import { android } from '../../app/android.js'
 import fatFishIcon from '../../assets/dafeiyu-icon.png'
 import { getPeakHint } from '../../services/peak.js'
 import { selectSession, useChatStore } from '../../services/chat/store.js'
+import { FAT_FISH_ALL_LINES } from '../../services/chat/easterEgg.js'
 import { useSettings } from '../../services/settings.js'
 import {
   useAndroidWelcomeMessages,
   useTranslate,
-  type TranslationKey,
 } from '../../i18n/index.js'
 import { ChatInput } from '../chatInput/ChatInput.js'
+import { BalanceUsageAnchor } from '../balance/BalanceUsageAnchor.js'
 import { IconChevronRightOutline14 } from '../base/icons.js'
 import { FeatureIcon } from '../settings/FeatureIcon.js'
 import { openSettings } from '../settings/settingsDialogState.js'
@@ -31,41 +32,6 @@ import styles from './Welcome.module.css'
 /* ---- 01 类型、常量与模块依赖 ---- */
 let coldStartGreetingPending = true
 
-const FAT_FISH_RANDOM_LINES = [
-  'fatFishLinePhase1',
-  'fatFishLinePhase2',
-  'fatFishLinePhase3',
-  'fatFishLineTease1',
-  'fatFishLineTease2',
-  'fatFishLineTease3',
-  'fatFishLineTease4',
-  'fatFishLineTease5',
-  'fatFishLineTease6',
-  'fatFishLineTease7',
-  'fatFishLineTease8',
-  'fatFishLineTease9',
-  'fatFishLineTease10',
-] as const satisfies readonly TranslationKey[]
-
-/** 一轮台词播完后的短暂冷却；冷却结束重新洗牌，不从“永久静音”状态卡住 */
-const FAT_FISH_CYCLE_COOLDOWN_MS = 360
-
-/** 随机牌堆：每张台词一轮只出现一次，用完再重新洗牌 */
-const shuffleFatFishDeck = (exclude: number) => {
-  const deck = FAT_FISH_RANDOM_LINES.map((_, index) => index)
-  for (let i = deck.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
-    const swap = deck[i]
-    deck[i] = deck[j]
-    deck[j] = swap
-  }
-  if (deck.length > 1 && deck[0] === exclude) {
-    const swap = deck[0]
-    deck[0] = deck[1]
-    deck[1] = swap
-  }
-  return deck
-}
 
 /* ---- 02 功能实现（Welcome） ---- */
 /** 新对话：问候语 + 输入框。桌面端居中；移动端输入框吸底 */
@@ -73,6 +39,8 @@ export const Welcome = () => {
   const t = useTranslate()
   const isMobile = useIsMobile()
   const locale = useSettings((state) => state.locale)
+  const homeLogo = useSettings((state) => state.homeLogo)
+  const homeGreetings = useSettings((state) => state.homeGreetings)
   const sessions = useChatStore((state) => state.sessions)
   const archivedSessions = useSettings((state) => state.archivedSessions)
   const apiKey = useSettings((state) => state.apiKey)
@@ -80,12 +48,12 @@ export const Welcome = () => {
   const androidMessages = useAndroidWelcomeMessages()
   const [coldStart] = useState(coldStartGreetingPending)
   const [peak, setPeak] = useState(() => getPeakHint().peak)
-  const [manualGreeting, setManualGreeting] = useState(false)
-  const fatFishDeck = useRef<number[]>([])
-  const fatFishDeckPos = useRef(0)
-  const fatFishCooldownUntil = useRef(0)
-  const fatFishFirstClick = useRef(true)
-  const fatFishLastLine = useRef(-1)
+  /** 主页台词池：本机保存的台词优先；没有保存过就用内置台词。 */
+  const greetingPool = homeGreetings.length
+    ? homeGreetings
+    : FAT_FISH_ALL_LINES.map((key) =>
+        t(key, { phase: t(peak ? 'peakHoursShort' : 'offpeakHoursShort') })
+      )
   const [greeting, setGreeting] = useState(() => {
     if (!android) {
       return t('welcomeMessageChat250808')
@@ -93,7 +61,9 @@ export const Welcome = () => {
     if (coldStart) {
       return t(peak ? 'peakWelcomeMessage' : 'offpeakWelcomeMessage')
     }
-    return androidMessages[Math.floor(Math.random() * androidMessages.length)]
+    return greetingPool.length
+      ? greetingPool[Math.floor(Math.random() * greetingPool.length)]
+      : androidMessages[Math.floor(Math.random() * androidMessages.length)]
   })
 
   const recentSessions = sessions
@@ -103,6 +73,10 @@ export const Welcome = () => {
   const modelLabel = configured
     ? chatConfig.model || t('welcomeApiConfigured')
     : t('welcomeApiNotConfigured')
+  const logoSrc = homeLogo ?? fatFishIcon
+  const displayGreeting = greeting
+  /** 内联双语：按当前语言取中文或英文文案，避免为短文案新增字典键 */
+  const tr = (chinese: string, english: string) => (locale === 'zh-CN' ? chinese : english)
 
   const formatRecentTime = (updatedAt: number) => {
     const date = new Date(updatedAt)
@@ -123,71 +97,23 @@ export const Welcome = () => {
     }
   }, [])
 
-  const handleFatFishClick = () => {
-    const now = Date.now()
-    setManualGreeting(true)
-    if (fatFishFirstClick.current) {
-      fatFishFirstClick.current = false
-      setGreeting(t('fatFishLineFirst'))
+  /** 点头像只换一句：从台词池随机取，尽量避开当前这句；不再弹编辑框 */
+  const showRandomGreeting = () => {
+    if (!greetingPool.length) {
       return
     }
-    if (fatFishDeckPos.current >= fatFishDeck.current.length) {
-      if (now < fatFishCooldownUntil.current) {
-        // 冷却期只限制“重新洗牌”，不吞掉点击：快速点击仍然继续换一句
-        let index = Math.floor(Math.random() * FAT_FISH_RANDOM_LINES.length)
-        if (index === fatFishLastLine.current) {
-          index =
-            (index + 1 + Math.floor(Math.random() * (FAT_FISH_RANDOM_LINES.length - 1))) %
-            FAT_FISH_RANDOM_LINES.length
-        }
-        fatFishLastLine.current = index
-        setGreeting(
-          t(FAT_FISH_RANDOM_LINES[index], {
-            phase: t(peak ? 'peakHoursShort' : 'offpeakHoursShort'),
-          })
-        )
-        return
-      }
-      fatFishDeck.current = shuffleFatFishDeck(fatFishLastLine.current)
-      fatFishDeckPos.current = 0
+    let index = Math.floor(Math.random() * greetingPool.length)
+    if (greetingPool.length > 1 && greetingPool[index] === greeting) {
+      index = (index + 1) % greetingPool.length
     }
-    const pointer = fatFishDeckPos.current
-    let index = fatFishDeck.current[pointer]
-    // 牌堆相邻两张不重复；单次点击也一定换成另一句
-    if (index === fatFishLastLine.current) {
-      const alternate = fatFishDeck.current.findIndex(
-        (line, position) => position >= pointer && line !== fatFishLastLine.current
-      )
-      if (alternate >= 0) {
-        const swap = fatFishDeck.current[alternate]
-        fatFishDeck.current[alternate] = fatFishDeck.current[pointer]
-        fatFishDeck.current[pointer] = swap
-        index = swap
-      }
-    }
-    fatFishDeckPos.current = pointer + 1
-    fatFishLastLine.current = index
-    setGreeting(
-      t(FAT_FISH_RANDOM_LINES[index], {
-        phase: t(peak ? 'peakHoursShort' : 'offpeakHoursShort'),
-      })
-    )
-    if (fatFishDeckPos.current >= fatFishDeck.current.length) {
-      fatFishCooldownUntil.current = now + FAT_FISH_CYCLE_COOLDOWN_MS
-    }
+    setGreeting(greetingPool[index])
   }
 
   useEffect(() => {
     if (!android) {
       return
     }
-    const refresh = () => {
-      const nextPeak = getPeakHint().peak
-      setPeak(nextPeak)
-      if (!manualGreeting) {
-        setGreeting(t(nextPeak ? 'peakWelcomeMessage' : 'offpeakWelcomeMessage'))
-      }
-    }
+    const refresh = () => setPeak(getPeakHint().peak)
     const timer = window.setInterval(refresh, 30_000)
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -199,7 +125,7 @@ export const Welcome = () => {
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [manualGreeting, t])
+  }, [])
 
   return (
     <div className={styles.container} data-drawer-free-pan={android ? '' : undefined}>
@@ -210,20 +136,21 @@ export const Welcome = () => {
             <button
               type="button"
               className={styles.fatFishButton}
-              aria-label={t('fatFishInteraction')}
-              title={t('fatFishInteraction')}
-              onClick={handleFatFishClick}
+              aria-label={tr('随机一句主页台词', 'Show another home line')}
+              title={tr('随机一句主页台词', 'Show another home line')}
+              onClick={showRandomGreeting}
             >
-              <img src={fatFishIcon} alt="" />
+              <img src={logoSrc} alt="" data-custom={homeLogo ? '' : undefined} />
             </button>
           ) : null}
+          <BalanceUsageAnchor session={null} context="home" layout="inline" />
           {android ? (
             <div className={styles.greetingCopy}>
-              <span className={styles.greetingText}>{greeting}</span>
+              <span className={styles.greetingText}>{displayGreeting}</span>
               <PeakWindowHint />
             </div>
           ) : (
-            greeting
+            displayGreeting
           )}
         </div>
         <ChatInput sessionId={null} />

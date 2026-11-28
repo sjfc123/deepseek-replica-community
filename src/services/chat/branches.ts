@@ -12,6 +12,8 @@
 import type { Message, Session } from './types.js'
 
 /* ---- 01 类型、契约与依赖 ---- */
+/** 最近一次算出的可见路径：会话对象变化时重新计算，单条正文更新时只替换路径中对应的一端。 */
+let pathCache: { session: Session; path: Message[] } | null = null
 /** 将线性消息列表规范化为单分支，保留消息 ID、内容及时间。 */
 export const normalizeSession = (session: Session): Session =>
   session.rootMessageId !== undefined
@@ -31,6 +33,49 @@ export const getVisibleMessages = (session: Session): Message[] => {
   if (session.rootMessageId === undefined) {
     return session.messages
   }
+  const cached = pathCache
+  if (cached?.session === session) {
+    return cached.path
+  }
+  // 流式输出每帧只替换最后一条消息：复用上一帧的路径，避免整段历史重建 Map。
+  const previous = cached?.session
+  if (
+    previous &&
+    previous.rootMessageId === session.rootMessageId &&
+    previous.messages.length === session.messages.length
+  ) {
+    let changedIndex = -1
+    let changedCount = 0
+    for (let index = 0; index < session.messages.length; index++) {
+      if (previous.messages[index] !== session.messages[index]) {
+        changedIndex = index
+        changedCount++
+        if (changedCount > 1) {
+          break
+        }
+      }
+    }
+    if (changedCount === 1 && changedIndex >= 0) {
+      const before = previous.messages[changedIndex]
+      const after = session.messages[changedIndex]
+      const pathIndex = cached.path.findIndex((message) => message.id === before.id)
+      if (
+        pathIndex >= 0 &&
+        before.parentId === after.parentId &&
+        before.selectedChildId === after.selectedChildId
+      ) {
+        const path = cached.path.slice()
+        path[pathIndex] = after
+        pathCache = { session, path }
+        return path
+      }
+      if (pathIndex < 0) {
+        // 改动落在旁支：当前可见路径不受影响，原样复用。
+        pathCache = { session, path: cached.path }
+        return cached.path
+      }
+    }
+  }
   const byId = new Map(session.messages.map((message) => [message.id, message]))
   const path: Message[] = []
   let id = session.rootMessageId
@@ -43,7 +88,33 @@ export const getVisibleMessages = (session: Session): Message[] => {
     byId.delete(id)
     id = message.selectedChildId ?? null
   }
+  pathCache = { session, path }
   return path
+}
+
+/**
+ * 判断两次消息数组是否只改了正文（没有增删、没有换父/换分支）。
+ * 流式输出每帧只替换最后一条内容，此时版本表无需重建。
+ */
+export const isContentOnlyChange = (previous: Message[], next: Message[]): boolean => {
+  if (previous.length !== next.length) {
+    return false
+  }
+  let changed = -1
+  for (let index = 0; index < next.length; index++) {
+    if (previous[index] !== next[index]) {
+      if (changed >= 0) {
+        return false
+      }
+      changed = index
+    }
+  }
+  if (changed < 0) {
+    return true
+  }
+  const before = previous[changed]
+  const after = next[changed]
+  return before.parentId === after.parentId && before.selectedChildId === after.selectedChildId
 }
 
 export type MessageVersions = { ids: string[]; index: number }

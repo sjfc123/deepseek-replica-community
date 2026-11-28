@@ -69,7 +69,7 @@ export const UserMessage = memo(function UserMessage({
   versions: MessageVersions
   onSelectVersion: SelectMessageVersion
   /** 长按菜单进入记忆选择：one=本轮，all=当前分支全部 */
-  onStartMemorySelect?: (scope: 'one' | 'all') => void
+  onStartMemorySelect?: (messageId: string, scope: 'one' | 'all') => void
 }) {
   const t = useTranslate()
   const avatarInChat = useSettings((state) => state.avatarInChat)
@@ -288,7 +288,7 @@ export const UserMessage = memo(function UserMessage({
                               icon: <IconMultiSelectOutline16 />,
                               onSelect: () => {
                                 stopSelecting()
-                                onStartMemorySelect('one')
+                                onStartMemorySelect(message.id, 'one')
                               },
                             },
                             {
@@ -297,7 +297,7 @@ export const UserMessage = memo(function UserMessage({
                               icon: <IconSelectAllOutline16 />,
                               onSelect: () => {
                                 stopSelecting()
-                                onStartMemorySelect('all')
+                                onStartMemorySelect(message.id, 'all')
                               },
                             },
                           ]

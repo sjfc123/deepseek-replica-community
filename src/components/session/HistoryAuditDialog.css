@@ -1,0 +1,190 @@
+/* ============================================================================
+ * 功能区：视图与交互 / HistoryAuditDialog · 历史结算面板样式
+ * 职责：历史结算面板的视觉实现：遮罩、卡片、指标网格、重消息列表与进度条；类名由同名组件直接引用。
+ * 分区：01 遮罩与卡片；02 指标与列表；03 进度与按钮、断点
+ * 关联：使用方 components/session/HistoryAuditDialog；本文件不导入业务模块。
+ * 导出：全局类名（history-audit-*）
+ * 边界：只定义视觉令牌与布局；不读取业务数据，状态通过 DOM 文本与内联宽度进入。
+ * ========================================================================== */
+
+/* ---- 01 遮罩与卡片 ---- */
+.history-audit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(0 0 0 / 50%);
+  animation: history-audit-fade 160ms ease-out;
+}
+
+.history-audit-card {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 380px);
+  max-height: min(80vh, 620px);
+  overflow: hidden;
+  padding: 18px 18px 14px;
+  border-radius: 20px;
+  background: var(--ds-bg-elevated, #fff);
+  color: var(--dsw-alias-label-primary, #1f2329);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 28%);
+  font-size: 13.5px;
+  line-height: 1.65;
+  overscroll-behavior: contain;
+}
+
+.history-audit-head {
+  flex: none;
+  margin-bottom: 12px;
+}
+
+/* 正文单独滚动，关闭按钮固定留在卡片底部，长结算不用翻到底才能关。 */
+.history-audit-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.history-audit-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: var(--dsw-alias-label-tertiary, #8a8f99);
+}
+
+.history-audit-head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- 02 指标与列表 ---- */
+.history-audit-grid {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.history-audit-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--ds-bg-secondary, rgb(0 0 0 / 4%));
+}
+
+.history-audit-grid dt {
+  font-size: 11.5px;
+  color: var(--dsw-alias-label-tertiary, #8a8f99);
+}
+
+.history-audit-grid dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+  overflow-wrap: anywhere;
+}
+
+.history-audit-strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-primary, #1f2329) !important;
+  font-weight: 600;
+}
+
+.history-audit-heavy h4 {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+}
+
+.history-audit-heavy ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-audit-heavy li {
+  display: grid;
+  gap: 1px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: var(--ds-bg-secondary, rgb(0 0 0 / 3%));
+}
+
+.history-audit-heavy-meta {
+  font-size: 11.5px;
+  color: var(--dsw-alias-label-tertiary, #8a8f99);
+}
+
+.history-audit-heavy-preview {
+  font-size: 12.5px;
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-audit-caliber {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--dsw-alias-label-tertiary, #8a8f99);
+}
+
+/* ---- 03 进度与按钮、断点 ---- */
+.history-audit-running {
+  display: grid;
+  gap: 10px;
+  padding: 18px 0 10px;
+  text-align: center;
+  color: var(--dsw-alias-label-secondary, #4b4f56);
+}
+
+.history-audit-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ds-bg-secondary, rgb(0 0 0 / 6%));
+  overflow: hidden;
+}
+
+.history-audit-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dsw-alias-brand-primary, #4d6bfe);
+  transition: width 160ms linear;
+}
+
+.history-audit-close {
+  flex: none;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--dsw-alias-brand-primary, #4d6bfe);
+  color: #fff;
+  font: inherit;
+  font-size: 14.5px;
+  touch-action: manipulation;
+}
+
+@keyframes history-audit-fade {
+  from {
+    opacity: 0;
+  }
+}
