@@ -327,7 +327,7 @@ export type CacheDiagnosis = {
  * - 配置刚变化、首轮、刚压缩：视为预期重建，不报警；
  * - 相同配置下 system hash 变了：静态前缀被污染，直接报问题；
  * - 相同配置连续三轮低命中，或从健康值骤降到 0：报问题并列出可能原因；
- * - 自定义网关完全没有缓存字段：报“无法判断/可能不支持”，不冒充系统提示词丢失。
+ * - 自定义网关完全没有缓存字段：报“无法判断/可能不支持”，不据此判定为系统提示词丢失。
  */
 export const diagnosePromptCache = (
   samples: PromptCacheSample[],

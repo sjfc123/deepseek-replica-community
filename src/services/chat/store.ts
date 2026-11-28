@@ -3528,7 +3528,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       window.clearTimeout(streamTimer)
       streamTimer = 0
     }
-    /* 记录最终一次请求的 usage；中断、上传失败或没有 usage 时不记录，不用估算冒充。 */
+    /* 记录最终一次请求的 usage；中断、上传失败或没有 usage 时不写入记录，不生成推断值。 */
     if (reply.usage && cacheAttemptMeta) {
       recordPromptCacheSample({
         sessionId,

@@ -25,7 +25,8 @@
     "test:groups": "node --experimental-strip-types scripts/test-session-groups.mjs",
     "test:suggestions": "node --experimental-strip-types scripts/test-suggestions.mjs",
     "test:cache": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-cache-diagnostics.mjs",
-    "test:balance": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-balance.mjs"
+    "test:balance": "node --experimental-strip-types --experimental-loader ./scripts/ts-js-loader.mjs scripts/test-balance.mjs",
+    "test:theme": "node --experimental-strip-types scripts/test-theme-tokens.mjs"
   },
   "dependencies": {
     "@formatjs/intl-displaynames": "8.0.3",

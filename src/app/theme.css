@@ -128,6 +128,9 @@ body[data-ds-dark-theme] {
 
 body {
   --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-00);
+  /* 浮层与分组底的语义令牌：浅色下为纯白卡片与浅灰分组，深色下切换为深灰卡片与白色低透明度分组 */
+  --ds-bg-elevated: var(--dsw-static-neutral-bluish-00);
+  --ds-bg-secondary: rgba(0, 0, 0, 0.04);
   --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-00);
   --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-00);
   --dsw-alias-bg-skeleton: rgba(0, 0, 0, 0.04);
@@ -179,6 +182,9 @@ body {
 
 body[data-ds-dark-theme] {
   --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-950);
+  /* 浮层在深色下比页底亮一档，避免白底卡片配浅色文字 */
+  --ds-bg-elevated: var(--dsw-static-neutral-bluish-850);
+  --ds-bg-secondary: rgba(255, 255, 255, 0.06);
   --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-850);
   --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-800);
   --dsw-alias-bg-skeleton: rgba(255, 255, 255, 0.08);
