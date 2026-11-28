@@ -6,7 +6,7 @@ DeepSaga 是面向 Android 的本地角色扮演与对话客户端。本仓库�
 
 - **应用名**：`DeepSaga`
 - **包名 / namespace**：`io.github.sjfc123.deepsaga`
-- **当前源码版本**：`0.9.4`，versionCode `147`
+- **当前源码版本**：`0.9.5`，versionCode `148`
 - **启动图标**：深空星空底图与星座连线；安卓使用多密度 PNG 与自适应图标，网页使用独立 `favicon.png` 与 `apple-touch-icon.png`
 - **上游基础工程**：[LiJiaHua1024/deepseek-app-replica](https://github.com/LiJiaHua1024/deepseek-app-replica)，GPL-3.0
 - **部分功能来源**：[YanJiuWeiYuanHui/DeepChat](https://github.com/YanJiuWeiYuanHui/DeepChat) 1.1.3，MIT
@@ -21,7 +21,7 @@ DeepSaga 是独立衍生分支，不是 DeepSeek 官方客户端，不是上述�
 **自本项目最终版本源代码开源后，将不再进行更新。**
 
 - 本声明中的“更新”指版本号变更、版本说明追加与发布节点。同步性修正仅限上游兼容、构建修复和安全修补，不属于版本更新；不单独变更版本号、不追加版本说明、不写入变更日志。仅在明确要求时记录变更。
-- 当前版本标识为 `0.9.4`，versionCode `147`。
+- 当前版本标识为 `0.9.5`，versionCode `148`。
 - 不制定后续版本计划，不承诺适配新系统、新接口或新设备，不承诺修复已知缺陷。
 - 不处理常规 Issue，不合并 Pull Request，不提供功能定制、部署指导或使用咨询。
 - 仓库作者不提供商业级 SLA、技术支持、兼容性保证或法律合规背书。

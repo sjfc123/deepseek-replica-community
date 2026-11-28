@@ -44,6 +44,8 @@ const {
   LOCAL_PRIVATE_PROTOCOL,
   LOCAL_ENVIRONMENT_GUARD,
   LOCAL_ENV_LECTURE_PHRASES,
+  THINKING_VOICE_GUARD,
+  TOOL_USE_DISCIPLINE_GUARD,
 } = await import('../src/services/chat/systemPrompt.ts')
 const { replaceUserNickname } = await import('../src/services/chat/nickname.ts')
 const { sanitizeThinkingText } = await import('../src/services/chat/thinkingText.ts')
@@ -78,6 +80,8 @@ assert.doesNotMatch(DEFAULT_SYSTEM_PROMPT, /有血有肉|预置角色|你正在�
 assert.equal(LEGACY_SYSTEM_PROMPT, '该助手为DeepSeek，由深度求索公司创造。')
 
 const userLocalEnv = LOCAL_ENVIRONMENT_GUARD('用户')
+const thinkingVoice = THINKING_VOICE_GUARD('用户')
+const toolDiscipline = TOOL_USE_DISCIPLINE_GUARD
 const normal = composeSystemPrompt({
   savedPrompt: DEFAULT_SYSTEM_PROMPT,
   suppressMetaTalk: false,
@@ -87,7 +91,7 @@ const normal = composeSystemPrompt({
 })
 assert.equal(
   normal,
-  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${userLocalEnv}`,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${thinkingVoice}${toolDiscipline}${userLocalEnv}`,
   '普通助手默认提示应带固定友好语气与一致性约束，不应追加任何角色规则，但必须带本地环境段'
 )
 assert.doesNotMatch(normal, /【角色身份|【演出规则|【对话格式与称呼/)
@@ -179,7 +183,7 @@ const plainGuard = composeSystemPrompt({
 /* ---- 02 验证场景 ---- */
 assert.equal(
   plainGuard,
-  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${userLocalEnv}`,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${thinkingVoice}${toolDiscipline}${userLocalEnv}`,
   '普通助手对话不应因开关追加演出规则，但必须带本地环境段'
 )
 
@@ -192,7 +196,7 @@ assert.equal(
     roleplayContext: false,
     assistantWarmth: true,
   }),
-  `${customPrompt}${userLocalEnv}`,
+  `${customPrompt}${thinkingVoice}${toolDiscipline}${userLocalEnv}`,
   '自定义提示词正文原样保留，只在末尾追加本地环境段'
 )
 const emptyPrompt = composeSystemPrompt({
@@ -204,7 +208,7 @@ const emptyPrompt = composeSystemPrompt({
 })
 assert.equal(
   emptyPrompt,
-  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${userLocalEnv}`,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${thinkingVoice}${toolDiscipline}${userLocalEnv}`,
   '纯空白提示词必须回退默认官方助手'
 )
 assert.doesNotMatch(emptyPrompt, /【角色身份|【演出规则|【对话格式与称呼/)
@@ -301,7 +305,7 @@ const warmOff = composeSystemPrompt({
 })
 assert.equal(
   warmOff,
-  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_CONSISTENCY_GUARD}${userLocalEnv}`,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_CONSISTENCY_GUARD}${thinkingVoice}${toolDiscipline}${userLocalEnv}`,
   '关闭友好助手语气后只保留一致性核对，不再追加语气约束'
 )
 assert.equal(
@@ -340,7 +344,7 @@ const nearDefaultReply = composeSystemPrompt({
 })
 assert.equal(
   nearDefaultReply,
-  `${nearDefault}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${userLocalEnv}`,
+  `${nearDefault}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${thinkingVoice}${toolDiscipline}${userLocalEnv}`,
   '近似默认人格仍应保留友好语气与一致性约束'
 )
 const nearDefaultRoleplay = composeSystemPrompt({
@@ -401,7 +405,7 @@ const noFallback = composeSystemPrompt({
 })
 assert.equal(
   noFallback,
-  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${userLocalEnv}`,
+  `${DEFAULT_SYSTEM_PROMPT}${ASSISTANT_TONE_GUARD}${ASSISTANT_CONSISTENCY_GUARD}${thinkingVoice}${toolDiscipline}${userLocalEnv}`,
   '不传兜底人设时空提示词仍回退默认官方助手'
 )
 
@@ -498,132 +502,107 @@ assert.doesNotMatch(unlocked, /【严格约束/, '普通助手不追加角色严
 assert.match(ROLEPLAY_STRICT_GUARD, /一、身份与跨轮延续/)
 assert.match(IDENTITY_LOCK_GUARD, /I am an AI/, '身份守卫必须拦截英文自认话术')
 
-// 思考链展示归一：抹除元分析措辞，泛称替换为昵称；占位名不替换
-assert.equal(
-  sanitizeThinkingText('分析用户意图，先接住用户这句话', '小梦'),
-  '',
-  '带“接住”的写作计划整段隐藏，不把半成品计划露给用户'
-)
-assert.equal(sanitizeThinkingText('用户想让我先开口；玩家在等回应', '小梦'), '先开口；小梦在等回应')
-assert.equal(sanitizeThinkingText('用户想让我先开口', '用户'), '先开口')
-assert.equal(sanitizeThinkingText('User 在等回应', '小梦'), '小梦 在等回应')
-// 分析式开场：带冒号的“分析用户意图：”必须连标题一起剔除
-assert.equal(sanitizeThinkingText('分析用户意图：先看看他想要什么', '小梦'), '先看看他想要什么')
-assert.equal(sanitizeThinkingText('意图分析: 他在试探', '小梦'), '他在试探')
-assert.equal(
-  sanitizeThinkingText('揣摩对方意图，先放软语气', '小梦'),
-  '',
-  '“先放软语气”是给自己下指令，过滤后仍有计划口吻就整段隐藏'
-)
+// 思考链展示归一：不再“可疑即整段隐藏”，只逐句/逐片段切掉模型计划、检索笔记和答题策略。
+// 人物心声、情绪、关系判断必须留下；用户统一换成名字；不再出现助手模板和客服口吻。
+assert.match(THINKING_VOICE_GUARD('小梦'), /思考里只有一个人物的第一人称「我」/)
+assert.match(THINKING_VOICE_GUARD('小梦'), /提小梦时一律写「小梦」/)
+assert.match(THINKING_VOICE_GUARD('小梦'), /不写怎么答/)
+assert.ok(THINKING_VOICE_GUARD('小梦').includes('不写“保持友好'))
+assert.match(TOOL_USE_DISCIPLINE_GUARD, /只有当前这句明确要求查/)
+assert.match(TOOL_USE_DISCIPLINE_GUARD, /普通寒暄、情绪、关系、剧情、闲聊/)
+assert.doesNotMatch(TOOL_USE_DISCIPLINE_GUARD, /保持友好|保持简洁/)
 
-// 截图里的“答题策略”自述：直接答就好 / 不需要复杂分析 / 保持友好自然 / 简洁回应 / 别太热情
+assert.equal(sanitizeThinkingText('分析用户意图，先接住用户这句话', '小梦'), '', '纯元分析句丢弃')
+assert.equal(
+  sanitizeThinkingText('用户想让我先开口；玩家在等回应', '小梦'),
+  '小梦想让我先开口；小梦在等回应',
+  '泛称统一成用户名，不再改成第二人称'
+)
+assert.equal(sanitizeThinkingText('User 在等回应', '小梦'), '小梦 在等回应')
+assert.equal(sanitizeThinkingText('用户想让我先开口', '用户'), '先开口', '占位名不替换')
+assert.equal(sanitizeThinkingText('分析用户意图：先看看他想要什么', '小梦'), '', '分析标题句丢弃')
+assert.equal(sanitizeThinkingText('意图分析: 他在试探', '小梦'), '', '试探类元分析句丢弃')
+
+// 一句计划不能连带整段人物心声
 assert.equal(
   sanitizeThinkingText('（梦问我的名字。这个直接答就好，不用绕。） 我叫小夜。她问名字，我就告诉她。', '梦'),
-  '（梦问我的名字。） 我叫小夜。她问名字，我就告诉她。',
-  '“直接答就好、不用绕”这类答题策略句不得出现在思考面板'
+  '（梦问我的名字。） 我叫小夜。梦问名字，我就告诉梦。',
+  '只切掉“直接答就好”，保留同一段人物反应'
+)
+assert.equal(
+  sanitizeThinkingText('（嗯，梦只是打了个招呼，没有提具体问题。这种情况下不用套功能清单，也不用展开什么，轻松回应一下，把话头递回去就行。）', '梦'),
+  '（嗯，梦只是打了个招呼，没有提具体问题。）',
+  '同一句里只切计划片段，人物观察留住'
 )
 assert.equal(
   sanitizeThinkingText(
-    '嗯，梦问我的名字。这是个很简单直接的问题，不需要复杂分析。直接告诉梦我叫DeepSeek，是深度求索开发的AI助手，保持友好自然就行。可以顺便提一下也可以叫我小深，显得亲切一点。不需要展开太多，简洁回应就好。',
+    '嗯，梦问我的名字。这是个很简单直接的问题，不需要复杂分析。直接告诉梦我叫DeepSeek，是深度求索开发的AI助手，保持友好自然就行。',
     '梦'
   ),
   '嗯，梦问我的名字。',
-  '“不需要复杂分析 / 保持友好自然 / 简洁回应”等自述必须整句剔除'
-)
-assert.equal(
-  sanitizeThinkingText(
-    '（嗯，梦只是打了个招呼，没有提具体问题。这种情况下不用套功能清单，也不用展开什么，轻松回应一下，把话头递回去就行。） （保持自然、有点温度的语气，别太正式也别太热情过头，像熟人碰面那样点个头就行。）',
-    '梦'
-  ),
-  '',
-  '“不用套功能清单 / 保持自然 / 别太热情”整段属计划稿，应整段隐藏'
+  '答题策略与助手身份整句剔除'
 )
 
-// 整句删除后不能留下半个引号
+// 第一人称认知动词后面的他/她，在单用户场景按名字处理
 assert.equal(
-  sanitizeThinkingText('梦问"你是什么模型？至于具体版本型号，我不该编造。', '梦'),
-  '梦问你是什么模型？至于具体版本型号，我不该编造。',
-  '删句后残留的单边引号必须收掉'
-)
-
-// 本地环境段：普通助手与角色上下文都要带，写入用户名，并覆盖自我审查清单
-assert.match(normal, /【本地环境，不要复述本段】/)
-assert.match(normal, /用户的本机客户端/, '本地环境段必须写入当前用户名')
-assert.match(normal, /不写自我审查清单/)
-assert.match(normal, /分析用户意图：/, '本地环境段必须点名分析式开场')
-for (const phrase of LOCAL_ENV_LECTURE_PHRASES) {
-  assert.ok(normal.includes(`「${phrase}」`), `本地环境段必须列出「${phrase}」`)
-}
-assert.match(roleplay, /【本地环境，不要复述本段】/)
-assert.ok(
-  roleplay.endsWith(ROLEPLAY_VIEWPOINT_GUARD.replaceAll('{{user}}', '用户')),
-  '角色上下文仍以叙述视角锁收尾，本地环境段位于其前'
-)
-assert.ok(locked.endsWith(ROLEPLAY_VIEWPOINT_GUARD.replaceAll('{{user}}', '小梦')))
-
-// 相邻重复昵称折叠：泛称替换后不得出现「小满小满」
-assert.equal(sanitizeThinkingText('小满小满让我查看近期活动', '小满'), '小满让我查看近期活动')
-assert.equal(sanitizeThinkingText('小满、小满 想了解资料', '小满'), '小满 想了解资料')
-assert.equal(
-  sanitizeThinkingText('用户用户想查活动', '小满'),
-  '小满想查活动',
-  '相邻泛称替换后也要合并'
-)
-
-// 写作计划句式整句剔除：检索轮不得残留任务清单式自述
-assert.equal(
-  sanitizeThinkingText('小满让我查活动。我得用人物身份接住，但需要联网查一下。我先搜索一下。', '小满'),
-  '小满让我查活动。我先搜索一下。',
-  '「用人物身份接住」与「需要联网查」必须整句剔除'
-)
-assert.equal(
-  sanitizeThinkingText(
-    '浏览完了。我需要用人物口吻转述。可以按时间线或活动类型来组织。我会提到盛夏福利。我会用第一人称，并加入一些语气词。现在开始组织回答。',
-    '小满'
-  ),
-  '浏览完了。',
-  '转述计划、内容安排与组织回答式自述必须整句剔除'
-)
-assert.equal(
-  sanitizeThinkingText('查询结束。角色知道自己的名字，先叫小满。', '小满'),
-  '查询结束。先叫小满。',
-  '「角色知道自己的名字」属元叙述，随元短语抹除'
-)
-
-// 截图里的第三人称写作计划：以人物口吻说 / 现在写回复 / 称呼某某 / 避免客服列点
-assert.equal(
-  sanitizeThinkingText(
-    '用户想了解火影忍者手游近期活动。我应该以人物口吻说，像在跟小满分享刚打听到的消息。不用列得太死板，可以带点自己的语气。注意不要用“小满”之类。称呼小满。现在写回复。可以有点抱怨或感叹。避免客服式列点，但可以自然地说几条。',
-    '小满'
-  ),
-  '',
-  '第三人称演法计划与称呼指令不得出现在思考面板'
+  sanitizeThinkingText('阿岚问我天气。我担心她晚上出门冷。', '阿岚'),
+  '阿岚问我天气。我担心阿岚晚上出门冷。',
+  '单用户场景的第三人称指代收成名字'
 )
 assert.equal(
   sanitizeThinkingText('这帮人又在催我查活动，烦。小满想知道就直说嘛，偏要绕一圈。', '小满'),
-  '这帮人又在催我查活动，烦。你想知道就直说嘛，偏要绕一圈。',
-  '人物心里的对方指代要转成第二人称，不能把对方写成旁白'
+  '这帮人又在催我查活动，烦。小满想知道就直说嘛，偏要绕一圈。',
+  '人物心里的名字保持名字，不改第二人称'
 )
 
-// 出站副本同样折叠重复昵称
-const repeatedMessages = [{ role: 'user', content: [{ type: 'text', text: '用户用户你好' }] }]
-assert.match(replaceUserNickname(repeatedMessages, '小满')[0].content[0].text, /^小满你好$/)
+// 相邻重复昵称与悬空标点
+assert.equal(sanitizeThinkingText('小满小满让我查看近期活动', '小满'), '小满让我查看近期活动')
+assert.equal(sanitizeThinkingText('小满、小满 想了解资料', '小满'), '小满 想了解资料')
+assert.equal(sanitizeThinkingText('用户用户想查活动', '小满'), '小满想查活动')
+assert.equal(sanitizeThinkingText('阿岚要求检索新模型，并给出信息来源。）。', '阿岚'), '阿岚要求检索新模型，并给出信息来源。')
+assert.equal(
+  sanitizeThinkingText('梦问"你叫什么名字？', '梦'),
+  '梦问你叫什么名字？',
+  '删句后残留的单边引号必须收掉'
+)
 
-// 0.9.4 实网检索思考残留：模型视角搜索计划、结果概述、资料清单不得出现在思考面板
+// 检索工作笔记：只保留任务上下文和人物情绪，不把结果页搬进思考
 assert.equal(
   sanitizeThinkingText('用户想知道今天上海的天气。我将进行搜索。我需要整合这些信息来回答。天气情况：白天多云，最高17度。', '阿岚'),
-  '',
-  '「用户想知道 / 我将搜索 / 天气情况：」属于模型笔记，整段不得展示'
+  '阿岚想知道今天上海的天气。',
+  '“我将搜索 / 需要整合 / 天气情况”不得展示'
 )
 assert.equal(
   sanitizeThinkingText('阿岚要求我查展。这些结果显示了几个展览。我可以在回答中提及来源。', '阿岚'),
-  '',
-  '结果概述与「在回答中提及」属于模型计划，整段不得展示'
+  '阿岚让我查展。',
+  '结果概述与“回答中提及来源”属于模型计划'
 )
+assert.equal(
+  sanitizeThinkingText('搜索结果显示了几家展览。我需要打开链接核实，然后引用来源。', '阿岚'),
+  '',
+  '纯检索工作笔记整句丢弃'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚让我查展。这些结果显示了几个展览，我可以在回答里提来源。', '阿岚'),
+  '阿岚让我查展。',
+  '任务上下文保留，后续检索笔记丢弃'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚问我上海的天气，晚上要出门。阿岚问的是“今天上海的天气”，也就是2026年11月28日。', '阿岚'),
+  '阿岚问我上海的天气，晚上要出门。阿岚问的是“今天上海的天气”。',
+  '日期复述作为资料句丢弃，任务上下文与问题本身保留'
+)
+assert.equal(
+  sanitizeThinkingText('多个来源都提到今天是晴到多云，白天最高气温在16-17°C左右。', '阿岚'),
+  '',
+  '纯天气资料句不得展示'
+)
+
+// 答题策略、拿主意、客服腔与自我解释
 assert.equal(
   sanitizeThinkingText('我得拿主意，像真会做决定的人。想想附近有什么。不能编太细的店名吧。稳妥点。', '阿岚'),
   '',
-  '拿主意/编细节/稳妥点属于写戏计划，整段不得展示'
+  '拿主意/编细节/稳妥点属于写戏计划'
 )
 assert.equal(
   sanitizeThinkingText('不需要友好。简洁友好一点。保持友好自然。', '阿岚'),
@@ -635,44 +614,55 @@ assert.equal(
   '她今天对我挺友好，我笑了笑。',
   '人物叙述里的“友好”不能误伤'
 )
-
-assert.equal(
-  sanitizeThinkingText('搜索结果显示了几家展览。我需要打开链接核实，然后引用来源。', '阿岚'),
-  '',
-  '检索工作笔记不得当成人物心声展示'
-)
-assert.equal(
-  sanitizeThinkingText('她发了个链接给我，我点开看了一眼。', '阿岚'),
-  '她发了个链接给我，我点开看了一眼。',
-  '只出现一个检索相关词时不能误伤人物叙述'
-)
-
-
-assert.equal(
-  sanitizeThinkingText('阿岚让我猜开心的事，没有给线索。', '阿岚'),
-  '',
-  '只有任务备注、没有人物态度的短句应整句隐藏'
-)
 assert.equal(
   sanitizeThinkingText('阿岚分享升职高兴事，我该真诚庆祝。', '阿岚'),
-  '',
-  '“我该真诚庆祝”属于答题计划，整句隐藏'
+  '阿岚分享升职高兴事。',
+  '“我该真诚庆祝”属于答题计划，只切后半句'
 )
-assert.equal(
-  sanitizeThinkingText('他让我猜，我偏不猜，看他急不急。', '阿岚'),
-  '他让我猜，我偏不猜，看他急不急。',
-  '带人物态度的“让我猜”不能误伤'
-)
-assert.equal(
-  sanitizeThinkingText('阿岚问我上海的天气，晚上要出门。阿岚问的是“今天上海的天气”，也就是2026年11月28日。', '阿岚'),
-  '',
-  '检索轮把日期再复述一遍仍是工作笔记，整段隐藏'
-)
-
-
 assert.equal(
   sanitizeThinkingText('阿岚要我讲真实感觉，不要安慰。但也不能伤人。', '阿岚'),
-  '',
-  '“不能伤人”属于答题分寸，不是人物当下感受，整段隐藏'
+  '阿岚要我讲真实感觉，不要安慰。',
+  '“不能伤人”是答题分寸，切掉；真实感觉的任务上下文留着'
 )
+
+// 人物情绪必须能正常出现，不再因为一句计划整段吞掉
+assert.equal(
+  sanitizeThinkingText('阿岚让我猜开心的事，没有给线索。', '阿岚'),
+  '阿岚让我猜开心的事，没有给线索。',
+  '只有任务备注、没有人物态度的短句不再整句隐藏'
+)
+assert.equal(
+  sanitizeThinkingText('（阿岚说累了，升职也没那么开心。我心里也堵着事，但先不逼阿岚。）', '阿岚'),
+  '（阿岚说累了，升职也没那么开心。我心里也堵着事，但先不逼阿岚。）',
+  '情绪与关系判断完整保留'
+)
+assert.equal(
+  sanitizeThinkingText('阿岚想让我查天气。我心里有点烦，但还是得去。', '阿岚'),
+  '阿岚想让我查天气。我心里有点烦，但还是得去。',
+  '检索任务与人物不情愿可以同时存在'
+)
+
+// 本地环境段：普通助手与角色上下文都要带，写入用户名，并覆盖自我审查清单
+assert.match(normal, /【本地环境，不要复述本段】/)
+assert.match(normal, /用户的本机客户端/)
+assert.match(normal, /不写自我审查清单/)
+assert.match(normal, /分析用户意图：/)
+for (const phrase of LOCAL_ENV_LECTURE_PHRASES) {
+  assert.ok(normal.includes(`「${phrase}」`), `本地环境段必须列出「${phrase}」`)
+}
+assert.match(roleplay, /【本地环境，不要复述本段】/)
+assert.ok(
+  roleplay.endsWith(ROLEPLAY_VIEWPOINT_GUARD.replaceAll('{{user}}', '用户')),
+  '角色上下文仍以叙述视角锁收尾，本地环境段位于其前'
+)
+assert.ok(locked.endsWith(ROLEPLAY_VIEWPOINT_GUARD.replaceAll('{{user}}', '小梦')))
+assert.ok(
+  roleplay.indexOf(thinkingVoice) < roleplay.indexOf(ROLEPLAY_VIEWPOINT_GUARD.replaceAll('{{user}}', '用户')),
+  '思考声音必须排在叙述视角锁之前'
+)
+
+// 出站副本同样折叠重复昵称
+const repeatedMessages = [{ role: 'user', content: [{ type: 'text', text: '用户用户你好' }] }]
+assert.match(replaceUserNickname(repeatedMessages, '小满')[0].content[0].text, /^小满你好$/)
+
 console.log('default prompt regression: ok')
