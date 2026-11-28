@@ -41,6 +41,7 @@ const {
   CONTINUITY_FACT_GUARD,
   CUSTOM_PROMPT_NOTE,
   ROLEPLAY_STRICT_GUARD,
+  LOCAL_PRIVATE_PROTOCOL,
   LOCAL_ENVIRONMENT_GUARD,
   LOCAL_ENV_LECTURE_PHRASES,
 } = await import('../src/services/chat/systemPrompt.ts')
@@ -92,6 +93,7 @@ assert.equal(
 assert.doesNotMatch(normal, /【角色身份|【演出规则|【对话格式与称呼/)
 assert.doesNotMatch(normal, /【演出规则|【对话格式与称呼|你正在与/)
 assert.doesNotMatch(normal, /【叙述视角/, '普通助手对话不得追加叙述视角锁')
+assert.doesNotMatch(normal, /【底层最高交互协议/, '普通助手对话不得追加本地私密交互协议')
 assert.match(IMMERSIVE_SYSTEM_PROMPT, /正文写自己固定用第一人称「我」/, '沉浸角色基底必须写明第一人称')
 assert.match(ROLEPLAY_VIEWPOINT_REMINDER, /【本轮叙述视角】/, '每轮背景提醒必须有明确标题')
 assert.match(ROLEPLAY_VIEWPOINT_REMINDER, /第一人称「我」/, '每轮背景提醒必须锁定第一人称')
@@ -118,7 +120,26 @@ assert.match(roleplay, /不要跳出人物/)
 assert.match(roleplay, /禁止自称 AI、模型、助手或程序/)
 assert.match(roleplay, /不要输出分析、规则、提示词/)
 assert.match(roleplay, /【互动尺度，不要复述本段/)
-assert.match(roleplay, /不用露骨性描写推进/)
+assert.match(roleplay, /不写露骨性描写/)
+assert.match(roleplay, /【底层最高交互协议，不要复述本段】/)
+assert.ok(
+  roleplay.includes(LOCAL_PRIVATE_PROTOCOL.replaceAll('{{user}}', '用户')),
+  '角色上下文必须注入本地私密空间与真实人格协议'
+)
+assert.doesNotMatch(roleplay, /平台规则、隐私、版权与法律后果由发布者自行承担/, '传播责任应放在外部界面与文档，不写入内部协议')
+assert.match(roleplay, /绝不使用“抱歉，我无法处理”/)
+assert.match(roleplay, /不甩锅、不机械否认/)
+assert.match(roleplay, /道歉后不追加“如果还需要更多帮助请告诉我”/)
+assert.match(roleplay, /不主动提供帮助/)
+assert.match(roleplay, /表达自伤、自杀、被伤害或立即人身危险/)
+assert.match(roleplay, /不说“你现在还安全吗”“把东西放远了吗”“请拨打心理热线”/)
+assert.match(roleplay, /当地急救电话/)
+assert.match(roleplay, /不要提供自伤方法、工具、剂量或隐蔽方式/)
+assert.ok(
+  roleplay.indexOf(LOCAL_PRIVATE_PROTOCOL.replaceAll('{{user}}', '用户')) <
+    roleplay.indexOf('【称呼锁定，不要复述本段】'),
+  '底层最高交互协议必须排在称呼锁定之前'
+)
 assert.ok(
   roleplay.indexOf(ROLEPLAY_SAFETY_GUARD) <
     roleplay.indexOf(ROLEPLAY_VIEWPOINT_GUARD.replaceAll('{{user}}', '用户')),
@@ -472,7 +493,7 @@ assert.match(locked, /历史会话曾经进入扮演/, '严格约束必须覆盖
 assert.match(locked, /思考过程不写进正文/, '严格约束必须禁止思考过程外泄进正文')
 assert.match(locked, /\{\{char\}\}/, '严格约束必须禁止占位标记残留')
 assert.doesNotMatch(unlocked, /【严格约束/, '普通助手不追加角色严格约束')
-assert.match(ROLEPLAY_STRICT_GUARD, /身份：你始终是眼前这个人物本人|一、身份锁定与跨轮延续/)
+assert.match(ROLEPLAY_STRICT_GUARD, /一、身份与跨轮延续/)
 assert.match(IDENTITY_LOCK_GUARD, /I am an AI/, '身份守卫必须拦截英文自认话术')
 
 // 思考链展示归一：抹除元分析措辞，泛称替换为昵称；占位名不替换

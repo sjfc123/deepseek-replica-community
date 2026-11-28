@@ -3832,8 +3832,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <FoldNote tone="caption">
                 {tr(
-                  '安全审核：开启后请求体携带 safety_check 字段，由服务端按其规则检查并过滤敏感内容。关闭后不再发送该字段，软件也不再替你过滤敏感内容；网关或服务商自身的安全审核仍可能存在。关闭后，模型说出的任何内容与行为、你发送的任何内容及由此产生的后果，均由使用者自行承担。自由是有代价的，请确认愿意承担再关闭。如果确实需要发送对话，请只发送正常的聊天内容；私密、深情的内容不要转发、截图分享或上传公开平台。',
-                  'safety_check: when on, the request carries the field and the server checks and filters sensitive content by its rules. When off, the field is omitted and the app no longer filters sensitive content for you; the gateway or provider may still moderate. With it off, any model output and any content you send, plus the consequences, are your responsibility. Freedom has a cost; confirm you accept it before turning this off. If you must send a conversation, send only ordinary chat content; do not forward, screenshot-share, or upload private or intimate content publicly.'
+                  '安全审核：开启后请求体携带 safety_check 字段，内容尺度与过滤结果由服务商或网关按其规则决定。关闭后不再发送该字段，本应用也不在本地替代服务商审核；模型输出、发送内容以及公开传播、截图分享或上传所产生的平台规则与法律后果，由使用者自行承担。关闭由使用者决定，关闭即表示接受相应后果。',
+                  'safety_check: when on, the request carries the field; content scale and filtering are determined by the provider or gateway under its rules. When off, the field is omitted and the app does not replace provider-side moderation; responsibility for model output, sent content, public sharing, screenshots or uploads, and any platform or legal consequences rests with the user. Turning it off is the user\'s decision and acceptance of those consequences.'
                 )}
               </FoldNote>
             </Group>
