@@ -417,7 +417,7 @@ const cleanSentence = (sentence: string, name: string): string => {
   // 纯答题式收尾、回避、不追问、不要过度：整句丢弃；含搜索工作的句子留给逐片段处理
   const hasSearchWork = SEARCH_CONTEXT.test(trimmed)
   if (hasSearchWork) {
-    trimmed = trimmed.replace(/(整合[^。]{0,12})来回答(?:阿岚|用户|对方|他|她)/g, '$1').trim()
+    trimmed = trimmed.replace(/(整合[^。]{0,12})来回答(?:阿岚|用户|对方|他|她)?/g, '$1').trim()
   }
   if (ANSWER_STRATEGY.test(trimmed) && !hasSearchWork) {
     return ''
