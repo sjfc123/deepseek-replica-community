@@ -109,7 +109,10 @@ import {
   setPinnedSessions,
   inheritSystemPromptBinding,
   inheritPersonaPromptBinding,
+  upsertPromptLock,
   useSettings,
+  type PromptLockMap,
+  type PromptLockSnapshot,
 } from '../settings.js'
 import {
   activateBranch,
@@ -275,6 +278,29 @@ const sortSessions = (sessions: SessionSummary[]) =>
 const getSession = (id: string) => {
   const cache = get().sessionCache
   return Object.hasOwn(cache, id) ? cache[id] : undefined
+}
+
+type ResolvedPromptLock = {
+  system: PromptLockSnapshot | null
+  persona: PromptLockSnapshot | null
+}
+
+/** 冻结快照只对已有消息的旧对话生效；空白新对话不会继承关闭前的旧身份。 */
+const resolvePromptLocks = (
+  promptLocks: PromptLockMap,
+  sessionId: string | undefined,
+  sessionHasMessages: boolean
+): ResolvedPromptLock => {
+  if (!sessionId || !sessionHasMessages) {
+    return { system: null, persona: null }
+  }
+  const lock = promptLocks[sessionId]
+  if (!lock || !lock.text.trim()) {
+    return { system: null, persona: null }
+  }
+  return lock.source === 'system'
+    ? { system: lock, persona: null }
+    : { system: null, persona: lock }
 }
 
 const getStreamController = (id: string) => {
@@ -2130,16 +2156,11 @@ const recordTurnMemory = (
  */
 const usesCharacterMemory = (sessionId?: string) => {
   const settings = useSettings.getState()
-  const prompt = settings.systemPrompt.trim()
   const session = sessionId ? getSession(sessionId) : null
   const promptBound =
     settings.promptSessionIds === null || settings.promptSessionIds.includes(sessionId ?? '')
   const personaBound =
     settings.personaSessionIds === null || settings.personaSessionIds.includes(sessionId ?? '')
-  // 系统提示词只在被选中的会话生效；开关关闭或未绑定时视同空提示词，与主请求装配保持同一口径。
-  const handwrittenActive = settings.systemPromptEnabled && Boolean(prompt) && promptBound
-  const promptEmpty = !handwrittenActive
-  const promptDefault = prompt === SYSTEM_PROMPT
   const card = resolveTurnCharacterCard(
     settings.characterCards,
     session,
@@ -2147,13 +2168,23 @@ const usesCharacterMemory = (sessionId?: string) => {
     settings.roleplayEnabled
   )
   const sessionHasMessages = (session?.messages.length ?? 0) > 0
-  const personaConfigured = Boolean(
+  const locks = resolvePromptLocks(settings.promptLocks, sessionId, sessionHasMessages)
+  const effectiveSystemPrompt = locks.system?.text ?? settings.systemPrompt
+  const prompt = effectiveSystemPrompt.trim()
+  const promptDefault = prompt === SYSTEM_PROMPT
+  const handwrittenGlobalActive = settings.systemPromptEnabled && Boolean(prompt) && promptBound
+  const personaGlobalConfigured = Boolean(
     settings.suppressionPersonaEnabled &&
       settings.basicRoleplayEnabled &&
       settings.suppressionPersona.trim()
   )
   const personaExplicit = settings.personaSessionIds !== null
-  const personaActive = (personaExplicit || !sessionHasMessages) && personaBound && personaConfigured && !card
+  const personaGlobalActive =
+    (personaExplicit || !sessionHasMessages) && personaBound && personaGlobalConfigured && !card
+  // 冻结快照优先于全局开关；已聊过的旧对话不会因全局关闭再被内置兜底或基础扮演覆盖。
+  const handwrittenActive = locks.system ? true : handwrittenGlobalActive && !personaGlobalActive
+  const personaActive = locks.persona ? true : personaGlobalActive && !handwrittenGlobalActive
+  const promptEmpty = !handwrittenActive
   // 空提示词或默认提示词 + 基础扮演模式：没有角色卡也按基础角色扮演写角色记忆。
   const suppressionActive =
     personaActive ||
@@ -2859,6 +2890,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     basicRoleplayEnabled,
     suppressionPersonaEnabled,
     suppressionPersona: storedSuppressionPersona,
+    promptLocks,
     memoryMode,
     memoryLimit,
     memoryChars,
@@ -2885,18 +2917,10 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 手写文本原样使用，`{{user}}` 只在发请求时换成账号名字；打开出戏压制时再在后面追加演出规则。
   // 系统提示词为空是用户主动清空：回到默认官方助手，并停用角色卡、档案与身份行。
   // 否则残留的角色身份会单独留在 system，默认助手会被带成冷淡角色。
-  const promptRawEmpty = !systemPrompt.trim()
-  const promptIsDefault = !promptRawEmpty && systemPrompt.trim() === SYSTEM_PROMPT
   const sessionForMemory = getSession(sessionId)
   // 提示词按会话绑定：null 是旧版未迁移记录，暂按全部继承；显式数组只覆盖选中会话。
   const promptBound = promptSessionIds === null || promptSessionIds.includes(sessionId)
   const personaBound = personaSessionIds === null || personaSessionIds.includes(sessionId)
-  const personaConfigured = Boolean(
-    suppressionPersonaEnabled && basicRoleplayEnabled && storedSuppressionPersona.trim()
-  )
-  // 手写系统提示词开关关闭或未绑定到本会话时视同空提示词：文本保留在本机，但不注入、不参与身份判定；
-  // 各可写提示词同级互斥，关闭哪一条就停止发送哪一条，避免两段身份在 system 里打架。
-  const handwrittenPromptActive = systemPromptEnabled && !promptRawEmpty && promptBound
   // 场景按会话取；旧会话没有快照就按空场景处理，不从全局设置补，避免旧物件跨新对话。
   const sessionScene = sessionForMemory?.scene
     ? normalizeScene(sessionForMemory.scene)
@@ -2909,13 +2933,31 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     activeCharacterId,
     roleplayEnabled
   )
+  const locks = resolvePromptLocks(promptLocks, sessionId, sessionHasMessages)
+  const effectiveSystemPrompt = locks.system?.text ?? systemPrompt
+  const effectivePersonaPrompt = locks.persona?.text ?? storedSuppressionPersona
+  const promptRawEmpty = !effectiveSystemPrompt.trim()
+  const promptIsDefault = !promptRawEmpty && effectiveSystemPrompt.trim() === SYSTEM_PROMPT
+  const handwrittenGlobalActive = systemPromptEnabled && !promptRawEmpty && promptBound
+  const personaGlobalConfigured = Boolean(
+    suppressionPersonaEnabled && basicRoleplayEnabled && storedSuppressionPersona.trim()
+  )
   // 显式绑定的自定义预设对选中会话生效；遗留的全局旧记录仍只作用于空白新会话，实体角色卡优先。
   const personaExplicit = personaSessionIds !== null
-  const personaActive = (personaExplicit || !sessionHasMessages) && personaBound && personaConfigured && !resolvedCard
+  const personaGlobalActive =
+    (personaExplicit || !sessionHasMessages) && personaBound && personaGlobalConfigured && !resolvedCard
+  // 冻结快照优先：关闭全局开关后，已有消息的旧对话继续按保存的提示词延续，不被全局、内置兜底或基础扮演覆盖。
+  const handwrittenPromptActive = locks.system ? true : handwrittenGlobalActive && !personaGlobalActive
+  const personaActive = locks.persona ? true : personaGlobalActive && !handwrittenGlobalActive
   const effectiveHandwrittenActive = handwrittenPromptActive && !personaActive
   const activeCard = effectiveHandwrittenActive ? resolvedCard : undefined
   const promptEmpty = !effectiveHandwrittenActive
   const promptIsCustom = effectiveHandwrittenActive && !promptIsDefault
+  if (effectiveHandwrittenActive) {
+    upsertPromptLock(sessionId, 'system', effectiveSystemPrompt)
+  } else if (personaActive) {
+    upsertPromptLock(sessionId, 'persona', effectivePersonaPrompt)
+  }
   // 内置基础扮演只用于空白新会话；已有历史的会话不被全局内置预设反向覆盖，避免污染既有角色。
   const suppressionActive =
     personaActive ||
@@ -3022,8 +3064,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // 压制设定打开且提示词为空/默认时：已填基础档案就沿用档案；档案为空则给内置青梅竹马。
   // 自定义预设在绑定会话内整段替换内置预设。
   const suppressionPersona =
-    personaActive && storedSuppressionPersona.trim()
-      ? storedSuppressionPersona.trim()
+    personaActive && effectivePersonaPrompt.trim()
+      ? effectivePersonaPrompt.trim()
       : DEFAULT_SUPPRESSION_PERSONA
   // 档案关闭或为空时不读取整份档案，但仍保留姓名这一条身份展示；
   // 角色卡已提供姓名时直接使用卡内值，不再追加档案姓名。手写身份已明确时不再补内置身份行。
@@ -3077,11 +3119,11 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     identityBlock,
     composeSystemPrompt({
       savedPrompt: personaActive
-        ? storedSuppressionPersona.trim()
+        ? effectivePersonaPrompt.trim()
         : suppressionActive
           ? ''
           : handwrittenPromptActive
-            ? systemPrompt
+            ? effectiveSystemPrompt
             : '',
       // 元叙述压制只作用于内置兜底人格；角色卡、档案、基础扮演与手写/自定义身份已由内部代码分层处理。
       suppressMetaTalk: fallbackBaseline && suppressMetaTalk,
@@ -3128,7 +3170,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   const endpointHash = hashPromptText(chatConfig.endpoint || 'official')
   const cacheModel = initial.model || chatConfig.model || DEFAULT_CHAT_MODEL
   const promptConfigHash = buildPromptConfigFingerprint({
-    promptHash: hashPromptText(systemPrompt),
+    promptHash: hashPromptText(effectiveSystemPrompt),
     userNameHash: hashPromptText(userName),
     characterName,
     profileHash: hashPromptText(JSON.stringify(characterProfile)),
@@ -3136,7 +3178,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     activeCardId: activeCard?.id ?? '',
     activeCardUpdatedAt: activeCard?.updatedAt ?? 0,
     suppressionActive,
-    suppressionHash: hashPromptText(storedSuppressionPersona),
+    suppressionHash: hashPromptText(effectivePersonaPrompt),
     friendlyTone,
     defaultPromptEnabled,
     suppressMetaTalk,

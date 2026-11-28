@@ -110,6 +110,7 @@ const JSON_KEYS: Array<{ key: string; kind: 'array' | 'object' }> = [
   { key: 'replica:scene', kind: 'object' },
   { key: 'replica:pinned-sessions', kind: 'array' },
   { key: 'replica:prompt-session-ids', kind: 'array' },
+  { key: 'replica:prompt-locks', kind: 'object' },
   { key: 'replica:account-profile', kind: 'object' },
   { key: 'replica:chat-config', kind: 'object' },
   { key: 'chat-demo:location', kind: 'object' },

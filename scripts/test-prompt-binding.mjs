@@ -38,6 +38,9 @@ const {
   setSuppressionPersona,
   inheritSystemPromptBinding,
   inheritPersonaPromptBinding,
+  freezePromptSourceSessions,
+  upsertPromptLock,
+  clearPromptLocks,
 } = await import('../src/services/settings.ts')
 
 useSettings.setState({
@@ -117,11 +120,53 @@ state = useSettings.getState()
 assert.equal(state.promptSessionIds, null, '旧版全局继承记录保持 null，不强行展开成显式数组')
 assert.equal(state.personaSessionIds, null, '旧版全局继承记录保持 null，不强行展开成显式数组')
 
+useSettings.setState({
+  systemPrompt: '冻结后的系统身份',
+  suppressionPersona: '冻结后的预设身份',
+  systemPromptEnabled: true,
+  suppressionPersonaEnabled: true,
+  basicRoleplayEnabled: true,
+  promptSessionIds: ['locked-system'],
+  personaSessionIds: ['locked-persona'],
+  promptLocks: {},
+})
+assert.equal(freezePromptSourceSessions('system'), 1, '关闭系统提示词前必须冻结绑定会话快照')
+assert.equal(freezePromptSourceSessions('persona'), 1, '关闭自定义预设前必须冻结绑定会话快照')
+state = useSettings.getState()
+assert.equal(state.promptLocks['locked-system'].source, 'system', '系统提示词快照必须保留来源类型')
+assert.equal(state.promptLocks['locked-system'].text, '冻结后的系统身份', '系统提示词快照必须保留正文')
+assert.equal(state.promptLocks['locked-persona'].source, 'persona', '自定义预设快照必须保留来源类型')
+assert.equal(state.promptLocks['locked-persona'].text, '冻结后的预设身份', '自定义预设快照必须保留正文')
+
+upsertPromptLock('locked-system', 'system', '更新后的系统身份')
+state = useSettings.getState()
+assert.equal(state.promptLocks['locked-system'].text, '更新后的系统身份', '重新开启并更新后必须刷新会话快照')
+upsertPromptLock('locked-system', 'system', '   ')
+assert.equal(
+  useSettings.getState().promptLocks['locked-system'].text,
+  '更新后的系统身份',
+  '空文本不得覆盖既有冻结快照'
+)
+
+clearPromptLocks('persona')
+state = useSettings.getState()
+assert.equal(state.promptLocks['locked-persona'], undefined, '按来源清理时只能移除对应预设快照')
+assert.equal(state.promptLocks['locked-system'].source, 'system', '按来源清理时保留另一来源快照')
+clearPromptLocks()
+assert.deepEqual(useSettings.getState().promptLocks, {}, '复位角色表达设定时清空全部冻结快照')
+
 const root = new URL('../', import.meta.url)
 const androidSettings = readFileSync(new URL('src/components/settings/AndroidSettings.tsx', root), 'utf8')
 
 assert.match(androidSettings, /popup === 'promptSessions'/, '系统提示词会话选择弹窗必须保留')
 assert.match(androidSettings, /popup === 'personaSessions'/, '自定义预设会话选择弹窗必须存在')
+assert.match(androidSettings, /popup === 'promptLockNotice'/, '关闭后旧对话已隔离提示弹窗必须存在')
+assert.match(androidSettings, /const toggleSystemPrompt = \(\) =>/, '系统提示词关闭流程必须先冻结旧对话')
+assert.match(androidSettings, /const toggleSuppressionPersona = \(\) =>/, '自定义预设关闭流程必须先冻结旧对话')
+assert.match(androidSettings, /const toggleBasicRoleplay = \(\) =>/, '基础扮演关闭流程必须先冻结自定义预设旧对话')
+assert.match(androidSettings, /const toggleDefaultPrompt = \(\) =>/, '官方人格开启流程必须先冻结自定义身份旧对话')
+assert.match(androidSettings, /freezePromptSourceSessions\('system'\)/, '系统提示词冻结入口必须接入设置页')
+assert.match(androidSettings, /freezePromptSourceSessions\('persona'\)/, '自定义预设冻结入口必须接入设置页')
 assert.match(androidSettings, /const disabled = personaBoundIds\.includes\(session\.id\)/, '系统侧必须置灰预设已选会话')
 assert.match(androidSettings, /const disabled = systemBoundIds\.includes\(session\.id\)/, '预设侧必须置灰系统已选会话')
 assert.match(androidSettings, /setPersonaPromptBinding\(personaDraftIds \?\? \[\]\)/, '预设弹窗确认必须落盘绑定')
@@ -130,5 +175,17 @@ assert.match(androidSettings, /setSystemPromptBinding\(promptDraftIds \?\? \[\]\
 const settingsSource = readFileSync(new URL('src/services/settings.ts', root), 'utf8')
 assert.match(settingsSource, /personaSessionIds: string\[\] \| null/, '设置类型必须携带预设会话绑定')
 assert.match(settingsSource, /personaSessionIds: 'replica:persona-session-ids'/, '预设绑定必须有独立存储键')
+assert.match(settingsSource, /promptLocks: PromptLockMap/, '设置类型必须携带会话冻结快照')
+assert.match(settingsSource, /promptLocks: 'replica:prompt-locks'/, '冻结快照必须有独立存储键')
+assert.match(
+  settingsSource,
+  /systemPromptEnabled: read\(KEYS\.systemPromptEnabled\) === 'true'/,
+  '系统提示词开关必须按持久化值读回，不能被官方人格默认状态强制关闭'
+)
+assert.match(
+  settingsSource,
+  /suppressionPersonaEnabled: read\(KEYS\.suppressionPersonaEnabled\) === 'true'/,
+  '自定义预设开关必须按持久化值读回，不能被官方人格默认状态强制关闭'
+)
 
 console.log('prompt binding regression: ok')

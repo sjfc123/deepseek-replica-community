@@ -119,6 +119,8 @@ import {
   setFriendlyTone,
   setDefaultPromptEnabled,
   setSystemPromptEnabled,
+  freezePromptSourceSessions,
+  type PromptLockSource,
   resetContextSettings,
   resetRefusalSettings,
   resetRequestSettings,
@@ -258,6 +260,7 @@ type Popup =
   | 'import'
   | 'promptSessions'
   | 'personaSessions'
+  | 'promptLockNotice'
 
 const parentPage: Record<Page, Page | null> = {
   root: null,
@@ -1050,6 +1053,48 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
   /** 提示词会话选择弹窗的草稿；null 表示沿用旧版继承范围，打开弹窗时再展开为全选。 */
   const [promptDraftIds, setPromptDraftIds] = useState<string[] | null>(null)
   const [personaDraftIds, setPersonaDraftIds] = useState<string[] | null>(null)
+  const [promptLockSource, setPromptLockSource] = useState<PromptLockSource | 'both' | null>(null)
+
+  const openPromptLockNotice = (source: PromptLockSource | 'both') => {
+    setPromptLockSource(source)
+    setPopup('promptLockNotice')
+  }
+
+  const toggleSystemPrompt = () => {
+    const next = !systemPromptEnabled
+    if (!next && freezePromptSourceSessions('system') > 0) {
+      openPromptLockNotice('system')
+    }
+    setSystemPromptEnabled(next)
+  }
+
+  const toggleSuppressionPersona = () => {
+    const next = !suppressionPersonaEnabled
+    if (!next && freezePromptSourceSessions('persona') > 0) {
+      openPromptLockNotice('persona')
+    }
+    setSuppressionPersonaEnabled(next)
+  }
+
+  const toggleBasicRoleplay = () => {
+    const next = !basicRoleplayEnabled
+    if (!next && freezePromptSourceSessions('persona') > 0) {
+      openPromptLockNotice('persona')
+    }
+    setBasicRoleplayEnabled(next)
+  }
+
+  const toggleDefaultPrompt = () => {
+    const next = !defaultPromptEnabled
+    if (next) {
+      const frozenSystem = freezePromptSourceSessions('system')
+      const frozenPersona = freezePromptSourceSessions('persona')
+      if (frozenSystem + frozenPersona > 0) {
+        openPromptLockNotice('both')
+      }
+    }
+    setDefaultPromptEnabled(next)
+  }
   const chooseHomeLogo = async (event: { target: HTMLInputElement }) => {
     const picked = event.target.files?.[0]
     event.target.value = ''
@@ -2533,7 +2578,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   <Switch
                     label={tr('系统提示词', 'System prompt')}
                     checked={systemPromptEnabled}
-                    toggle={() => setSystemPromptEnabled(!systemPromptEnabled)}
+                    toggle={toggleSystemPrompt}
                   />
                 }
               />
@@ -2591,7 +2636,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   <Switch
                     label={tr('内置助手提示词', 'Built-in assistant prompt')}
                     checked={defaultPromptEnabled}
-                    toggle={() => setDefaultPromptEnabled(!defaultPromptEnabled)}
+                    toggle={toggleDefaultPrompt}
                   />
                 }
               />
@@ -2611,7 +2656,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   <Switch
                     label={tr('开启基础扮演', 'Enable basic roleplay')}
                     checked={basicRoleplayEnabled}
-                    toggle={() => setBasicRoleplayEnabled(!basicRoleplayEnabled)}
+                    toggle={toggleBasicRoleplay}
                   />
                 }
               />
@@ -2629,7 +2674,7 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   <Switch
                     label={tr('使用自定义基础扮演提示词', 'Use custom basic roleplay prompt')}
                     checked={suppressionPersonaEnabled}
-                    toggle={() => setSuppressionPersonaEnabled(!suppressionPersonaEnabled)}
+                    toggle={toggleSuppressionPersona}
                   />
                 }
               />
@@ -4847,6 +4892,40 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               }}
             >
               {tr('保存选择', 'Save selection')}
+            </button>
+          </section>
+        </div>
+      ) : null}
+      {popup === 'promptLockNotice' ? (
+        <div
+          className={styles.overlay}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              back()
+            }
+          }}
+        >
+          <section
+            className={styles.choice}
+            role="dialog"
+            aria-modal="true"
+            aria-label={tr('旧对话提示词已保存', 'Saved prompt for existing chats')}
+          >
+            <header>
+              {promptLockSource === 'system'
+                ? tr('系统提示词旧对话已保存', 'System prompt saved for existing chats')
+                : promptLockSource === 'persona'
+                  ? tr('自定义预设旧对话已保存', 'Custom preset saved for existing chats')
+                  : tr('旧对话提示词已保存', 'Saved prompt for existing chats')}
+            </header>
+            <p className={styles.choiceHint}>
+              {tr(
+                '已聊过的生效对话已保留本次提示词设定；后续不再跟随全局开关、内置兜底人格或基础扮演变化。若要更新旧对话提示词：重新开启对应开关，勾选当前对话，修改并保存后先刷新一次对话，再关闭开关；取消勾选也会让该对话继续脱离全局影响。',
+                'Existing chats that have already replied keep their saved prompt and will not follow global switches, the built-in fallback persona or basic roleplay. To update an old chat: turn the source back on, select that chat, edit and save, refresh the chat once, then turn the switch off. Deselecting a chat also keeps it isolated from the global setting.'
+              )}
+            </p>
+            <button type="button" className={styles.confirm} onClick={() => setPopup(null)}>
+              {tr('知道了', 'Got it')}
             </button>
           </section>
         </div>

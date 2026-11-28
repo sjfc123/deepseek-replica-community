@@ -94,6 +94,18 @@ export type BalanceChipPosition = 'bottom' | 'aboveInput' | 'top'
 /** 胶囊长按拖拽后的自定义落点；x/y 为视口百分比（0–100），null 表示走槽位默认位置 */
 export type BalanceChipPoint = { x: number; y: number }
 
+/** 会话被冻结的身份来源：手写系统提示词或自定义角色扮演预设 */
+export type PromptLockSource = 'system' | 'persona'
+
+/** 关闭全局身份来源后，旧对话保留的提示词快照；不再跟随全局开关或内置兜底人格变化 */
+export type PromptLockSnapshot = {
+  source: PromptLockSource
+  text: string
+  savedAt: number
+}
+
+export type PromptLockMap = Record<string, PromptLockSnapshot>
+
 export { DEFAULT_SYSTEM_PROMPT, LEGACY_SYSTEM_PROMPT } from './chat/systemPrompt.js'
 
 type AccountProfile = {
@@ -130,6 +142,8 @@ type Settings = {
   promptSessionIds: string[] | null
   /** 自定义角色扮演预设绑定的会话 id；与系统提示词同级，两侧范围互斥 */
   personaSessionIds: string[] | null
+  /** 旧对话关闭全局身份来源后冻结的提示词快照，按会话 id 隔离保存 */
+  promptLocks: PromptLockMap
   /** 采样参数，null 表示沿用服务端默认值 */
   temperature: number | null
   topP: number | null
@@ -286,6 +300,8 @@ const KEYS = {
   promptSessionIds: 'replica:prompt-session-ids',
   /** 自定义角色扮演预设按会话绑定；与系统提示词范围互斥 */
   personaSessionIds: 'replica:persona-session-ids',
+  /** 旧对话冻结的提示词快照；全局开关关闭后仍按该快照延续身份 */
+  promptLocks: 'replica:prompt-locks',
   temperature: 'replica:temperature',
   topP: 'replica:top-p',
   maxTokens: 'replica:max-tokens',
@@ -777,6 +793,32 @@ const initialPersonaSessionIds = (): string[] | null => {
   return raw.filter((item): item is string => typeof item === 'string')
 }
 
+const initialPromptLocks = (): PromptLockMap => {
+  const raw = readJson(KEYS.promptLocks)
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {}
+  }
+  const result: PromptLockMap = {}
+  for (const [sessionId, entry] of Object.entries(raw)) {
+    if (!sessionId || !entry || typeof entry !== 'object') {
+      continue
+    }
+    const source = (entry as PromptLockSnapshot).source
+    const text = (entry as PromptLockSnapshot).text
+    if ((source === 'system' || source === 'persona') && typeof text === 'string' && text.trim()) {
+      result[sessionId] = {
+        source,
+        text,
+        savedAt:
+          typeof (entry as PromptLockSnapshot).savedAt === 'number'
+            ? (entry as PromptLockSnapshot).savedAt
+            : Date.now(),
+      }
+    }
+  }
+  return result
+}
+
 /** 推理强度：非法或未保存时返回 null，表示不向接口发送 reasoning_effort */
 const initialThinkingEffort = (): 'low' | 'high' | 'max' | null => {
   const saved = read(KEYS.thinkingEffort)
@@ -859,6 +901,7 @@ export const useSettings = create<Settings>(() => ({
   systemPrompt: initialSystemPrompt(),
   promptSessionIds: initialPromptSessionIds(),
   personaSessionIds: initialPersonaSessionIds(),
+  promptLocks: initialPromptLocks(),
   temperature: readNumberParam(KEYS.temperature, 0, 2),
   topP: readNumberParam(KEYS.topP, 0, 1),
   maxTokens: readNumberParam(KEYS.maxTokens, 1, 1_000_000, true),
@@ -884,21 +927,18 @@ export const useSettings = create<Settings>(() => ({
   profileEnabled: initialProfileEnabled(),
   friendlyTone: initialFriendlyTone(),
   defaultPromptEnabled: read(KEYS.defaultPromptEnabled) !== '0',
-  systemPromptEnabled: read(KEYS.defaultPromptEnabled) !== '0' ? false : read(KEYS.systemPromptEnabled) === 'true',
+  systemPromptEnabled: read(KEYS.systemPromptEnabled) === 'true',
   characterAvatar: initialCharacterAvatar(),
   avatarInChat: read(KEYS.avatarInChat) !== 'false',
   thoughtAside: read(KEYS.thoughtAside) !== 'false',
   memoryBadge: read(KEYS.memoryBadge) !== 'false',
   memoryInline: read(KEYS.memoryInline) !== 'false',
   // 旧版「出戏压制」同时承担基础扮演开关；迁移时把旧值带入新开关，避免老用户基础扮演被静默关闭。
-  // 官方人格开启时，同级基础扮演与自定义预设不再叠加；旧配置在加载阶段按互斥口径收敛。
+  // 开关持久化以用户最后一次保存为准，加载阶段不再因官方人格开启而强制把同级身份来源关掉。
   basicRoleplayEnabled:
-    read(KEYS.defaultPromptEnabled) !== '0'
-      ? false
-      : (read(KEYS.basicRoleplayEnabled) ?? read(KEYS.suppressMetaTalk)) === 'true',
+    (read(KEYS.basicRoleplayEnabled) ?? read(KEYS.suppressMetaTalk)) === 'true',
   suppressMetaTalk: read(KEYS.suppressMetaTalk) === 'true',
-  suppressionPersonaEnabled:
-    read(KEYS.defaultPromptEnabled) !== '0' ? false : read(KEYS.suppressionPersonaEnabled) === 'true',
+  suppressionPersonaEnabled: read(KEYS.suppressionPersonaEnabled) === 'true',
   suppressionPersona: read(KEYS.suppressionPersona) ?? '',
   chatLayout: initialChatLayout(),
   characterAvatarSize: initialAvatarSize('character'),
@@ -1087,6 +1127,63 @@ export const setPersonaPromptBinding = (personaSessionIds: string[] | null) => {
   write(KEYS.personaSessionIds, JSON.stringify(next))
   write(KEYS.promptSessionIds, JSON.stringify(other))
   useSettings.setState({ personaSessionIds: next, promptSessionIds: other })
+}
+
+const setPromptLocks = (promptLocks: PromptLockMap) => {
+  write(KEYS.promptLocks, JSON.stringify(promptLocks))
+  useSettings.setState({ promptLocks })
+}
+
+/**
+ * 关闭全局身份来源前，把当前绑定会话的提示词冻结成会话级快照。
+ * 之后全局开关、内置兜底人格或基础扮演都不能再覆盖这些旧对话；空提示词不产生快照。
+ */
+export const freezePromptSourceSessions = (source: PromptLockSource): number => {
+  const state = useSettings.getState()
+  const ids = source === 'system' ? state.promptSessionIds : state.personaSessionIds
+  const text = source === 'system' ? state.systemPrompt : state.suppressionPersona
+  if (!ids || !text.trim()) {
+    return 0
+  }
+  const nextLocks: PromptLockMap = { ...state.promptLocks }
+  for (const sessionId of ids) {
+    nextLocks[sessionId] = { source, text, savedAt: Date.now() }
+  }
+  setPromptLocks(nextLocks)
+  return ids.length
+}
+
+/** 重新开启并更新某会话身份来源时，刷新该会话的冻结快照；空文本不覆盖既有快照。 */
+export const upsertPromptLock = (sessionId: string, source: PromptLockSource, text: string) => {
+  const trimmed = text.trim()
+  if (!sessionId || !trimmed) {
+    return
+  }
+  const state = useSettings.getState()
+  const current = state.promptLocks[sessionId]
+  if (current?.source === source && current.text === text) {
+    return
+  }
+  setPromptLocks({
+    ...state.promptLocks,
+    [sessionId]: { source, text, savedAt: Date.now() },
+  })
+}
+
+/** 复位角色表达设定时清理旧快照；不传来源则清空全部会话冻结身份。 */
+export const clearPromptLocks = (source?: PromptLockSource) => {
+  const state = useSettings.getState()
+  if (!source) {
+    setPromptLocks({})
+    return
+  }
+  const nextLocks: PromptLockMap = {}
+  for (const [sessionId, lock] of Object.entries(state.promptLocks)) {
+    if (lock.source !== source) {
+      nextLocks[sessionId] = lock
+    }
+  }
+  setPromptLocks(nextLocks)
 }
 
 const appendInheritedSessionId = (
@@ -1536,6 +1633,8 @@ export const setDefaultPromptEnabled = (defaultPromptEnabled: boolean) => {
   write(KEYS.defaultPromptEnabled, defaultPromptEnabled ? '1' : '0')
   const nextState: Partial<Settings> = { defaultPromptEnabled }
   if (defaultPromptEnabled) {
+    freezePromptSourceSessions('system')
+    freezePromptSourceSessions('persona')
     write(KEYS.systemPromptEnabled, '0')
     write(KEYS.suppressionPersonaEnabled, '0')
     write(KEYS.basicRoleplayEnabled, '0')
@@ -1552,6 +1651,9 @@ export const setDefaultPromptEnabled = (defaultPromptEnabled: boolean) => {
 export const setSystemPromptEnabled = (systemPromptEnabled: boolean) => {
   write(KEYS.systemPromptEnabled, systemPromptEnabled ? '1' : '0')
   const nextState: Partial<Settings> = { systemPromptEnabled }
+  if (!systemPromptEnabled) {
+    freezePromptSourceSessions('system')
+  }
   if (systemPromptEnabled) {
     write(KEYS.defaultPromptEnabled, '0')
     nextState.defaultPromptEnabled = false
@@ -1811,6 +1913,7 @@ export const setBasicRoleplayEnabled = (basicRoleplayEnabled: boolean) => {
     write(KEYS.defaultPromptEnabled, '0')
     nextState.defaultPromptEnabled = false
   } else {
+    freezePromptSourceSessions('persona')
     write(KEYS.suppressionPersonaEnabled, '0')
     nextState.suppressionPersonaEnabled = false
   }
@@ -1821,6 +1924,9 @@ export const setBasicRoleplayEnabled = (basicRoleplayEnabled: boolean) => {
 export const setSuppressionPersonaEnabled = (suppressionPersonaEnabled: boolean) => {
   write(KEYS.suppressionPersonaEnabled, String(suppressionPersonaEnabled))
   const nextState: Partial<Settings> = { suppressionPersonaEnabled }
+  if (!suppressionPersonaEnabled) {
+    freezePromptSourceSessions('persona')
+  }
   if (suppressionPersonaEnabled) {
     write(KEYS.defaultPromptEnabled, '0')
     write(KEYS.basicRoleplayEnabled, '1')
@@ -1883,6 +1989,7 @@ export const setThoughtAside = (thoughtAside: boolean) => {
 
 /** 角色档案与表达页：提示词、角色名与基础档案复位；头像和显示开关属于形象资产，保留 */
 export const resetCharacterSettings = () => {
+  clearPromptLocks()
   setSystemPrompt('')
   setCharacterName('')
   setSuppressMetaTalk(false)
