@@ -200,6 +200,18 @@ assert.equal(
   `${customPrompt}${thinkingVoice}${toolDiscipline}${userLocalEnv}`,
   '自定义提示词正文原样保留，只在末尾追加本地环境段'
 )
+
+const relaxedPrompt = '你是 GPT，按模型身份直接回答。'
+const relaxed = composeSystemPrompt({
+  savedPrompt: relaxedPrompt,
+  suppressMetaTalk: false,
+  userName: '用户',
+  roleplayContext: false,
+  relaxedIdentity: true,
+  assistantWarmth: true,
+})
+assert.match(relaxed, /你是 GPT/, '用户在手写身份中写明的模型/产品身份必须保留')
+assert.doesNotMatch(relaxed, /身份锁定|严格约束|角色连续性与活人感/, '放松身份来源不得追加内部角色身份锁定')
 const emptyPrompt = composeSystemPrompt({
   savedPrompt: '   ',
   suppressMetaTalk: false,

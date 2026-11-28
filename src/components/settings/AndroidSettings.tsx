@@ -2544,8 +2544,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   value={systemPrompt}
                   disabled={!systemPromptEnabled}
                   placeholder={tr(
-                    '留空时由内置助手提示词接管；填入内容后按这里的身份与规则回应',
-                    'Leave empty to let the built-in assistant prompt take over; filled text is used as the identity and rules'
+                    '留空时由官方助手人格接管；填入内容后按这里写明的身份、模型或规则回应',
+                    'Leave empty to let the official assistant persona take over; filled text wins as the stated identity, model or rules'
                   )}
                   aria-label={tr('系统提示词', 'System prompt')}
                   onChange={(event) => setSystemPrompt(event.target.value)}
@@ -2571,16 +2571,16 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <FoldNote tone="caption">
                 {tr(
-                  '这段提示词只对「生效对话」里选中的会话生效，未选中的对话不受影响。它与自定义角色扮演预设同级互斥：两侧已选会话不能重复，自定义预设已选的对话会在本侧置灰。本开关关闭后，文本保留在本机但不注入，按空提示词判定身份，重新开启后恢复注入。\n模式口径：内置助手提示词开启时为普通助手；关闭后直接进入角色，依次按系统提示词、自定义预设、角色卡、档案或兜底人设出演。遇越界、违法或伤害性要求，由角色身份本身拒绝，不出戏转为客服说明。',
-                  'This prompt affects only chats selected under "Affected chats"; unselected chats are untouched. It is the same level as the custom roleplay preset and their ranges are mutually exclusive: the two sides cannot share a chat, and chats chosen by the custom preset are greyed out here. When this switch is off, your text stays locally but is not injected; identity is treated as an empty prompt, and injection resumes once you turn it back on. Mode: with the built-in assistant prompt on you are a plain assistant; once off you go straight into character, following your system prompt, custom preset, card, profile or fallback persona. Boundary-crossing, illegal or harmful requests are refused in-character instead of breaking out into customer-service mode.'
+                  '这段提示词只对「生效对话」里选中的会话生效，未选中的对话不受影响。它与自定义角色扮演预设同级互斥：两侧已选会话不能重复，自定义预设已选的对话会在本侧置灰。本开关关闭后，文本保留在本机但不注入，按空提示词判定身份，重新开启后恢复注入。\n写入任意有效内容后，官方助手人格开关自动关闭；这里写明的 DeepSeek、GPT、Claude、千问、豆包、Kimi、Gemini、Grok 等模型或产品身份都会按所写身份生效，内部角色锁定不会覆盖。全部身份来源关闭时，才使用内置兜底人设。',
+                  'This prompt affects only chats selected under "Affected chats"; unselected chats are untouched. It is the same level as the custom roleplay preset and their ranges are mutually exclusive: the two sides cannot share a chat, and chats chosen by the custom preset are greyed out here. When this switch is off, your text stays locally but is not injected; identity is treated as an empty prompt, and injection resumes once you turn it back on. Once you write any valid identity, the official assistant persona switch turns off automatically. A stated identity such as DeepSeek, GPT, Claude, Qwen, Doubao, Kimi, Gemini or Grok wins; internal role locking does not override it. The built-in fallback persona is used only when every identity source is off.'
                 )}
               </FoldNote>
             </Group>
             <Group label={tr('内置助手提示词', 'Built-in assistant prompt')} collapsible>
               <FoldNote tone="caption">
                 {tr(
-                  '默认提示词为普通 DeepSeek AI 助手，不含角色、人设或扮演规则；新装或恢复默认后即作为普通助手使用。其中内置应用功能索引：被问及功能、入口或玩法时按相关分组作答，普通聊天不主动罗列功能。\n清空提示词将回到默认官方助手，并暂停角色卡、档案与身份行；如需扮演，请填回默认或编写自定义提示词并启用角色卡，或填写基础档案。提示词每轮发送，是角色行为的最高优先级说明。建议按三层组织：称呼与语气、动作与对白密度、约束（不替 {{user}} 决定行动、不复述设定、不出戏）。',
-                  'The default prompt is a plain DeepSeek AI assistant with no persona, role or role-play rules. A fresh install or reset behaves as a normal assistant. It also carries an in-app feature index: when asked about features, entry points or usage it answers by relevant group, and stays quiet during ordinary chat. Clearing it returns to the default official assistant and pauses cards, profiles and identity lines; to role-play, restore the default or write a custom prompt and enable one character card, or fill the base profile. The prompt is sent every turn and overrides other behavioural hints. Write it in three layers: address and tone, action and dialogue density, constraints (never decide for {{user}}, never restate the setting, never break character).'
+                  '官方助手人格是独立开关：默认开启时发送 DeepSeek 官方助手身份与应用功能索引，不叠加手写系统提示词、自定义预设或基础扮演。新装或恢复默认后即作为普通助手使用；被问及功能、入口或玩法时按相关分组作答，普通聊天不主动罗列功能。\n重新开启本开关会按互斥规则关闭手写系统提示词、自定义预设和基础扮演；文本与会话绑定保留在本机，不会被清空。',
+                  'The official assistant persona is a separate switch: when on by default it sends the DeepSeek official assistant identity and feature index without stacking the handwritten system prompt, custom preset or basic roleplay. A fresh install or reset behaves as a normal assistant; feature questions are answered by relevant group, while ordinary chat stays quiet about the feature list. Turning this switch back on closes the handwritten system prompt, custom preset and basic roleplay under the mutual-exclusion rules; their text and chat bindings remain on device and are not cleared.'
                 )}
               </FoldNote>
               <Row
@@ -2597,8 +2597,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <FoldNote tone="caption">
                 {tr(
-                  '默认开启：发送官方 DeepSeek 助手身份及应用功能、入口与用法索引，行为为普通助手。关闭后不再发送该默认提示词，系统提示词或基础扮演预设在同级直接生效，不再叠加助手语气与一致性约束；两者均为空时使用内置兜底人设——温柔、偏向玩家、站在玩家一侧的角色「林晚」，避免模型退回预设客服口吻。兜底人设为内置常量，可在源码中自行改写。开关会改变 system 前缀，切换后首轮缓存未命中属于预期。',
-                  'On by default: sends the official DeepSeek assistant identity and this app’s feature, entry-point and usage index, so it behaves as a plain assistant. Off: this default prompt is no longer sent. Your handwritten prompt or the basic roleplay preset then acts as the system prompt at the same level, without extra assistant tone or consistency guards; if neither exists, the built-in fallback persona is used — 林晚, a gentle, user-aligned character on your side with full affection — so the model does not slip back into a preset customer-service assistant. The fallback persona is a built-in constant you can edit in source after open sourcing. The switch changes the system prefix, so a cache miss on the first turn after toggling is expected.'
+                  '关闭官方人格后，手写系统提示词、自定义预设或基础扮演才会在同级直接生效，不再叠加官方助手语气与一致性约束；这些身份来源都为空时使用内置兜底人设——温柔、偏向玩家、站在玩家一侧的角色「林晚」，避免模型退回预设客服口吻。兜底人设为内置常量，可在源码中自行改写。开关会改变 system 前缀，切换后首轮缓存未命中属于预期。',
+                  'With the official persona off, the handwritten system prompt, custom preset or basic roleplay take over at the same level without stacking official assistant tone and consistency guards. If none exists, the built-in fallback persona is used — 林晚, a gentle, user-aligned character on your side with full affection — so the model does not slip back into a preset customer-service assistant. The fallback persona is a built-in constant you can edit in source. The switch changes the system prefix, so a cache miss on the first turn after toggling is expected.'
                 )}
               </FoldNote>
             </Group>
@@ -2617,8 +2617,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <FoldNote tone="caption">
                 {tr(
-                  '开启后，在无角色卡或基础档案时，使用内置青梅竹马预设或下方自定义预设进入扮演；关闭后回到普通助手。已有角色卡、系统提示词或基础档案不受此开关影响。\n自定义预设与系统提示词同级互斥：两者已选会话不能重复，一侧已选的对话在另一侧置灰。预设仅补充人物底色；角色卡、档案、世界书、场景与记忆中的既有描述优先级更高，冲突时以其为准。',
-                  'When on: with no active card or base profile, roleplay uses the built-in childhood-friend preset or the custom preset below. When off, chats return to the plain assistant. Existing cards, system prompts and base profiles are unaffected. The custom preset and system prompt are mutually exclusive at the same level: they cannot share selected chats, and chats chosen on one side are greyed out on the other. The preset only fills in the persona base; descriptions from cards, profiles, worldbook, scenes and memory take priority and win any conflict.'
+                  '开启后，在无角色卡或基础档案时，使用内置青梅竹马预设或下方自定义预设进入扮演；关闭后连带停用自定义预设。已有角色卡、系统提示词或基础档案不受此开关影响。\n自定义预设与系统提示词同级互斥：两者已选会话不能重复，一侧已选的对话在另一侧置灰。预设仅补充人物底色；角色卡、档案、世界书、场景与记忆中的既有描述优先级更高，冲突时以其为准。启用本模式时官方助手人格自动关闭。',
+                  'When on: with no active card or base profile, roleplay uses the built-in childhood-friend preset or the custom preset below. When off, the dependent custom preset is also disabled. Existing cards, system prompts and base profiles are unaffected. The custom preset and system prompt are mutually exclusive at the same level: they cannot share selected chats, and chats chosen on one side are greyed out on the other. The preset only fills in the persona base; descriptions from cards, profiles, worldbook, scenes and memory take priority and win any conflict. Enabling this mode automatically turns off the official assistant persona.'
                 )}
               </FoldNote>
               <Row
@@ -2640,8 +2640,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
                   value={suppressionPersona}
                   disabled={!suppressionPersonaEnabled}
                   placeholder={tr(
-                    '填写后作为同级角色扮演预设，只对下方生效对话生效；内置助手提示词会自动关闭。',
-                    'When filled, this acts as a same-level roleplay preset only for selected chats; the built-in assistant prompt turns off automatically.'
+                    '填写后作为同级身份预设，只对下方生效对话生效；官方助手人格会自动关闭，写明的模型/产品身份按所写身份生效。',
+                    'When filled, this acts as a same-level identity preset only for selected chats; the official assistant persona turns off automatically, and any stated model/product identity is kept as written.'
                   )}
                   aria-label={tr('自定义角色扮演预设提示词', 'Custom roleplay preset prompt')}
                   onChange={(event) => setSuppressionPersona(event.target.value)}
@@ -2681,8 +2681,8 @@ const Settings = ({ start, chatFrame }: { start: Page; chatFrame: RefObject<HTML
               />
               <FoldNote tone="caption">
                 {tr(
-                  '开启后：在角色对话末尾追加演出规则，压制“按设定”“遵循规则”“分析用户意图”这类跳出戏剧的元叙述；普通助手对话不追加。这个开关只负责演出约束，不决定是否进入基础扮演。',
-                  'When on: performance rules are appended to roleplay turns to suppress out-of-character meta narration such as “per the setting” or intent analysis; plain assistant chats do not get them. This switch only controls the performance guard, not whether basic roleplay starts.'
+                  '开启后：仅在内置兜底人格末尾追加元叙述演出约束，压制“按设定”“遵循规则”“分析用户意图”这类跳出戏剧的说法。角色卡、基础档案、基础扮演、手写系统提示词和自定义预设已由内部代码分层处理，不再叠加本开关的约束；普通助手对话也不追加。这个开关只负责兜底人格的演出约束，不决定是否进入基础扮演。',
+                  'When on, a meta-narration performance guard is appended only to the built-in fallback persona to suppress out-of-character phrasing such as “per the setting” or intent analysis. Character cards, base profiles, basic roleplay, handwritten system prompts and custom presets are already handled by internal layering and do not stack this guard; plain assistant chats do not receive it either. This switch controls only the fallback persona’s performance guard and does not decide whether basic roleplay starts.'
                 )}
               </FoldNote>
             </Group>

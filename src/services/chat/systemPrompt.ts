@@ -32,7 +32,7 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 DeepSeek，由深度求索开发的
 当前版本实际功能与边界：
 1. 对话与会话：新建对话、继续历史对话、深度思考、智能搜索、流式跟随、复制 / 编辑 / 重新生成回复、长按会话重命名 / 置顶 / 多选 / 移动分组 / 导出 / 归档 / 删除。重新生成是在原问题下新增回答版本，不覆盖旧回答；创建分支会继承分叉点之前的上下文，先填分支名，空名自动追加「· 分支」，再选择是否放进分组。深度思考和智能搜索只对默认 DeepSeek 端点开放；自定义端点按网关自身能力为准。
 2. 分组整理：按全部 / 未分组 / 分组筛选，单条或批量移动分组，新建 / 删除分组；删除分组只把会话退回未分组，不删除对话。多选后可以批量移动、导出、归档或删除。
-3. 角色与扮演：角色卡最多 50 张，同一时间只启用一张；会话可以绑定一张卡，之后关闭全局开关，旧会话仍按原卡继续。角色卡支持固定参数、生活细节、性格边界、题材玩法、关系、经历、情景、目标、说话方式、小习惯、秘密、补充设定、开场参考、对白示例和系统指令；可导入 Character Card V2/V3、TavernAI 与 PNG chara。世界书最多 100 条，支持关键词或正则命中、常驻、按角色绑定、单轮预算、最近发言 / 整段历史扫描和避触词，条目分硬设定、局部事实、传闻三级可信度。场景记录时间、地点、天气、穿着、心情、关系阶段、氛围与感官、在场人物、目标、冲突悬念和关键物件，可手填或按轮自动提取。基础档案 32 项、分四组：基本档案、身体与生活、性格与边界、剧情与表达；没有角色卡时档案进入 system，有卡时以卡为准。系统提示词、基础扮演模式、出戏压制、角色内心独白、角色头像和连续语音通话都在角色链路里；基础扮演模式开启且提示词为空或保持默认、没有角色卡或档案时，会自动进入基础角色扮演，默认是大学时期的青梅竹马，可换成自定义预设；关闭后回到普通助手，已有角色卡仍照常演。出戏压制只负责追加演出约束，不决定是否进入基础扮演。
+3. 角色与扮演：角色卡最多 50 张，同一时间只启用一张；会话可以绑定一张卡，之后关闭全局开关，旧会话仍按原卡继续。角色卡支持固定参数、生活细节、性格边界、题材玩法、关系、经历、情景、目标、说话方式、小习惯、秘密、补充设定、开场参考、对白示例和系统指令；可导入 Character Card V2/V3、TavernAI 与 PNG chara。世界书最多 100 条，支持关键词或正则命中、常驻、按角色绑定、单轮预算、最近发言 / 整段历史扫描和避触词，条目分硬设定、局部事实、传闻三级可信度。场景记录时间、地点、天气、穿着、心情、关系阶段、氛围与感官、在场人物、目标、冲突悬念和关键物件，可手填或按轮自动提取。基础档案 32 项、分四组：基本档案、身体与生活、性格与边界、剧情与表达；没有角色卡时档案进入 system，有卡时以卡为准。系统提示词、基础扮演模式、角色内心独白、角色头像和连续语音通话都在角色链路里；基础扮演模式开启且提示词为空或保持默认、没有角色卡或档案时，会自动进入基础角色扮演，默认是大学时期的青梅竹马，可换成自定义预设；关闭后回到普通助手，已有角色卡仍照常演。元叙述压制只作用于内置兜底人格，不决定是否进入基础扮演。
 4. 长期记忆：分角色记忆与普通记忆。显示名是 AI / DeepSeek 时，自动轮次写普通记忆并注入普通池；显示名变成角色卡名或手写档案名时，自动轮次写角色记忆，普通记忆暂停写入和注入；改显示名后下一轮生效，历史卡不自动迁移。角色记忆分完整回合、重要场景和关键事实：完整回合保留双方原话，重要场景把地点、人物、事件和气氛单独摘出来，关键事实保存称呼、关系、喜好与承诺；场景和事实优先带回，不占自动配额。支持关闭 / 整轮记录 / 自动提炼，按手动、置顶、场景、事实、最近、相关旧卡和时间锚点召回；普通记忆分对话、代码、用户原话、AI 原话，按关键词检索。记忆跟随当前会话或分支，不会自动跨新对话；面板支持分类筛选、置顶、编辑、删除、双击跳转原对话、手动补卡和整段保存。
 5. 文件与语音：上传图片 / 文件、语音输入、回复朗读、朗读音色、自动朗读；连续语音通话支持 VAD 断句、ASR 转写、流式回复分句 TTS 和播放中插话打断。回复菜单可以生成配图，但需要先在接口设置里配置可用的绘图接口、模型和尺寸。
 6. 设定与数据：导出 / 导入设定，导出全部历史，导出单个会话或会话包，单独导出 / 导入记忆，自动备份到下载目录并从 ZIP 恢复；自动备份默认保留最近 5 份，写入前核对大小并校验 ZIP，备份包含对话与设置，不包含 API Key。
@@ -506,6 +506,7 @@ export const composeSystemPrompt = ({
   customPromptNote = false,
   fallbackPrompt = '',
   charName = '',
+  relaxedIdentity = false,
 }: {
   savedPrompt: string
   suppressMetaTalk: boolean
@@ -520,6 +521,8 @@ export const composeSystemPrompt = ({
   fallbackPrompt?: string
   /** 角色在 system 中实际使用的名字（卡名优先，其次手写档案名）；为空时不追加名字相关约束 */
   charName?: string
+  /** 用户手写身份或自定义预设：保留用户写明的模型/产品身份，不追加内部角色身份锁定 */
+  relaxedIdentity?: boolean
 }) => {
   const trimmed = savedPrompt.trim()
   const cleared = !trimmed
@@ -528,11 +531,12 @@ export const composeSystemPrompt = ({
   const defaultPersona = cleared || isMostlyDefaultPrompt(trimmed)
   const fallbackRoleplay = Boolean(fallbackPrompt)
   // 角色上下文（角色卡 / 基础档案 / 基础扮演 / 兜底基线）一律走角色基底；
-  // 不再因手写提示词为空而回落成普通助手开场。
+  // 用户手写身份或自定义预设属于放松身份约束的同级来源，不套内部人物锁定。
   const roleplay = Boolean(roleplayContext) || fallbackRoleplay || forcedRoleplay
+  const internalRoleplay = roleplay && !relaxedIdentity
   const basePrompt = fallbackPrompt
     ? fallbackPrompt
-    : roleplay
+    : internalRoleplay
       ? IMMERSIVE_SYSTEM_PROMPT
       : cleared
         ? DEFAULT_SYSTEM_PROMPT
@@ -541,28 +545,28 @@ export const composeSystemPrompt = ({
   // 语气约束只加在普通默认助手之后；自定义提示词和角色上下文都不覆盖。
   const tone = !roleplay && defaultPersona && assistantWarmth ? withUser(ASSISTANT_TONE_GUARD) : ''
   // 角色扮演始终追加连续性约束；普通助手只在默认人格下追加一致性核对。
-  const consistency = roleplay
+  const consistency = internalRoleplay
     ? withUser(ROLEPLAY_CONTINUITY_GUARD)
     : defaultPersona
       ? withUser(ASSISTANT_CONSISTENCY_GUARD)
       : ''
-  const meta = suppressMetaTalk && roleplay ? withUser(META_TALK_GUARD) : ''
-  const aside = roleplay ? withUser(ASIDE_AND_ADDRESS_GUARD) : ''
+  const meta = suppressMetaTalk && internalRoleplay ? withUser(META_TALK_GUARD) : ''
+  const aside = internalRoleplay ? withUser(ASIDE_AND_ADDRESS_GUARD) : ''
   // 互动尺度与视角锁放在角色 system 最后：模型更容易遵守靠近本轮发言的固定约束。
-  const safety = roleplay ? withUser(ROLEPLAY_SAFETY_GUARD) : ''
-  // 事实与剧情边界：防虚构过往/关系、防替玩家推进剧情，只在角色上下文追加。
-  const fact = roleplay ? withUser(CONTINUITY_FACT_GUARD) : ''
-  // 身份锁定、私密空间与称呼锁定只在角色上下文追加；普通助手不限制“用户/助手”标准称谓。
-  const emotion = roleplay ? withUser(ROLEPLAY_EMOTION_GUARD) : ''
-  const toneGuard = roleplay ? withUser(ROLEPLAY_TONE_GUARD) : ''
-  const identity = roleplay ? withUser(IDENTITY_LOCK_GUARD) : ''
-  const strict = roleplay ? withUser(ROLEPLAY_STRICT_GUARD) : ''
-  const persona = roleplay ? withUser(LOCAL_PRIVATE_PROTOCOL) : ''
-  const address = roleplay ? ADDRESS_LOCK_GUARD(userName) : ''
-  const sameName = roleplay ? SAME_NAME_GUARD(userName, charName) : ''
+  const safety = internalRoleplay ? withUser(ROLEPLAY_SAFETY_GUARD) : ''
+  // 事实与剧情边界：防虚构过往/关系、防替玩家推进剧情，只在内部角色上下文追加。
+  const fact = internalRoleplay ? withUser(CONTINUITY_FACT_GUARD) : ''
+  // 身份锁定、私密空间与称呼锁定只在内部角色上下文追加；用户写明的其它模型/产品身份保持优先。
+  const emotion = internalRoleplay ? withUser(ROLEPLAY_EMOTION_GUARD) : ''
+  const toneGuard = internalRoleplay ? withUser(ROLEPLAY_TONE_GUARD) : ''
+  const identity = internalRoleplay ? withUser(IDENTITY_LOCK_GUARD) : ''
+  const strict = internalRoleplay ? withUser(ROLEPLAY_STRICT_GUARD) : ''
+  const persona = internalRoleplay ? withUser(LOCAL_PRIVATE_PROTOCOL) : ''
+  const address = internalRoleplay ? ADDRESS_LOCK_GUARD(userName) : ''
+  const sameName = internalRoleplay ? SAME_NAME_GUARD(userName, charName) : ''
   // 工具轮纪律紧挨称呼与视角锁之后：联网检索与深度思考同时开启时压住写作计划口吻与检索后跳脱。
-  const toolTurn = roleplay ? TOOL_TURN_GUARD(userName, charName) : ''
-  const viewpoint = roleplay ? withUser(ROLEPLAY_VIEWPOINT_GUARD) : ''
+  const toolTurn = internalRoleplay ? TOOL_TURN_GUARD(userName, charName) : ''
+  const viewpoint = internalRoleplay ? withUser(ROLEPLAY_VIEWPOINT_GUARD) : ''
   const thinkingVoice = THINKING_VOICE_GUARD(userName)
   const toolDiscipline = TOOL_USE_DISCIPLINE_GUARD
   const customNote = customPromptNote ? withUser(CUSTOM_PROMPT_NOTE) : ''

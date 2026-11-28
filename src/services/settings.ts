@@ -173,7 +173,7 @@ type Settings = {
   profileEnabled: boolean
   /** 普通官方助手友好语气：默认开启；只追加固定语气约束，不覆盖角色卡或自定义提示词 */
   friendlyTone: boolean
-  /** 默认系统提示词开关：开启时发送官方助手身份与应用功能索引；关闭后不发送，自定义提示词/基础扮演同级作为 system，都没有则用内置兜底人设 */
+  /** 官方助手人格开关：开启时发送官方助手身份与应用功能索引；关闭后由同级手写提示词、自定义预设或基础扮演接管，都没有则用内置兜底人设 */
   defaultPromptEnabled: boolean
   /** 手写系统提示词开关：关闭后不注入手写 system 提示词（文本保留在本机），按空提示词走身份判定 */
   systemPromptEnabled: boolean
@@ -187,7 +187,7 @@ type Settings = {
   memoryBadge: boolean
   /** 消息下方的记忆标记 */
   memoryInline: boolean
-  /** 基础扮演模式：空/默认提示词且没有角色卡、档案时，用内置或自定义基础扮演预设进入角色扮演；关闭后回到普通助手 */
+  /** 基础扮演模式：空/默认提示词且没有角色卡、档案时，用内置或自定义基础扮演预设进入角色扮演；关闭后停用该模式及依赖它的自定义预设 */
   basicRoleplayEnabled: boolean
   /** 角色扮演时在 system 末尾追加强制约束，压制「按设定」「分析用户意图」这类元叙述 */
   suppressMetaTalk: boolean
@@ -317,7 +317,7 @@ const KEYS = {
   friendlyTone: 'replica:friendly-tone',
   /** 默认系统提示词开关：无历史值时默认开启，只有明确保存过 0 才算关闭 */
   defaultPromptEnabled: 'replica:default-prompt-enabled',
-  /** 手写系统提示词开关：无历史值时默认开启，只有明确保存过 0 才算关闭 */
+  /** 手写系统提示词开关：无历史值时默认关闭；官方人格开启时不叠入手写身份 */
   systemPromptEnabled: 'replica:system-prompt-enabled',
   characterAvatar: 'replica:character-avatar',
   avatarInChat: 'replica:avatar-in-chat',
@@ -884,16 +884,21 @@ export const useSettings = create<Settings>(() => ({
   profileEnabled: initialProfileEnabled(),
   friendlyTone: initialFriendlyTone(),
   defaultPromptEnabled: read(KEYS.defaultPromptEnabled) !== '0',
-  systemPromptEnabled: read(KEYS.systemPromptEnabled) !== '0',
+  systemPromptEnabled: read(KEYS.defaultPromptEnabled) !== '0' ? false : read(KEYS.systemPromptEnabled) === 'true',
   characterAvatar: initialCharacterAvatar(),
   avatarInChat: read(KEYS.avatarInChat) !== 'false',
   thoughtAside: read(KEYS.thoughtAside) !== 'false',
   memoryBadge: read(KEYS.memoryBadge) !== 'false',
   memoryInline: read(KEYS.memoryInline) !== 'false',
   // 旧版「出戏压制」同时承担基础扮演开关；迁移时把旧值带入新开关，避免老用户基础扮演被静默关闭。
-  basicRoleplayEnabled: (read(KEYS.basicRoleplayEnabled) ?? read(KEYS.suppressMetaTalk)) === 'true',
+  // 官方人格开启时，同级基础扮演与自定义预设不再叠加；旧配置在加载阶段按互斥口径收敛。
+  basicRoleplayEnabled:
+    read(KEYS.defaultPromptEnabled) !== '0'
+      ? false
+      : (read(KEYS.basicRoleplayEnabled) ?? read(KEYS.suppressMetaTalk)) === 'true',
   suppressMetaTalk: read(KEYS.suppressMetaTalk) === 'true',
-  suppressionPersonaEnabled: read(KEYS.suppressionPersonaEnabled) === 'true',
+  suppressionPersonaEnabled:
+    read(KEYS.defaultPromptEnabled) !== '0' ? false : read(KEYS.suppressionPersonaEnabled) === 'true',
   suppressionPersona: read(KEYS.suppressionPersona) ?? '',
   chatLayout: initialChatLayout(),
   characterAvatarSize: initialAvatarSize('character'),
@@ -1034,8 +1039,8 @@ export const setSiderCollapsed = (siderCollapsed: boolean) => {
 }
 
 /**
- * 角色提示词。清空不写回默认文本，只记录「主动清空」状态；发送时由 composeSystemPrompt
- * 回退默认官方助手，并同步停用角色卡、档案与身份行。想恢复可见的默认文本走复位按钮。
+ * 手写系统提示词。留空时不保存官方默认文本；填入任何自定义身份后，官方助手开关自动关闭。
+ * 文本与绑定只在本机保留；开关关闭时不注入，身份判定按空提示词处理。
  */
 export const setSystemPrompt = (systemPrompt: string) => {
   const cleared = !systemPrompt.trim()
@@ -1050,7 +1055,18 @@ export const setSystemPrompt = (systemPrompt: string) => {
       ? useSettings.getState().promptSessionIds
       : []
   write(KEYS.promptSessionIds, nextBinding ? JSON.stringify(nextBinding) : null)
-  useSettings.setState({ systemPrompt: cleared ? '' : systemPrompt, promptSessionIds: nextBinding })
+  const nextState: Partial<Settings> = {
+    systemPrompt: cleared ? '' : systemPrompt,
+    promptSessionIds: nextBinding,
+  }
+  // 只有非官方默认的手写身份才接管 system；粘贴回官方默认文本时不强行关闭官方人格。
+  if (!cleared && !isDefault) {
+    write(KEYS.defaultPromptEnabled, '0')
+    write(KEYS.systemPromptEnabled, '1')
+    nextState.defaultPromptEnabled = false
+    nextState.systemPromptEnabled = true
+  }
+  useSettings.setState(nextState)
 }
 
 /** 保存系统提示词绑定；与自定义预设同级互斥，两侧已选会话不得重复 */
@@ -1196,7 +1212,7 @@ export const matchRefusalKeyword = (text: string): string | null => {
   )
 }
 
-/** 角色档案与表达页：只复位系统提示词 */
+/** 角色档案与表达页：复位身份来源、角色名、元叙述压制、自定义预设与基础档案 */
 
 
 /* ---- 05 角色卡、世界书与场景操作 ---- */
@@ -1478,16 +1494,35 @@ export const setCharacterName = (characterName: string) => {
   useSettings.setState({ characterName: value })
 }
 
-/** 默认系统提示词开关：关闭后不发送官方助手身份与功能索引；系统提示词/基础扮演同级作为 system，都没有则用内置兜底人设 */
+/**
+ * 官方助手人格开关。重新开启时，手写系统提示词、自定义预设和基础扮演三个同级身份来源一并关闭；
+ * 文本与会话绑定保留在本机，不会被清空。关闭官方人格后，才允许其它身份来源接管。
+ */
 export const setDefaultPromptEnabled = (defaultPromptEnabled: boolean) => {
   write(KEYS.defaultPromptEnabled, defaultPromptEnabled ? '1' : '0')
-  useSettings.setState({ defaultPromptEnabled })
+  const nextState: Partial<Settings> = { defaultPromptEnabled }
+  if (defaultPromptEnabled) {
+    write(KEYS.systemPromptEnabled, '0')
+    write(KEYS.suppressionPersonaEnabled, '0')
+    write(KEYS.basicRoleplayEnabled, '0')
+    Object.assign(nextState, {
+      systemPromptEnabled: false,
+      suppressionPersonaEnabled: false,
+      basicRoleplayEnabled: false,
+    })
+  }
+  useSettings.setState(nextState)
 }
 
-/** 手写系统提示词开关：关闭后不注入手写 system 提示词，文本保留；重新开启才恢复注入 */
+/** 手写系统提示词开关：开启后官方人格不再叠加；关闭只停止注入，文本保留在本机 */
 export const setSystemPromptEnabled = (systemPromptEnabled: boolean) => {
   write(KEYS.systemPromptEnabled, systemPromptEnabled ? '1' : '0')
-  useSettings.setState({ systemPromptEnabled })
+  const nextState: Partial<Settings> = { systemPromptEnabled }
+  if (systemPromptEnabled) {
+    write(KEYS.defaultPromptEnabled, '0')
+    nextState.defaultPromptEnabled = false
+  }
+  useSettings.setState(nextState)
 }
 
 /** 基础档案开关：关闭后文本保留但不注入，界面只读；重新开启才恢复编辑与注入 */
@@ -1734,31 +1769,45 @@ export const setSuppressMetaTalk = (suppressMetaTalk: boolean) => {
   useSettings.setState({ suppressMetaTalk })
 }
 
-/** 基础扮演模式开关：关闭后空/默认提示词回到普通助手，已有角色卡不受影响 */
+/** 基础扮演模式开关：开启后官方人格关闭；关闭时连带停用依赖它的自定义预设 */
 export const setBasicRoleplayEnabled = (basicRoleplayEnabled: boolean) => {
   write(KEYS.basicRoleplayEnabled, String(basicRoleplayEnabled))
-  useSettings.setState({ basicRoleplayEnabled })
+  const nextState: Partial<Settings> = { basicRoleplayEnabled }
+  if (basicRoleplayEnabled) {
+    write(KEYS.defaultPromptEnabled, '0')
+    nextState.defaultPromptEnabled = false
+  } else {
+    write(KEYS.suppressionPersonaEnabled, '0')
+    nextState.suppressionPersonaEnabled = false
+  }
+  useSettings.setState(nextState)
 }
 
-/** 自定义角色扮演预设开关；开启时同级接管，内置助手提示词自动关闭 */
+/** 自定义角色扮演预设开关；开启时自动挂到基础扮演模式下，并关闭内置助手人格 */
 export const setSuppressionPersonaEnabled = (suppressionPersonaEnabled: boolean) => {
   write(KEYS.suppressionPersonaEnabled, String(suppressionPersonaEnabled))
   const nextState: Partial<Settings> = { suppressionPersonaEnabled }
   if (suppressionPersonaEnabled) {
     write(KEYS.defaultPromptEnabled, '0')
+    write(KEYS.basicRoleplayEnabled, '1')
     nextState.defaultPromptEnabled = false
+    nextState.basicRoleplayEnabled = true
   }
   useSettings.setState(nextState)
 }
 
-/** 自定义预设正文；填写后同级接管并关闭内置助手提示词，清空后保留文本状态但不注入 */
+/** 自定义预设正文；填写后同级接管并关闭官方助手人格，清空后保留文本状态但不注入 */
 export const setSuppressionPersona = (suppressionPersona: string) => {
   const trimmed = suppressionPersona.trim()
   write(KEYS.suppressionPersona, trimmed ? suppressionPersona : null)
   const nextState: Partial<Settings> = { suppressionPersona: trimmed ? suppressionPersona : '' }
   if (trimmed) {
     write(KEYS.defaultPromptEnabled, '0')
+    write(KEYS.suppressionPersonaEnabled, '1')
+    write(KEYS.basicRoleplayEnabled, '1')
     nextState.defaultPromptEnabled = false
+    nextState.suppressionPersonaEnabled = true
+    nextState.basicRoleplayEnabled = true
   }
   useSettings.setState(nextState)
 }
@@ -1807,10 +1856,10 @@ export const resetCharacterSettings = () => {
   setSuppressionPersona('')
   setPersonaPromptBinding([])
   setFriendlyTone(true)
-  setDefaultPromptEnabled(true)
-  setSystemPromptEnabled(true)
   clearCharacterProfile()
   setCharacterProfileEnabled(true)
+  // 最后开启官方人格；该开关会按互斥规则关闭手写提示词、自定义预设与基础扮演。
+  setDefaultPromptEnabled(true)
 }
 
 /** 生成参数页：温度、Top P、最大输出、推理强度 */

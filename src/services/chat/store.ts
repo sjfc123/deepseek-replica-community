@@ -2904,6 +2904,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         promptIsDefault,
         hasActiveCard: Boolean(activeCard),
       }))
+  // 手写系统提示词与自定义预设属于用户明确指定的身份来源；内部角色锁定不覆盖其写明的模型/产品身份。
+  const relaxedIdentity = personaActive || effectiveHandwrittenActive
+  const builtinSuppression = suppressionActive && !personaActive
   const roleplayActive = suppressionActive || (!promptEmpty && Boolean(activeCard))
   // 记忆落池按显示名判断，不跟角色卡开关绑定：显示 AI / DeepSeek 走普通池，
   // 显示角色名（卡名或手写档案名）走角色池，避免普通问答被默认写成角色剧情。
@@ -3001,9 +3004,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       ? storedSuppressionPersona.trim()
       : DEFAULT_SUPPRESSION_PERSONA
   // 档案关闭或为空时不读取整份档案，但仍保留姓名这一条身份展示；
-  // 角色卡已提供姓名时直接使用卡内值，不再追加档案姓名。
+  // 角色卡已提供姓名时直接使用卡内值，不再追加档案姓名。手写身份已明确时不再补内置身份行。
   const identitySystem =
-    !activeCard && !profileSystem
+    !activeCard && !profileSystem && !effectiveHandwrittenActive
       ? formatCharacterIdentity({
           name: characterName,
           userName,
@@ -3013,50 +3016,59 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   // - 基础扮演接管时，手写系统提示词不进入 system（compose 收到空提示词），只保留预设/档案身份；
   // - 反过来，存在非默认系统提示词时 basicRoleplayActive 已返回 false，预设不会注入。
   // 互斥只作用于身份来源；角色卡、档案、世界书、场景、记忆等既有设定仍按既有优先级叠加。
-  // 默认提示关闭、又没有系统提示词/角色卡/档案/基础扮演时，用内置兜底人设代替默认官方助手，
-  // 避免不发送默认提示词后模型回退成预设客服助手。
-  // 兜底人设同样只补空白新会话；已有历史角色由历史消息、角色卡、档案或绑定提示词延续，不被内置兜底覆盖。
+  // 官方人格关闭、又没有手写提示词/角色卡/档案/基础扮演或自定义预设时，用内置兜底人设代替默认官方助手，
+  // 避免不发送默认提示词后模型回退成预设客服助手；已有历史由消息上下文自然延续。
   const fallbackBaseline =
-    !sessionHasMessages &&
     !defaultPromptEnabled &&
     !suppressionActive &&
     !promptIsCustom &&
     !activeCard &&
     !profileSystem
   // 提示词清空时三种身份来源全部不参与；默认提示关闭且无其它身份时，只保留兜底人设与身份行。
-  const identityBlock = suppressionActive
-    ? promptIsCustom
-      ? ''
-      : profileSystem || suppressionPersona
-    : promptEmpty || promptIsDefault
-      ? fallbackBaseline
-        ? identitySystem
-        : ''
-      : activeCard
-        ? formatCharacterCard(activeCard, userName)
-        : profileSystem || identitySystem
+  const identityBlock = personaActive
+    ? ''
+    : suppressionActive
+      ? promptIsCustom
+        ? ''
+        : profileSystem || suppressionPersona
+      : promptEmpty || promptIsDefault
+        ? fallbackBaseline
+          ? identitySystem
+          : ''
+        : activeCard
+          ? formatCharacterCard(activeCard, userName)
+          : profileSystem || identitySystem
   // 三种身份来源互斥：一张卡、完整档案或轻量身份行，不会同时拼进 system。
-  // 只有角色上下文才把默认助手提示替换成沉浸角色基底，并追加演出/格式规则。
+  // 只有内部角色上下文才把默认助手提示替换成沉浸角色基底，并追加演出/格式规则。
   const roleplayContext =
-    suppressionActive ||
+    builtinSuppression ||
     fallbackBaseline ||
     (!promptEmpty && Boolean(activeCard || profileSystem || identitySystem))
   // 统一替换占位符：系统提示词、角色卡字段、世界书与记忆都走这一处
   // 当前卡名优先，其次手写档案名；两者都空时用 AI 生成名，避免 {{char}} 原样漏进 system。
-  const promptCharName = suppressionActive
-    ? resolveSystemCharacterName(undefined, characterName || DEFAULT_SUPPRESSION_PERSONA_NAME)
-    : resolveSystemCharacterName(activeCard?.name, characterName)
+  const promptCharName = personaActive
+    ? resolveSystemCharacterName(undefined, characterName)
+    : builtinSuppression
+      ? resolveSystemCharacterName(undefined, characterName || DEFAULT_SUPPRESSION_PERSONA_NAME)
+      : resolveSystemCharacterName(activeCard?.name, characterName)
   const baseSystem = [
     identityBlock,
     composeSystemPrompt({
-      savedPrompt: suppressionActive ? '' : handwrittenPromptActive ? systemPrompt : '',
-      suppressMetaTalk,
+      savedPrompt: personaActive
+        ? storedSuppressionPersona.trim()
+        : suppressionActive
+          ? ''
+          : handwrittenPromptActive
+            ? systemPrompt
+            : '',
+      // 元叙述压制只作用于内置兜底人格；角色卡、档案、基础扮演与手写/自定义身份已由内部代码分层处理。
+      suppressMetaTalk: fallbackBaseline && suppressMetaTalk,
       userName,
       roleplayContext,
       assistantWarmth: friendlyTone,
-      forcedRoleplay: suppressionActive,
-      customPromptNote:
-        suppressMetaTalk && handwrittenPromptActive && !promptIsDefault && !roleplayContext,
+      forcedRoleplay: builtinSuppression,
+      relaxedIdentity,
+      customPromptNote: relaxedIdentity && !activeCard,
       fallbackPrompt: fallbackBaseline ? FALLBACK_PERSONA : '',
       // 工具轮纪律按真实角色名决定是否追加名字条款：占位名 AI 视为没有设定名字。
       charName: promptCharName,
@@ -3076,7 +3088,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     formatWorldbookBlock(worldBefore),
     formatWorldbookBlock(worldAfter),
     // 固定 system 之外的短提醒：长对话里模型容易滑向第三人称旁白，放在本轮背景末尾再压一次。
-    roleplayContext ? ROLEPLAY_VIEWPOINT_REMINDER : '',
+    roleplayContext && !relaxedIdentity ? ROLEPLAY_VIEWPOINT_REMINDER : '',
   ]
     .filter(Boolean)
     .join('\n\n')

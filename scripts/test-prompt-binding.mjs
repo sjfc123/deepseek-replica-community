@@ -29,8 +29,11 @@ globalThis.localStorage = {
 
 const {
   useSettings,
+  setSystemPrompt,
   setSystemPromptBinding,
   setPersonaPromptBinding,
+  setDefaultPromptEnabled,
+  setBasicRoleplayEnabled,
   setSuppressionPersonaEnabled,
   setSuppressionPersona,
 } = await import('../src/services/settings.ts')
@@ -63,6 +66,34 @@ useSettings.setState({ defaultPromptEnabled: true })
 setSuppressionPersona('  同等级角色扮演预设  ')
 assert.equal(useSettings.getState().defaultPromptEnabled, false, '填写自定义预设时内置助手提示词必须关闭')
 assert.equal(useSettings.getState().suppressionPersona, '  同等级角色扮演预设  ')
+
+useSettings.setState({
+  defaultPromptEnabled: true,
+  systemPromptEnabled: false,
+  basicRoleplayEnabled: false,
+  suppressionPersonaEnabled: false,
+})
+setSystemPrompt('只填一个字')
+state = useSettings.getState()
+assert.equal(state.defaultPromptEnabled, false, '手写系统提示词填入任意内容后官方人格必须关闭')
+assert.equal(state.systemPromptEnabled, true, '手写身份来源填入后必须恢复注入开关')
+
+setDefaultPromptEnabled(true)
+state = useSettings.getState()
+assert.equal(state.defaultPromptEnabled, true, '重新开启官方人格后官方开关保持开启')
+assert.equal(state.systemPromptEnabled, false, '官方人格开启时手写系统提示词开关必须关闭')
+assert.equal(state.suppressionPersonaEnabled, false, '官方人格开启时自定义预设开关必须关闭')
+assert.equal(state.basicRoleplayEnabled, false, '官方人格开启时基础扮演开关必须关闭')
+
+setBasicRoleplayEnabled(true)
+assert.equal(useSettings.getState().defaultPromptEnabled, false, '开启基础扮演时官方人格必须关闭')
+setBasicRoleplayEnabled(false)
+assert.equal(useSettings.getState().suppressionPersonaEnabled, false, '关闭基础扮演时依赖它的自定义预设必须关闭')
+
+setSuppressionPersonaEnabled(true)
+state = useSettings.getState()
+assert.equal(state.basicRoleplayEnabled, true, '启用自定义预设时必须挂到基础扮演模式下')
+assert.equal(state.defaultPromptEnabled, false, '启用自定义预设时官方人格必须关闭')
 
 const root = new URL('../', import.meta.url)
 const androidSettings = readFileSync(new URL('src/components/settings/AndroidSettings.tsx', root), 'utf8')
